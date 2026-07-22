@@ -1,0 +1,47 @@
+# Assistant ("Ask TenderShield") — Spec
+
+**Status:** draft
+**Requirement refs:** Doc §8
+**Task refs:** TS-024
+
+## Purpose
+
+In-app assistant grounded ONLY in the org's documents, the rule-pack, and
+generated work products. Tools, not vibes; citations mandatory; refuses general
+questions.
+
+## Public interface
+
+- **Capabilities consumed (soft):** `ingestion.doc_text`, `risk.findings`,
+  `boq.items`, `rulepacks.loader`, `drafting.generate` (versioned regeneration),
+  `billing.metering` (message quotas).
+- **API routes:** `/api/assistant/chat` (SSE), conversation history.
+
+## Data owned
+
+Conversation/session records; retrieval uses `doc_chunks` (owned by ingestion)
+via capability, not direct table access.
+
+## Behavior
+
+- **B1 (grounded-only):** answers only from tool results; nothing relevant →
+  says so; general questions → polite refusal.
+- **B2 (tools):** `search_docs`, `list_deadlines`, `filter_findings`,
+  `boq_query` (safe filter), `rulepack_lookup`, `regenerate_artifact_section`
+  (versioned edit — never mutates approved artifacts, requires UI confirmation).
+- **B3 (citations mandatory):** every factual sentence carries `[doc:<id> p<page>]`
+  or `[pack:<ref>]`; uncited output blocked by the §6.5 validator family.
+- **B4 (escalation honesty):** "should we bid?" returns the factor table + org
+  weights + mandatory "commercial judgment call" banner; logged distinctly.
+- **B5 (metering):** free 20 messages total; paid 300/mo soft cap; per-turn token
+  budget alarms.
+- **B6 (RLS-scoped):** all retrieval under the caller's org context.
+
+## Acceptance criteria
+
+- A1: off-topic question is refused.
+- A2: a response with an uncited factual sentence is blocked/regenerated.
+
+## Out of scope
+
+Cross-tender queries (P3), Ops Copilot (Doc §17, P2–3 — separate admin app).

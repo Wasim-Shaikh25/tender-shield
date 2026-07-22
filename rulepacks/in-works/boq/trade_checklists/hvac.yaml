@@ -1,0 +1,38 @@
+# HVAC scope-gap checklist (Doc §6.4). Phase-0 draft; unvalidated.
+id: hvac
+trade: hvac
+confidence: unvalidated
+source: >
+  ISHRAE/CPWD HVAC specification structure — ancillary items commonly missed
+  in HVAC BOQs per published estimation guidance.
+items:
+  - key: duct_insulation
+    label: Duct / pipe insulation
+    severity: high
+    triggers: ["air conditioning", "chilled water", "ducting"]
+    boq_patterns: ["insulation", "nitrile", "thermal lining"]
+  - key: condensate_drain
+    label: Condensate drain piping
+    severity: medium
+    triggers: ["indoor unit", "AHU", "fan coil", "split unit"]
+    boq_patterns: ["condensate", "drain pip"]
+  - key: vibration_isolation
+    label: Vibration isolators / flexible connections
+    severity: medium
+    triggers: ["chiller", "AHU", "pump", "compressor"]
+    boq_patterns: ["vibration isolator", "flexible connection", "anti-vibration"]
+  - key: fire_dampers
+    label: Fire / smoke dampers
+    severity: high
+    triggers: ["fire compartment", "duct crossing", "smoke management", "NBC"]
+    boq_patterns: ["fire damper", "smoke damper"]
+  - key: testing_balancing
+    label: Testing, adjusting & balancing (TAB)
+    severity: medium
+    triggers: ["air conditioning", "ventilation system"]
+    boq_patterns: ["balancing", "TAB", "commissioning"]
+  - key: refrigerant_piping
+    label: Refrigerant piping & charging
+    severity: medium
+    triggers: ["VRF", "VRV", "split unit"]
+    boq_patterns: ["refrigerant", "copper pip", "gas charging"]

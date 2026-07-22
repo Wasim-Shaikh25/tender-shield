@@ -13,6 +13,7 @@ from app.modules.rulepacks.schemas import (
     PackMeta,
     RiskPattern,
     RulePack,
+    TradeChecklist,
 )
 
 logger = logging.getLogger(__name__)
@@ -73,6 +74,14 @@ class RulePackLoader:
         }
         if boq_raw.get("checks"):
             pack.boq_checks = pack.boq_checks.model_validate(boq_raw["checks"])
+
+        for path in _glob_yaml(pack_dir / "boq" / "trade_checklists"):
+            try:
+                checklist = TradeChecklist.model_validate(_read_yaml(path))
+                pack.trade_checklists[checklist.id] = checklist
+            except (ValidationError, yaml.YAMLError) as exc:
+                pack.load_errors[f"trade_checklists/{path.name}"] = str(exc)
+                logger.error("skipping malformed checklist %s in pack %r", path.name, pack_id)
 
         for path in _glob_yaml(pack_dir / "playbooks"):
             playbook = _read_yaml(path)

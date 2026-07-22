@@ -29,6 +29,22 @@ class RiskPattern(BaseModel):
     absence_is_finding: bool = False
 
 
+class ChecklistItem(BaseModel):
+    key: str
+    label: str
+    severity: Literal["critical", "high", "medium", "low", "info"]
+    triggers: list[str] = Field(min_length=1)
+    boq_patterns: list[str] = Field(min_length=1)
+
+
+class TradeChecklist(BaseModel):
+    id: str
+    trade: str
+    confidence: Literal["unvalidated", "validated"] = "unvalidated"
+    source: str = Field(min_length=1)
+    items: list[ChecklistItem] = Field(min_length=1)
+
+
 class DocType(BaseModel):
     label: str
     anchors: list[str] = Field(min_length=1)
@@ -58,6 +74,7 @@ class RulePack(BaseModel):
     expected_documents: list[str] = Field(default_factory=list)
     unit_canon: dict[str, str] = Field(default_factory=dict)
     boq_checks: BoqCheckConfig = Field(default_factory=BoqCheckConfig)
+    trade_checklists: dict[str, TradeChecklist] = Field(default_factory=dict)
     playbooks: dict[str, dict] = Field(default_factory=dict)
     load_errors: dict[str, str] = Field(default_factory=dict)
 

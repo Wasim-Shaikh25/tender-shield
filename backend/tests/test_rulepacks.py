@@ -75,3 +75,17 @@ def test_api_exposes_packs_and_patterns():
     # capability is registered and visible via health
     caps = client.get("/api/health").json()["capabilities"]
     assert "rulepacks.loader" in caps
+
+
+def test_trade_checklists_load_with_dewatering_gap_knowledge():
+    pack = RulePackLoader().get_pack("in-works", reload=True)
+    assert set(pack.trade_checklists) == {"civil_structure", "electrical", "hvac"}
+    civil = pack.trade_checklists["civil_structure"]
+    assert civil.confidence == "unvalidated"
+    dewatering = next(i for i in civil.items if i.key == "dewatering")
+    assert "basement" in dewatering.triggers
+    assert dewatering.severity == "high"
+    for checklist in pack.trade_checklists.values():
+        assert checklist.source.strip()
+        for item in checklist.items:
+            assert item.triggers and item.boq_patterns

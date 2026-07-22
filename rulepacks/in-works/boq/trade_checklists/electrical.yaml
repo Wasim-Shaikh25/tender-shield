@@ -1,0 +1,38 @@
+# Electrical scope-gap checklist (Doc §6.4). Phase-0 draft; unvalidated.
+id: electrical
+trade: electrical
+confidence: unvalidated
+source: >
+  CPWD General Specifications for Electrical Works — standard installation
+  scope items commonly omitted from BOQs per published estimation guidance.
+items:
+  - key: earthing
+    label: Earthing stations & strips
+    severity: high
+    triggers: ["electrical installation", "distribution board", "transformer", "panel"]
+    boq_patterns: ["earthing", "earth station", "earth strip", "GI strip"]
+  - key: lightning_protection
+    label: Lightning protection
+    severity: medium
+    triggers: ["terrace", "tower", "high rise", "tallest"]
+    boq_patterns: ["lightning", "air terminal", "down conductor"]
+  - key: cable_trays
+    label: Cable trays / raceways
+    severity: medium
+    triggers: ["cable routing", "LT cable", "cabling"]
+    boq_patterns: ["cable tray", "raceway", "trunking"]
+  - key: testing_commissioning
+    label: Testing & commissioning
+    severity: medium
+    triggers: ["electrical installation", "substation", "panel"]
+    boq_patterns: ["testing", "commissioning", "megger"]
+  - key: liaison_fees
+    label: Statutory liaison / inspectorate fees
+    severity: medium
+    triggers: ["electrical inspector", "sanction", "supply connection"]
+    boq_patterns: ["liaison", "inspector", "statutory fee", "connection charges"]
+  - key: chasing_making_good
+    label: Wall chasing & making good
+    severity: low
+    triggers: ["concealed wiring", "concealed conduit"]
+    boq_patterns: ["chase", "chasing", "making good"]

@@ -1,0 +1,44 @@
+# Civil & structure scope-gap checklist (Doc §6.4). Phase-0 draft from public
+# sources (CPWD Works Manual work sequences); unvalidated until QS checkpoint.
+id: civil_structure
+trade: civil
+confidence: unvalidated
+source: >
+  CPWD Works Manual — standard civil work sequences (excavation → dewatering →
+  anti-termite → backfill); common omission lists in published QS guidance.
+items:
+  - key: dewatering
+    label: Dewatering
+    severity: high
+    triggers: ["basement", "below ground water table", "sub-soil water", "deep excavation"]
+    boq_patterns: ["dewater", "well point", "pumping of water"]
+  - key: shoring
+    label: Shoring / earth retention
+    severity: high
+    triggers: ["deep excavation", "adjacent structure", "excavation exceeding 3", "sheet pil"]
+    boq_patterns: ["shoring", "sheet pile", "earth retention", "strutting"]
+  - key: anti_termite
+    label: Anti-termite treatment
+    severity: medium
+    triggers: ["foundation", "plinth", "substructure"]
+    boq_patterns: ["anti-termite", "anti termite", "termite treatment"]
+  - key: backfilling
+    label: Backfilling with approved material
+    severity: medium
+    triggers: ["excavation", "foundation trench"]
+    boq_patterns: ["backfill", "filling in plinth", "returning, filling"]
+  - key: waterproofing
+    label: Waterproofing (raft/retaining/wet areas)
+    severity: high
+    triggers: ["basement", "retaining wall", "terrace", "toilet", "water tank"]
+    boq_patterns: ["waterproof", "water proofing", "membrane", "injection grout"]
+  - key: soil_disposal
+    label: Surplus-earth disposal / lead
+    severity: medium
+    triggers: ["excavation"]
+    boq_patterns: ["disposal", "carting away", "lead beyond", "surplus earth"]
+  - key: curing_scaffolding
+    label: Staging / double scaffolding for heights
+    severity: low
+    triggers: ["height of building", "multi-storey", "above 10 m"]
+    boq_patterns: ["scaffold", "staging"]

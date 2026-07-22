@@ -1,0 +1,25 @@
+---
+description: Mandatory development workflow — task first, spec before code, commit + changelog always
+alwaysApply: true
+---
+
+# TenderShield workflow (mandatory, every change)
+
+Follow **Requirement → Task → Spec → Implement → Commit → Changelog**:
+
+1. **Task first.** Before writing code, create/locate a task in `tasks/backlog.md`
+   with an ID (`TS-###`), phase, requirement reference (`Build Doc §N` in
+   `docs/TenderShield_Full_Build_Doc.md`), acceptance criteria, and status
+   (`todo | in-progress | blocked | done`). No code without a task ID.
+2. **Spec before implementation.** New modules/behaviors need a spec in `specs/`
+   (template: `specs/README.md`). If behavior diverges from an existing spec, update
+   the spec in the same change.
+3. **Implement in small increments.** Run tests and `ruff` before committing.
+4. **Commit per logical step**: `<type>(<scope>): <summary>`
+   (`feat|fix|docs|spec|chore|test|refactor`), task ID in body (`Task: TS-###`).
+5. **Changelog every session.** Update `CHANGELOG.md` `[Unreleased]` in the same push:
+   **Done** (what happened) and **Next** (concrete task IDs). A push without a
+   changelog entry is incomplete work.
+6. **Close the loop**: flip the task status in `tasks/backlog.md` in the completing commit.
+
+Keep these rules in sync with `CLAUDE.md` — if you edit one, mirror the other.

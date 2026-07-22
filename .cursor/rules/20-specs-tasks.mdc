@@ -1,0 +1,24 @@
+---
+description: Spec and task file conventions
+globs: ["specs/**", "tasks/**"]
+alwaysApply: false
+---
+
+# Specs (`specs/`)
+
+- One spec per module at `specs/modules/<name>.md`; product-level specs at `specs/`.
+- Use the template in `specs/README.md`: Purpose · Requirement refs · Public interface
+  (capabilities, events, API routes) · Data owned · Behavior · Acceptance criteria ·
+  Out of scope.
+- Every spec cites the build-doc sections it derives from
+  (`docs/TenderShield_Full_Build_Doc.md`). Anything beyond the doc is marked
+  `assumption:`.
+- Specs and code must never contradict; fix the mismatch in the same change.
+
+# Tasks (`tasks/backlog.md`)
+
+- IDs are sequential `TS-###`, never reused.
+- Fields: ID, title, phase (P0/P1/…), requirement ref, spec ref, status, notes.
+- Statuses: `todo | in-progress | blocked | done`.
+- Order the backlog by build value (Build Doc §13.5): risk patterns → BOQ engine →
+  clarification letter → billing. Don't pull Phase-2+ tasks before Phase-1 gates pass.

@@ -16,7 +16,7 @@ until Phase-1 exit gates pass (§10).
 | TS-002 | Task backlog generated from requirements | user request | — | done |
 | TS-003 | Spec suite in `specs/` — product overview + per-module specs | user request; Doc §0–§9 | `specs/` | done |
 | TS-004 | Backend core: pluggable module framework (loader, service registry, event bus, config) + tests | Doc §3.1 "modular monolith"; user: "pluggable, no hard dependency" | `specs/modules/core.md` | done |
-| TS-005 | CI: ruff + pytest on push (GitHub Actions) | Doc §11.1 | — | todo |
+| TS-005 | CI: ruff + pytest on push (GitHub Actions) | Doc §11.1 | — | done |
 
 ## Phase 0 — Bootstrap corpus & de-risk (Doc §10 Phase 0, §14, §19)
 

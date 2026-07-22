@@ -20,7 +20,12 @@ from app.core.registry import ServiceRegistry
 
 @dataclass
 class AppContext:
-    """Handed to every module's setup/shutdown hooks."""
+    """Handed to every module's setup/shutdown hooks.
+
+    `db` is the shared SQLAlchemy session factory when a database is configured;
+    modules consume it via the registry capability "db.sessionmaker" rather than
+    importing it directly, keeping them decoupled.
+    """
 
     settings: Settings
     registry: ServiceRegistry

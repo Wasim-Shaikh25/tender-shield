@@ -23,3 +23,9 @@ jobs:
         run: ruff check .
       - name: Test
         run: pytest -q
+      - name: Alembic up/down check (scratch DB)
+        env:
+          TS_DATABASE_URL: sqlite:///./_ci_scratch.db
+        run: |
+          alembic upgrade head
+          alembic downgrade base

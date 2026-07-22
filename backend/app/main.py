@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.core.config import Settings
+from app.core.db import make_engine, make_session_factory
 from app.core.events import EventBus
 from app.core.loader import LoadReport, load_modules
 from app.core.module import AppContext
@@ -19,6 +20,14 @@ logger = logging.getLogger(__name__)
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
     ctx = AppContext(settings=settings, registry=ServiceRegistry(), events=EventBus())
+
+    # Shared DB: published as a capability so modules consume the session factory
+    # via the registry rather than importing it (keeps them pluggable).
+    if settings.database_url:
+        engine = make_engine(settings)
+        ctx.registry.provide("db.engine", engine)
+        ctx.registry.provide("db.sessionmaker", make_session_factory(engine))
+
     report: LoadReport = load_modules(settings.enabled_module_names())
 
     @asynccontextmanager

@@ -37,10 +37,28 @@ contracts; writer modules own their `kind` values.
 - **B5 (migrations):** Alembic; every migration reversible; CI runs up/down on a
   scratch DB (Doc §11.1).
 
+## Foundation vs. per-module models (TS-013)
+
+The DB **foundation** is core infrastructure (`app/core/db.py`): the declarative
+`Base`, `OrgScopedMixin` (adds `org_id` and self-registers the table in
+`ORG_SCOPED_TABLES` for RLS generation), `TimestampMixin`, `rls_statements()`,
+`bind_org_context()`, and the engine/session-factory builders. `create_app`
+publishes `db.engine` and `db.sessionmaker` as registry capabilities so modules
+consume the session factory without importing a DB module.
+
+The **table models themselves are owned by their modules** (table above) and
+land with each module's task — a module defines them in
+`app/modules/<name>/models.py`, which `migrations/env.py` auto-discovers so
+`Base.metadata` fills in as modules are enabled. This keeps the schema
+pluggable: no orphan models for modules that don't exist yet.
+
 ## Acceptance criteria
 
-- A1: migration suite creates all Doc §3.2 tables; up/down clean.
-- A2: RLS denies cross-org reads in an integration test with two orgs.
+- A1 (foundation): `OrgScopedMixin` registers tables for RLS; `rls_statements`
+  emits the Doc §3.2 policy; SQLite session roundtrip works; `bind_org_context`
+  is a safe no-op off PostgreSQL. `alembic upgrade head`/`downgrade base` clean.
+- A2 (per module): each module's migration creates its Doc §3.2 tables; up/down
+  clean; RLS denies cross-org reads in a two-org PostgreSQL integration test.
 
 ## Out of scope
 

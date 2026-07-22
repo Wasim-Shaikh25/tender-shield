@@ -22,11 +22,11 @@ until Phase-1 exit gates pass (§10).
 
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
-| TS-006 | Week-2 accuracy test harness (throwaway script + scorecard template) | Doc §19 | `specs/phase0-accuracy-test.md` | todo |
+| TS-006 | Week-2 accuracy test harness (throwaway script + scorecard template) | Doc §19 | `specs/phase0-accuracy-test.md` | done |
 | TS-007 | Rule-pack scaffold: `rulepacks/in-works/` structure, pack.yaml + YAML schemas, loader in core | Doc §2 | `specs/modules/rulepacks.md` | done |
 | TS-008 | First 5 risk patterns from public sources (payment, escalation, LD, defect liability, termination), `confidence: unvalidated` | Doc §14.1, §19.3 | `specs/modules/rulepacks.md` | done |
 | TS-009 | 3 trade checklists (civil_structure, electrical, hvac) | Doc §2, §6.4 | `specs/modules/rulepacks.md` | done |
-| TS-010 | Eval/golden-set folder scaffold (`evals/in-works/…`) | Doc §11.5 | — | todo |
+| TS-010 | Eval/golden-set folder scaffold (`evals/in-works/…`) | Doc §11.5 | — | done |
 
 ## Phase 1 — MVP (Doc §10 Phase 1; scope §1.2 column "P1 MVP")
 

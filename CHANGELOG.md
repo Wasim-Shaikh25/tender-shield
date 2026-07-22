@@ -6,6 +6,27 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-22 (session 2: Phase-0 completion + DB foundation)
+
+- **TS-009** — 3 trade checklists (civil_structure, electrical, hvac) for
+  scope-gap detection, drafted from public sources with `confidence:
+  unvalidated`; loader parses `boq/trade_checklists/*.yaml` into typed schemas.
+- **TS-006** — Phase-0 Week-2 accuracy harness (`scripts/phase0_accuracy_test.py`,
+  throwaway by design): runs the 5 in-works patterns over tender PDFs at
+  temperature 0, verifies every quote verbatim (invented quote → RED_FLAG),
+  wraps tender text as untrusted data.
+- **TS-010** — Eval golden-set scaffold `evals/in-works/`
+  (classification, deadlines, risk_patterns, boq, drafting) + the scored
+  pass/fail bar in `scorecard.md` (Doc §19.5, §11.5).
+- **TS-013** — DB foundation in `app/core/db.py`: declarative `Base`,
+  `OrgScopedMixin` (org_id + RLS self-registration), `TimestampMixin`,
+  `rls_statements()`, `bind_org_context()`, engine/session builders published
+  as `db.engine`/`db.sessionmaker` registry capabilities. Alembic scaffold with
+  pluggable per-module model discovery; CI gains an up/down migration check.
+  Per-module models split out to **TS-013a** (land with each module).
+
+Test suite: 23 passing, ruff clean.
+
 ### Done — 2026-07-22 (session 1: project bootstrap)
 
 - **TS-001** — Repo bootstrapped: mandatory AI workflow rules for Claude
@@ -37,12 +58,14 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ### Next
 
-- **TS-009** — 3 trade checklists (civil_structure, electrical, hvac) in the
-  in-works pack for scope-gap detection.
-- **TS-006** — Phase-0 Week-2 accuracy test harness (`scripts/`) + scorecard
-  template — the de-risk experiment gating the full build (Doc §19).
-- **TS-010** — Eval/golden-set folder scaffold (`evals/in-works/…`).
-- **TS-013** — DB foundation (SQLAlchemy 2 + Alembic, canonical data model
-  with RLS) — prerequisite for auth (TS-011/012) and ingestion (TS-014).
+- **TS-011 / TS-012** — `auth` module: users/orgs/org_members models +
+  migration (TS-013a), argon2id passwords, RS256 JWT (15 min) + rotating
+  refresh with reuse detection, RBAC guard, and the per-request RLS binding.
+- **TS-014** — `ingestion` module: opportunity + document models, resumable
+  upload stub, rules-first classification (using the pack's doc-type anchors),
+  missing-doc checklist against the pack's expected set.
+- **TS-018** — `boq` module: deterministic normalization (unit-canon map) +
+  arithmetic/consistency checks — the first module with zero LLM dependency,
+  good to land early for the accuracy story.
 - Decision needed from founder: collect the 5 real tenders + gold answers for
-  the accuracy test (Doc §19.2) — code can't substitute for these inputs.
+  the Week-2 accuracy test (Doc §19.2) — code can't substitute for these inputs.

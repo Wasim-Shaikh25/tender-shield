@@ -1,6 +1,6 @@
 # Rule-Packs — Spec
 
-**Status:** draft
+**Status:** implemented (scaffold + Phase-0 patterns)
 **Requirement refs:** Doc §2, §14
 **Task refs:** TS-007, TS-008, TS-009
 

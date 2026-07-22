@@ -1,0 +1,29 @@
+id: payment_terms_extended
+category: payment
+title: Extended payment period / pay-when-paid
+confidence: unvalidated
+source: >
+  MoF Manual for Procurement of Works 2nd ed. (2025) — standard RA-bill payment
+  timelines; HKA CRUX 2025 — payment a top dispute driver.
+severity_rule: >
+  critical if pay_when_paid else
+  high if payment_days > 90 else
+  medium if payment_days > 60 else low
+anchor_queries:
+  - "payment of running account bill"
+  - "interim payment within"
+  - "payment shall be released"
+  - "pay when paid"
+  - "back to back payment"
+judgment_prompt: >
+  Find every clause setting the payment period for the contractor's interim
+  (RA) and final bills. Report the number of days, the trigger event the days
+  run from, and whether payment is conditioned on the employer being paid by a
+  third party (pay-when-paid / back-to-back). Quote the clause verbatim.
+negative_examples:
+  - "Clauses about payment of EMD refund are not payment-term findings."
+  - "Advance payment (mobilization advance) clauses are a different pattern."
+suggested_clarification: >
+  Request confirmation of the interim-bill payment timeline and deletion or
+  qualification of any pay-when-paid condition.
+affected_trades: [all]

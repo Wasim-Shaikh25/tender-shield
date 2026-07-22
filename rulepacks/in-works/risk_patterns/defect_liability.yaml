@@ -1,0 +1,26 @@
+id: defect_liability_retention
+category: emd
+title: Defect liability period / retention stack beyond norms
+confidence: unvalidated
+source: >
+  GFR 2017 + MoF Works Manual 2025 — performance security 3–10%, retention and
+  12-month defect-liability norms for works.
+severity_rule: >
+  high if dlp_months > 24 or retention_percent > 5 else
+  medium if dlp_months > 12 else low
+anchor_queries:
+  - "defect liability period"
+  - "defects liability"
+  - "maintenance period"
+  - "retention money"
+  - "security deposit"
+judgment_prompt: >
+  Find the defect liability / maintenance period and the retention or security
+  deposit percentages (including how and when they are released). Report the
+  DLP in months and each retention component %. Quote verbatim.
+negative_examples:
+  - "EMD (bid security) is a separate pattern from retention/security deposit."
+suggested_clarification: >
+  Seek release schedule for retention/security deposit and confirmation of the
+  DLP duration against the norm for this employer family.
+affected_trades: [all]

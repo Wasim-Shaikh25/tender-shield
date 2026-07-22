@@ -1,0 +1,30 @@
+id: price_escalation_barred
+category: escalation
+title: Price escalation barred / firm price on long-duration works
+confidence: unvalidated
+source: >
+  Derived from CPWD GCC clause 10CA (escalation formula) + HKA CRUX 2025
+  (price volatility a top-5 dispute driver).
+severity_rule: >
+  critical if project_duration_months > 18 else high
+absence_is_finding: true
+anchor_queries:
+  - "price escalation"
+  - "price variation"
+  - "clause 10CA"
+  - "firm price"
+  - "no escalation shall be payable"
+judgment_prompt: >
+  Is there a price-escalation / price-variation clause? If it is ABSENT, or the
+  contract states "firm price" / "no escalation payable" for a long-duration
+  work, that is the finding. Quote the relevant text verbatim, or state that no
+  escalation clause exists anywhere in the conditions.
+negative_examples:
+  - "Quantity variation (deviation limit) clauses are not price escalation."
+default_playbook:
+  acceptable: "escalation formula present for contracts > 18 months"
+  flag_when: "escalation deleted or 'firm price' stated for long-duration works"
+suggested_clarification: >
+  Seek confirmation whether escalation per a published formula (e.g. 10CA
+  basis) applies; if barred, price the risk or seek amendment.
+affected_trades: [all]

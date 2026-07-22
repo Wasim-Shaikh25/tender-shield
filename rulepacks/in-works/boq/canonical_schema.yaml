@@ -1,0 +1,38 @@
+# BOQ unit normalization map (Doc §2.1) — real Indian BOQs mix all of these
+# in one sheet. Keys are lowercased/stripped raw units; values are canonical.
+unit_canon:
+  cum: m3
+  cu.m: m3
+  cu m: m3
+  "m³": m3
+  m3: m3
+  cft: ft3
+  cu.ft: ft3
+  rmt: m
+  rm: m
+  r.m: m
+  mtr: m
+  metre: m
+  sqm: m2
+  sq.m: m2
+  sq m: m2
+  "m²": m2
+  m2: m2
+  sft: ft2
+  sq.ft: ft2
+  mt: t
+  tonne: t
+  ton: t
+  kg: kg
+  kgs: kg
+  nos: nos
+  no.: nos
+  no: nos
+  each: nos
+  ltr: l
+  litre: l
+
+checks:
+  arithmetic_tolerance: 1.0      # |amount - qty*rate| beyond this = defect
+  qty_outlier_quantile: 0.99     # per-unit quantile baseline
+  qty_outlier_multiplier: 3      # qty > quantile * multiplier = outlier

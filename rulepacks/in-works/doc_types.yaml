@@ -1,0 +1,39 @@
+# Rules-first document classification anchors (Doc §6.1) and the expected
+# document set used for the missing-doc checklist (Doc §1.1 step 2).
+doc_types:
+  nit:
+    label: Notice Inviting Tender / RFP
+    anchors:
+      - 'NOTICE\s+INVITING\s+TENDER'
+      - '\bNIT\s*No'
+      - 'REQUEST\s+FOR\s+PROPOSAL'
+  gcc:
+    label: General Conditions of Contract
+    anchors:
+      - 'GENERAL\s+CONDITIONS\s+OF\s+CONTRACT'
+  scc:
+    label: Special / Particular Conditions of Contract
+    anchors:
+      - 'SPECIAL\s+CONDITIONS\s+OF\s+CONTRACT'
+      - 'PARTICULAR\s+CONDITIONS'
+  boq:
+    label: Bill / Schedule of Quantities
+    anchors:
+      - 'BILL\s+OF\s+QUANTIT'
+      - 'SCHEDULE\s+OF\s+QUANTIT'
+  spec:
+    label: Technical Specifications
+    anchors:
+      - 'TECHNICAL\s+SPECIFICATION'
+  addendum:
+    label: Addendum / Corrigendum
+    anchors:
+      - '\bADDENDUM'
+      - '\bCORRIGENDUM'
+  drawing:
+    label: Drawing (stored + registered only in v1, Doc §0.2)
+    anchors:
+      - '\bDRAWING\s+No'
+
+# Missing any of these on an opportunity raises a missing_doc finding.
+expected_documents: [nit, gcc, boq]

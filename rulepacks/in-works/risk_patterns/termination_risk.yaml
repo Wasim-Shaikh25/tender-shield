@@ -1,0 +1,27 @@
+id: termination_for_convenience
+category: termination
+title: Termination for convenience without compensation
+confidence: unvalidated
+source: >
+  HKA CRUX 2025 / Arcadis-CMAA 2025 — termination disputes; CPWD GCC
+  termination provisions as the government baseline.
+severity_rule: >
+  critical if convenience_without_compensation else
+  high if convenience_allowed else medium
+anchor_queries:
+  - "termination for convenience"
+  - "terminate the contract at any time"
+  - "foreclosure of contract"
+  - "without assigning any reason"
+judgment_prompt: >
+  Find termination and foreclosure provisions. Report whether the employer may
+  terminate for convenience (without contractor default), what notice applies,
+  and whether the contractor is compensated (demobilization, loss of profit,
+  materials on site). Quote verbatim.
+negative_examples:
+  - "Termination for contractor default is normal; the risk is convenience
+     termination without compensation."
+suggested_clarification: >
+  Request express compensation terms (work done, materials, demobilization) on
+  convenience termination or foreclosure.
+affected_trades: [all]

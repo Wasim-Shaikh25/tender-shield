@@ -1,0 +1,27 @@
+id: liquidated_damages_uncapped
+category: ld
+title: LD rate high or cap absent
+confidence: unvalidated
+source: >
+  CPWD GCC compensation-for-delay clause (typically 0.5%/week capped at 10%)
+  as the normal baseline; Arcadis/CMAA 2025 — delay damages a leading claim
+  category.
+severity_rule: >
+  critical if cap_absent else
+  high if rate_percent_per_week > 0.5 or cap_percent > 10 else medium
+anchor_queries:
+  - "liquidated damages"
+  - "compensation for delay"
+  - "penalty for delay"
+  - "@ 0.5% per week"
+judgment_prompt: >
+  Find the liquidated damages / compensation-for-delay clause. Report the rate
+  (% per week or per day), the basis (contract value or delayed portion), and
+  whether a maximum cap is stated. The ABSENCE of a cap is itself the key
+  finding. Quote verbatim.
+negative_examples:
+  - "Performance-security forfeiture clauses are not LD."
+suggested_clarification: >
+  Request confirmation of the LD cap (typically 10% of contract value) and the
+  basis of levy (delayed portion vs whole works).
+affected_trades: [all]

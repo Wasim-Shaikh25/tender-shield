@@ -1,0 +1,24 @@
+# Default contractor playbook — acceptable-term thresholds, org-overridable
+# (Doc §1.1 step 1, §6.3). Phase-0 values drafted from public sources; every
+# threshold is an assumption until QS validation (Doc §14).
+id: default_contractor
+thresholds:
+  payment_terms:
+    acceptable_max_days_government: 60
+    acceptable_max_days_private: 45
+    pay_when_paid_acceptable: false
+  price_escalation:
+    formula_required_over_months: 18
+  liquidated_damages:
+    max_rate_percent_per_week: 0.5
+    cap_required: true
+    typical_cap_percent: 10
+  emd_security:
+    emd_max_percent: 2
+    performance_security_max_percent: 5    # per GFR 2017 (3-10% band); assumption
+    retention_max_percent: 5
+  defect_liability:
+    typical_months: 12
+    flag_over_months: 24
+  termination:
+    convenience_compensation_required: true

@@ -93,6 +93,12 @@ export const api = {
     ),
   listFindings: (token: string, id: string) =>
     req<{ findings: Finding[] }>(`/findings/opportunities/${id}`, {}, token),
+  runBoq: (token: string, id: string, csv: string) =>
+    req<{ count: number; findings: Finding[] }>(
+      `/boq/opportunities/${id}/run`,
+      { method: "POST", body: JSON.stringify({ csv }) },
+      token
+    ),
   reviewFinding: (token: string, findingId: string, decision: string, note?: string) =>
     req<{ id: string; review_status: string }>(
       `/review/findings/${findingId}`,

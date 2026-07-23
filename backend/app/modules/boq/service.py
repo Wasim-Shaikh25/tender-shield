@@ -8,6 +8,7 @@ runs with built-in defaults (spec core B2 — graceful degradation).
 
 from __future__ import annotations
 
+import io
 from collections.abc import Callable
 
 import pandas as pd
@@ -53,3 +54,36 @@ class BoqEngine:
     def available_checklists(self) -> list[str]:
         pack = self._pack()
         return sorted(pack.trade_checklists) if pack else []
+
+
+class BoqRunner:
+    """Runs the deterministic BOQ engine over an uploaded workbook and persists
+    the defects + scope gaps via the findings store (producer='boq'). Consumes
+    ingestion (for the spec text that drives scope-gap triggers) and findings
+    purely via registry capabilities."""
+
+    PRODUCER = "boq"
+
+    def __init__(self, session, *, engine: BoqEngine, store_factory=None, ingestion_factory=None):
+        self.s = session
+        self._engine = engine
+        self._store_factory = store_factory
+        self._ingestion_factory = ingestion_factory
+
+    def _spec_text(self, org_id, opportunity_id) -> str:
+        if not self._ingestion_factory:
+            return ""
+        clauses = self._ingestion_factory(self.s).list_clauses(org_id, opportunity_id)
+        return "\n".join(c.text for c in clauses)
+
+    def run_csv(self, org_id, opportunity_id, csv_text: str) -> list[Finding]:
+        df = pd.read_csv(io.StringIO(csv_text))
+        findings = self._engine.check_dataframe(df)
+        spec_text = self._spec_text(org_id, opportunity_id)
+        for checklist_id in self._engine.available_checklists():
+            findings.extend(self._engine.scope_gaps(df, spec_text, checklist_id))
+        if self._store_factory is not None:
+            self._store_factory(self.s).replace_for_producer(
+                org_id, opportunity_id, self.PRODUCER, findings
+            )
+        return findings

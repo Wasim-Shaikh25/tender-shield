@@ -83,3 +83,42 @@ def test_engine_uses_pack_when_rulepacks_enabled():
     client = TestClient(app)
     body = client.get("/api/boq").json()
     assert set(body["available_checklists"]) == {"civil_structure", "electrical", "hvac"}
+
+
+def test_boq_run_persists_defects_via_findings():
+    import app.modules.auth.models  # noqa: F401
+    import app.modules.findings.models  # noqa: F401
+    import app.modules.ingestion.models  # noqa: F401
+    from app.core.db import Base
+
+    application = create_app(
+        Settings(
+            enabled_modules="health,rulepacks,auth,ingestion,findings,boq",
+            database_url="sqlite:///:memory:",
+        )
+    )
+    Base.metadata.create_all(application.state.ctx.registry.require("db.engine"))
+    client = TestClient(application)
+    client.post(
+        "/api/auth/signup",
+        json={"email": "bq@x.com", "password": "hunter2hunter2", "org_name": "Acme"},
+    )
+    tok = client.post(
+        "/api/auth/login", json={"email": "bq@x.com", "password": "hunter2hunter2"}
+    ).json()["access_token"]
+    h = {"authorization": f"Bearer {tok}"}
+    opp_id = client.post(
+        "/api/ingestion/opportunities", json={"title": "Depot"}, headers=h
+    ).json()["id"]
+
+    csv_text = (SAMPLE / "boq.csv").read_text()
+    out = client.post(
+        f"/api/boq/opportunities/{opp_id}/run", json={"csv": csv_text}, headers=h
+    )
+    assert out.status_code == 200
+    cats = {f["category"] for f in out.json()["findings"]}
+    assert {"arith", "duplicate", "blank_rate", "grand_total"} <= cats
+
+    # persisted under producer 'boq' and visible in the shared findings register
+    listed = client.get(f"/api/findings/opportunities/{opp_id}", headers=h).json()["findings"]
+    assert any(f["producer"] == "boq" and f["category"] == "arith" for f in listed)

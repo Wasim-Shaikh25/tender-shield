@@ -6,6 +6,23 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-23 (session 13: BOQ write-through + BOQ workbench)
+
+- **BOQ write-through** — `BoqRunner` parses an uploaded workbook (CSV), runs
+  the deterministic engine + scope-gap checklists (spec text pulled from the
+  opportunity's clauses via ingestion), and **persists defects to the shared
+  findings register** (`producer='boq'`) via the findings store capability.
+  `POST /api/boq/opportunities/{id}/run`.
+- BOQ defects now flow through the same pipeline as risk findings: they count
+  toward the review gate and appear in the exported Bid Review Pack.
+- **Frontend BOQ tab**: "Load sample BOQ & check" runs the engine and lists the
+  defects (arith / grand-total / duplicate / blank-rate, all "deterministic
+  check"). Risks vs BOQ findings are split by `producer` in the UI.
+- **TS-013a complete** — all per-module models + migrations (0001–0008) done;
+  risk + BOQ persist findings; review/drafting/export/billing wired.
+
+Test suite: 84 passing, ruff clean; frontend builds clean. Verified live.
+
 ### Done — 2026-07-23 (session 12: billing + export renderer)
 
 - **TS-022** — `billing` module (Doc §7, §15):
@@ -282,14 +299,13 @@ Test suite: 23 passing, ruff clean.
 
 ### Next
 
-The Phase-1 feature engine is now functionally complete end-to-end
+The Phase-1 feature engine is functionally complete end-to-end
 (upload → classify → deadlines → clauses → risk register → BOQ checks → review →
-clarification letter/assumptions → gated DOCX/XLSX export → billing). Remaining:
+clarification letter/assumptions → gated DOCX/XLSX export → billing), with risk
+AND BOQ findings flowing through one reviewed, exportable register. Remaining:
 
-- **BOQ write-through** — parse an uploaded BOQ workbook → items → persist
-  defects via `findings.store` (engine already done; just the ingest wiring).
 - **TS-024** — `assistant` (grounded Q&A, citations mandatory) — optional per
-  Doc §13.5.
+  Doc §13.5; the last unbuilt module.
 - **Production hardening (infra, not logic):** real resumable upload (tus/S3),
   OCR (Textract), Celery streaming, Postgres/RDS deploy, email/WhatsApp alerts,
   OTP/Google/MFA, Stripe + GST invoices, PDF export, frontend lint/build in CI.

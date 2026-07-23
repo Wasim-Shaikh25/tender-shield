@@ -26,6 +26,18 @@ Clause 33 — Compensation for delay. Liquidated damages at the rate of 1% of th
 [p6]
 Clause 52 — Termination. The Employer may terminate the contract for its convenience at any time, and the contractor shall have no claim for compensation.`;
 
+const SAMPLE_BOQ = `src_sheet,src_row,item_code,description,unit_raw,qty,rate,amount
+BOQ,1,1.1,Earthwork in excavation for foundation in ordinary soil,Cum,1200,250,300000
+BOQ,2,1.2,Earthwork in excavation for foundation in ordinary soil,cum,1200,250,300000
+BOQ,3,2.1,Providing and laying plain cement concrete 1:4:8,Cum,300,4500,1350000
+BOQ,4,2.2,Reinforced cement concrete M25 in foundations,cum,450,6800,3060000
+BOQ,5,3.1,Thermo-mechanically treated steel reinforcement,MT,85,65000,5525000
+BOQ,6,4.1,Brick masonry in cement mortar 1:6,Cum,220,5200,1140000
+BOQ,7,5.1,Cement plaster 12mm thick,Sqm,3000,180,540000
+BOQ,8,6.1,Supplying and fixing MS railing,Rmt,500,0,0
+BOQ,9,7.1,Waterproofing treatment to foundation raft,Sqm,800,950,760000
+`;
+
 const KIND_LABEL: Record<string, string> = {
   submission: "Bid submission",
   prebid_meeting: "Pre-bid meeting",
@@ -38,7 +50,7 @@ const KIND_LABEL: Record<string, string> = {
 export default function OpportunityDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { session } = useSession();
-  const [tab, setTab] = useState<"overview" | "risks" | "artifacts">("overview");
+  const [tab, setTab] = useState<"overview" | "risks" | "boq" | "artifacts">("overview");
   const [title, setTitle] = useState("Opportunity");
   const [missing, setMissing] = useState<MissingDocs | null>(null);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
@@ -129,6 +141,21 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
     }
   }
 
+  async function runBoq() {
+    setBusy(true);
+    setNote(null);
+    try {
+      await api.runBoq(session!.token, id, SAMPLE_BOQ);
+      await refresh();
+      setNote("BOQ checked — defects added to the register.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const riskFindings = (findings ?? []).filter((f) => f.producer !== "boq");
+  const boqFindings = (findings ?? []).filter((f) => f.producer === "boq");
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -154,7 +181,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
       {note && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{note}</p>}
 
       <div className="flex gap-1 border-b border-slate-200">
-        {(["overview", "risks", "artifacts"] as const).map((t) => (
+        {(["overview", "risks", "boq", "artifacts"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -215,10 +242,10 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
               Run the risk review to populate the register. Absence findings appear even without an
               LLM key; clause judgments need <code>ANTHROPIC_API_KEY</code> on the server.
             </p>
-          ) : findings.length === 0 ? (
-            <p className="text-sm text-slate-500">No findings yet — upload the tender and run again.</p>
+          ) : riskFindings.length === 0 ? (
+            <p className="text-sm text-slate-500">No risk findings yet — upload the tender and run again.</p>
           ) : (
-            findings.map((f, i) => (
+            riskFindings.map((f, i) => (
               <div key={f.id ?? i} className="rounded-xl border border-slate-200 bg-white p-5">
                 <div className="mb-2 flex items-center gap-2">
                   <SeverityBadge severity={f.severity} />
@@ -258,6 +285,40 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
                     </button>
                   </div>
                 )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {tab === "boq" && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-slate-500">
+              Deterministic BOQ checks — arithmetic, duplicates, blank rates, scope gaps. Zero LLM.
+            </p>
+            <button
+              onClick={runBoq}
+              disabled={busy}
+              className="rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {busy ? "Checking…" : "Load sample BOQ & check"}
+            </button>
+          </div>
+          {boqFindings.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              No BOQ defects yet — run a check above (defects also feed the export register).
+            </p>
+          ) : (
+            boqFindings.map((f, i) => (
+              <div key={f.id ?? i} className="rounded-xl border border-slate-200 bg-white p-5">
+                <div className="mb-1 flex items-center gap-2">
+                  <SeverityBadge severity={f.severity} />
+                  <span className="text-xs uppercase tracking-wide text-slate-400">{f.category}</span>
+                  <SourceBadge source="deterministic_check" />
+                </div>
+                <h4 className="font-semibold text-ink">{f.title}</h4>
+                <p className="mt-1 text-sm text-slate-600">{f.detail}</p>
               </div>
             ))
           )}

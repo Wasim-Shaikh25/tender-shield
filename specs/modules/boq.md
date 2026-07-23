@@ -1,6 +1,6 @@
 # BOQ Engine — Spec
 
-**Status:** implemented (engine core; DB persistence pending TS-013a)
+**Status:** implemented — engine core + scope gaps + write-through (BoqRunner parses an uploaded workbook, runs checks, persists defects via findings.store, producer='boq')
 **Requirement refs:** Doc §6.4, §2.1
 **Task refs:** TS-018, TS-019
 

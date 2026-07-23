@@ -1,6 +1,6 @@
 # Assistant ("Ask TenderShield") — Spec
 
-**Status:** draft
+**Status:** implemented — grounded, tool-first Q&A: deterministic intents (deadlines, findings by severity, missing docs, rule-pack lookup) with citations work with no key; off-topic questions refused; free-form questions use an injected LLM agent only when ANTHROPIC_API_KEY is set (grounded-only). Versioned artifact-edit tool is a follow-up.
 **Requirement refs:** Doc §8
 **Task refs:** TS-024
 

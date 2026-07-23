@@ -6,6 +6,31 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Handoff snapshot (for local takeover)
+
+**All Phase-1 backlog tasks (TS-001…TS-025) are `done`.** 11 feature modules;
+migrations 0001–0008; **88 backend tests passing, ruff clean; frontend builds
+clean.** Full local run steps, env vars, and the end-to-end click-path are in
+`README.md`. What remains is production infra (OCR/uploads/Postgres/payments/
+alerts) and the non-code domain-accuracy gate (real tenders + QS + an
+`ANTHROPIC_API_KEY`) — see "What's left" in `README.md` and below.
+
+### Done — 2026-07-23 (session 14: assistant — the last module)
+
+- **TS-024** — `assistant` module (Doc §8), grounded + tool-first:
+  - pure `tools.py` (list_deadlines, filter_findings, missing_docs,
+    rulepack_lookup) reading only the org's own data via capabilities.
+  - `AssistantService` routes recognized intents (deadlines / findings by
+    severity / missing docs) to **deterministic, cited answers that work with
+    no API key**; off-topic questions are **refused** (grounded-only).
+  - free-form questions use an injected `AnthropicAgent` only when
+    `ANTHROPIC_API_KEY` is set, answering strictly from tool results.
+  - `POST /api/assistant/chat`; frontend **Assistant tab** (ask box + grounded
+    replies). Tests cover the deadline/findings/missing-doc intents + refusal.
+- README rewritten as a local-takeover guide (run steps, env vars, click-path).
+
+Test suite: 88 passing, ruff clean; frontend builds clean.
+
 ### Done — 2026-07-23 (session 13: BOQ write-through + BOQ workbench)
 
 - **BOQ write-through** — `BoqRunner` parses an uploaded workbook (CSV), runs

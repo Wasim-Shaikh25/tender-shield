@@ -50,7 +50,11 @@ const KIND_LABEL: Record<string, string> = {
 export default function OpportunityDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { session } = useSession();
-  const [tab, setTab] = useState<"overview" | "risks" | "boq" | "artifacts">("overview");
+  const [tab, setTab] = useState<
+    "overview" | "risks" | "boq" | "artifacts" | "assistant"
+  >("overview");
+  const [chat, setChat] = useState<{ q: string; a: string }[]>([]);
+  const [chatInput, setChatInput] = useState("");
   const [title, setTitle] = useState("Opportunity");
   const [missing, setMissing] = useState<MissingDocs | null>(null);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
@@ -141,6 +145,15 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
     }
   }
 
+  async function ask(e: React.FormEvent) {
+    e.preventDefault();
+    const q = chatInput.trim();
+    if (!q) return;
+    setChatInput("");
+    const res = await api.askAssistant(session!.token, id, q);
+    setChat((c) => [...c, { q, a: res.answer }]);
+  }
+
   async function runBoq() {
     setBusy(true);
     setNote(null);
@@ -181,7 +194,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
       {note && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{note}</p>}
 
       <div className="flex gap-1 border-b border-slate-200">
-        {(["overview", "risks", "boq", "artifacts"] as const).map((t) => (
+        {(["overview", "risks", "boq", "artifacts", "assistant"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -397,6 +410,36 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
               </div>
             ))
           )}
+        </div>
+      )}
+
+      {tab === "assistant" && (
+        <div className="space-y-4">
+          <p className="text-sm text-slate-500">
+            Ask TenderShield — grounded only in this tender. Try “list the deadlines”, “show me
+            the risk findings”, or “which documents are missing?”.
+          </p>
+          <div className="space-y-3">
+            {chat.map((turn, i) => (
+              <div key={i} className="space-y-1">
+                <div className="text-sm font-medium text-ink">You: {turn.q}</div>
+                <pre className="whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700">
+                  {turn.a}
+                </pre>
+              </div>
+            ))}
+          </div>
+          <form onSubmit={ask} className="flex gap-2">
+            <input
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              placeholder="Ask about this tender…"
+              className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-ink"
+            />
+            <button className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:opacity-90">
+              Ask
+            </button>
+          </form>
         </div>
       )}
     </div>

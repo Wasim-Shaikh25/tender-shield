@@ -1,0 +1,91 @@
+"""AssistantService — grounded, tool-first Q&A over one opportunity (Doc §8).
+
+Recognized intents (deadlines, findings, missing docs, rule-pack lookup) are
+answered DETERMINISTICALLY from tool results with citations, so they work with
+no API key. Off-topic questions are refused. Free-form questions are answered by
+an injected LLM agent only when configured — and even then, only from tool
+results (grounded-only)."""
+
+from __future__ import annotations
+
+from app.modules.assistant import tools
+
+_SEVERITIES = {"critical", "high", "medium", "low"}
+_REFUSAL = (
+    "I can only help with this workspace's tenders — deadlines, risk findings, "
+    "BOQ defects, missing documents, and the rule-pack. Ask me e.g. "
+    "\"what are the critical risks?\" or \"list the deadlines\"."
+)
+
+
+class AssistantService:
+    def __init__(self, session, *, ingestion_factory=None, findings_factory=None, loader=None,
+                 agent=None):
+        self.s = session
+        self._ing = ingestion_factory
+        self._find = findings_factory
+        self._loader = loader
+        self._agent = agent
+
+    def answer(self, org_id, opportunity_id, message: str) -> dict:
+        m = message.lower()
+
+        if any(w in m for w in ("deadline", "due", "submission", "pre-bid", "clarification cut")):
+            return self._deadlines(org_id, opportunity_id)
+        if any(w in m for w in ("missing", "document checklist", "which docs", "what documents")):
+            return self._missing(org_id, opportunity_id)
+        if any(w in m for w in ("risk", "finding", "clause", "ld", "escalation", "termination",
+                                "payment", "defect", "critical", "severity")):
+            return self._findings(org_id, opportunity_id, m)
+
+        # Not a recognized grounded intent → defer to the LLM if configured,
+        # else refuse (grounded-only, Doc §8).
+        if self._agent is not None:
+            context = {
+                "deadlines": tools.list_deadlines(self._ing, self.s, org_id, opportunity_id),
+                "findings": tools.filter_findings(self._find, self.s, org_id, opportunity_id),
+            }
+            reply = self._agent.answer(message, context)
+            return {"answer": reply, "grounded": True, "source": "llm"}
+        return {"answer": _REFUSAL, "grounded": True, "source": "refusal"}
+
+    # ---- deterministic intent handlers -----------------------------------
+    def _deadlines(self, org_id, opportunity_id) -> dict:
+        rows = tools.list_deadlines(self._ing, self.s, org_id, opportunity_id)
+        if not rows:
+            return {"answer": "No deadlines have been extracted yet.", "grounded": True,
+                    "source": "tool"}
+        lines = [
+            f"- {r['kind']}: {r['due_at'] or 'date not parsed'} [p{r['page']}]"
+            f"{' (confirmed)' if r['confirmed'] else ''}"
+            for r in rows
+        ]
+        return {"answer": "Deadlines for this tender:\n" + "\n".join(lines), "grounded": True,
+                "source": "tool", "citations": [f"p{r['page']}" for r in rows]}
+
+    def _missing(self, org_id, opportunity_id) -> dict:
+        rep = tools.missing_docs(self._ing, self.s, org_id, opportunity_id)
+        if rep["missing"]:
+            names = ", ".join(k.upper() for k in rep["missing"])
+            ans = f"Missing expected documents: {names}."
+        else:
+            ans = "All expected documents are present."
+        return {"answer": ans, "grounded": True, "source": "tool"}
+
+    def _findings(self, org_id, opportunity_id, m: str) -> dict:
+        severity = next((s for s in _SEVERITIES if s in m), None)
+        rows = tools.filter_findings(
+            self._find, self.s, org_id, opportunity_id, severity=severity
+        )
+        if not rows:
+            scope = f"{severity} " if severity else ""
+            return {"answer": f"No {scope}findings on this tender yet — run the risk review "
+                    "and BOQ check first.", "grounded": True, "source": "tool"}
+        lines = [
+            f"- [{r['severity']}] {r['category']}: {r['title']}"
+            + (f" [p{r['page']}]" if r["page"] else "")
+            for r in rows
+        ]
+        header = f"{severity.capitalize()} findings:" if severity else "Findings on this tender:"
+        return {"answer": header + "\n" + "\n".join(lines), "grounded": True, "source": "tool",
+                "citations": [f"p{r['page']}" for r in rows if r["page"]]}

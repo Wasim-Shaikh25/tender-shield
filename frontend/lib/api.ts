@@ -99,6 +99,12 @@ export const api = {
       { method: "POST", body: JSON.stringify({ csv }) },
       token
     ),
+  askAssistant: (token: string, opportunityId: string, message: string) =>
+    req<{ answer: string; source: string }>(
+      `/assistant/chat`,
+      { method: "POST", body: JSON.stringify({ opportunity_id: opportunityId, message }) },
+      token
+    ),
   reviewFinding: (token: string, findingId: string, decision: string, note?: string) =>
     req<{ id: string; review_status: string }>(
       `/review/findings/${findingId}`,

@@ -6,6 +6,28 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-23 (session 8: deadline extraction + deadline wall)
+
+- **TS-015** — deadline extraction (Doc §6.2), the <3-minute promise:
+  - pure `deadlines.py` — deterministic date parsing (DD/MM/YYYY, "15 Aug 2026",
+    etc.) with keyword→kind classification (submission/pre-bid/clarification/
+    validity/EMD/completion), `[pN]` page tracking, and noise control (bare
+    dates with no deadline keyword are skipped). Dates are never invented; each
+    carries its verbatim source line + page. LLM/relative-formula resolution are
+    follow-ups — the deterministic pass already lights up the wall with no key.
+  - `Deadline` model + migration `0004` (org-scoped, RLS on Postgres); also adds
+    `submission_due`/`clarification_due` to `opportunities`. 0001→0004 verified.
+  - extraction runs on document upload; sets the opportunity's `submission_due`
+    from the earliest submission date; `GET …/deadlines` + confirm-chip endpoint.
+  - **Frontend:** deadline wall on the opportunity overview (countdown colouring
+    red<3d/amber<7d, page citations, confirm chips) and the board countdown
+    badge now lights up from `submission_due`.
+  - Verified full-stack live: uploading a NIT extracted bid submission (2d, red),
+    pre-bid and clarification (1d) with page citations; board shows "2d to
+    submission" in red. Screenshots captured.
+
+Test suite: 62 passing, ruff clean; frontend builds clean.
+
 ### Done — 2026-07-23 (session 7: frontend skeleton — the UI)
 
 - **TS-025** — Next.js 15 + TypeScript + Tailwind app (`frontend/`), Doc §9:
@@ -177,12 +199,13 @@ Test suite: 23 passing, ruff clean.
 
 ### Next
 
-- **TS-015** — deadline extraction + the deadline-wall API (the <3-min promise,
-  Doc §6.2); this lights up the countdown badges the board already renders.
 - **TS-013a (findings slice)** — persist `findings` so risk + BOQ write to the
   DB; then surface a populated risk register + BOQ defects in the UI workbench.
 - **TS-020 / TS-021** — drafting (clarification letter, three validators) +
-  review workbench (accept/reject, export gating).
+  review workbench (accept/reject, export gating) — the artifact a contractor
+  actually exports.
+- Ingestion follow-ups (Doc §6.2): relative-date formula resolution
+  ("21 days from pre-bid") and LLM-assisted extraction for scanned/messy packs.
 - Frontend follow-ups: BOQ tab, PDF.js source-page view, shadcn polish, a
   frontend lint/build step in CI.
 - With `ANTHROPIC_API_KEY` set on the server, the risk engine's LLM classifier

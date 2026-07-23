@@ -7,6 +7,15 @@ export type Tokens = { access_token: string; refresh_token: string; role: string
 export type Opportunity = { id: string; title: string; status: string; submission_due?: string | null };
 export type MissingDocs = { present: string[]; missing: string[]; expected: string[] };
 export type Clause = { id: string; clause_ref: string | null; heading: string | null; page_from: number | null };
+export type Deadline = {
+  id: string;
+  kind: string;
+  due_at: string | null;
+  description: string | null;
+  source_page: number | null;
+  source_quote: string | null;
+  confirmed: boolean;
+};
 export type Finding = {
   category: string;
   severity: "critical" | "high" | "medium" | "low" | "info";
@@ -62,6 +71,14 @@ export const api = {
     ),
   missingDocs: (token: string, id: string) =>
     req<MissingDocs>(`/ingestion/opportunities/${id}/missing-docs`, {}, token),
+  deadlines: (token: string, id: string) =>
+    req<{ deadlines: Deadline[] }>(`/ingestion/opportunities/${id}/deadlines`, {}, token),
+  confirmDeadline: (token: string, id: string, deadlineId: string) =>
+    req<{ id: string; confirmed: boolean }>(
+      `/ingestion/opportunities/${id}/deadlines/${deadlineId}/confirm`,
+      { method: "POST" },
+      token
+    ),
   clauses: (token: string, id: string) =>
     req<{ clauses: Clause[] }>(`/ingestion/opportunities/${id}/clauses`, {}, token),
   runRisk: (token: string, id: string) =>

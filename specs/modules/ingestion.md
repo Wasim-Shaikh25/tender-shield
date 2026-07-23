@@ -1,9 +1,10 @@
 # Ingestion — Spec
 
-**Status:** partial — opportunities/documents + rules-first classification +
-missing-doc checklist (TS-014) and clause segmentation (TS-016) done; deadline
-extraction (TS-015) pending. API is mounted under `/api/ingestion/opportunities`
-(loader mounts every module at `/api/<module>`).
+**Status:** implemented (Phase-1 core) — opportunities/documents + rules-first
+classification + missing-doc checklist (TS-014), clause segmentation (TS-016),
+and deterministic deadline extraction + deadline wall + confirm chips (TS-015).
+Relative-date formula resolution and LLM-assisted extraction for messy scans are
+follow-ups. API mounted under `/api/ingestion/opportunities`.
 **Requirement refs:** Doc §3.3, §6.1, §6.2
 **Task refs:** TS-014, TS-015, TS-016
 

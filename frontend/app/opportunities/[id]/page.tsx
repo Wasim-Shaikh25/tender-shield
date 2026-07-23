@@ -1,13 +1,16 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
-import { api, type Finding, type MissingDocs } from "@/lib/api";
+import { use, useCallback, useEffect, useState } from "react";
+import { api, type Deadline, type Finding, type MissingDocs } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { SeverityBadge, SourceBadge } from "@/components/badges";
 
 const SAMPLE = `[p1]
 NOTICE INVITING TENDER (NIT No. TS/DEMO/2026/001)
 Construction of an office building with one basement, deep excavation adjacent to an existing structure, on a site with high sub-soil water. Completion: 30 months.
+Last date of submission of bid: 25/07/2026 up to 15:00 hrs.
+Pre-bid meeting shall be held on 24/07/2026.
+Last date for seeking clarifications: 24/07/2026.
 [p2]
 Clause 14 — Price basis. The contract shall be on a firm price basis and no escalation whatsoever shall be payable.
 [p4]
@@ -15,21 +18,36 @@ Clause 33 — Compensation for delay. Liquidated damages at the rate of 1% of th
 [p6]
 Clause 52 — Termination. The Employer may terminate the contract for its convenience at any time, and the contractor shall have no claim for compensation.`;
 
+const KIND_LABEL: Record<string, string> = {
+  submission: "Bid submission",
+  prebid_meeting: "Pre-bid meeting",
+  clarification: "Clarification cut-off",
+  validity: "Bid validity",
+  emd: "EMD",
+  completion_milestone: "Completion",
+};
+
 export default function OpportunityDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { session } = useSession();
   const [tab, setTab] = useState<"overview" | "risks">("overview");
   const [title, setTitle] = useState("Opportunity");
   const [missing, setMissing] = useState<MissingDocs | null>(null);
+  const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [findings, setFindings] = useState<Finding[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
-  useEffect(() => {
+  const refresh = useCallback(async () => {
     if (!session) return;
     api.getOpportunity(session.token, id).then((o) => setTitle(o.title)).catch(() => {});
     api.missingDocs(session.token, id).then(setMissing).catch(() => {});
+    api.deadlines(session.token, id).then((d) => setDeadlines(d.deadlines)).catch(() => {});
   }, [session, id]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   if (!session) return <p className="text-sm text-slate-500">Sign in to view this opportunity.</p>;
 
@@ -37,9 +55,9 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
     setBusy(true);
     setNote(null);
     try {
-      await api.registerDocument(session!.token, id, "conditions.md", SAMPLE);
-      setMissing(await api.missingDocs(session!.token, id));
-      setNote("Conditions uploaded and segmented into clauses.");
+      await api.registerDocument(session!.token, id, "nit-and-conditions.md", SAMPLE);
+      await refresh();
+      setNote("Uploaded — classified, segmented into clauses, deadlines extracted.");
     } finally {
       setBusy(false);
     }
@@ -56,6 +74,11 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
     }
   }
 
+  async function confirm(deadlineId: string) {
+    await api.confirmDeadline(session!.token, id, deadlineId);
+    refresh();
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -66,7 +89,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
             disabled={busy}
             className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-white disabled:opacity-50"
           >
-            Upload sample conditions
+            Upload sample tender
           </button>
           <button
             onClick={runRisk}
@@ -95,31 +118,30 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
       </div>
 
       {tab === "overview" && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6">
-          <h3 className="mb-3 font-semibold text-ink">Document checklist</h3>
-          {missing ? (
-            <div className="flex flex-wrap gap-2">
-              {missing.expected.map((k) => {
-                const present = missing.present.includes(k);
-                return (
-                  <span
-                    key={k}
-                    className={`rounded-full px-3 py-1 text-sm ${
-                      present ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"
-                    }`}
-                  >
-                    {present ? "✓" : "!"} {k.toUpperCase()}
-                  </span>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500">Loading checklist…</p>
-          )}
-          <p className="mt-4 text-sm text-slate-500">
-            Deadline wall lands here once extraction (TS-015) is wired — this slice shows the
-            document checklist and the risk workbench.
-          </p>
+        <div className="space-y-6">
+          <DeadlineWall deadlines={deadlines} onConfirm={confirm} />
+          <div className="rounded-xl border border-slate-200 bg-white p-6">
+            <h3 className="mb-3 font-semibold text-ink">Document checklist</h3>
+            {missing ? (
+              <div className="flex flex-wrap gap-2">
+                {missing.expected.map((k) => {
+                  const present = missing.present.includes(k);
+                  return (
+                    <span
+                      key={k}
+                      className={`rounded-full px-3 py-1 text-sm ${
+                        present ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"
+                      }`}
+                    >
+                      {present ? "✓" : "!"} {k.toUpperCase()}
+                    </span>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">Loading checklist…</p>
+            )}
+          </div>
         </div>
       )}
 
@@ -131,7 +153,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
               LLM key; clause judgments need <code>ANTHROPIC_API_KEY</code> on the server.
             </p>
           ) : findings.length === 0 ? (
-            <p className="text-sm text-slate-500">No findings yet — upload the conditions and run again.</p>
+            <p className="text-sm text-slate-500">No findings yet — upload the tender and run again.</p>
           ) : (
             findings.map((f, i) => (
               <div key={i} className="rounded-xl border border-slate-200 bg-white p-5">
@@ -152,6 +174,72 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
             ))
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+function DeadlineWall({
+  deadlines,
+  onConfirm,
+}: {
+  deadlines: Deadline[];
+  onConfirm: (id: string) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <h3 className="mb-1 font-semibold text-ink">Deadline wall</h3>
+      <p className="mb-4 text-xs text-slate-500">
+        Extracted deterministically with page citations — confirm each before you rely on it.
+      </p>
+      {deadlines.length === 0 ? (
+        <p className="text-sm text-slate-500">
+          No deadlines yet — upload the tender (its NIT dates are extracted automatically).
+        </p>
+      ) : (
+        <ul className="divide-y divide-slate-100">
+          {deadlines.map((d) => {
+            const days = d.due_at
+              ? Math.ceil((new Date(d.due_at).getTime() - Date.now()) / 86_400_000)
+              : null;
+            const tone =
+              days === null
+                ? "text-slate-400"
+                : days < 3
+                  ? "text-red-600"
+                  : days < 7
+                    ? "text-amber-600"
+                    : "text-emerald-600";
+            return (
+              <li key={d.id} className="flex items-center justify-between py-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-ink">{KIND_LABEL[d.kind] ?? d.kind}</span>
+                    {d.source_page && (
+                      <span className="text-xs text-slate-400">p{d.source_page}</span>
+                    )}
+                  </div>
+                  <div className="text-sm text-slate-500">
+                    {d.due_at ? new Date(d.due_at).toLocaleDateString() : "date not parsed"}
+                    {days !== null && <span className={`ml-2 font-semibold ${tone}`}>({days}d)</span>}
+                  </div>
+                </div>
+                {d.confirmed ? (
+                  <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                    ✓ confirmed
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => onConfirm(d.id)}
+                    className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:border-ink hover:text-ink"
+                  >
+                    Confirm
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       )}
     </div>
   );

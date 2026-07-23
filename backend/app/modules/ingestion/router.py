@@ -38,10 +38,15 @@ def list_opportunities(
     principal: Any = Depends(require("viewer")),
 ):
     opps = _service(request, session).list_opportunities(principal.org_id)
+    return {"opportunities": [_opp_json(o) for o in opps]}
+
+
+def _opp_json(o) -> dict:
     return {
-        "opportunities": [
-            {"id": str(o.id), "title": o.title, "status": o.status} for o in opps
-        ]
+        "id": str(o.id),
+        "title": o.title,
+        "status": o.status,
+        "submission_due": o.submission_due.isoformat() if o.submission_due else None,
     }
 
 
@@ -59,7 +64,7 @@ def create_opportunity(
         employer_family=body.employer_family,
         jurisdiction=body.jurisdiction,
     )
-    return {"id": str(opp.id), "title": opp.title, "status": opp.status}
+    return _opp_json(opp)
 
 
 @router.get("/opportunities/{opportunity_id}")
@@ -72,7 +77,7 @@ def get_opportunity(
     opp = _service(request, session).get_opportunity(principal.org_id, opportunity_id)
     if not opp:
         raise HTTPException(404, "not_found")
-    return {"id": str(opp.id), "title": opp.title, "status": opp.status}
+    return _opp_json(opp)
 
 
 @router.post("/opportunities/{opportunity_id}/documents")
@@ -113,6 +118,44 @@ def list_clauses(
             for c in clauses
         ]
     }
+
+
+@router.get("/opportunities/{opportunity_id}/deadlines")
+def list_deadlines(
+    opportunity_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    deadlines = _service(request, session).list_deadlines(principal.org_id, opportunity_id)
+    return {
+        "deadlines": [
+            {
+                "id": str(d.id),
+                "kind": d.kind,
+                "due_at": d.due_at.isoformat() if d.due_at else None,
+                "description": d.description,
+                "source_page": d.source_page,
+                "source_quote": d.source_quote,
+                "confirmed": d.confirmed,
+            }
+            for d in deadlines
+        ]
+    }
+
+
+@router.post("/opportunities/{opportunity_id}/deadlines/{deadline_id}/confirm")
+def confirm_deadline(
+    opportunity_id: str,
+    deadline_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    dl = _service(request, session).confirm_deadline(principal.org_id, deadline_id)
+    if not dl:
+        raise HTTPException(404, "not_found")
+    return {"id": str(dl.id), "confirmed": dl.confirmed}
 
 
 @router.get("/opportunities/{opportunity_id}/missing-docs")

@@ -14,7 +14,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.modules.ingestion.classify import classify_text, missing_documents
-from app.modules.ingestion.models import Clause, Document, Opportunity
+from app.modules.ingestion.deadlines import extract_deadlines
+from app.modules.ingestion.models import Clause, Deadline, Document, Opportunity
 from app.modules.ingestion.segment import segment_clauses
 
 _FALLBACK_ANCHORS = {
@@ -96,7 +97,61 @@ class IngestionService:
         self._publish("document.classified", {"document_id": str(doc.id), "kind": kind})
         if sample_text.strip():
             self._segment(doc, sample_text)
+            self._extract_deadlines(doc, sample_text)
         return doc
+
+    def _extract_deadlines(self, doc: Document, text: str) -> int:
+        """Deterministic deadline extraction (Doc §6.2). Sets the opportunity's
+        submission_due from the earliest submission deadline so the board's
+        countdown wall lights up."""
+        count = 0
+        earliest_submission = None
+        for ex in extract_deadlines(text):
+            self.s.add(
+                Deadline(
+                    org_id=doc.org_id,
+                    opportunity_id=doc.opportunity_id,
+                    kind=ex.kind,
+                    due_at=ex.due_at,
+                    description=ex.description,
+                    source_page=ex.source_page,
+                    source_quote=ex.source_quote,
+                )
+            )
+            count += 1
+            if ex.kind == "submission" and ex.due_at is not None:
+                if earliest_submission is None or ex.due_at < earliest_submission:
+                    earliest_submission = ex.due_at
+        if earliest_submission is not None:
+            opp = self.get_opportunity(doc.org_id, doc.opportunity_id)
+            if opp is not None:
+                opp.submission_due = earliest_submission
+        self.s.commit()
+        if count:
+            self._publish("deadlines.extracted", {"document_id": str(doc.id), "count": count})
+        return count
+
+    def list_deadlines(self, org_id, opportunity_id) -> list[Deadline]:
+        return list(
+            self.s.scalars(
+                select(Deadline).where(
+                    Deadline.opportunity_id == uuid.UUID(str(opportunity_id)),
+                    Deadline.org_id == uuid.UUID(str(org_id)),
+                )
+            )
+        )
+
+    def confirm_deadline(self, org_id, deadline_id) -> Deadline | None:
+        dl = self.s.scalar(
+            select(Deadline).where(
+                Deadline.id == uuid.UUID(str(deadline_id)),
+                Deadline.org_id == uuid.UUID(str(org_id)),
+            )
+        )
+        if dl is not None:
+            dl.confirmed = True
+            self.s.commit()
+        return dl
 
     def _segment(self, doc: Document, text: str) -> int:
         """Segment a document's text into clause rows (Doc §3.2)."""

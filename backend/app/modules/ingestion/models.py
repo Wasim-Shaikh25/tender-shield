@@ -6,7 +6,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Uuid, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base, OrgScopedMixin
@@ -22,6 +22,10 @@ class Opportunity(Base, OrgScopedMixin):
     contract_form: Mapped[str | None] = mapped_column(String, nullable=True)
     status: Mapped[str] = mapped_column(String, nullable=False, default="reviewing")
     rulepack_version: Mapped[str | None] = mapped_column(String, nullable=True)
+    submission_due: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    clarification_due: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -47,6 +51,20 @@ class Document(Base, OrgScopedMixin):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class Deadline(Base, OrgScopedMixin):
+    _tablename_ = "deadlines"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    opportunity_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("opportunities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    kind: Mapped[str] = mapped_column(String, nullable=False)
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    description: Mapped[str | None] = mapped_column(String, nullable=True)
+    source_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    source_quote: Mapped[str | None] = mapped_column(String, nullable=True)
+    confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
 class Clause(Base, OrgScopedMixin):

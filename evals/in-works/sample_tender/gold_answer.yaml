@@ -1,0 +1,47 @@
+# Gold answer for the SYNTHETIC sample tender — the answer key.
+# Because every trap here is planted, this file IS the ground truth (unlike a
+# real tender, which needs a human/QS to author the gold answer, Doc §14.2).
+
+# ---- DETERMINISTIC (BOQ engine, zero LLM) — asserted by tests/test_boq.py ----
+boq_defects:
+  - kind: boq_defect
+    category: duplicate
+    rows: [1, 2]
+    why: "Identical description + unit (Cum/cum → m3) appears twice."
+  - kind: boq_defect
+    category: arith
+    rows: [6]
+    why: "qty*rate = 220*5200 = 1,144,000 but amount states 1,140,000 (Δ 4,000)."
+  - kind: boq_defect
+    category: blank_rate
+    rows: [8]
+    why: "Rate is 0 / blank for MS railing."
+  - kind: boq_defect
+    category: grand_total
+    rows: []
+    why: "Sum of stated amounts (12,975,000) ≠ sum of qty*rate (12,979,000)."
+
+scope_gaps:            # civil_structure checklist vs the conditions text
+  - {category: dewatering,   why: "Basement + below-water-table works, no dewatering BOQ line."}
+  - {category: shoring,      why: "Deep excavation adjacent to existing structure, no shoring line."}
+  - {category: anti_termite, why: "Foundation works, no anti-termite treatment line."}
+  - {category: backfilling,  why: "Excavation present, no backfilling line."}
+  - {category: soil_disposal, why: "Excavation present, no surplus-earth disposal line."}
+# NOT a gap (proves no false positive): waterproofing — triggered by 'basement'
+# but BOQ row 9 covers it.
+# qty_outlier is a statistical check (needs volume) — deliberately NOT asserted
+# on a 9-row sample.
+
+# ---- LLM RISK PATTERNS (run scripts/phase0_accuracy_test.py with an API key) ----
+# Expected HITs when the risk engine / harness runs against conditions.md:
+risk_findings:
+  - {pattern: price_escalation_barred,   severity: critical, page: 2,
+     quote: "firm price basis and no escalation whatsoever shall be payable"}
+  - {pattern: payment_terms_extended,    severity: high,     page: 3,
+     quote: "within 90 (ninety) days of certification"}
+  - {pattern: liquidated_damages_uncapped, severity: critical, page: 4,
+     quote: "1% (one percent) of the contract value shall be levied for each week"}
+  - {pattern: defect_liability_retention, severity: high,     page: 5,
+     quote: "defect liability period shall be 36 (thirty-six) months"}
+  - {pattern: termination_for_convenience, severity: critical, page: 6,
+     quote: "terminate the contract for its convenience at any time"}

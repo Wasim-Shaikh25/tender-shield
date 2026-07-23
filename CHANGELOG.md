@@ -6,6 +6,30 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-23 (session 3: deterministic BOQ engine + synthetic tender)
+
+- **Synthetic sample tender** (`evals/in-works/sample_tender/`): a hand-written
+  fixture with deliberately planted traps — `boq.csv` (9 rows), `conditions.md`
+  (5 clause traps + `[pN]` markers), and `gold_answer.yaml` as its own ground
+  truth. Lets the pipeline be proven end-to-end without a real tender or API key.
+- **TS-018** — `boq` module: deterministic engine (Doc §6.4, zero LLM) —
+  `normalize()` (unit-canon folding + `amount_calc`), DuckDB `run_checks()`
+  (arithmetic error, blank rate, duplicate, quantity outlier, grand-total /
+  carry-forward mismatch). Findings use the new shared `Finding` contract in
+  `app/core/contracts/findings.py`, tagged `deterministic_check`.
+- **TS-019** — scope-gap engine: `SpecTextIndex` + trade-checklist cross-
+  reference; a gap fires only when a spec trigger is present AND no BOQ line
+  matches. `boq` consumes `rulepacks.loader` as a lazily-resolved soft dep and
+  degrades to built-in defaults when rulepacks is disabled.
+- **Ran it live:** the engine catches exactly the planted defects (duplicate ×2,
+  arithmetic, blank rate, grand-total) and 5 civil scope gaps with zero false
+  positives (waterproofing correctly NOT flagged). `test_boq.py` asserts this
+  against the gold answer, including a determinism (identical-rerun) check.
+- **Accuracy harness** now accepts `.md`/`.txt` (not just PDF), so the LLM half
+  runs on `conditions.md` directly with an API key.
+
+Test suite: 30 passing, ruff clean. pandas + duckdb added.
+
 ### Done — 2026-07-22 (session 2: Phase-0 completion + DB foundation)
 
 - **TS-009** — 3 trade checklists (civil_structure, electrical, hvac) for
@@ -64,8 +88,9 @@ Test suite: 23 passing, ruff clean.
 - **TS-014** — `ingestion` module: opportunity + document models, resumable
   upload stub, rules-first classification (using the pack's doc-type anchors),
   missing-doc checklist against the pack's expected set.
-- **TS-018** — `boq` module: deterministic normalization (unit-canon map) +
-  arithmetic/consistency checks — the first module with zero LLM dependency,
-  good to land early for the accuracy story.
-- Decision needed from founder: collect the 5 real tenders + gold answers for
-  the Week-2 accuracy test (Doc §19.2) — code can't substitute for these inputs.
+- **TS-013a (boq slice)** — persist `boq_items` + BOQ `findings` so the engine
+  writes through to the DB, not just DataFrames.
+- To run the LLM half of the accuracy test: set `ANTHROPIC_API_KEY` and run
+  `python scripts/phase0_accuracy_test.py evals/in-works/sample_tender/conditions.md`.
+- Decision still open for founder: collect the 5 real tenders + gold answers
+  for the Week-2 accuracy test (Doc §19.2) — code can't substitute for these.

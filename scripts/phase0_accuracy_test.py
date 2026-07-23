@@ -10,10 +10,14 @@ check (any invented quote = automatic red flag, Doc §19.5).
 Usage:
     pip install anthropic pypdf pyyaml
     export ANTHROPIC_API_KEY=...
-    python scripts/phase0_accuracy_test.py tenders/            # a folder of PDFs
-    python scripts/phase0_accuracy_test.py tenders/one.pdf     # or a single file
+    python scripts/phase0_accuracy_test.py tenders/                    # folder of PDFs
+    python scripts/phase0_accuracy_test.py tenders/one.pdf             # single PDF
+    # Try it now on the bundled synthetic tender (no PDF needed):
+    python scripts/phase0_accuracy_test.py evals/in-works/sample_tender/conditions.md
 
-Then score each tender against its gold answer using evals/in-works/scorecard.md.
+Accepts .pdf, .txt and .md inputs. Then score each tender against its gold
+answer using evals/in-works/scorecard.md (the synthetic tender's gold answer is
+evals/in-works/sample_tender/gold_answer.yaml).
 """
 
 from __future__ import annotations
@@ -24,7 +28,6 @@ import re
 import sys
 
 import anthropic
-import pypdf
 import yaml
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -52,7 +55,13 @@ def load_patterns() -> dict[str, dict]:
     return patterns
 
 
-def read_pdf(path: pathlib.Path) -> str:
+def read_document(path: pathlib.Path) -> str:
+    """Extract page-marked text. PDFs via pypdf; .txt/.md read directly (they
+    may already carry [pN] page markers, as the synthetic sample does)."""
+    if path.suffix.lower() in {".txt", ".md"}:
+        return path.read_text()
+    import pypdf  # imported lazily so text-only runs need no pypdf install
+
     reader = pypdf.PdfReader(path)
     return "\n".join(
         f"[p{i + 1}]\n{page.extract_text() or ''}" for i, page in enumerate(reader.pages)
@@ -68,7 +77,7 @@ def quote_in_doc(quote: str, doc: str) -> bool:
 
 
 def run_tender(client: anthropic.Anthropic, patterns: dict, pdf_path: pathlib.Path) -> dict:
-    doc = read_pdf(pdf_path)[:DOC_CHAR_CAP]
+    doc = read_document(pdf_path)[:DOC_CHAR_CAP]
     results = {}
     for pattern_id, spec in patterns.items():
         msg = client.messages.create(
@@ -104,9 +113,12 @@ def main() -> None:
     if len(sys.argv) != 2:
         sys.exit(__doc__)
     target = pathlib.Path(sys.argv[1])
-    pdfs = sorted(target.glob("*.pdf")) if target.is_dir() else [target]
+    if target.is_dir():
+        pdfs = sorted(p for p in target.iterdir() if p.suffix.lower() in {".pdf", ".txt", ".md"})
+    else:
+        pdfs = [target]
     if not pdfs:
-        sys.exit(f"no PDFs found at {target}")
+        sys.exit(f"no .pdf/.txt/.md documents found at {target}")
 
     patterns = load_patterns()
     print(f"# patterns: {', '.join(patterns)}  ·  model: {MODEL}", file=sys.stderr)

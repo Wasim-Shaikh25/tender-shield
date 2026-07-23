@@ -1,6 +1,6 @@
 # BOQ Engine — Spec
 
-**Status:** draft
+**Status:** implemented (engine core; DB persistence pending TS-013a)
 **Requirement refs:** Doc §6.4, §2.1
 **Task refs:** TS-018, TS-019
 

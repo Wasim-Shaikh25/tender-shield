@@ -40,8 +40,8 @@ until Phase-1 exit gates pass (§10).
 | TS-015 | Deadline extraction (schema-constrained LLM + quote verification) + deadline wall API | Doc §6.2 | `specs/modules/ingestion.md` | todo |
 | TS-016 | Clause segmentation → `clauses` rows with refs + defined terms | Doc §3.3 | `specs/modules/ingestion.md` | todo |
 | TS-017 | `risk` module: pattern engine (retrieve → classify → verify), deterministic severity, absence detection | Doc §6.3 | `specs/modules/risk.md` | todo |
-| TS-018 | `boq` module: normalization (unit canon map) + deterministic checks (DuckDB) — zero LLM | Doc §6.4 | `specs/modules/boq.md` | todo |
-| TS-019 | Scope-gap engine: trade checklist × spec/BOQ cross-reference | Doc §6.4 | `specs/modules/boq.md` | todo |
+| TS-018 | `boq` module: normalization (unit canon map) + deterministic checks (DuckDB) — zero LLM | Doc §6.4 | `specs/modules/boq.md` | done |
+| TS-019 | Scope-gap engine: trade checklist × spec/BOQ cross-reference | Doc §6.4 | `specs/modules/boq.md` | done |
 | TS-020 | `drafting` module: clarification letter + assumptions register + 3 validators (quotes/citations/numbers) | Doc §6.5 | `specs/modules/drafting.md` | todo |
 | TS-021 | Review workbench API + append-only audit log + export gating | Doc §1.1(7), §11.4 | `specs/modules/review.md` | todo |
 | TS-022 | `billing` module: free-tier metering (race-safe), paywall errors, Razorpay orders + webhooks, payment_log | Doc §7, §15, §16.5 | `specs/modules/billing.md` | todo |

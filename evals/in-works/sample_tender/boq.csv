@@ -1,0 +1,10 @@
+src_sheet,src_row,item_code,description,unit_raw,qty,rate,amount
+BOQ,1,1.1,Earthwork in excavation for foundation in ordinary soil,Cum,1200,250,300000
+BOQ,2,1.2,Earthwork in excavation for foundation in ordinary soil,cum,1200,250,300000
+BOQ,3,2.1,Providing and laying plain cement concrete 1:4:8,Cum,300,4500,1350000
+BOQ,4,2.2,Reinforced cement concrete M25 in foundations,cum,450,6800,3060000
+BOQ,5,3.1,Thermo-mechanically treated steel reinforcement,MT,85,65000,5525000
+BOQ,6,4.1,Brick masonry in cement mortar 1:6,Cum,220,5200,1140000
+BOQ,7,5.1,Cement plaster 12mm thick,Sqm,3000,180,540000
+BOQ,8,6.1,Supplying and fixing MS railing,Rmt,500,0,0
+BOQ,9,7.1,Waterproofing treatment to foundation raft,Sqm,800,950,760000

@@ -47,7 +47,7 @@ until Phase-1 exit gates pass (§10).
 | TS-022 | `billing` module: free-tier metering (race-safe), paywall errors, Razorpay orders + webhooks, payment_log | Doc §7, §15, §16.5 | `specs/modules/billing.md` | todo |
 | TS-023 | Export renderer: Bid Review Pack (DOCX/PDF/XLSX) with review-approval stamp | Doc §1.1(8), §11.4 | `specs/modules/drafting.md` | todo |
 | TS-024 | `assistant` module: grounded Q&A over org corpus, citations mandatory | Doc §8 | `specs/modules/assistant.md` | todo |
-| TS-025 | Frontend skeleton: Next.js 15 app router, opportunity board + deadline wall | Doc §9 | `specs/frontend.md` | todo |
+| TS-025 | Frontend skeleton: Next.js 15 app router, opportunity board + deadline wall | Doc §9 | `specs/frontend.md` | done |
 
 ## Notes
 

@@ -6,6 +6,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import Settings
 from app.core.db import make_engine, make_session_factory
@@ -41,6 +42,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     logger.exception("shutdown failed for module %r", spec.name)
 
     app = FastAPI(title="TenderShield API", version="0.1.0", lifespan=lifespan)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origin_list(),
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     app.state.ctx = ctx
     app.state.load_report = report
 

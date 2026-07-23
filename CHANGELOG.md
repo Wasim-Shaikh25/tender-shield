@@ -6,6 +6,27 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-23 (session 7: frontend skeleton — the UI)
+
+- **TS-025** — Next.js 15 + TypeScript + Tailwind app (`frontend/`), Doc §9:
+  - landing page (countdown-wall design + sample risk register), auth
+    (signup/login), opportunity **board** (countdown badges: red <3d, amber <7d),
+    and opportunity **detail** (document checklist + risk workbench tabs);
+  - typed API client (`lib/api.ts`), session context (access token in memory +
+    localStorage mirror; production uses httpOnly refresh cookie per Doc §5);
+  - tri-state provenance badges (extracted fact / deterministic check / AI
+    suggestion) as components, not copy (Doc §11.4);
+  - `next build` clean (6 routes); bumped Next to 15.5.x (patched CVE).
+- **Backend for the SPA:** `GET /api/ingestion/opportunities` (org-scoped list)
+  + CORS middleware (`TS_CORS_ORIGINS`, configurable).
+- **Verified full-stack, live:** ran FastAPI + Next together and drove a real
+  signup → create two opportunities → upload a document flow with a headless
+  browser. Screenshots captured: the uploaded doc classified as NIT and the
+  missing-doc checklist flagged GCC/BOQ — all through the real API with RLS
+  org-scoping (a second org's board is isolated, covered by a new test).
+
+Test suite: 58 passing, ruff clean. Frontend builds clean.
+
 ### Done — 2026-07-23 (session 6: clause segmentation + risk engine)
 
 - **TS-016** — clause segmentation (extends ingestion): pure `segment.py`
@@ -156,16 +177,16 @@ Test suite: 23 passing, ruff clean.
 
 ### Next
 
-- **TS-013a (findings slice)** — persist `findings` (shared table) so risk +
-  BOQ write through to the DB instead of returning in-memory; wire the BOQ
-  engine to an opportunity's uploaded documents.
-- **TS-015** — deadline extraction (schema-constrained LLM + quote
-  verification) + the deadline-wall API (the <3-min promise, Doc §6.2).
-- **TS-020** — `drafting` module: clarification letter + assumptions register
-  with the three validators (needs accepted findings → pairs with TS-021 review).
-- With `ANTHROPIC_API_KEY` set, the risk engine's LLM classifier activates
-  automatically (`POST /api/risk/opportunities/{id}/run`); without it, absence
+- **TS-015** — deadline extraction + the deadline-wall API (the <3-min promise,
+  Doc §6.2); this lights up the countdown badges the board already renders.
+- **TS-013a (findings slice)** — persist `findings` so risk + BOQ write to the
+  DB; then surface a populated risk register + BOQ defects in the UI workbench.
+- **TS-020 / TS-021** — drafting (clarification letter, three validators) +
+  review workbench (accept/reject, export gating).
+- Frontend follow-ups: BOQ tab, PDF.js source-page view, shadcn polish, a
+  frontend lint/build step in CI.
+- With `ANTHROPIC_API_KEY` set on the server, the risk engine's LLM classifier
+  activates automatically and the Risks tab populates; without it, absence
   detection still runs. Same key runs the Week-2 accuracy harness.
-- Auth follow-ups (Doc §5, deferred): phone OTP, Google OIDC, TOTP MFA, rate limits.
 - Decision still open for founder: collect the 5 real tenders + gold answers
   for the Week-2 accuracy test (Doc §19.2) — code can't substitute for these.

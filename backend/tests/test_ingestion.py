@@ -80,6 +80,19 @@ def test_opportunity_and_document_flow(app_client):
     assert set(report["missing"]) == {"gcc", "boq"}
 
 
+def test_list_opportunities_scoped_to_org(app_client):
+    client = TestClient(app_client)
+    a = {"authorization": f"Bearer {_owner_token(client, 'la@x.com')}"}
+    b = {"authorization": f"Bearer {_owner_token(client, 'lb@x.com')}"}
+    client.post("/api/ingestion/opportunities", json={"title": "A1"}, headers=a)
+    client.post("/api/ingestion/opportunities", json={"title": "A2"}, headers=a)
+    client.post("/api/ingestion/opportunities", json={"title": "B1"}, headers=b)
+    list_a = client.get("/api/ingestion/opportunities", headers=a).json()["opportunities"]
+    list_b = client.get("/api/ingestion/opportunities", headers=b).json()["opportunities"]
+    assert {o["title"] for o in list_a} == {"A1", "A2"}
+    assert {o["title"] for o in list_b} == {"B1"}
+
+
 def test_requires_auth(app_client):
     client = TestClient(app_client)
     # no token → protected route rejects

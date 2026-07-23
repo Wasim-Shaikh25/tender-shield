@@ -1,6 +1,11 @@
 # Frontend — Spec
 
-**Status:** draft
+**Status:** skeleton implemented — Next.js 15 app (landing, auth, opportunity
+board/countdown wall, opportunity detail with document checklist + risk
+workbench), typed API client, session context. Builds clean; verified full-stack
+against the API. shadcn, PDF.js source view, and the deadline wall (needs
+TS-015) are follow-ups. Plain Tailwind for now (no component kit) so it builds
+without extra tooling.
 **Requirement refs:** Doc §9
 **Task refs:** TS-025
 

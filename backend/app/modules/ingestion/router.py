@@ -31,6 +31,20 @@ class RegisterDocumentBody(BaseModel):
     sample_text: str = ""
 
 
+@router.get("/opportunities")
+def list_opportunities(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    opps = _service(request, session).list_opportunities(principal.org_id)
+    return {
+        "opportunities": [
+            {"id": str(o.id), "title": o.title, "status": o.status} for o in opps
+        ]
+    }
+
+
 @router.post("/opportunities")
 def create_opportunity(
     body: CreateOpportunityBody,

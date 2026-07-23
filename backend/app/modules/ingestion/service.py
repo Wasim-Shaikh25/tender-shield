@@ -61,6 +61,15 @@ class IngestionService:
         self._publish("opportunity.created", {"opportunity_id": str(opp.id)})
         return opp
 
+    def list_opportunities(self, org_id) -> list[Opportunity]:
+        return list(
+            self.s.scalars(
+                select(Opportunity)
+                .where(Opportunity.org_id == uuid.UUID(str(org_id)))
+                .order_by(Opportunity.created_at.desc())
+            )
+        )
+
     def get_opportunity(self, org_id, opportunity_id) -> Opportunity | None:
         return self.s.scalar(
             select(Opportunity).where(

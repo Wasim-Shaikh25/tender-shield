@@ -3,7 +3,7 @@
 **Status:** implemented (Phase-1 core) — opportunities/documents + rules-first
 classification + missing-doc checklist (TS-014), clause segmentation (TS-016),
 and deterministic deadline extraction + deadline wall + confirm chips (TS-015).
-Relative-date formula resolution and LLM-assisted extraction for messy scans are
+Real multipart upload + text extraction (PDF via pypdf, XLSX via openpyxl, CSV) feeds the pipeline (TS-026); LocalStorage dev backend, S3 in prod. Relative-date formula resolution and LLM-assisted extraction for messy scans are
 follow-ups. API mounted under `/api/ingestion/opportunities`.
 **Requirement refs:** Doc §3.3, §6.1, §6.2
 **Task refs:** TS-014, TS-015, TS-016

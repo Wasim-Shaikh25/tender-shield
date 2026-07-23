@@ -1,0 +1,39 @@
+# Local Postgres-backed stack (Doc §4). RLS org-isolation is active on Postgres
+# (a no-op on SQLite), so this is the closest local mirror of production.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: tendershield
+      POSTGRES_PASSWORD: tendershield
+      POSTGRES_DB: tendershield
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tendershield"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      TS_DATABASE_URL: postgresql+psycopg://tendershield:tendershield@db:5432/tendershield
+      TS_CORS_ORIGINS: "http://localhost:3000"
+      # TS_JWT_PRIVATE_KEY / TS_JWT_PUBLIC_KEY / ANTHROPIC_API_KEY from .env
+    env_file: [.env]
+    depends_on:
+      db:
+        condition: service_healthy
+    ports: ["8000:8000"]
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000/api
+    depends_on: [backend]
+    ports: ["3000:3000"]
+
+volumes:
+  pgdata:

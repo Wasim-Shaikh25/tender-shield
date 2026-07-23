@@ -20,6 +20,10 @@ dist/
 .env.*
 !.env.example
 
+# Local runtime artifacts
+.tender_storage/
+*.db
+
 # OS / editor
 .DS_Store
 .idea/

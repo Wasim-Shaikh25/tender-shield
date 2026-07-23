@@ -49,8 +49,27 @@ until Phase-1 exit gates pass (§10).
 | TS-024 | `assistant` module: grounded Q&A over org corpus, citations mandatory | Doc §8 | `specs/modules/assistant.md` | done |
 | TS-025 | Frontend skeleton: Next.js 15 app router, opportunity board + deadline wall | Doc §9 | `specs/frontend.md` | done |
 
+## Phase 1 — Production hardening (infra + money/file path)
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-026 | Real file upload (multipart) + text extraction (PDF/XLSX/CSV) → feeds classify/segment/deadlines | Doc §3.3, §6.1 | `specs/modules/ingestion.md` | done |
+| TS-027 | Deadline-digest notifications: pluggable sender abstraction + dev console sender + digest logic | Doc §11.6, §11.7 | — | done |
+| TS-028 | TOTP MFA (pyotp): enroll (secret+otpauth URI) + verify | Doc §5 | `specs/modules/auth.md` | done |
+| TS-029 | GST invoice computation (CGST/SGST vs IGST, sequential numbering) | Doc §15.8 | `specs/modules/billing.md` | done |
+| TS-030 | PDF export (reportlab) — completes the DOCX/PDF/XLSX trio, gated + stamped | Doc §1.1(8) | `specs/modules/drafting.md` | done |
+| TS-031 | Deploy scaffolding: Postgres docker-compose + backend/frontend Dockerfiles + `.env.example` | Doc §4, §11.1 | — | done |
+| TS-032 | Frontend CI (npm build) job in GitHub Actions | Doc §11.1 | — | done |
+| TS-033 | tus resumable upload + AWS Textract OCR (scanned BOQ) | Doc §4, §6.1 | `specs/modules/ingestion.md` | todo (needs AWS) |
+| TS-034 | Celery + Redis: async page-streamed processing (SSE) | Doc §3.1, §3.3 | — | todo (needs Redis) |
+| TS-035 | SES/Resend + MSG91 send adapters behind the notifications interface | Doc §4, §11.6 | — | todo (needs creds) |
+| TS-036 | Phone OTP (MSG91) + Google OIDC login | Doc §5 | `specs/modules/auth.md` | todo (needs creds) |
+| TS-037 | Stripe (GCC/UK) provider + live Razorpay keys behind the billing interface | Doc §7, §15.6 | `specs/modules/billing.md` | todo (needs creds) |
+
 ## Notes
 
 - A task moves to `in-progress` when work starts and `done` in the commit that
   completes it, with the task ID in the commit body.
 - New requirements → new `TS-###` rows here first, then a spec, then code.
+- Hardening items marked `(needs …)` are logic-ready but require external
+  accounts/services to complete; the interfaces they plug into are already built.

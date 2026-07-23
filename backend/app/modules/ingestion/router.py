@@ -1,11 +1,15 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
+from app.modules.ingestion.extract import extract_text
 from app.modules.ingestion.service import IngestionService
+from app.modules.ingestion.storage import LocalStorage
+
+MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024  # 2 GB cap (Doc §11.2)
 
 router = APIRouter()
 
@@ -96,6 +100,32 @@ def register_document(
         uploaded_by=_to_uuid(principal.user_id),
     )
     return {"id": str(doc.id), "filename": doc.filename, "kind": doc.kind}
+
+
+@router.post("/opportunities/{opportunity_id}/upload")
+async def upload_document(
+    opportunity_id: str,
+    request: Request,
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    """Real multipart upload → store file → extract text (PDF/XLSX/CSV) → run the
+    classify/segment/deadline pipeline."""
+    svc = _service(request, session)
+    if not svc.get_opportunity(principal.org_id, opportunity_id):
+        raise HTTPException(404, "not_found")
+    data = await file.read()
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "file_too_large")
+    storage = LocalStorage(request.app.state.ctx.settings.storage_dir)
+    key, sha = storage.put(str(principal.org_id), file.filename, data)
+    text = extract_text(file.filename, data)
+    doc = svc.register_document(
+        principal.org_id, opportunity_id, file.filename, text,
+        s3_key=key, sha256=sha, uploaded_by=_to_uuid(principal.user_id),
+    )
+    return {"id": str(doc.id), "filename": doc.filename, "kind": doc.kind, "chars": len(text)}
 
 
 @router.get("/opportunities/{opportunity_id}/clauses")

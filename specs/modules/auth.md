@@ -1,7 +1,7 @@
 # Auth — Spec
 
 **Status:** implemented (email+password, JWT, refresh rotation, RBAC, RLS bind;
-OTP/Google/MFA deferred)
+TOTP MFA enroll/verify done; phone OTP + Google OIDC deferred)
 **Requirement refs:** Doc §5, §3.2
 **Task refs:** TS-011, TS-012
 

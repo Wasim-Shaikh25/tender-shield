@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     # PostgreSQL 16 in all deployed environments; SQLite only for local tests.
     database_url: str = "sqlite:///./tendershield.db"
 
+    # Uploaded-file storage root (LocalStorage in dev; S3 in prod, Doc §11.2).
+    storage_dir: str = "./.tender_storage"
+
     # Auth (Doc §5). Keys are PEM strings; when absent an ephemeral RSA keypair
     # is generated at startup for dev/test only (never rely on it in prod).
     jwt_private_key: str = ""

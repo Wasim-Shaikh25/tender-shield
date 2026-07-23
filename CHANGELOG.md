@@ -6,6 +6,32 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-23 (session 15: production hardening — implementable-now slice)
+
+Built the parts of the hardening list that need no live credentials:
+
+- **TS-026** — real multipart upload + text extraction: `extract.py` (PDF via
+  pypdf, XLSX via openpyxl, CSV/text), `LocalStorage` (per-org, sha256), and
+  `POST …/upload` that feeds the existing classify/segment/deadline pipeline.
+  Tested end-to-end with a generated PDF (classified NIT, deadline extracted).
+- **TS-030** — PDF export (reportlab): completes DOCX/PDF/XLSX; gated + stamped;
+  `?format=pdf` returns a real `%PDF-`.
+- **TS-029** — GST invoice computation (`gst.py`): CGST/SGST intra-state vs IGST
+  inter-state (SAC 998313), sequential gap-free numbering. Pure + tested.
+- **TS-028** — TOTP MFA (`mfa.py`, pyotp): enroll (secret + otpauth URI) +
+  verify; `users.mfa_totp_secret` column (migration `0009`); `/auth/mfa/enroll`
+  + `/verify`. Enforcement-at-login is a follow-up.
+- **TS-027** — `notifications` module: pluggable `Sender` (ConsoleSender dev
+  backend) + pure deadline-digest logic (alert windows 7/3/1/0 days). SES/MSG91
+  adapters plug in behind the same interface (TS-035).
+- **TS-031** — deploy scaffolding: `docker-compose.yml` (Postgres + backend +
+  frontend), backend/frontend `Dockerfile`s, `.env.example`.
+- **TS-032** — frontend CI job (npm ci + build) added to GitHub Actions.
+
+Still needs live accounts (interfaces are built; see backlog TS-033…TS-037):
+Textract OCR, tus resumable, Celery/Redis, SES/MSG91 send, Google OIDC/phone
+OTP, Stripe. Migrations 0001→0009. **95 tests passing, ruff clean.**
+
 ### Handoff snapshot (for local takeover)
 
 **All Phase-1 backlog tasks (TS-001…TS-025) are `done`.** 11 feature modules;

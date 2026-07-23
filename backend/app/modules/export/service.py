@@ -6,11 +6,12 @@ from __future__ import annotations
 
 from datetime import date
 
-from app.modules.export.render import render_docx, render_xlsx
+from app.modules.export.render import render_docx, render_pdf, render_xlsx
 
 FORMATS = {
     "xlsx": ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"),
     "docx": ("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx"),
+    "pdf": ("application/pdf", "pdf"),
 }
 
 
@@ -78,6 +79,8 @@ class ExportService:
 
         if fmt == "xlsx":
             data = render_xlsx(title, findings, meta)
+        elif fmt == "pdf":
+            data = render_pdf(title, self._artifacts(org_id, opportunity_id), findings, meta)
         else:
             data = render_docx(title, self._artifacts(org_id, opportunity_id), findings, meta)
 

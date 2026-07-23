@@ -82,3 +82,52 @@ def render_docx(
     buf = io.BytesIO()
     doc.save(buf)
     return buf.getvalue()
+
+
+def render_pdf(
+    opportunity_title: str, artifacts: list[dict], findings: list[dict], meta: dict
+) -> bytes:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+
+    styles = getSampleStyleSheet()
+    normal = styles["Normal"]
+    small = ParagraphStyle("stamp", parent=normal, fontSize=8, textColor="#666666")
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, title=f"Bid Review Pack — {opportunity_title}")
+    flow = [
+        Paragraph(f"Bid Review Pack — {opportunity_title}", styles["Title"]),
+        Paragraph(stamp_line(meta), small),
+        Spacer(1, 12),
+        Paragraph("Accepted risk findings", styles["Heading2"]),
+    ]
+
+    accepted = [f for f in findings if f.get("review_status") in ("accepted", "edited")]
+    if accepted:
+        for f in sorted(accepted, key=lambda x: _SEV_RANK.get(x.get("severity", "info"), 9)):
+            flow.append(
+                Paragraph(
+                    f"<b>[{f.get('severity')}]</b> {f.get('category')} — {f.get('title')}", normal
+                )
+            )
+    else:
+        flow.append(Paragraph("No accepted findings.", normal))
+
+    for art in artifacts:
+        b = art.get("body", {})
+        flow.append(Spacer(1, 10))
+        flow.append(Paragraph(b.get("title", art.get("kind", "Artifact")), styles["Heading2"]))
+        if b.get("preamble"):
+            flow.append(Paragraph(b["preamble"], normal))
+        for item in b.get("items", []):
+            if art.get("kind") == "clarification_letter":
+                flow.append(Paragraph(f"{item.get('n')}. {item.get('heading', '')}", normal))
+                if item.get("quote"):
+                    flow.append(Paragraph(f"<i>“{item['quote']}”</i>", normal))
+                flow.append(Paragraph(str(item.get("ask", "")), normal))
+            else:
+                cat, txt = item.get("category"), item.get("assumption", "")
+                flow.append(Paragraph(f"{item.get('n')}. [{cat}] {txt}", normal))
+    doc.build(flow)
+    return buf.getvalue()

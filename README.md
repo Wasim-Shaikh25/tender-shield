@@ -39,8 +39,9 @@ quote-verified, and nothing exports until a human reviews it.
 
 `core*` (framework) · `auth` · `ingestion` (opportunities/documents/clauses/deadlines)
 · `rulepacks` · `risk` · `boq` · `findings` (shared register) · `review` · `drafting`
-· `export` · `billing` · `assistant`. Each is toggled via `TS_ENABLED_MODULES` and
-talks to others only through the service registry + event bus (`specs/modules/core.md`).
+· `export` · `billing` · `assistant` · `notifications`. Each is toggled via
+`TS_ENABLED_MODULES` and talks to others only through the service registry + event
+bus (`specs/modules/core.md`).
 
 ## Local development
 
@@ -118,8 +119,11 @@ Details in `CLAUDE.md` §1. No code without a task ID; no push without a changel
 
 - **Assistant free-form answers + LLM judgment** need `ANTHROPIC_API_KEY` (deterministic
   paths work without it).
-- **Production hardening (infra, not logic):** resumable upload (tus/S3), OCR (Textract),
-  Celery streaming, Postgres/RDS deploy, email/WhatsApp alerts, OTP/Google/MFA, Stripe +
-  GST invoices, PDF export, frontend lint/build in CI.
+- **Done in the hardening pass (no creds):** real file upload + extraction, PDF export,
+  GST computation, TOTP MFA, deadline-digest logic, docker-compose + Dockerfiles,
+  frontend CI. See `docker-compose up` for a Postgres-backed local stack.
+- **Still needs live accounts (interfaces built, adapters todo):** Textract OCR,
+  tus resumable, Celery/Redis streaming, SES/MSG91 send, Google OIDC + phone OTP,
+  Stripe. See `tasks/backlog.md` TS-033…TS-037.
 - **The real gate (not code):** domain-accuracy validation — 5 real tenders + gold answers
   + a QS review (Doc §18.3/§19.2). Run `scripts/phase0_accuracy_test.py` with a key.

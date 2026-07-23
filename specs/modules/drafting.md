@@ -4,7 +4,7 @@
 register generated from ACCEPTED findings; the three validators (no invented
 quotes/clauses/numbers) gate every artifact; versioned, never mutated.
 Deterministic assembly (no LLM key needed); LLM polish pass and the file
-export renderer done for DOCX + XLSX (TS-023, gated by review + stamped); PDF (WeasyPrint) and LLM polish are follow-ups.
+export renderer done for DOCX + XLSX (TS-023, gated by review + stamped); PDF (reportlab) now included; LLM polish is a follow-up.
 **Requirement refs:** Doc §6.5, §1.1(6,8), §11.4
 **Task refs:** TS-020, TS-023
 

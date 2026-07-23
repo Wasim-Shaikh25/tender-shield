@@ -93,4 +93,19 @@ export const api = {
     ),
   listFindings: (token: string, id: string) =>
     req<{ findings: Finding[] }>(`/findings/opportunities/${id}`, {}, token),
+  reviewFinding: (token: string, findingId: string, decision: string, note?: string) =>
+    req<{ id: string; review_status: string }>(
+      `/review/findings/${findingId}`,
+      { method: "POST", body: JSON.stringify({ decision, note }) },
+      token
+    ),
+  gate: (token: string, id: string) =>
+    req<Gate>(`/review/opportunities/${id}/gate`, {}, token),
+};
+
+export type Gate = {
+  export_allowed: boolean;
+  total: number;
+  pending: number;
+  by_status: Record<string, number>;
 };

@@ -6,6 +6,25 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-23 (session 10: review workbench + audit + export gate)
+
+- **TS-021** — `review` module, the professional-liability spine (Doc §11.4):
+  - accept/edit/reject each finding — updates the review columns via the
+    findings store capability (never imports findings); requires `reviewer`
+    role; bad decision → 400, unknown finding → 404.
+  - append-only `audit_log` table + migration `0006` (org-scoped, RLS on
+    Postgres; 0001→0006 verified up+down); every decision writes an audit row.
+  - **export gate**: `review.gate` returns `export_allowed` only when there are
+    findings and none remain `proposed` — the block that stops export before a
+    human has reviewed. Published as `review.service_factory` for drafting/export.
+  - `GET queue` / `POST findings/{id}` / `GET gate` / `GET audit` endpoints.
+  - **Frontend:** Risks tab now shows an export-gate banner and Accept/Reject
+    buttons per finding; reviewed findings show their status.
+  - Note: `BigInteger` PK uses a SQLite `Integer` variant so autoincrement works
+    in tests while staying BIGSERIAL on Postgres.
+
+Test suite: 68 passing, ruff clean; frontend builds clean.
+
 ### Done — 2026-07-23 (session 9: findings persistence)
 
 - **TS-013a (findings slice)** — a new pluggable `findings` module owns the
@@ -218,13 +237,15 @@ Test suite: 23 passing, ruff clean.
 
 ### Next
 
-- **TS-021** — review workbench: accept/edit/reject each finding (updates the
-  `findings` review columns) + append-only audit log + export gating (Doc §11.4).
 - **TS-020** — drafting: clarification letter + assumptions register from
-  ACCEPTED findings, with the three validators (no invented quotes/clauses/
-  numbers) — the artifact a contractor exports.
+  ACCEPTED findings (gated by `review.gate`), with the three validators (no
+  invented quotes/clauses/numbers) — the artifact a contractor exports.
+- **TS-023** — export renderer (DOCX/PDF/XLSX) with the reviewer/date/pack stamp;
+  blocked by the export gate until review completes.
 - **BOQ write-through** — wire the BOQ engine to an opportunity's uploaded BOQ
   (parse workbook → items) and persist its defects via `findings.store` too.
+- Review follow-ups (Doc §11.4): single-member full-screen attestation,
+  multi-reviewer approval chain.
 - Ingestion follow-ups (Doc §6.2): relative-date formula resolution
   ("21 days from pre-bid") and LLM-assisted extraction for scanned/messy packs.
 - Frontend follow-ups: BOQ tab, PDF.js source-page view, shadcn polish, a

@@ -44,6 +44,28 @@ class FindingStore:
             stmt = stmt.where(FindingRow.producer == producer)
         return list(self.s.scalars(stmt))
 
+    def get(self, org_id, finding_id) -> FindingRow | None:
+        return self.s.scalar(
+            select(FindingRow).where(
+                FindingRow.id == uuid.UUID(str(finding_id)),
+                FindingRow.org_id == uuid.UUID(str(org_id)),
+            )
+        )
+
+    def set_review(
+        self, org_id, finding_id, *, status, note=None, reviewer_id=None
+    ) -> FindingRow | None:
+        """Set the review columns on a finding (called by the review module via
+        the store capability — the findings module owns these columns)."""
+        row = self.get(org_id, finding_id)
+        if row is None:
+            return None
+        row.review_status = status
+        row.review_note = note
+        row.reviewed_by = uuid.UUID(str(reviewer_id)) if reviewer_id else None
+        self.s.commit()
+        return row
+
     @staticmethod
     def _to_row(org: uuid.UUID, opp: uuid.UUID, producer: str, f: Finding) -> FindingRow:
         return FindingRow(

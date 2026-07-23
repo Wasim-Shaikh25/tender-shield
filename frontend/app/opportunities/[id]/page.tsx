@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
-import { api, type Deadline, type Finding, type MissingDocs } from "@/lib/api";
+import { api, type Deadline, type Finding, type Gate, type MissingDocs } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { SeverityBadge, SourceBadge } from "@/components/badges";
 
@@ -35,6 +35,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
   const [missing, setMissing] = useState<MissingDocs | null>(null);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [findings, setFindings] = useState<Finding[] | null>(null);
+  const [gate, setGate] = useState<Gate | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
@@ -44,6 +45,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
     api.missingDocs(session.token, id).then(setMissing).catch(() => {});
     api.deadlines(session.token, id).then((d) => setDeadlines(d.deadlines)).catch(() => {});
     api.listFindings(session.token, id).then((f) => setFindings(f.findings)).catch(() => {});
+    api.gate(session.token, id).then(setGate).catch(() => {});
   }, [session, id]);
 
   useEffect(() => {
@@ -77,6 +79,11 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
 
   async function confirm(deadlineId: string) {
     await api.confirmDeadline(session!.token, id, deadlineId);
+    refresh();
+  }
+
+  async function review(findingId: string, decision: string) {
+    await api.reviewFinding(session!.token, findingId, decision);
     refresh();
   }
 
@@ -148,6 +155,19 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
 
       {tab === "risks" && (
         <div className="space-y-3">
+          {gate && gate.total > 0 && (
+            <div
+              className={`rounded-md px-4 py-3 text-sm ${
+                gate.export_allowed
+                  ? "bg-emerald-50 text-emerald-800"
+                  : "bg-amber-50 text-amber-800"
+              }`}
+            >
+              {gate.export_allowed
+                ? "✓ Review complete — export unlocked."
+                : `Export blocked — ${gate.pending} of ${gate.total} findings still need review (accept/reject each).`}
+            </div>
+          )}
           {!findings ? (
             <p className="text-sm text-slate-500">
               Run the risk review to populate the register. Absence findings appear even without an
@@ -163,8 +183,14 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
                   <span className="text-xs uppercase tracking-wide text-slate-400">{f.category}</span>
                   <SourceBadge source={f.source ?? "ai_suggestion"} />
                   {f.source_page && <span className="text-xs text-slate-400">p{f.source_page}</span>}
-                  {f.review_status && (
-                    <span className="ml-auto text-xs text-slate-400">{f.review_status}</span>
+                  {f.review_status && f.review_status !== "proposed" && (
+                    <span
+                      className={`ml-auto text-xs font-medium ${
+                        f.review_status === "rejected" ? "text-slate-400" : "text-emerald-600"
+                      }`}
+                    >
+                      {f.review_status}
+                    </span>
                   )}
                 </div>
                 <h4 className="font-semibold text-ink">{f.title}</h4>
@@ -173,6 +199,22 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
                   <blockquote className="mt-2 border-l-2 border-slate-300 pl-3 text-sm italic text-slate-500">
                     “{f.source_quote}”
                   </blockquote>
+                )}
+                {f.id && f.review_status === "proposed" && (
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => review(f.id!, "accepted")}
+                      className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:opacity-90"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      onClick={() => review(f.id!, "rejected")}
+                      className="rounded-md border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:border-ink hover:text-ink"
+                    >
+                      Reject
+                    </button>
+                  </div>
                 )}
               </div>
             ))

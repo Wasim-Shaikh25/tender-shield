@@ -35,7 +35,7 @@ until Phase-1 exit gates pass (§10).
 | TS-011 | `auth` module: email+password (argon2id), RS256 JWT (15 min), rotating refresh + reuse detection | Doc §5 | `specs/modules/auth.md` | done |
 | TS-012 | Orgs, org_members, RBAC guard, RLS binding (`SET LOCAL app.org_id`) | Doc §5, §3.2 | `specs/modules/auth.md` | done |
 | TS-013 | DB foundation: Base/mixins, RLS helpers, session factory (registry capability), Alembic scaffold w/ pluggable model discovery | Doc §3.2 | `specs/data-model.md` | done |
-| TS-013a | Per-module SQLAlchemy models + migrations (auth (0001) + ingestion (0002-0004) + findings table (0005) DONE, risk persists via findings.store; boq write-through + drafting/review/billing pending) | Doc §3.2 | `specs/data-model.md` | todo |
+| TS-013a | Per-module SQLAlchemy models + migrations (auth (0001) + ingestion (0002-0004) + findings (0005) + audit_log (0006) DONE; risk persists, review updates review cols; boq write-through + drafting/billing pending) | Doc §3.2 | `specs/data-model.md` | todo |
 | TS-014 | `ingestion` module: upload → rules-first classification + missing-doc checklist | Doc §6.1, §3.3 | `specs/modules/ingestion.md` | done |
 | TS-015 | Deadline extraction (deterministic date parse + quote citation) + deadline wall API + confirm chips | Doc §6.2 | `specs/modules/ingestion.md` | done |
 | TS-016 | Clause segmentation → `clauses` rows with refs + defined terms | Doc §3.3 | `specs/modules/ingestion.md` | done |
@@ -43,7 +43,7 @@ until Phase-1 exit gates pass (§10).
 | TS-018 | `boq` module: normalization (unit canon map) + deterministic checks (DuckDB) — zero LLM | Doc §6.4 | `specs/modules/boq.md` | done |
 | TS-019 | Scope-gap engine: trade checklist × spec/BOQ cross-reference | Doc §6.4 | `specs/modules/boq.md` | done |
 | TS-020 | `drafting` module: clarification letter + assumptions register + 3 validators (quotes/citations/numbers) | Doc §6.5 | `specs/modules/drafting.md` | todo |
-| TS-021 | Review workbench API + append-only audit log + export gating | Doc §1.1(7), §11.4 | `specs/modules/review.md` | todo |
+| TS-021 | Review workbench API + append-only audit log + export gating | Doc §1.1(7), §11.4 | `specs/modules/review.md` | done |
 | TS-022 | `billing` module: free-tier metering (race-safe), paywall errors, Razorpay orders + webhooks, payment_log | Doc §7, §15, §16.5 | `specs/modules/billing.md` | todo |
 | TS-023 | Export renderer: Bid Review Pack (DOCX/PDF/XLSX) with review-approval stamp | Doc §1.1(8), §11.4 | `specs/modules/drafting.md` | todo |
 | TS-024 | `assistant` module: grounded Q&A over org corpus, citations mandatory | Doc §8 | `specs/modules/assistant.md` | todo |

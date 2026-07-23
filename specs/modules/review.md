@@ -1,6 +1,9 @@
 # Review Workbench & Audit — Spec
 
-**Status:** draft
+**Status:** implemented — accept/edit/reject per finding, append-only audit log,
+export gate (blocks until no finding is `proposed`). Consumes the findings store
+via capability; updates the review columns the findings module owns. Single-
+member attestation (Doc §11.4) and multi-reviewer chains are follow-ups.
 **Requirement refs:** Doc §1.1(7), §11.4
 **Task refs:** TS-021
 

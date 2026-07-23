@@ -1,6 +1,6 @@
 # Billing & Metering — Spec
 
-**Status:** draft
+**Status:** implemented — free-tier metering + paywall (pure), Razorpay webhook (HMAC-verified, idempotent, payment_log ledger), plan activation via webhook only; checkout returns a handle (live keys wire in later); Stripe + GST invoice are follow-ups
 **Requirement refs:** Doc §7, §15, §16.5
 **Task refs:** TS-022
 

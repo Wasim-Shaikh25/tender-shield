@@ -3,6 +3,7 @@
 import { use, useCallback, useEffect, useState } from "react";
 import {
   api,
+  API_BASE,
   type Artifact,
   type Deadline,
   type Finding,
@@ -94,6 +95,24 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
   async function review(findingId: string, decision: string) {
     await api.reviewFinding(session!.token, findingId, decision);
     refresh();
+  }
+
+  async function downloadExport(format: string) {
+    const res = await fetch(
+      `${API_BASE}/export/opportunities/${id}?format=${format}`,
+      { headers: { Authorization: `Bearer ${session!.token}` } }
+    );
+    if (!res.ok) {
+      setNote("Export blocked — complete the review first.");
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `bid-review-pack.${format}`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   async function generate(kind: string) {
@@ -261,6 +280,21 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
               className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-white disabled:opacity-40"
             >
               Generate assumptions register
+            </button>
+            <span className="mx-1 w-px self-stretch bg-slate-200" />
+            <button
+              onClick={() => downloadExport("docx")}
+              disabled={!gate?.export_allowed}
+              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-white disabled:opacity-40"
+            >
+              Export .docx
+            </button>
+            <button
+              onClick={() => downloadExport("xlsx")}
+              disabled={!gate?.export_allowed}
+              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-white disabled:opacity-40"
+            >
+              Export .xlsx
             </button>
           </div>
           {!gate?.export_allowed && (

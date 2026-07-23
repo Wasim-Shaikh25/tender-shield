@@ -6,6 +6,31 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-23 (session 12: billing + export renderer)
+
+- **TS-022** — `billing` module (Doc §7, §15):
+  - pure `plans.py` (free→exhausted, paygo requires-payment, pro/scale quotas;
+    money in paise) + `webhook.py` (HMAC-SHA256, constant-time) — unit-tested.
+  - `usage_events`, `payment_log` (append-only ledger), `webhook_events`
+    (idempotency) + migration `0008`.
+  - **webhook is the only truth**: it logs receipt *before* trusting, verifies
+    signature, is idempotent by event id, and only then activates a plan /
+    credits a paid review; a tampered signature → 400 + a `failed` ledger row.
+  - free-tier metering (`authorize-review` → free_first_review, then 402
+    `free_exhausted`); reads/updates org plan via a new `auth.orgs_factory`
+    capability (billing never imports auth).
+- **TS-023** — `export` module: Bid Review Pack renderer (Doc §1.1(8), §11.4):
+  - pure `render.py` → **XLSX** (openpyxl) + **DOCX** (python-docx), each
+    carrying the "Prepared with TenderShield · reviewed … · pack …" stamp.
+  - **export gate enforced**: blocked (403 `review_incomplete`) until
+    `review.gate` opens; consumes review/findings/drafting/ingestion/rulepacks
+    via capabilities only.
+  - frontend Artifacts tab: Export .docx / .xlsx buttons (authenticated blob
+    download), enabled only when the gate is open.
+  - PDF (WeasyPrint) deferred — heavy system deps.
+
+Test suite: 83 passing, ruff clean; frontend builds clean. 0001→0008 verified.
+
 ### Done — 2026-07-23 (session 11: drafting — artifacts + the three validators)
 
 - **TS-020** — `drafting` module (Doc §6.5), the anti-hallucination spine:
@@ -255,21 +280,22 @@ Test suite: 23 passing, ruff clean.
   for convenience) — all `confidence: unvalidated` with `source:` citations
   (Doc §14.1). Test suite now 18 passing, ruff clean.
 
-### Next (what's left for a Phase-1 MVP)
+### Next
 
-- **TS-022** — `billing` module: free-tier metering (one review/org, race-safe),
-  paywall errors, Razorpay order + webhook (webhook = only truth), payment_log.
-- **TS-023** — export renderer (DOCX/PDF/XLSX) with the reviewer/date/pack stamp,
-  blocked by the export gate — turns the artifact into a downloadable file.
-- **TS-024** — `assistant` (grounded Q&A, citations mandatory) — nice-to-have,
-  not on the Doc §13.5 critical path.
+The Phase-1 feature engine is now functionally complete end-to-end
+(upload → classify → deadlines → clauses → risk register → BOQ checks → review →
+clarification letter/assumptions → gated DOCX/XLSX export → billing). Remaining:
+
 - **BOQ write-through** — parse an uploaded BOQ workbook → items → persist
   defects via `findings.store` (engine already done; just the ingest wiring).
-- Follow-ups: LLM polish for drafting; relative-date deadline formulas; review
-  attestation for single-member orgs; frontend lint/build in CI; httpOnly
-  refresh-cookie wiring.
-- Founder input (not code): 5 real tenders + gold answers for the Week-2
-  accuracy test (Doc §19.2), and set `ANTHROPIC_API_KEY` to turn on LLM judgment.
+- **TS-024** — `assistant` (grounded Q&A, citations mandatory) — optional per
+  Doc §13.5.
+- **Production hardening (infra, not logic):** real resumable upload (tus/S3),
+  OCR (Textract), Celery streaming, Postgres/RDS deploy, email/WhatsApp alerts,
+  OTP/Google/MFA, Stripe + GST invoices, PDF export, frontend lint/build in CI.
+- **The real gate (not code):** domain-accuracy validation — 5 real tenders +
+  gold answers + a QS review (Doc §18.3/§19.2); set `ANTHROPIC_API_KEY` to turn
+  on LLM judgment.
 - Ingestion follow-ups (Doc §6.2): relative-date formula resolution
   ("21 days from pre-bid") and LLM-assisted extraction for scanned/messy packs.
 - Frontend follow-ups: BOQ tab, PDF.js source-page view, shadcn polish, a

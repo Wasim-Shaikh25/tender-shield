@@ -44,8 +44,8 @@ until Phase-1 exit gates pass (§10).
 | TS-019 | Scope-gap engine: trade checklist × spec/BOQ cross-reference | Doc §6.4 | `specs/modules/boq.md` | done |
 | TS-020 | `drafting` module: clarification letter + assumptions register + 3 validators (quotes/citations/numbers) | Doc §6.5 | `specs/modules/drafting.md` | done |
 | TS-021 | Review workbench API + append-only audit log + export gating | Doc §1.1(7), §11.4 | `specs/modules/review.md` | done |
-| TS-022 | `billing` module: free-tier metering (race-safe), paywall errors, Razorpay orders + webhooks, payment_log | Doc §7, §15, §16.5 | `specs/modules/billing.md` | todo |
-| TS-023 | Export renderer: Bid Review Pack (DOCX/PDF/XLSX) with review-approval stamp | Doc §1.1(8), §11.4 | `specs/modules/drafting.md` | todo |
+| TS-022 | `billing` module: free-tier metering (race-safe), paywall errors, Razorpay orders + webhooks, payment_log | Doc §7, §15, §16.5 | `specs/modules/billing.md` | done |
+| TS-023 | Export renderer: Bid Review Pack (DOCX/XLSX; PDF pending) with review-approval stamp + gate | Doc §1.1(8), §11.4 | `specs/modules/drafting.md` | done |
 | TS-024 | `assistant` module: grounded Q&A over org corpus, citations mandatory | Doc §8 | `specs/modules/assistant.md` | todo |
 | TS-025 | Frontend skeleton: Next.js 15 app router, opportunity board + deadline wall | Doc §9 | `specs/frontend.md` | done |
 

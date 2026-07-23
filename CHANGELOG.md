@@ -6,6 +6,18 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-23 (session 17: no-AWS scanned-table path)
+
+- **TS-039** — the hard scanned-table BOQ case, **without AWS**: `RapidTableProvider`
+  (rapid-table SLANet ONNX + RapidOCR, offline) reconstructs a table from a
+  scanned/image BOQ page; a dependency-free HTML→rows parser + `scanned_boq_csv`
+  maps it to canonical CSV; wired as the BOQ-upload fallback (`ingestion.scanned_boq_csv`,
+  only when `TS_OCR_ENABLED`). The HTML→CSV conversion is unit-tested; the model
+  downloads once on first use (blocked in this sandbox, so the recognition step is
+  not sandbox-verified — works on a normal machine).
+- **AWS is no longer required anywhere.** Textract removed as a dependency;
+  TS-033 is now just tus resumable upload. Docs corrected. 99 tests passing.
+
 ### Done — 2026-07-23 (session 16: OCR + PDF table reading — no cloud)
 
 - **TS-038** — real OCR + table extraction without AWS:
@@ -24,7 +36,6 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   - `file_to_boq_csv` + `ingestion.ocr` published as capabilities so BOQ reads
     tables without importing ingestion. OCR test skips where the `ocr` extra
     isn't installed (CI stays light).
-- Textract (hard scanned-table BOQs) + tus resumable remain TS-033 (need AWS).
 
 Test suite: 98 passing, ruff clean; architecture test green.
 

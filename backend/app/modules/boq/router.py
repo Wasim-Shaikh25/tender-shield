@@ -61,11 +61,18 @@ async def upload_boq(
 ):
     """Upload a BOQ as PDF / XLSX / CSV; tables are read out (pdfplumber for PDF)
     and the deterministic checks run — no AWS."""
-    to_csv = request.app.state.ctx.registry.get("ingestion.file_to_boq_csv")
+    reg = request.app.state.ctx.registry
+    to_csv = reg.get("ingestion.file_to_boq_csv")
     if to_csv is None:
         raise HTTPException(503, "ingestion_unavailable")
     data = await file.read()
     csv_text = to_csv(file.filename, data)
+    # Digital tables failed on a PDF → fall back to offline scanned-table OCR
+    # (rapid-table) if enabled. Still no cloud.
+    if not csv_text and file.filename.lower().endswith(".pdf"):
+        scanned = reg.get("ingestion.scanned_boq_csv")
+        if scanned is not None:
+            csv_text = scanned(data)
     if not csv_text:
         raise HTTPException(422, "no_boq_table_found")
     try:

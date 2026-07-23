@@ -12,7 +12,12 @@ import app.modules.ingestion.models  # noqa: F401
 from app.core.config import Settings
 from app.core.db import Base
 from app.main import create_app
-from app.modules.ingestion.tables import boq_table_to_csv, extract_tables, find_boq_table
+from app.modules.ingestion.tables import (
+    boq_table_to_csv,
+    extract_tables,
+    find_boq_table,
+    scanned_boq_csv,
+)
 
 
 def _boq_pdf() -> bytes:
@@ -44,6 +49,19 @@ def test_extract_and_map_boq_table():
     csv_text = boq_table_to_csv(boq)
     header = csv_text.splitlines()[0]
     assert header.startswith("src_row,description,unit_raw,qty,rate,amount")
+
+
+def test_scanned_table_html_to_boq_csv():
+    # The scanned path's rapid-table model can't download in the sandbox, but the
+    # HTML→canonical-CSV conversion (what we do with its output) is pure + tested.
+    cols = ["S.No", "Description", "Unit", "Qty", "Rate", "Amount"]
+    vals = ["1", "Earthwork excavation", "Cum", "1200", "250", "300000"]
+    hdr = "".join(f"<td>{c}</td>" for c in cols)
+    row = "".join(f"<td>{c}</td>" for c in vals)
+    html = [f"<table><tr>{hdr}</tr><tr>{row}</tr></table>"]
+    csv_text = scanned_boq_csv(html)
+    assert csv_text is not None
+    assert csv_text.splitlines()[0].startswith("src_row,description,unit_raw,qty,rate,amount")
 
 
 # ---- BOQ-from-PDF upload (integration) ------------------------------------

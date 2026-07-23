@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import csv
 import io
+from html.parser import HTMLParser
 
 # Header aliases → the canonical BOQ columns the engine expects.
 _HEADER_ALIASES = {
@@ -64,6 +65,49 @@ def boq_table_to_csv(table: list[list[str]]) -> str:
     for row in table[1:]:
         writer.writerow(row)
     return buf.getvalue()
+
+
+class _HtmlTable(HTMLParser):
+    """Minimal <table> → rows parser (no external deps) for OCR'd table HTML."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.rows: list[list[str]] = []
+        self._row: list[str] | None = None
+        self._cell: list[str] | None = None
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "tr":
+            self._row = []
+        elif tag in ("td", "th"):
+            self._cell = []
+
+    def handle_endtag(self, tag):
+        if tag in ("td", "th") and self._row is not None and self._cell is not None:
+            self._row.append("".join(self._cell).strip())
+            self._cell = None
+        elif tag == "tr" and self._row is not None:
+            if any(self._row):
+                self.rows.append(self._row)
+            self._row = None
+
+    def handle_data(self, data):
+        if self._cell is not None:
+            self._cell.append(data)
+
+
+def html_table_to_rows(html: str) -> list[list[str]]:
+    parser = _HtmlTable()
+    parser.feed(html or "")
+    return parser.rows
+
+
+def scanned_boq_csv(table_html_pages: list[str]) -> str | None:
+    """Turn OCR'd table HTML (one per page) into canonical BOQ CSV, if any page
+    yields a BOQ-shaped table."""
+    tables = [rows for html in table_html_pages if (rows := html_table_to_rows(html))]
+    boq = find_boq_table(tables)
+    return boq_table_to_csv(boq) if boq else None
 
 
 def file_to_boq_csv(filename: str, data: bytes) -> str | None:

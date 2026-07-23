@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.modules.auth.deps import current_principal, get_session, require
+from app.core.deps import current_principal, get_session, require
 from app.modules.auth.rbac import Principal
 from app.modules.auth.service import AuthError, AuthService
 

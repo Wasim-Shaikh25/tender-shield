@@ -102,4 +102,4 @@ def test_rbac_viewer_cannot_add_member(client):
 
 def test_capabilities_published(client):
     caps = client.get("/api/health").json()["capabilities"]
-    assert {"auth.keys", "auth.current_principal", "auth.require"} <= set(caps)
+    assert {"auth.keys", "auth.authenticate", "auth.check_role"} <= set(caps)

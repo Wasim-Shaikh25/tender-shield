@@ -2,7 +2,7 @@ import logging
 
 from app.core.module import AppContext, ModuleSpec
 from app.modules.auth import security as sec
-from app.modules.auth.deps import current_principal, require
+from app.modules.auth.deps import authenticate, check_role
 from app.modules.auth.router import router
 
 logger = logging.getLogger(__name__)
@@ -19,9 +19,9 @@ def setup(ctx: AppContext) -> None:
             "(dev/test only; set TS_JWT_PRIVATE_KEY / TS_JWT_PUBLIC_KEY in prod)"
         )
     ctx.registry.provide("auth.keys", keys)
-    # Published for other modules — consumed via the registry, never imported.
-    ctx.registry.provide("auth.current_principal", current_principal)
-    ctx.registry.provide("auth.require", require)
+    # Cross-module API — consumed via app.core.deps by capability name, never imported.
+    ctx.registry.provide("auth.authenticate", authenticate)
+    ctx.registry.provide("auth.check_role", check_role)
 
 
 module = ModuleSpec(

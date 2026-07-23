@@ -6,6 +6,31 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-23 (session 5: ingestion module + auth boundary hardening)
+
+- **Auth boundary refactor** — the generic request dependencies (`get_session`,
+  `current_principal`, `require`) moved to `app/core/deps.py`, which resolves
+  auth purely by capability name. Auth now publishes a plain
+  `auth.authenticate(request, session)` + `auth.check_role` (instead of
+  Depends-wrapped internals). Result: any module gets auth+RBAC+RLS without
+  importing auth; auth's own router consumes the same core deps. 43→still green.
+- **TS-014** — `ingestion` module, the opportunity aggregate owner:
+  - pure `classify.py` (`classify_text` rules-first anchors, `missing_documents`)
+    with DB-free unit tests;
+  - `Opportunity` + `Document` models (org-scoped, RLS) + migration
+    `0002_ingestion_tables` (RLS emitted on PostgreSQL only; up/down verified on
+    the 0001→0002 chain);
+  - `IngestionService`: create opportunity, classify+register document,
+    missing-doc checklist — all scoped by `org_id` (defense-in-depth with RLS),
+    consuming `rulepacks.loader` as a lazy soft dep with built-in fallback
+    anchors;
+  - routes under `/api/ingestion/opportunities`, auth-gated via `core.deps`.
+  - First real cross-module consumer: ingestion uses auth through the registry,
+    proven by an org-isolation test (org B gets 404 on org A's opportunity) and
+    a soft-dep test (works with rulepacks disabled).
+
+Test suite: 49 passing, ruff clean.
+
 ### Done — 2026-07-23 (session 4: auth module)
 
 - **TS-011 / TS-012** — `auth` module (Doc §5), built for isolated testing +
@@ -104,14 +129,15 @@ Test suite: 23 passing, ruff clean.
 
 ### Next
 
-- **TS-014** — `ingestion` module: opportunity + document models + migration,
-  rules-first classification (using the pack's doc-type anchors), missing-doc
-  checklist against the pack's expected set. Owns the opportunity aggregate that
-  risk/boq/drafting reference by ID.
-- **TS-013a (boq slice)** — persist `boq_items` + BOQ `findings` so the engine
-  writes through to the DB (currently DataFrame-in / Finding-out).
-- Auth follow-ups (Doc §5, deferred this slice): phone OTP (MSG91), Google OIDC,
-  TOTP MFA, login/OTP rate limits, refresh cookie wiring in the frontend.
+- **TS-015** — deadline extraction (schema-constrained LLM + quote verification)
+  + deadline wall API, and **TS-016** clause segmentation → `clauses` rows.
+  Both extend the ingestion module and its migration.
+- **TS-013a (boq slice)** — persist `boq_items` + BOQ `findings` and wire the
+  BOQ engine to an opportunity's documents so it writes through to the DB.
+- **TS-017** — `risk` module: pattern engine over segmented clauses (needs
+  TS-016), deterministic severity, absence detection.
+- Auth follow-ups (Doc §5, deferred): phone OTP (MSG91), Google OIDC, TOTP MFA,
+  login/OTP rate limits, refresh cookie wiring in the frontend.
 - To run the LLM half of the accuracy test: set `ANTHROPIC_API_KEY` and run
   `python scripts/phase0_accuracy_test.py evals/in-works/sample_tender/conditions.md`.
 - Decision still open for founder: collect the 5 real tenders + gold answers

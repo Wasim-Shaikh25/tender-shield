@@ -79,6 +79,28 @@ def register_document(
     return {"id": str(doc.id), "filename": doc.filename, "kind": doc.kind}
 
 
+@router.get("/opportunities/{opportunity_id}/clauses")
+def list_clauses(
+    opportunity_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    clauses = _service(request, session).list_clauses(principal.org_id, opportunity_id)
+    return {
+        "clauses": [
+            {
+                "id": str(c.id),
+                "clause_ref": c.clause_ref,
+                "heading": c.heading,
+                "page_from": c.page_from,
+                "cross_refs": c.cross_refs,
+            }
+            for c in clauses
+        ]
+    }
+
+
 @router.get("/opportunities/{opportunity_id}/missing-docs")
 def missing_docs(
     opportunity_id: str,

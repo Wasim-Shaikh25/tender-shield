@@ -14,7 +14,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.modules.ingestion.classify import classify_text, missing_documents
-from app.modules.ingestion.models import Document, Opportunity
+from app.modules.ingestion.models import Clause, Document, Opportunity
+from app.modules.ingestion.segment import segment_clauses
 
 _FALLBACK_ANCHORS = {
     "nit": [r"NOTICE\s+INVITING\s+TENDER", r"\bNIT\s*No"],
@@ -83,10 +84,43 @@ class IngestionService:
         )
         self.s.add(doc)
         self.s.commit()
-        self._publish(
-            "document.classified", {"document_id": str(doc.id), "kind": kind}
-        )
+        self._publish("document.classified", {"document_id": str(doc.id), "kind": kind})
+        if sample_text.strip():
+            self._segment(doc, sample_text)
         return doc
+
+    def _segment(self, doc: Document, text: str) -> int:
+        """Segment a document's text into clause rows (Doc §3.2)."""
+        count = 0
+        for seg in segment_clauses(text):
+            self.s.add(
+                Clause(
+                    org_id=doc.org_id,
+                    document_id=doc.id,
+                    opportunity_id=doc.opportunity_id,
+                    clause_ref=seg.clause_ref,
+                    heading=seg.heading,
+                    text=seg.text,
+                    page_from=seg.page_from,
+                    page_to=seg.page_to,
+                    cross_refs=seg.cross_refs,
+                )
+            )
+            count += 1
+        self.s.commit()
+        if count:
+            self._publish("clauses.segmented", {"document_id": str(doc.id), "count": count})
+        return count
+
+    def list_clauses(self, org_id, opportunity_id) -> list[Clause]:
+        return list(
+            self.s.scalars(
+                select(Clause).where(
+                    Clause.opportunity_id == uuid.UUID(str(opportunity_id)),
+                    Clause.org_id == uuid.UUID(str(org_id)),
+                )
+            )
+        )
 
     def list_documents(self, org_id, opportunity_id) -> list[Document]:
         return list(

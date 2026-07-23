@@ -6,6 +6,33 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-23 (session 6: clause segmentation + risk engine)
+
+- **TS-016** — clause segmentation (extends ingestion): pure `segment.py`
+  (`segment_clauses` — header detection for Clause/GCC/SCC, `[pN]` page
+  tracking, cross-ref extraction), `Clause` model + migration `0003_clauses`
+  (org-scoped, RLS on Postgres; 0001→0002→0003 chain verified up+down).
+  Documents are segmented on registration; `GET …/clauses` lists them.
+- **TS-017** — `risk` module, the pattern engine (Doc §6.3):
+  - `severity.py` — **deterministic** severity via a sandboxed AST evaluator
+    over the pack's `severity_rule` strings (severity keywords resolve to
+    themselves, facts from context, missing → 0, malformed → safe default).
+    Severity never comes from the LLM.
+  - `engine.py` — anchor retrieval, quote verification (normalized + fuzzy
+    ≥0.85), absence detection, finding assembly. Pure over dicts.
+  - `classifier.py` — injected LLM boundary: `NullClassifier` (no key → absence
+    detection still works) / `AnthropicClassifier` (JSON-only, temp 0, tender
+    text as untrusted data). Never returns severity.
+  - `RiskService` consumes ingestion + rulepacks purely via registry
+    capabilities; `POST /api/risk/opportunities/{id}/run`.
+  - **Ran live** on the synthetic tender: correct deterministic severities
+    (LD/escalation/termination critical, defect high), quotes verified against
+    clause text, and a deliberately-wrong quote flagged unverified.
+  - Fixed the synthetic payment clause to 120 days (unambiguous `high`); the
+    "is 90 days high or medium?" boundary is a QS-validation calibration item.
+
+Test suite: 57 passing, ruff clean.
+
 ### Done — 2026-07-23 (session 5: ingestion module + auth boundary hardening)
 
 - **Auth boundary refactor** — the generic request dependencies (`get_session`,
@@ -129,16 +156,16 @@ Test suite: 23 passing, ruff clean.
 
 ### Next
 
-- **TS-015** — deadline extraction (schema-constrained LLM + quote verification)
-  + deadline wall API, and **TS-016** clause segmentation → `clauses` rows.
-  Both extend the ingestion module and its migration.
-- **TS-013a (boq slice)** — persist `boq_items` + BOQ `findings` and wire the
-  BOQ engine to an opportunity's documents so it writes through to the DB.
-- **TS-017** — `risk` module: pattern engine over segmented clauses (needs
-  TS-016), deterministic severity, absence detection.
-- Auth follow-ups (Doc §5, deferred): phone OTP (MSG91), Google OIDC, TOTP MFA,
-  login/OTP rate limits, refresh cookie wiring in the frontend.
-- To run the LLM half of the accuracy test: set `ANTHROPIC_API_KEY` and run
-  `python scripts/phase0_accuracy_test.py evals/in-works/sample_tender/conditions.md`.
+- **TS-013a (findings slice)** — persist `findings` (shared table) so risk +
+  BOQ write through to the DB instead of returning in-memory; wire the BOQ
+  engine to an opportunity's uploaded documents.
+- **TS-015** — deadline extraction (schema-constrained LLM + quote
+  verification) + the deadline-wall API (the <3-min promise, Doc §6.2).
+- **TS-020** — `drafting` module: clarification letter + assumptions register
+  with the three validators (needs accepted findings → pairs with TS-021 review).
+- With `ANTHROPIC_API_KEY` set, the risk engine's LLM classifier activates
+  automatically (`POST /api/risk/opportunities/{id}/run`); without it, absence
+  detection still runs. Same key runs the Week-2 accuracy harness.
+- Auth follow-ups (Doc §5, deferred): phone OTP, Google OIDC, TOTP MFA, rate limits.
 - Decision still open for founder: collect the 5 real tenders + gold answers
   for the Week-2 accuracy test (Doc §19.2) — code can't substitute for these.

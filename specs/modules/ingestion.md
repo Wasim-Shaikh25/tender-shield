@@ -1,9 +1,9 @@
 # Ingestion — Spec
 
 **Status:** partial — opportunities/documents + rules-first classification +
-missing-doc checklist done (TS-014); deadlines (TS-015) and clause segmentation
-(TS-016) pending. API is mounted under `/api/ingestion/opportunities` (loader
-mounts every module at `/api/<module>`).
+missing-doc checklist (TS-014) and clause segmentation (TS-016) done; deadline
+extraction (TS-015) pending. API is mounted under `/api/ingestion/opportunities`
+(loader mounts every module at `/api/<module>`).
 **Requirement refs:** Doc §3.3, §6.1, §6.2
 **Task refs:** TS-014, TS-015, TS-016
 

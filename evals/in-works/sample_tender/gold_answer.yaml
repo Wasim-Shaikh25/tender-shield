@@ -38,7 +38,7 @@ risk_findings:
   - {pattern: price_escalation_barred,   severity: critical, page: 2,
      quote: "firm price basis and no escalation whatsoever shall be payable"}
   - {pattern: payment_terms_extended,    severity: high,     page: 3,
-     quote: "within 90 (ninety) days of certification"}
+     quote: "within 120 (one hundred twenty) days"}
   - {pattern: liquidated_damages_uncapped, severity: critical, page: 4,
      quote: "1% (one percent) of the contract value shall be levied for each week"}
   - {pattern: defect_liability_retention, severity: high,     page: 5,

@@ -23,9 +23,9 @@ materials, labour, fuel or statutory levies.
 
 [p3]
 Clause 21 — Payment of running account bills. Interim payment against a
-running account bill shall be released to the contractor within 90 (ninety)
-days of certification by the Engineer-in-Charge, subject to availability of
-funds.
+running account bill shall be released to the contractor within 120 (one
+hundred twenty) days of certification by the Engineer-in-Charge, subject to
+availability of funds.
 
 [p4]
 Clause 33 — Compensation for delay. If the contractor fails to complete the

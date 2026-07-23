@@ -1,6 +1,9 @@
 # Risk Engine — Spec
 
-**Status:** draft
+**Status:** implemented — retrieval, deterministic severity, quote verification,
+absence detection (TS-017). LLM classifier is injected (NullClassifier without a
+key; AnthropicClassifier with one). Findings are returned in-memory; DB
+persistence of `findings` is later work.
 **Requirement refs:** Doc §6.3
 **Task refs:** TS-017
 

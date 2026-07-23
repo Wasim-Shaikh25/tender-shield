@@ -6,6 +6,26 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-23 (session 11: drafting — artifacts + the three validators)
+
+- **TS-020** — `drafting` module (Doc §6.5), the anti-hallucination spine:
+  - **three validators** (pure, `validators.py`): reject invented quotes,
+    uncited clauses, and invented numbers against a `FactTable` built only from
+    accepted findings. Unit-tested for each failure mode + the passing case.
+  - deterministic `generator.py`: assembles the **clarification letter** and
+    **assumptions & exclusions register** from accepted findings (facts injected,
+    structure built) — validators pass by construction, no LLM key needed; an
+    LLM polish pass would be subject to the same validators.
+  - `Artifact` model + migration `0007` (org-scoped, RLS; versioned,
+    `UNIQUE(opportunity, kind, version)`); 0001→0007 verified up+down.
+  - `DraftingService.generate` pulls accepted findings via the findings store
+    capability, validates, and writes a NEW version (never mutates); refuses
+    with `no_accepted_findings` until review has accepted something.
+  - endpoints: generate / list / get; **frontend Artifacts tab** — generate
+    (disabled until the export gate opens) and read the versioned letter/register.
+
+Test suite: 74 passing, ruff clean; frontend builds clean.
+
 ### Done — 2026-07-23 (session 10: review workbench + audit + export gate)
 
 - **TS-021** — `review` module, the professional-liability spine (Doc §11.4):
@@ -235,17 +255,21 @@ Test suite: 23 passing, ruff clean.
   for convenience) — all `confidence: unvalidated` with `source:` citations
   (Doc §14.1). Test suite now 18 passing, ruff clean.
 
-### Next
+### Next (what's left for a Phase-1 MVP)
 
-- **TS-020** — drafting: clarification letter + assumptions register from
-  ACCEPTED findings (gated by `review.gate`), with the three validators (no
-  invented quotes/clauses/numbers) — the artifact a contractor exports.
-- **TS-023** — export renderer (DOCX/PDF/XLSX) with the reviewer/date/pack stamp;
-  blocked by the export gate until review completes.
-- **BOQ write-through** — wire the BOQ engine to an opportunity's uploaded BOQ
-  (parse workbook → items) and persist its defects via `findings.store` too.
-- Review follow-ups (Doc §11.4): single-member full-screen attestation,
-  multi-reviewer approval chain.
+- **TS-022** — `billing` module: free-tier metering (one review/org, race-safe),
+  paywall errors, Razorpay order + webhook (webhook = only truth), payment_log.
+- **TS-023** — export renderer (DOCX/PDF/XLSX) with the reviewer/date/pack stamp,
+  blocked by the export gate — turns the artifact into a downloadable file.
+- **TS-024** — `assistant` (grounded Q&A, citations mandatory) — nice-to-have,
+  not on the Doc §13.5 critical path.
+- **BOQ write-through** — parse an uploaded BOQ workbook → items → persist
+  defects via `findings.store` (engine already done; just the ingest wiring).
+- Follow-ups: LLM polish for drafting; relative-date deadline formulas; review
+  attestation for single-member orgs; frontend lint/build in CI; httpOnly
+  refresh-cookie wiring.
+- Founder input (not code): 5 real tenders + gold answers for the Week-2
+  accuracy test (Doc §19.2), and set `ANTHROPIC_API_KEY` to turn on LLM judgment.
 - Ingestion follow-ups (Doc §6.2): relative-date formula resolution
   ("21 days from pre-bid") and LLM-assisted extraction for scanned/messy packs.
 - Frontend follow-ups: BOQ tab, PDF.js source-page view, shadcn polish, a

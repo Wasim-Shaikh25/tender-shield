@@ -1,6 +1,10 @@
 # Drafting & Export — Spec
 
-**Status:** draft
+**Status:** implemented (generation) — clarification letter + assumptions
+register generated from ACCEPTED findings; the three validators (no invented
+quotes/clauses/numbers) gate every artifact; versioned, never mutated.
+Deterministic assembly (no LLM key needed); LLM polish pass and the file
+export renderer (DOCX/PDF/XLSX, TS-023) are follow-ups.
 **Requirement refs:** Doc §6.5, §1.1(6,8), §11.4
 **Task refs:** TS-020, TS-023
 

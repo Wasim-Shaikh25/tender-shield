@@ -101,6 +101,14 @@ export const api = {
     ),
   gate: (token: string, id: string) =>
     req<Gate>(`/review/opportunities/${id}/gate`, {}, token),
+  generateArtifact: (token: string, id: string, kind: string) =>
+    req<Artifact>(
+      `/drafting/opportunities/${id}/artifacts`,
+      { method: "POST", body: JSON.stringify({ kind }) },
+      token
+    ),
+  listArtifacts: (token: string, id: string) =>
+    req<{ artifacts: Artifact[] }>(`/drafting/opportunities/${id}/artifacts`, {}, token),
 };
 
 export type Gate = {
@@ -108,4 +116,16 @@ export type Gate = {
   total: number;
   pending: number;
   by_status: Record<string, number>;
+};
+
+export type Artifact = {
+  id: string;
+  kind: string;
+  version: number;
+  status: string;
+  body: {
+    title: string;
+    preamble?: string;
+    items: Array<Record<string, unknown>>;
+  };
 };

@@ -1,7 +1,14 @@
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
-import { api, type Deadline, type Finding, type Gate, type MissingDocs } from "@/lib/api";
+import {
+  api,
+  type Artifact,
+  type Deadline,
+  type Finding,
+  type Gate,
+  type MissingDocs,
+} from "@/lib/api";
 import { useSession } from "@/components/session";
 import { SeverityBadge, SourceBadge } from "@/components/badges";
 
@@ -30,12 +37,13 @@ const KIND_LABEL: Record<string, string> = {
 export default function OpportunityDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { session } = useSession();
-  const [tab, setTab] = useState<"overview" | "risks">("overview");
+  const [tab, setTab] = useState<"overview" | "risks" | "artifacts">("overview");
   const [title, setTitle] = useState("Opportunity");
   const [missing, setMissing] = useState<MissingDocs | null>(null);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [findings, setFindings] = useState<Finding[] | null>(null);
   const [gate, setGate] = useState<Gate | null>(null);
+  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
@@ -46,6 +54,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
     api.deadlines(session.token, id).then((d) => setDeadlines(d.deadlines)).catch(() => {});
     api.listFindings(session.token, id).then((f) => setFindings(f.findings)).catch(() => {});
     api.gate(session.token, id).then(setGate).catch(() => {});
+    api.listArtifacts(session.token, id).then((a) => setArtifacts(a.artifacts)).catch(() => {});
   }, [session, id]);
 
   useEffect(() => {
@@ -87,6 +96,20 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
     refresh();
   }
 
+  async function generate(kind: string) {
+    setBusy(true);
+    setNote(null);
+    try {
+      await api.generateArtifact(session!.token, id, kind);
+      await refresh();
+      setTab("artifacts");
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "Generation failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -112,7 +135,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
       {note && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{note}</p>}
 
       <div className="flex gap-1 border-b border-slate-200">
-        {(["overview", "risks"] as const).map((t) => (
+        {(["overview", "risks", "artifacts"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -216,6 +239,66 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
                     </button>
                   </div>
                 )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {tab === "artifacts" && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => generate("clarification_letter")}
+              disabled={busy || !gate?.export_allowed}
+              className="rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40"
+            >
+              Generate clarification letter
+            </button>
+            <button
+              onClick={() => generate("assumptions_register")}
+              disabled={busy || !gate?.export_allowed}
+              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-white disabled:opacity-40"
+            >
+              Generate assumptions register
+            </button>
+          </div>
+          {!gate?.export_allowed && (
+            <p className="text-xs text-amber-700">
+              Accept/reject all findings on the Risks tab first — generation needs a completed review.
+            </p>
+          )}
+          {artifacts.length === 0 ? (
+            <p className="text-sm text-slate-500">No artifacts generated yet.</p>
+          ) : (
+            artifacts.map((a) => (
+              <div key={a.id} className="rounded-xl border border-slate-200 bg-white p-5">
+                <div className="mb-2 flex items-center justify-between">
+                  <h4 className="font-semibold text-ink">{a.body.title}</h4>
+                  <span className="text-xs text-slate-400">
+                    {a.kind} · v{a.version}
+                  </span>
+                </div>
+                {a.body.preamble && <p className="mb-3 text-sm text-slate-600">{a.body.preamble}</p>}
+                <ol className="space-y-2 text-sm">
+                  {a.body.items.map((item, i) => (
+                    <li key={i} className="border-l-2 border-slate-200 pl-3">
+                      <div className="font-medium text-slate-800">
+                        {(item.heading as string) ??
+                          `[${item.category as string}] ${item.assumption as string}`}
+                      </div>
+                      {typeof item.quote === "string" && (
+                        <div className="italic text-slate-500">“{item.quote}”</div>
+                      )}
+                      {typeof item.ask === "string" && (
+                        <div className="text-slate-600">{item.ask}</div>
+                      )}
+                      {typeof item.source_page === "number" && (
+                        <span className="text-xs text-slate-400">p{item.source_page}</span>
+                      )}
+                    </li>
+                  ))}
+                </ol>
               </div>
             ))
           )}

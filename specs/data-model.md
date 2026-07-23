@@ -15,15 +15,21 @@ DDL is in Doc §3.2; this spec records ownership and the rules around it.
 |---|---|
 | `auth` | `users`, `orgs`, `org_members`, refresh-token tables |
 | `ingestion` | `opportunities`*, `documents`, `clauses`, `deadlines`, `doc_chunks` |
-| `risk` | `findings` (kind=`risk_clause`, `missing_doc`) |
-| `boq` | `boq_items`, `findings` (kind=`boq_defect`, `scope_gap`) |
+| `findings` | `findings`** (shared table; owns model + migration + store) |
+| `boq` | `boq_items` |
 | `drafting` | `artifacts` |
-| `review` | `audit_log`, review fields on `findings`/`artifacts`, `outcomes` |
+| `review` | `audit_log`, `outcomes` (updates review columns on `findings`) |
 | `billing` | `usage_events`, `payment_log`, payment intents/webhook dedup |
 
 *`opportunities` is the shared aggregate root; owned by `ingestion`, referenced by
-ID from every other module. `findings` is a shared-shape table defined in core
-contracts; writer modules own their `kind` values.
+ID from every other module.
+
+**`findings` is a shared table with one owner: the `findings` module owns the
+SQLAlchemy model, migration, and `FindingStore`. Producers (`risk`, `boq`) write
+via the `findings.store_factory` capability, scoped by a `producer` column so a
+re-run of one producer never disturbs another's rows. The row shape mirrors the
+core `Finding` contract (`app.core.contracts.findings`). This keeps the table
+pluggable — no module imports another's models.
 
 ## Behavior
 

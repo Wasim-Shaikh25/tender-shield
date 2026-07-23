@@ -12,12 +12,15 @@ from app.modules.risk.engine import run_patterns
 
 
 class RiskService:
+    PRODUCER = "risk"
+
     def __init__(self, session, *, ingestion_factory=None, loader=None, classifier=None,
-                 pack_id="in-works"):
+                 store_factory=None, pack_id="in-works"):
         self.session = session
         self._ingestion_factory = ingestion_factory
         self._loader = loader
         self._classifier = classifier or NullClassifier()
+        self._store_factory = store_factory
         self._pack_id = pack_id
 
     def _clauses(self, org_id, opportunity_id) -> list[dict]:
@@ -46,4 +49,11 @@ class RiskService:
         patterns = self._loader.list_patterns(self._pack_id)
         clauses = self._clauses(org_id, opportunity_id)
         facts = self._opp_facts(org_id, opportunity_id)
-        return run_patterns(patterns, clauses, self._classifier, facts)
+        findings = run_patterns(patterns, clauses, self._classifier, facts)
+        # Persist through the findings store when available (idempotent re-run);
+        # if the findings module is disabled, still return the in-memory result.
+        if self._store_factory is not None:
+            self._store_factory(self.session).replace_for_producer(
+                org_id, opportunity_id, self.PRODUCER, findings
+            )
+        return findings

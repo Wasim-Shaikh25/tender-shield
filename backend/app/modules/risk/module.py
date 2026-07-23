@@ -22,6 +22,6 @@ module = ModuleSpec(
     name="risk",
     version="0.1.0",
     router=router,
-    soft_deps=("rulepacks", "ingestion", "auth"),
+    soft_deps=("rulepacks", "ingestion", "auth", "findings"),
     setup=setup,
 )

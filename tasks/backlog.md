@@ -35,7 +35,7 @@ until Phase-1 exit gates pass (§10).
 | TS-011 | `auth` module: email+password (argon2id), RS256 JWT (15 min), rotating refresh + reuse detection | Doc §5 | `specs/modules/auth.md` | done |
 | TS-012 | Orgs, org_members, RBAC guard, RLS binding (`SET LOCAL app.org_id`) | Doc §5, §3.2 | `specs/modules/auth.md` | done |
 | TS-013 | DB foundation: Base/mixins, RLS helpers, session factory (registry capability), Alembic scaffold w/ pluggable model discovery | Doc §3.2 | `specs/data-model.md` | done |
-| TS-013a | Per-module SQLAlchemy models + migrations (auth (0001) + ingestion opportunities/documents/clauses/deadlines (0002-0004) DONE; boq/risk findings + drafting/review/billing pending) | Doc §3.2 | `specs/data-model.md` | todo |
+| TS-013a | Per-module SQLAlchemy models + migrations (auth (0001) + ingestion (0002-0004) + findings table (0005) DONE, risk persists via findings.store; boq write-through + drafting/review/billing pending) | Doc §3.2 | `specs/data-model.md` | todo |
 | TS-014 | `ingestion` module: upload → rules-first classification + missing-doc checklist | Doc §6.1, §3.3 | `specs/modules/ingestion.md` | done |
 | TS-015 | Deadline extraction (deterministic date parse + quote citation) + deadline wall API + confirm chips | Doc §6.2 | `specs/modules/ingestion.md` | done |
 | TS-016 | Clause segmentation → `clauses` rows with refs + defined terms | Doc §3.3 | `specs/modules/ingestion.md` | done |

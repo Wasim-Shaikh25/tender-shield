@@ -17,13 +17,17 @@ export type Deadline = {
   confirmed: boolean;
 };
 export type Finding = {
+  id?: string;
+  producer?: string;
   category: string;
   severity: "critical" | "high" | "medium" | "low" | "info";
   title: string;
   detail: string;
+  source?: string;
   source_page: number | null;
   source_quote: string | null;
-  pattern_id: string | null;
+  pattern_id?: string | null;
+  review_status?: string;
 };
 
 async function req<T>(path: string, opts: RequestInit = {}, token?: string): Promise<T> {
@@ -87,4 +91,6 @@ export const api = {
       { method: "POST" },
       token
     ),
+  listFindings: (token: string, id: string) =>
+    req<{ findings: Finding[] }>(`/findings/opportunities/${id}`, {}, token),
 };

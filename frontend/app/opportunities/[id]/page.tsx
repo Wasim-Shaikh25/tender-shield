@@ -43,6 +43,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
     api.getOpportunity(session.token, id).then((o) => setTitle(o.title)).catch(() => {});
     api.missingDocs(session.token, id).then(setMissing).catch(() => {});
     api.deadlines(session.token, id).then((d) => setDeadlines(d.deadlines)).catch(() => {});
+    api.listFindings(session.token, id).then((f) => setFindings(f.findings)).catch(() => {});
   }, [session, id]);
 
   useEffect(() => {
@@ -66,8 +67,8 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
   async function runRisk() {
     setBusy(true);
     try {
-      const out = await api.runRisk(session!.token, id);
-      setFindings(out.findings);
+      await api.runRisk(session!.token, id);
+      await refresh();
       setTab("risks");
     } finally {
       setBusy(false);
@@ -156,12 +157,15 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
             <p className="text-sm text-slate-500">No findings yet — upload the tender and run again.</p>
           ) : (
             findings.map((f, i) => (
-              <div key={i} className="rounded-xl border border-slate-200 bg-white p-5">
+              <div key={f.id ?? i} className="rounded-xl border border-slate-200 bg-white p-5">
                 <div className="mb-2 flex items-center gap-2">
                   <SeverityBadge severity={f.severity} />
                   <span className="text-xs uppercase tracking-wide text-slate-400">{f.category}</span>
-                  <SourceBadge source="ai_suggestion" />
+                  <SourceBadge source={f.source ?? "ai_suggestion"} />
                   {f.source_page && <span className="text-xs text-slate-400">p{f.source_page}</span>}
+                  {f.review_status && (
+                    <span className="ml-auto text-xs text-slate-400">{f.review_status}</span>
+                  )}
                 </div>
                 <h4 className="font-semibold text-ink">{f.title}</h4>
                 <p className="mt-1 text-sm text-slate-600">{f.detail}</p>

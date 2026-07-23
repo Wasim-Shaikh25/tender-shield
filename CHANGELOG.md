@@ -6,6 +6,25 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-23 (session 9: findings persistence)
+
+- **TS-013a (findings slice)** — a new pluggable `findings` module owns the
+  shared `findings` table (Doc §3.2): SQLAlchemy model + migration `0005`
+  (org-scoped, RLS on Postgres; 0001→0005 verified up+down) + `FindingStore`.
+  - Producers write via the `findings.store_factory` capability, scoped by a
+    `producer` column so a re-run of one producer replaces only its own rows and
+    never disturbs another's (unit-tested for idempotency + producer isolation).
+  - `risk` now persists its findings on run (still returns them too) and gained
+    `findings` as a soft dep — resolved lazily, so risk still runs (in-memory)
+    if the findings module is disabled.
+  - `GET /api/findings/opportunities/{id}` lists the register, severity-sorted.
+  - **Frontend:** the Risks tab now reads the persisted register (with
+    review-status), loaded on open and after a run.
+  - No module imports another's models — the table stays pluggable behind the
+    store capability + the core `Finding` contract.
+
+Test suite: 65 passing, ruff clean; frontend builds clean.
+
 ### Done — 2026-07-23 (session 8: deadline extraction + deadline wall)
 
 - **TS-015** — deadline extraction (Doc §6.2), the <3-minute promise:
@@ -199,11 +218,13 @@ Test suite: 23 passing, ruff clean.
 
 ### Next
 
-- **TS-013a (findings slice)** — persist `findings` so risk + BOQ write to the
-  DB; then surface a populated risk register + BOQ defects in the UI workbench.
-- **TS-020 / TS-021** — drafting (clarification letter, three validators) +
-  review workbench (accept/reject, export gating) — the artifact a contractor
-  actually exports.
+- **TS-021** — review workbench: accept/edit/reject each finding (updates the
+  `findings` review columns) + append-only audit log + export gating (Doc §11.4).
+- **TS-020** — drafting: clarification letter + assumptions register from
+  ACCEPTED findings, with the three validators (no invented quotes/clauses/
+  numbers) — the artifact a contractor exports.
+- **BOQ write-through** — wire the BOQ engine to an opportunity's uploaded BOQ
+  (parse workbook → items) and persist its defects via `findings.store` too.
 - Ingestion follow-ups (Doc §6.2): relative-date formula resolution
   ("21 days from pre-bid") and LLM-assisted extraction for scanned/messy packs.
 - Frontend follow-ups: BOQ tab, PDF.js source-page view, shadcn polish, a

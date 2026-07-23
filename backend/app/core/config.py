@@ -9,6 +9,13 @@ class Settings(BaseSettings):
     env: str = "dev"
     # PostgreSQL 16 in all deployed environments; SQLite only for local tests.
     database_url: str = "sqlite:///./tendershield.db"
+
+    # Auth (Doc §5). Keys are PEM strings; when absent an ephemeral RSA keypair
+    # is generated at startup for dev/test only (never rely on it in prod).
+    jwt_private_key: str = ""
+    jwt_public_key: str = ""
+    access_ttl_minutes: int = 15
+    refresh_ttl_days: int = 30
     # Comma-separated module names. Empty string means "discover everything
     # under app/modules". The app must boot with any subset (spec core B2).
     enabled_modules: str = ""

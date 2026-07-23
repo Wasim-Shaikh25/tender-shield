@@ -36,5 +36,12 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dependency-injection idiom: these calls in argument defaults are intentional.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Header", "app.modules.auth.deps.require"]
+
+[tool.ruff.lint.per-file-ignores]
+"migrations/*" = ["E501"]  # Alembic column definitions read better unwrapped
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

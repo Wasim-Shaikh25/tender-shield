@@ -6,6 +6,28 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-23 (session 4: auth module)
+
+- **TS-011 / TS-012** — `auth` module (Doc §5), built for isolated testing +
+  refactoring:
+  - **Pure security primitives** (`security.py`): argon2id hashing, RS256 JWT
+    mint/decode with `kid`, ephemeral-keypair generation for dev. `refresh.py`:
+    token generation + `evaluate_refresh()` (the reuse-detection *verdict* as a
+    DB-free pure function). `rbac.py`: roles + `role_at_least`. All covered by
+    `test_auth_security.py` with **no DB and no FastAPI** — rewritable in place.
+  - **Module internals** (`models.py`, `service.py`, `deps.py`, `router.py`):
+    signup/login/refresh/logout/me/add-member; rotating refresh with
+    whole-family revocation on replay; RBAC guard; per-request RLS binding
+    (`bind_org_context`). Only capabilities (`auth.current_principal`,
+    `auth.require`, `auth.keys`) are exposed — consumers never import internals.
+  - **TS-013a (auth slice)** — first real Alembic migration `0001_auth_tables`
+    (orgs, users, org_members, refresh_tokens), portable across SQLite/Postgres;
+    verified up + down.
+- Ruff configured for FastAPI's `Depends`-in-defaults idiom; email fields kept
+  as plain `str` to avoid an extra dependency.
+
+Test suite: 43 passing, ruff clean. Added argon2-cffi + PyJWT[crypto].
+
 ### Done — 2026-07-23 (session 3: deterministic BOQ engine + synthetic tender)
 
 - **Synthetic sample tender** (`evals/in-works/sample_tender/`): a hand-written
@@ -82,14 +104,14 @@ Test suite: 23 passing, ruff clean.
 
 ### Next
 
-- **TS-011 / TS-012** — `auth` module: users/orgs/org_members models +
-  migration (TS-013a), argon2id passwords, RS256 JWT (15 min) + rotating
-  refresh with reuse detection, RBAC guard, and the per-request RLS binding.
-- **TS-014** — `ingestion` module: opportunity + document models, resumable
-  upload stub, rules-first classification (using the pack's doc-type anchors),
-  missing-doc checklist against the pack's expected set.
+- **TS-014** — `ingestion` module: opportunity + document models + migration,
+  rules-first classification (using the pack's doc-type anchors), missing-doc
+  checklist against the pack's expected set. Owns the opportunity aggregate that
+  risk/boq/drafting reference by ID.
 - **TS-013a (boq slice)** — persist `boq_items` + BOQ `findings` so the engine
-  writes through to the DB, not just DataFrames.
+  writes through to the DB (currently DataFrame-in / Finding-out).
+- Auth follow-ups (Doc §5, deferred this slice): phone OTP (MSG91), Google OIDC,
+  TOTP MFA, login/OTP rate limits, refresh cookie wiring in the frontend.
 - To run the LLM half of the accuracy test: set `ANTHROPIC_API_KEY` and run
   `python scripts/phase0_accuracy_test.py evals/in-works/sample_tender/conditions.md`.
 - Decision still open for founder: collect the 5 real tenders + gold answers

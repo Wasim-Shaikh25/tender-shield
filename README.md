@@ -119,11 +119,14 @@ Details in `CLAUDE.md` §1. No code without a task ID; no push without a changel
 
 - **Assistant free-form answers + LLM judgment** need `ANTHROPIC_API_KEY` (deterministic
   paths work without it).
-- **Done in the hardening pass (no creds):** real file upload + extraction, PDF export,
-  GST computation, TOTP MFA, deadline-digest logic, docker-compose + Dockerfiles,
-  frontend CI. See `docker-compose up` for a Postgres-backed local stack.
-- **Still needs live accounts (interfaces built, adapters todo):** Textract OCR,
-  tus resumable, Celery/Redis streaming, SES/MSG91 send, Google OIDC + phone OTP,
-  Stripe. See `tasks/backlog.md` TS-033…TS-037.
+- **Done in the hardening pass (no creds):** real file upload + extraction, **OCR
+  (offline RapidOCR) + PDF table reading (pdfplumber)**, PDF export, GST computation,
+  TOTP MFA, deadline-digest logic, docker-compose + Dockerfiles, frontend CI.
+  OCR is opt-in: `pip install -e ".[ocr]"` then `TS_OCR_ENABLED=true` (scanned PDFs
+  are flagged `needs_ocr` when it's off). BOQ tables read from digital PDFs via
+  `POST /api/boq/opportunities/{id}/upload`.
+- **Still needs live accounts (interfaces built, adapters todo):** Textract (hard
+  scanned-table BOQs), tus resumable, Celery/Redis streaming, SES/MSG91 send,
+  Google OIDC + phone OTP, Stripe. See `tasks/backlog.md` TS-033…TS-037.
 - **The real gate (not code):** domain-accuracy validation — 5 real tenders + gold answers
   + a QS review (Doc §18.3/§19.2). Run `scripts/phase0_accuracy_test.py` with a key.

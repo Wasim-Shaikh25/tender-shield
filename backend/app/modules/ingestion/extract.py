@@ -1,15 +1,19 @@
 """Text extraction from uploaded files (Doc §6.1). Digital PDFs via pypdf,
 spreadsheets via openpyxl, CSV/text directly. Page markers ([pN]) are emitted
-so downstream deadline/clause extraction can cite pages. Scanned-PDF OCR
-(Textract) is TS-033."""
+so downstream deadline/clause extraction can cite pages. Scanned/image PDFs are
+routed to an injected OCR provider (app/modules/ingestion/ocr.py); with none,
+they are flagged `needs_ocr` and degrade honestly (Doc §12.4)."""
 
 from __future__ import annotations
 
 import csv
 import io
 
+_MIN_PAGE_CHARS = 10  # a page with less digital text than this is "empty"
+
 
 def extract_text(filename: str, data: bytes) -> str:
+    """Simple digital-only extraction (no OCR). Kept for callers that pass text."""
     name = filename.lower()
     if name.endswith(".pdf"):
         return _pdf(data)
@@ -17,8 +21,35 @@ def extract_text(filename: str, data: bytes) -> str:
         return _xlsx(data)
     if name.endswith((".csv", ".txt", ".md")):
         return data.decode("utf-8", errors="replace")
-    # Unknown type: best-effort decode.
     return data.decode("utf-8", errors="replace")
+
+
+def _join_pages(pages: list[str]) -> str:
+    return "\n".join(f"[p{i + 1}]\n{p}" for i, p in enumerate(pages))
+
+
+def _pdf_pages(data: bytes) -> list[str]:
+    import pypdf
+
+    reader = pypdf.PdfReader(io.BytesIO(data))
+    return [(page.extract_text() or "") for page in reader.pages]
+
+
+def extract_upload(filename: str, data: bytes, ocr=None) -> tuple[str, str]:
+    """Extraction for uploads. Returns (text, ocr_status) where ocr_status is
+    one of: done | ocr_applied | needs_ocr. PDFs with no digital text layer are
+    OCR'd when a provider is given, else flagged needs_ocr."""
+    name = filename.lower()
+    if not name.endswith(".pdf"):
+        return extract_text(filename, data), "done"
+
+    pages = _pdf_pages(data)
+    has_text = any(len(p.strip()) >= _MIN_PAGE_CHARS for p in pages)
+    if pages and not has_text:
+        if ocr is not None and getattr(ocr, "name", "null") != "null":
+            return _join_pages(ocr.ocr_pdf(data)), "ocr_applied"
+        return _join_pages(pages), "needs_ocr"
+    return _join_pages(pages), "done"
 
 
 def looks_like_boq_csv(filename: str, data: bytes) -> bool:

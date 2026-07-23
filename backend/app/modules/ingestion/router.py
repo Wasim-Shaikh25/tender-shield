@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
-from app.modules.ingestion.extract import extract_text
+from app.modules.ingestion.extract import extract_upload
 from app.modules.ingestion.service import IngestionService
 from app.modules.ingestion.storage import LocalStorage
 
@@ -120,12 +120,16 @@ async def upload_document(
         raise HTTPException(413, "file_too_large")
     storage = LocalStorage(request.app.state.ctx.settings.storage_dir)
     key, sha = storage.put(str(principal.org_id), file.filename, data)
-    text = extract_text(file.filename, data)
+    ocr = request.app.state.ctx.registry.get("ingestion.ocr")
+    text, ocr_status = extract_upload(file.filename, data, ocr)
     doc = svc.register_document(
         principal.org_id, opportunity_id, file.filename, text,
-        s3_key=key, sha256=sha, uploaded_by=_to_uuid(principal.user_id),
+        s3_key=key, sha256=sha, ocr_status=ocr_status, uploaded_by=_to_uuid(principal.user_id),
     )
-    return {"id": str(doc.id), "filename": doc.filename, "kind": doc.kind, "chars": len(text)}
+    return {
+        "id": str(doc.id), "filename": doc.filename, "kind": doc.kind,
+        "chars": len(text), "ocr_status": ocr_status,
+    }
 
 
 @router.get("/opportunities/{opportunity_id}/clauses")

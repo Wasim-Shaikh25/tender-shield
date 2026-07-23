@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     # Uploaded-file storage root (LocalStorage in dev; S3 in prod, Doc §11.2).
     storage_dir: str = "./.tender_storage"
 
+    # OCR for scanned PDFs (offline RapidOCR). Off by default (loads ONNX models
+    # + needs the `ocr` extra); when off, scanned docs are flagged needs_ocr.
+    ocr_enabled: bool = False
+
     # Auth (Doc §5). Keys are PEM strings; when absent an ephemeral RSA keypair
     # is generated at startup for dev/test only (never rely on it in prod).
     jwt_private_key: str = ""

@@ -6,6 +6,28 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-23 (session 16: OCR + PDF table reading — no cloud)
+
+- **TS-038** — real OCR + table extraction without AWS:
+  - **pdfplumber** reads BOQ tables straight out of digital PDFs; new
+    `POST /api/boq/opportunities/{id}/upload` accepts PDF/XLSX/CSV, detects the
+    BOQ table, maps headers to canonical columns, and runs the deterministic
+    checks. Tested end-to-end (duplicate + arithmetic caught from a PDF table).
+  - pluggable **`OcrProvider`**: `RapidOcrProvider` (RapidOCR — ONNX, bundled
+    models, **fully offline**; PyMuPDF rasterizes pages) reads scanned/image
+    PDFs; `NullOcrProvider` default. Verified live: a text-free image PDF OCR'd
+    back to its exact text.
+  - **honest degradation** (Doc §12.4): a scanned PDF with no text layer is
+    flagged `ocr_status="needs_ocr"` when OCR is off, instead of silently
+    ingesting blank/garbage text. Enable with `TS_OCR_ENABLED=true` +
+    `pip install -e ".[ocr]"`.
+  - `file_to_boq_csv` + `ingestion.ocr` published as capabilities so BOQ reads
+    tables without importing ingestion. OCR test skips where the `ocr` extra
+    isn't installed (CI stays light).
+- Textract (hard scanned-table BOQs) + tus resumable remain TS-033 (need AWS).
+
+Test suite: 98 passing, ruff clean; architecture test green.
+
 ### Done — 2026-07-23 (session 15: production hardening — implementable-now slice)
 
 Built the parts of the hardening list that need no live credentials:

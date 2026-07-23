@@ -20,6 +20,7 @@ dependencies = [
     "reportlab>=4.0",
     "python-multipart>=0.0.9",
     "pyotp>=2.9",
+    "pdfplumber>=0.11",
 ]
 
 [project.optional-dependencies]
@@ -28,6 +29,12 @@ dev = [
     "httpx>=0.27",
     "ruff>=0.5",
     "uvicorn>=0.30",
+]
+# OCR for scanned/image PDFs — offline, no cloud (ONNX models bundled).
+# Enable with TS_OCR_ENABLED=true after `pip install -e ".[ocr]"`.
+ocr = [
+    "rapidocr-onnxruntime>=1.3",
+    "pymupdf>=1.24",
 ]
 
 [build-system]

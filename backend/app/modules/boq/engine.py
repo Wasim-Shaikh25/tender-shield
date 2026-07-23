@@ -27,6 +27,8 @@ def normalize(df: pd.DataFrame, unit_canon: dict[str, str]) -> pd.DataFrame:
     if missing:
         raise ValueError(f"BOQ frame missing columns: {sorted(missing)}")
     df = df.copy()
+    if "item_code" not in df.columns:  # optional column the check SQL displays
+        df["item_code"] = ""
     raw = df["unit_raw"].astype(str).str.strip().str.lower()
     df["unit_canon"] = raw.map(unit_canon).fillna(raw)
     df["amount_calc"] = (

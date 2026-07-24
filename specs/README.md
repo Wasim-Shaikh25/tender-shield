@@ -24,6 +24,7 @@ change (`CLAUDE.md` §1.2).
 | `modules/billing.md` | Metering, paywall, Razorpay/Stripe, payment_log | §7, §15, §16.5 |
 | `modules/assistant.md` | Grounded in-app assistant | §8 |
 | `modules/baseline.md` | Baseline lock: hash-sealed freeze, notice register, handover | §0.1, §10, §1.2 |
+| `modules/standards.md` | Org-custom notice standards (prevail / side-by-side layer) | §10, §0.1, §2 |
 
 ## Template (use for every new spec)
 

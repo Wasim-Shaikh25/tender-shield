@@ -16,6 +16,7 @@ def setup(ctx: AppContext) -> None:
             review_factory=reg.get("review.service_factory"),
             ingestion_factory=reg.get("ingestion.service_factory"),
             loader_provider=lambda: reg.get("rulepacks.loader"),
+            standards_factory=reg.get("standards.org_notice_provider"),
             publish=ctx.events.publish,
         ),
     )
@@ -25,6 +26,6 @@ module = ModuleSpec(
     name="baseline",
     version="0.1.0",
     router=router,
-    soft_deps=("findings", "review", "ingestion", "rulepacks", "auth"),
+    soft_deps=("findings", "review", "ingestion", "rulepacks", "standards", "auth"),
     setup=setup,
 )

@@ -10,12 +10,13 @@ import app.modules.baseline.models  # noqa: F401
 import app.modules.findings.models  # noqa: F401
 import app.modules.ingestion.models  # noqa: F401
 import app.modules.review.models  # noqa: F401
+import app.modules.standards.models  # noqa: F401
 from app.core.config import Settings
 from app.core.db import Base
 from app.main import create_app
 from app.modules.baseline.notices import extract_notice_rules
 
-MODULES = "health,rulepacks,auth,ingestion,findings,risk,review,baseline"
+MODULES = "health,rulepacks,auth,ingestion,findings,risk,review,standards,baseline"
 
 
 # ---- deterministic notice extraction (spec B4 / A3) -----------------------
@@ -227,6 +228,76 @@ def test_notice_register_flags_expected_regime_gaps(client):
     assert "claim" not in gap_keys
     assert "extension_of_time" in gap_keys
     assert "payment" in gap_keys
+
+
+def _opp_with_claims_clause(client, headers):
+    opp_id = client.post(
+        "/api/ingestion/opportunities", json={"title": "Depot"}, headers=headers
+    ).json()["id"]
+    client.post(
+        f"/api/ingestion/opportunities/{opp_id}/documents",
+        json={
+            "filename": "gcc.pdf",
+            "sample_text": (
+                "[p3]\nClause 44 — Claims. Notify any claim within 14 days, "
+                "failing which it is time-barred."
+            ),
+        },
+        headers=headers,
+    )
+    return opp_id
+
+
+def test_org_custom_standard_prevails_and_adds_gap(client):
+    # A firm's own standard adds a "handover" regime it always requires; in
+    # prevail mode it's merged onto universal+IN and, being expected+absent,
+    # shows up as a gap tagged origin=org.
+    headers = _auth(client)
+    opp_id = _opp_with_claims_clause(client, headers)
+    client.put(
+        "/api/standards/notice",
+        json={
+            "mode": "prevail",
+            "categories": [
+                {
+                    "key": "handover",
+                    "label": "Site handover / possession notice",
+                    "typical_days": 7,
+                    "expected": True,
+                    "keywords": ["handover", "possession"],
+                }
+            ],
+        },
+        headers=headers,
+    )
+    reg = client.get(
+        f"/api/baseline/opportunities/{opp_id}/notice-register", headers=headers
+    ).json()
+    handover_gaps = [g for g in reg["gaps"] if g["key"] == "handover"]
+    assert handover_gaps and handover_gaps[0]["origin"] == "org"
+
+
+def test_org_standard_side_by_side_keeps_both(client):
+    # side_by_side: an org "claim" regime coexists with the rule-pack claim
+    # rather than replacing it (the contract's claim window still classifies).
+    headers = _auth(client)
+    opp_id = _opp_with_claims_clause(client, headers)
+    client.put(
+        "/api/standards/notice",
+        json={
+            "mode": "side_by_side",
+            "categories": [
+                {"key": "claim", "label": "Our stricter claim policy", "typical_days": 7,
+                 "keywords": ["claim"]}
+            ],
+        },
+        headers=headers,
+    )
+    reg = client.get(
+        f"/api/baseline/opportunities/{opp_id}/notice-register", headers=headers
+    ).json()
+    # The contract's 14-day claim window is still detected and classified.
+    assert any(r["days"] == 14 and r["category"] == "claim" for r in reg["rules"])
 
 
 def test_app_boots_with_baseline_disabled():

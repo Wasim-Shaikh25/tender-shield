@@ -1,36 +1,49 @@
 # India overlay (scope: IN). Merged ON TOP of base.yaml by `key`:
-# a category here overrides the universal one; new keys are added.
-# Only the fields that differ from universal need be stated.
+# a category here overrides the universal one in the fields it sets; new keys
+# are added. Only the fields that differ from universal need be stated.
 #
-# Reflects Indian public-works practice (CPWD/NHAI/state PWD). Still
-# confidence: unvalidated until a QS signs off (Doc §2.4).
+# Reflects Indian public-works practice (CPWD/NHAI/state PWD) + statutory
+# payment law. confidence: unvalidated until a QS signs off (Doc §2.4).
 id: notice_india
 scope: IN
 confidence: unvalidated
 source: >
-  CPWD GCC (2020) and NHAI/MoRTH standard conditions — general public-works
-  notice practice (public documents).
+  CPWD GCC (2020) incl. cl.10CC price escalation; NHAI/MoRTH standard
+  conditions; MSMED Act 2006 s.15 (statutory payment). See references.md.
 categories:
-  # CPWD-style claims are typically raised against the running-account bill;
-  # the practical bar is tighter than the FIDIC 28-day norm.
+  # CPWD-style claims are typically lodged against the running-account bill;
+  # the practical window is tighter than the FIDIC 28-day norm.
   - key: claim
     label: Contractor's claim (CPWD RA-bill practice)
     typical_days: 15
     expected: true
     keywords: [claim, running account, RA bill, protest, without prejudice]
     note: >
-      CPWD contracts commonly require claims to be lodged against the RA bill
-      it relates to; a general "final bill" reservation is often insufficient.
-  # Price escalation is frequently deleted outright in Indian tenders — the
-  # register should expect an escalation-notice regime and flag its absence.
+      Practice-based, not a single codified bar: CPWD contracts commonly require
+      claims to be reserved against the RA bill they relate to; a general
+      "final bill" reservation is often held insufficient. Confirm per contract.
+  # Statutory: MSMED Act 2006 s.15 caps payment to a micro/small supplier at
+  # 45 days; a contract term beyond 45 days is void to that extent.
+  - key: payment
+    label: Payment (MSMED Act — 45-day statutory cap)
+    typical_days: 45
+    expected: true
+    keywords: [payment, MSMED, micro small enterprise, running account, RA bill]
+    note: >
+      MSMED Act 2006 s.15: payment within the agreed date but never beyond
+      45 days of acceptance (15 if no written term). Applies where the
+      contractor is a registered micro/small enterprise.
+  # Price escalation is frequently deleted in Indian tenders — the register
+  # should expect an escalation regime and flag its absence.
   - key: escalation
-    label: Price-escalation / star-rate notice
+    label: Price-escalation / star-rate notice (CPWD 10CC)
     typical_days: 30
     expected: true
-    keywords: [escalation, price variation, star rate, extra item rate]
+    keywords: [escalation, price variation, star rate, extra item rate, 10CC]
     note: >
-      Many CPWD/NHAI tenders bar escalation; where a star-rate/extra-item
-      regime exists it carries its own notice window.
+      CPWD cl.10CC applies escalation on works running beyond a stated period;
+      many tenders delete it. Where a star-rate/extra-item regime exists it
+      carries its own notice window.
   - key: extension_of_time
     label: Extension of time (hindrance register)
     typical_days: 15

@@ -25,6 +25,8 @@ boots and every other feature works with `baseline` disabled.
   - `ingestion.service_factory` — opportunity metadata + confirmed deadlines + clauses.
   - `rulepacks.loader` — the merged notice standard (universal + regional) for
     classification + gap detection (degrades to extraction-only when absent).
+  - `standards.org_notice_provider` — the org's custom notice standard, merged
+    as the third layer (prevail / side-by-side) when present.
 - **Events emitted:** `baseline.sealed` `{opportunity_id, baseline_id, version, source}`.
 - **Events consumed:** none.
 - **API routes** (prefix `/api/baseline`):
@@ -91,7 +93,9 @@ capabilities and copied into the frozen snapshot by value.
   (the notice analogue of risk absence detection) — deterministic, no LLM. Gaps
   and the region are frozen into the snapshot and surfaced in the register and
   handover pack. With `rulepacks` disabled the module degrades to
-  extraction-only (no classification, no gaps).
+  extraction-only (no classification, no gaps). When `standards` is present the
+  org's custom standard is merged as a third layer (spec standards B1) — its
+  regimes participate in classification and gap detection, tagged `origin="org"`.
 
 ## Acceptance criteria
 

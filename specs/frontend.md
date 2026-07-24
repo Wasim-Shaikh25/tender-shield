@@ -25,6 +25,7 @@ one repo (`apps/web` later; starts as `frontend/`).
   opportunities/            # countdown board
   opportunities/[id]/
     overview | risks | boq | artifacts | handover | export
+  standards/                # org-custom notice standards editor (prevail / side-by-side)
   help/                     # static how-to + honest QS-lifecycle scope + disclaimer
   billing/ team/ playbook/
 ```
@@ -43,6 +44,11 @@ one repo (`apps/web` later; starts as `frontend/`).
 - **B7:** access token in memory only; silent refresh on 401; API client
   generated from OpenAPI.
 
+- **B10:** the **Standards** page (`/standards`) lets an admin publish the
+  firm's own notice regimes (key/label/typical-days/keywords/expected) with a
+  prevail vs side-by-side mode. Saved regimes flow into every opportunity's
+  notice register; org-origin gaps are badged "your standard" in the Handover
+  tab.
 - **B9:** the opportunity **Handover** tab (Phase 2) drives baseline lock:
   freeze tender/award baselines (gated on a completed review), lists the sealed
   baselines with their content hashes, shows the deterministic notice-rule

@@ -142,6 +142,27 @@ export const api = {
     req<HandoverPack>(`/baseline/opportunities/${id}/handover`, {}, token),
   compareBaselines: (token: string, id: string) =>
     req<BaselineCompare>(`/baseline/opportunities/${id}/compare`, {}, token),
+  // Org custom notice standards (Phase 2)
+  getOrgStandard: (token: string) =>
+    req<OrgStandard>(`/standards/notice`, {}, token),
+  setOrgStandard: (token: string, body: OrgStandard) =>
+    req<OrgStandard>(`/standards/notice`, { method: "PUT", body: JSON.stringify(body) }, token),
+  clearOrgStandard: (token: string) =>
+    req<{ cleared: boolean }>(`/standards/notice`, { method: "DELETE" }, token),
+};
+
+export type OrgStandardCategory = {
+  key: string;
+  label: string;
+  typical_days: number | null;
+  expected: boolean;
+  keywords: string[];
+  note?: string | null;
+};
+
+export type OrgStandard = {
+  mode: "prevail" | "side_by_side";
+  categories: OrgStandardCategory[];
 };
 
 export type Baseline = {
@@ -168,6 +189,7 @@ export type NoticeGap = {
   label: string;
   typical_days: number | null;
   note: string | null;
+  origin?: string;
 };
 
 export type HandoverPack = {

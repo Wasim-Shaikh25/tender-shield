@@ -36,6 +36,7 @@ class BaselineService:
         review_factory: Callable | None = None,
         ingestion_factory: Callable | None = None,
         loader_provider: Callable[[], object | None] = lambda: None,
+        standards_factory: Callable | None = None,
         publish: Callable[[str, dict], object] = lambda event, payload: None,
         pack_id: str = "in-works",
     ):
@@ -44,6 +45,7 @@ class BaselineService:
         self._review_factory = review_factory
         self._ingestion_factory = ingestion_factory
         self._loader_provider = loader_provider
+        self._standards_factory = standards_factory
         self._publish = publish
         self._pack_id = pack_id
 
@@ -113,60 +115,102 @@ class BaselineService:
             )
         return out
 
-    def _standard(self, region: str | None):
-        """Merged notice standard (universal base + regional overlay) via the
-        rulepacks loader soft dep. None when rulepacks is disabled — the module
-        degrades to extraction-only (spec baseline B8)."""
+    def _rulepack_categories(self, region: str | None) -> list[dict]:
+        """Universal base + regional overlay from the rulepack loader, as dicts
+        tagged origin='standard'. Empty when rulepacks is disabled — the module
+        then degrades to extraction-only (spec baseline B8)."""
         loader = self._loader_provider()
         if loader is None:
-            return None
+            return []
         getter = getattr(loader, "notice_standard", None)
         if getter is None:
+            return []
+        standard = getter(self._pack_id, region)
+        if standard is None:
+            return []
+        out = []
+        for c in standard.categories:
+            d = c.model_dump()
+            d["origin"] = "standard"
+            out.append(d)
+        return out
+
+    def _org_overlay(self, org_id) -> dict | None:
+        """The org's custom notice standard (mode + categories) via capability."""
+        if self._standards_factory is None:
             return None
-        return getter(self._pack_id, region)
+        return self._standards_factory(self.s).get_notice(org_id)
+
+    def _effective_categories(self, org_id, region: str | None) -> list[dict]:
+        """The three-layer merge: universal + regional (rulepack) then the org's
+        custom standard on top (spec standards B1). `prevail` overrides matching
+        keys; `side_by_side` appends the org regimes alongside so both show."""
+        cats = self._rulepack_categories(region)
+        overlay = self._org_overlay(org_id)
+        if not overlay or not overlay.get("categories"):
+            return cats
+        mode = overlay.get("mode", "prevail")
+        by_key = {c["key"]: i for i, c in enumerate(cats)}
+        for oc in overlay["categories"]:
+            entry = {**oc, "origin": "org"}
+            if mode == "prevail" and oc["key"] in by_key:
+                # Org values win, but keep base fields the org omitted.
+                merged = {**cats[by_key[oc["key"]]], **oc, "origin": "org"}
+                cats[by_key[oc["key"]]] = merged
+            else:
+                # side_by_side, or a brand-new org-only regime: append.
+                cats.append(entry)
+        return cats
 
     @staticmethod
-    def _classify(rule: dict, standard) -> str:
+    def _classify(rule: dict, categories: list[dict]) -> str:
         """Assign a semantic notice category to an extracted rule by matching the
-        standard's keywords against its text — deterministic (spec B4/B8)."""
-        if standard is None:
+        effective standard's keywords against its text — deterministic (B4/B8)."""
+        if not categories:
             return rule.get("category", "clause")
         blob = f"{rule.get('trigger', '')} {rule.get('source_quote', '')}".lower()
-        for cat in standard.categories:
-            if any(kw.lower() in blob for kw in cat.keywords):
-                return cat.key
+        for cat in categories:
+            if any(kw.lower() in blob for kw in (cat.get("keywords") or [])):
+                return cat["key"]
         return rule.get("category", "clause")
 
     def _notice_analysis(self, org_id, opportunity_id, findings: list[dict], region: str | None):
         records = findings + self._clause_records(org_id, opportunity_id)
-        standard = self._standard(region)
+        categories = self._effective_categories(org_id, region)
         rules = []
         for r in extract_notice_rules(records):
             d = r.as_dict()
-            d["category"] = self._classify(d, standard)
+            d["category"] = self._classify(d, categories)
             rules.append(d)
         found_keys = {r["category"] for r in rules}
         gaps = []
         std_categories = []
-        if standard is not None:
-            for cat in standard.categories:
-                std_categories.append(
-                    {"key": cat.key, "label": cat.label, "typical_days": cat.typical_days}
+        seen_gap_keys: set[str] = set()
+        for cat in categories:
+            std_categories.append(
+                {
+                    "key": cat["key"],
+                    "label": cat.get("label", cat["key"]),
+                    "typical_days": cat.get("typical_days"),
+                    "origin": cat.get("origin", "standard"),
+                }
+            )
+            # Deterministic gap: an expected regime with no matching window in
+            # the contract — the analogue of risk absence detection.
+            key = cat["key"]
+            if cat.get("expected") and key not in found_keys and key not in seen_gap_keys:
+                seen_gap_keys.add(key)
+                gaps.append(
+                    {
+                        "key": cat["key"],
+                        "label": cat.get("label", cat["key"]),
+                        "typical_days": cat.get("typical_days"),
+                        "note": cat.get("note"),
+                        "origin": cat.get("origin", "standard"),
+                    }
                 )
-                # Deterministic gap: an expected regime with no matching window
-                # in the contract — the analogue of risk absence detection.
-                if cat.expected and cat.key not in found_keys:
-                    gaps.append(
-                        {
-                            "key": cat.key,
-                            "label": cat.label,
-                            "typical_days": cat.typical_days,
-                            "note": cat.note,
-                        }
-                    )
         return {
             "region": region,
-            "standard": None if standard is None else standard.id,
             "rules": rules,
             "gaps": gaps,
             "standard_categories": std_categories,

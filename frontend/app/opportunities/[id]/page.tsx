@@ -573,6 +573,11 @@ function HandoverTab({
                   {g.typical_days != null && (
                     <span className="ml-1 text-amber-500">(usually {g.typical_days}d)</span>
                   )}
+                  {g.origin === "org" && (
+                    <span className="ml-1 rounded bg-ink px-1 text-[10px] font-bold uppercase text-white">
+                      your standard
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>

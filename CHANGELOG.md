@@ -6,6 +6,34 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-24 (session 22: org-custom standards + researched notice figures)
+
+- **TS-047** — the third standards layer: a firm can publish **its own** notice
+  regimes that either **prevail** over or run **side by side** with the
+  universal + regional rule-pack standards (Doc §10 custom playbooks).
+  - New pluggable `standards` module (backend): `org_notice_standards` table
+    (org-scoped + RLS, one row/org), `GET/PUT/DELETE /api/standards/notice`
+    (read = viewer, write = admin), boundary validation (bad mode → 400,
+    duplicate keys → 409). Publishes `standards.org_notice_provider`.
+  - `baseline` now merges three layers — universal → regional → org — when
+    building the notice register + gaps. `prevail` overrides matching regimes
+    (keeping base fields the org omits); `side_by_side` appends. Org regimes are
+    tagged `origin="org"`; an expected org regime absent from a contract becomes
+    a gap. Migration `0011`.
+  - Frontend: `/standards` editor (mode toggle + editable regime rows), nav link,
+    and a "your standard" badge on org-origin gaps in the Handover tab.
+- **Researched, cited notice figures** (you asked me to do the QS research):
+  the universal/India packs now carry real, sourced windows — **FIDIC 2017
+  cl.20.2** (28-day notice / 84-day detailed claim), **NEC4 cl.61.3** (8-week /
+  56-day compensation-event bar), **MSMED Act 2006 s.15** (45-day statutory
+  payment cap), plus **CPWD cl.10CC** escalation and the hindrance-register EOT
+  practice — with a `references.md`. All remain `confidence: unvalidated` pending
+  a QS sign-off (Doc §14).
+- Verified live (UI): the register shows the MSMED 45-day and CPWD 10CC figures
+  from the India overlay, and a firm's own "Site handover" regime flowing through
+  as an org-badged gap.
+- 113 backend tests passing (7 new), ruff clean, frontend builds clean.
+
 ### Done — 2026-07-24 (session 21: layered contract-standards — universal-first, flexible)
 
 - **TS-046** — the flexibility spine the geographic roadmap rides on: **layered

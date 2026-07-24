@@ -1,0 +1,38 @@
+# India overlay (scope: IN). Merged ON TOP of base.yaml by `key`:
+# a category here overrides the universal one; new keys are added.
+# Only the fields that differ from universal need be stated.
+#
+# Reflects Indian public-works practice (CPWD/NHAI/state PWD). Still
+# confidence: unvalidated until a QS signs off (Doc §2.4).
+id: notice_india
+scope: IN
+confidence: unvalidated
+source: >
+  CPWD GCC (2020) and NHAI/MoRTH standard conditions — general public-works
+  notice practice (public documents).
+categories:
+  # CPWD-style claims are typically raised against the running-account bill;
+  # the practical bar is tighter than the FIDIC 28-day norm.
+  - key: claim
+    label: Contractor's claim (CPWD RA-bill practice)
+    typical_days: 15
+    expected: true
+    keywords: [claim, running account, RA bill, protest, without prejudice]
+    note: >
+      CPWD contracts commonly require claims to be lodged against the RA bill
+      it relates to; a general "final bill" reservation is often insufficient.
+  # Price escalation is frequently deleted outright in Indian tenders — the
+  # register should expect an escalation-notice regime and flag its absence.
+  - key: escalation
+    label: Price-escalation / star-rate notice
+    typical_days: 30
+    expected: true
+    keywords: [escalation, price variation, star rate, extra item rate]
+    note: >
+      Many CPWD/NHAI tenders bar escalation; where a star-rate/extra-item
+      regime exists it carries its own notice window.
+  - key: extension_of_time
+    label: Extension of time (hindrance register)
+    typical_days: 15
+    keywords: [extension of time, EOT, hindrance register, delay]
+    note: Indian PWD practice ties EOT to a contemporaneous hindrance register.

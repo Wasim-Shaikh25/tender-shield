@@ -131,11 +131,13 @@ export const api = {
   listBaselines: (token: string, id: string) =>
     req<{ baselines: Baseline[] }>(`/baseline/opportunities/${id}/baselines`, {}, token),
   noticeRegister: (token: string, id: string) =>
-    req<{ source: string; version: number | null; rules: NoticeRule[] }>(
-      `/baseline/opportunities/${id}/notice-register`,
-      {},
-      token
-    ),
+    req<{
+      source: string;
+      version: number | null;
+      region: string | null;
+      rules: NoticeRule[];
+      gaps: NoticeGap[];
+    }>(`/baseline/opportunities/${id}/notice-register`, {}, token),
   handover: (token: string, id: string) =>
     req<HandoverPack>(`/baseline/opportunities/${id}/handover`, {}, token),
   compareBaselines: (token: string, id: string) =>
@@ -161,6 +163,13 @@ export type NoticeRule = {
   source_quote: string | null;
 };
 
+export type NoticeGap = {
+  key: string;
+  label: string;
+  typical_days: number | null;
+  note: string | null;
+};
+
 export type HandoverPack = {
   version: number;
   source: string;
@@ -169,6 +178,7 @@ export type HandoverPack = {
   opportunity: Record<string, string | null>;
   key_obligations: Finding[];
   notice_register: NoticeRule[];
+  notice_gaps: NoticeGap[];
   deadline_calendar: Array<{ kind: string; due_at: string | null; source_page: number | null }>;
   counts: Record<string, number>;
 };

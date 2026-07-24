@@ -40,6 +40,24 @@ def test_validated_only_hides_unvalidated_patterns():
     assert len(loader.list_patterns("in-works")) == 5
 
 
+def test_notice_standard_universal_base_and_india_overlay():
+    loader = RulePackLoader()
+    # Universal base standard on its own.
+    base = loader.notice_standard("in-works")
+    keys = {c.key: c for c in base.categories}
+    assert keys["claim"].typical_days == 28  # FIDIC-norm universal default
+    assert "escalation" not in keys  # India-specific, not in the base
+
+    # India overlay merged ON TOP: claim tightened, escalation added, others kept.
+    india = loader.notice_standard("in-works", "IN")
+    ik = {c.key: c for c in india.categories}
+    assert ik["claim"].typical_days == 15  # overridden by the India overlay
+    assert "escalation" in ik  # region-only category appended
+    assert ik["escalation"].expected is True
+    assert ik["defect"].typical_days == 14  # untouched base category survives
+    assert india.scope == "IN"
+
+
 def test_malformed_pattern_is_skipped_not_fatal(tmp_path: Path):
     pack_dir = tmp_path / "broken-pack"
     (pack_dir / "risk_patterns").mkdir(parents=True)

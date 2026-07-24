@@ -22,7 +22,9 @@ boots and every other feature works with `baseline` disabled.
 - **Capabilities consumed** (registry only — never imported):
   - `findings.store_factory` — read reviewed findings.
   - `review.service_factory` — the export/freeze gate + audit log.
-  - `ingestion.service_factory` — opportunity metadata + confirmed deadlines.
+  - `ingestion.service_factory` — opportunity metadata + confirmed deadlines + clauses.
+  - `rulepacks.loader` — the merged notice standard (universal + regional) for
+    classification + gap detection (degrades to extraction-only when absent).
 - **Events emitted:** `baseline.sealed` `{opportunity_id, baseline_id, version, source}`.
 - **Events consumed:** none.
 - **API routes** (prefix `/api/baseline`):
@@ -81,6 +83,15 @@ capabilities and copied into the frozen snapshot by value.
   baseline (`no_baseline` otherwise).
 - **B7 — Org isolation.** Every query is filtered by `org_id` explicitly
   (defence in depth alongside RLS), like every other module.
+- **B8 — Standards-aware register + gap detection.** When `rulepacks` is present,
+  the notice register is analysed against the merged notice standard for the
+  opportunity's jurisdiction (universal base + regional overlay, spec rulepacks
+  B7). Each extracted window is classified into a semantic category by keyword
+  match; every **expected** category with no matching window becomes a `gap`
+  (the notice analogue of risk absence detection) — deterministic, no LLM. Gaps
+  and the region are frozen into the snapshot and surfaced in the register and
+  handover pack. With `rulepacks` disabled the module degrades to
+  extraction-only (no classification, no gaps).
 
 ## Acceptance criteria
 

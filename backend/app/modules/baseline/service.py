@@ -35,13 +35,17 @@ class BaselineService:
         findings_factory: Callable | None = None,
         review_factory: Callable | None = None,
         ingestion_factory: Callable | None = None,
+        loader_provider: Callable[[], object | None] = lambda: None,
         publish: Callable[[str, dict], object] = lambda event, payload: None,
+        pack_id: str = "in-works",
     ):
         self.s = session
         self._findings_factory = findings_factory
         self._review_factory = review_factory
         self._ingestion_factory = ingestion_factory
+        self._loader_provider = loader_provider
         self._publish = publish
+        self._pack_id = pack_id
 
     # ---- reads from other modules (capabilities only) ---------------------
     def _accepted_findings(self, org_id, opportunity_id) -> list[dict]:
@@ -109,9 +113,64 @@ class BaselineService:
             )
         return out
 
-    def _notice_rules(self, org_id, opportunity_id, findings: list[dict]) -> list[dict]:
+    def _standard(self, region: str | None):
+        """Merged notice standard (universal base + regional overlay) via the
+        rulepacks loader soft dep. None when rulepacks is disabled — the module
+        degrades to extraction-only (spec baseline B8)."""
+        loader = self._loader_provider()
+        if loader is None:
+            return None
+        getter = getattr(loader, "notice_standard", None)
+        if getter is None:
+            return None
+        return getter(self._pack_id, region)
+
+    @staticmethod
+    def _classify(rule: dict, standard) -> str:
+        """Assign a semantic notice category to an extracted rule by matching the
+        standard's keywords against its text — deterministic (spec B4/B8)."""
+        if standard is None:
+            return rule.get("category", "clause")
+        blob = f"{rule.get('trigger', '')} {rule.get('source_quote', '')}".lower()
+        for cat in standard.categories:
+            if any(kw.lower() in blob for kw in cat.keywords):
+                return cat.key
+        return rule.get("category", "clause")
+
+    def _notice_analysis(self, org_id, opportunity_id, findings: list[dict], region: str | None):
         records = findings + self._clause_records(org_id, opportunity_id)
-        return [r.as_dict() for r in extract_notice_rules(records)]
+        standard = self._standard(region)
+        rules = []
+        for r in extract_notice_rules(records):
+            d = r.as_dict()
+            d["category"] = self._classify(d, standard)
+            rules.append(d)
+        found_keys = {r["category"] for r in rules}
+        gaps = []
+        std_categories = []
+        if standard is not None:
+            for cat in standard.categories:
+                std_categories.append(
+                    {"key": cat.key, "label": cat.label, "typical_days": cat.typical_days}
+                )
+                # Deterministic gap: an expected regime with no matching window
+                # in the contract — the analogue of risk absence detection.
+                if cat.expected and cat.key not in found_keys:
+                    gaps.append(
+                        {
+                            "key": cat.key,
+                            "label": cat.label,
+                            "typical_days": cat.typical_days,
+                            "note": cat.note,
+                        }
+                    )
+        return {
+            "region": region,
+            "standard": None if standard is None else standard.id,
+            "rules": rules,
+            "gaps": gaps,
+            "standard_categories": std_categories,
+        }
 
     def _opportunity_meta(self, org_id, opportunity_id) -> dict:
         if self._ingestion_factory is None:
@@ -140,17 +199,23 @@ class BaselineService:
     def _build_snapshot(self, org_id, opportunity_id, source: str) -> dict:
         findings = self._accepted_findings(org_id, opportunity_id)
         deadlines = self._confirmed_deadlines(org_id, opportunity_id)
-        notice_rules = self._notice_rules(org_id, opportunity_id, findings)
+        meta = self._opportunity_meta(org_id, opportunity_id)
+        analysis = self._notice_analysis(
+            org_id, opportunity_id, findings, meta.get("jurisdiction")
+        )
         return {
             "source": source,
-            "opportunity": self._opportunity_meta(org_id, opportunity_id),
+            "opportunity": meta,
             "findings": findings,
             "deadlines": deadlines,
-            "notice_rules": notice_rules,
+            "notice_rules": analysis["rules"],
+            "notice_gaps": analysis["gaps"],
+            "notice_region": analysis["region"],
             "counts": {
                 "findings": len(findings),
                 "deadlines": len(deadlines),
-                "notice_rules": len(notice_rules),
+                "notice_rules": len(analysis["rules"]),
+                "notice_gaps": len(analysis["gaps"]),
             },
         }
 
@@ -257,11 +322,26 @@ class BaselineService:
         to the live accepted findings when nothing is sealed yet."""
         latest = self.latest(org_id, opportunity_id)
         if latest is not None:
-            rules = latest.snapshot.get("notice_rules", [])
-            return {"source": "baseline", "version": latest.version, "rules": rules}
+            snap = latest.snapshot
+            return {
+                "source": "baseline",
+                "version": latest.version,
+                "region": snap.get("notice_region"),
+                "rules": snap.get("notice_rules", []),
+                "gaps": snap.get("notice_gaps", []),
+            }
         findings = self._accepted_findings(org_id, opportunity_id)
-        rules = self._notice_rules(org_id, opportunity_id, findings)
-        return {"source": "live", "version": None, "rules": rules}
+        meta = self._opportunity_meta(org_id, opportunity_id)
+        analysis = self._notice_analysis(
+            org_id, opportunity_id, findings, meta.get("jurisdiction")
+        )
+        return {
+            "source": "live",
+            "version": None,
+            "region": analysis["region"],
+            "rules": analysis["rules"],
+            "gaps": analysis["gaps"],
+        }
 
     @staticmethod
     def _by_identity(findings: list[dict]) -> dict[tuple[str, str], dict]:
@@ -316,6 +396,7 @@ class BaselineService:
             "opportunity": snap.get("opportunity", {}),
             "key_obligations": obligations,
             "notice_register": snap.get("notice_rules", []),
+            "notice_gaps": snap.get("notice_gaps", []),
             "deadline_calendar": snap.get("deadlines", []),
             "counts": snap.get("counts", {}),
         }

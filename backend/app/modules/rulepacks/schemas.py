@@ -50,6 +50,29 @@ class DocType(BaseModel):
     anchors: list[str] = Field(min_length=1)
 
 
+class NoticeCategory(BaseModel):
+    """One contractual notice regime (e.g. a claim time-bar). Universal by
+    default; a regional overlay may override any field by `key` (spec
+    rulepacks B7)."""
+
+    key: str
+    label: str
+    typical_days: int | None = None
+    # Whether a well-formed contract of this standard is expected to carry the
+    # regime — drives deterministic gap detection when the contract omits it.
+    expected: bool = False
+    keywords: list[str] = Field(default_factory=list)
+    note: str | None = None
+
+
+class NoticeStandard(BaseModel):
+    id: str
+    scope: str = "universal"  # "universal" | a region/jurisdiction code (e.g. "IN")
+    confidence: Literal["unvalidated", "validated"] = "unvalidated"
+    source: str = Field(min_length=1)
+    categories: list[NoticeCategory] = Field(default_factory=list)
+
+
 class BoqCheckConfig(BaseModel):
     arithmetic_tolerance: float = 1.0
     qty_outlier_quantile: float = 0.99
@@ -76,6 +99,9 @@ class RulePack(BaseModel):
     boq_checks: BoqCheckConfig = Field(default_factory=BoqCheckConfig)
     trade_checklists: dict[str, TradeChecklist] = Field(default_factory=dict)
     playbooks: dict[str, dict] = Field(default_factory=dict)
+    # Keyed by scope ("universal", "IN", …). Merged on demand via
+    # RulePackLoader.notice_standard(region).
+    notice_standards: dict[str, NoticeStandard] = Field(default_factory=dict)
     load_errors: dict[str, str] = Field(default_factory=dict)
 
     @property

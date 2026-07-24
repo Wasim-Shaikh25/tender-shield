@@ -12,6 +12,7 @@ import {
   type Gate,
   type HandoverPack,
   type MissingDocs,
+  type NoticeGap,
   type NoticeRule,
 } from "@/lib/api";
 import { useSession } from "@/components/session";
@@ -57,6 +58,8 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [baselines, setBaselines] = useState<Baseline[]>([]);
   const [notices, setNotices] = useState<NoticeRule[]>([]);
+  const [noticeGaps, setNoticeGaps] = useState<NoticeGap[]>([]);
+  const [noticeRegion, setNoticeRegion] = useState<string | null>(null);
   const [handoverPack, setHandoverPack] = useState<HandoverPack | null>(null);
   const [compareData, setCompareData] = useState<BaselineCompare | null>(null);
   const [busy, setBusy] = useState(false);
@@ -71,7 +74,14 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
     api.gate(session.token, id).then(setGate).catch(() => {});
     api.listArtifacts(session.token, id).then((a) => setArtifacts(a.artifacts)).catch(() => {});
     api.listBaselines(session.token, id).then((b) => setBaselines(b.baselines)).catch(() => {});
-    api.noticeRegister(session.token, id).then((n) => setNotices(n.rules)).catch(() => {});
+    api
+      .noticeRegister(session.token, id)
+      .then((n) => {
+        setNotices(n.rules);
+        setNoticeGaps(n.gaps);
+        setNoticeRegion(n.region);
+      })
+      .catch(() => {});
     api.handover(session.token, id).then(setHandoverPack).catch(() => setHandoverPack(null));
     api.compareBaselines(session.token, id).then(setCompareData).catch(() => setCompareData(null));
   }, [session, id]);
@@ -426,6 +436,8 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
           gate={gate}
           baselines={baselines}
           notices={notices}
+          noticeGaps={noticeGaps}
+          noticeRegion={noticeRegion}
           pack={handoverPack}
           compare={compareData}
           busy={busy}
@@ -440,6 +452,8 @@ function HandoverTab({
   gate,
   baselines,
   notices,
+  noticeGaps,
+  noticeRegion,
   pack,
   compare,
   busy,
@@ -448,6 +462,8 @@ function HandoverTab({
   gate: Gate | null;
   baselines: Baseline[];
   notices: NoticeRule[];
+  noticeGaps: NoticeGap[];
+  noticeRegion: string | null;
   pack: HandoverPack | null;
   compare: BaselineCompare | null;
   busy: boolean;
@@ -503,7 +519,14 @@ function HandoverTab({
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-6">
-        <h3 className="font-semibold text-ink">Notice-rule register</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-ink">Notice-rule register</h3>
+          {noticeRegion && (
+            <span className="rounded-full bg-ink/5 px-2.5 py-1 text-xs font-semibold text-ink">
+              standard: universal + {noticeRegion}
+            </span>
+          )}
+        </div>
         <p className="mt-1 text-xs text-slate-500">
           Contractual time windows extracted deterministically — the traps that become time-bar
           countdowns. Each carries its page citation.
@@ -529,6 +552,31 @@ function HandoverTab({
               </li>
             ))}
           </ul>
+        )}
+        {noticeGaps.length > 0 && (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <h4 className="text-sm font-semibold text-amber-900">
+              Expected notice regimes not found in this contract
+            </h4>
+            <p className="mt-1 text-xs text-amber-800">
+              The standard expects these; the pack has no explicit window. Confirm against the
+              originals — an absent regime can itself be a trap.
+            </p>
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {noticeGaps.map((g) => (
+                <li
+                  key={g.key}
+                  className="rounded-full bg-white px-2.5 py-1 text-xs text-amber-800 ring-1 ring-amber-200"
+                  title={g.note ?? undefined}
+                >
+                  {g.label}
+                  {g.typical_days != null && (
+                    <span className="ml-1 text-amber-500">(usually {g.typical_days}d)</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
 

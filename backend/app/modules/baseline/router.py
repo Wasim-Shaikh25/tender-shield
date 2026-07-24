@@ -28,6 +28,7 @@ def _service(request: Request, session: Session) -> BaselineService:
         findings_factory=reg.get("findings.store_factory"),
         review_factory=reg.get("review.service_factory"),
         ingestion_factory=reg.get("ingestion.service_factory"),
+        loader_provider=lambda: reg.get("rulepacks.loader"),
         publish=request.app.state.ctx.events.publish,
     )
 

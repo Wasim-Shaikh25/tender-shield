@@ -6,6 +6,35 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-24 (session 21: layered contract-standards — universal-first, flexible)
+
+- **TS-046** — the flexibility spine the geographic roadmap rides on: **layered
+  notice standards** as versioned data (`rulepacks/in-works/notice_standards/`).
+  - `base.yaml` (scope `universal`) defines the contract-form-agnostic notice
+    regimes (claim, variation, EOT, payment, defect, termination, dispute) with
+    typical windows, `expected` flags and keywords; `india.yaml` (scope `IN`) is
+    an **overlay** that tightens the claim window (28→15d), retimes EOT to the
+    hindrance-register practice, and adds the India-only escalation/star-rate
+    regime.
+  - `RulePackLoader.notice_standard(pack_id, region)` merges universal + regional:
+    a regional category overrides the base **only in the fields it explicitly
+    sets** (`exclude_unset`, so an omitted `expected` keeps the base value —
+    this was a real bug, fixed), region-only categories append. **Adding a new
+    market or an unexpected clause type is now a YAML file, not a code change** —
+    the exact seam the future GCC (FIDIC) / UK (NEC/JCT) packs plug into.
+  - The `baseline` notice register is now **standards-aware**: each extracted
+    window is classified into a semantic category, and every *expected* regime
+    with no window in the contract is flagged as a **gap** (the notice analogue
+    of risk absence detection) — deterministic, no LLM. Region + gaps are frozen
+    into the sealed snapshot and shown in the handover pack. Degrades to
+    extraction-only when `rulepacks` is disabled.
+  - Frontend Handover tab: "standard: universal + IN" badge, semantic categories,
+    and an amber "expected notice regimes not found" panel.
+  - Verified live (UI): a claims-only contract correctly flags Variation, EOT
+    (hindrance-register, 15d), Payment, Termination and Price-escalation (30d) as
+    gaps — the India overlay visibly in effect.
+- 108 backend tests passing (3 new), ruff clean, frontend builds clean.
+
 ### Done — 2026-07-24 (session 20: Phase-2 baseline lock — end to end)
 
 - **TS-041** — new pluggable `baseline` module (backend), the first Phase-2

@@ -10,6 +10,8 @@ from pydantic import ValidationError
 
 from app.modules.rulepacks.schemas import (
     DocType,
+    NoticeCategory,
+    NoticeStandard,
     PackMeta,
     RiskPattern,
     RulePack,
@@ -87,8 +89,49 @@ class RulePackLoader:
             playbook = _read_yaml(path)
             pack.playbooks[playbook.get("id", path.stem)] = playbook
 
+        for path in _glob_yaml(pack_dir / "notice_standards"):
+            try:
+                std = NoticeStandard.model_validate(_read_yaml(path))
+                pack.notice_standards[std.scope] = std
+            except (ValidationError, yaml.YAMLError) as exc:
+                pack.load_errors[f"notice_standards/{path.name}"] = str(exc)
+                logger.error("skipping malformed notice standard %s in pack %r", path.name, pack_id)
+
         self._cache[pack_id] = pack
         return pack
+
+    def notice_standard(
+        self, pack_id: str, region: str | None = None
+    ) -> NoticeStandard | None:
+        """The universal base standard with the region overlay merged on top
+        (spec rulepacks B7 — universal-first, regional refinement). A regional
+        category overrides the base category with the same `key`; region-only
+        categories are appended. Returns the base alone when no region is given
+        or the region has no overlay; None when no standard is defined at all."""
+        pack = self.get_pack(pack_id)
+        base = pack.notice_standards.get("universal")
+        overlay = pack.notice_standards.get(region) if region else None
+        if base is None:
+            return overlay
+        if overlay is None:
+            return base
+        merged: dict[str, NoticeCategory] = {c.key: c for c in base.categories}
+        for cat in overlay.categories:
+            if cat.key in merged:
+                # Override ONLY the fields the overlay explicitly set, so an
+                # omitted field (e.g. `expected`) keeps the base value rather
+                # than reverting to the model default.
+                patch = cat.model_dump(exclude_unset=True)
+                merged[cat.key] = merged[cat.key].model_copy(update=patch)
+            else:
+                merged[cat.key] = cat
+        return NoticeStandard(
+            id=f"{base.id}+{overlay.id}",
+            scope=overlay.scope,
+            confidence=overlay.confidence,
+            source=f"{base.source}; {overlay.source}",
+            categories=list(merged.values()),
+        )
 
     def list_patterns(self, pack_id: str, *, validated_only: bool = False) -> list[RiskPattern]:
         """validated_only=True is the paying-user view (spec rulepacks B2)."""

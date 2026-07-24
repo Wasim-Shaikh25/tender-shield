@@ -85,6 +85,7 @@ config-flagged, fully decoupled module so it ships without disturbing Phase-1.
 |---|---|---|---|---|
 | TS-041 | `baseline` module: hash-sealed baseline freeze (immutable snapshot of accepted findings + confirmed deadlines + opportunity meta), integrity verify, deterministic notice-rule register (findings + clauses), award-vs-tender delta, commercial handover pack | Doc §0.1 (P2), §10, §1.2 | `specs/modules/baseline.md` | done |
 | TS-042 | Frontend: opportunity "Handover" tab — freeze baseline, notice register, award-vs-tender delta, handover pack | Doc §9, §0.1 | `specs/frontend.md` | done |
+| TS-046 | Layered contract-standards rulepack (universal base + regional overlay, merged at load) + standards-aware notice register with expected-regime gap detection. The flexibility spine: new market/clause type = a YAML file, no code change. | Doc §0.1, §2 (rule-packs as data), §10 | `specs/modules/rulepacks.md`, `specs/modules/baseline.md` | done |
 | TS-043 | Notice-deadline countdowns + alerts driven by the notice-rule register (wire register → deadline/notification path) | Doc §0.1 (P3), §10 | `specs/modules/baseline.md` | todo |
 | TS-044 | Award-document ingestion: parse negotiated contract / award letter so the award baseline seals from real award text | Doc §0.1 (P2/P3) | `specs/modules/baseline.md` | todo |
 | TS-045 | Handover-pack file export (DOCX/PDF) reusing the export renderer | Doc §1.1(8), §0.1 | `specs/modules/baseline.md` | todo |

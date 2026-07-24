@@ -1,0 +1,50 @@
+# Universal notice-standard (scope: universal).
+#
+# The contract-form-agnostic baseline of notice regimes a well-formed
+# construction contract is expected to carry. Regional packs (india.yaml,
+# future gcc.yaml/uk.yaml) OVERRIDE these by `key` — this file is the
+# universal-first layer. Data only; no code changes to add a market.
+#
+# confidence: unvalidated until a QS signs off (Doc §2.4, §14).
+id: notice_base
+scope: universal
+confidence: unvalidated
+source: >
+  Common construction-contract practice; FIDIC Red Book 1999 cl.20.1 and NEC4
+  cl.61.3 published clause structures (public outlines only).
+categories:
+  - key: claim
+    label: Contractor's claim / time-bar
+    typical_days: 28
+    expected: true
+    keywords: [claim, entitlement, time-barred, notify, notice of claim]
+  - key: variation
+    label: Variation / change instruction
+    typical_days: 14
+    expected: true
+    keywords: [variation, change order, instruction, extra work, deviation]
+  - key: extension_of_time
+    label: Extension of time (EOT)
+    typical_days: 28
+    expected: true
+    keywords: [extension of time, EOT, delay, prolongation, completion date]
+  - key: payment
+    label: Payment / interim application
+    typical_days: 14
+    expected: true
+    keywords: [payment, interim, invoice, running account, RA bill, certificate]
+  - key: defect
+    label: Defect / rectification notice
+    typical_days: 14
+    expected: false
+    keywords: [defect, rectification, making good, snag, latent defect]
+  - key: termination
+    label: Termination / cure notice
+    typical_days: 14
+    expected: true
+    keywords: [terminate, termination, cure, breach, default notice]
+  - key: dispute
+    label: Dispute / arbitration notice
+    typical_days: 28
+    expected: false
+    keywords: [dispute, arbitration, adjudication, notice of dissatisfaction]

@@ -2,7 +2,7 @@
 
 **Status:** implemented (scaffold + Phase-0 patterns)
 **Requirement refs:** Doc §2, §14
-**Task refs:** TS-007, TS-008, TS-009
+**Task refs:** TS-007, TS-008, TS-009, TS-046
 
 ## Purpose
 
@@ -41,6 +41,18 @@ citable references, and golden tests. Launch pack: `in-works` (India works).
   (`Cum/cum/m3/CuM/M³`, `Rmt/RM/m`, `MT/tonne/Ton`, `Sqm/m2/SqM`) (Doc §2.1).
 - **B6 (loader safety):** loader validates YAML against Pydantic schemas at load;
   a malformed pattern is skipped with an error, never crashes the app.
+- **B7 (layered standards — universal-first):** notice standards live under
+  `notice_standards/*.yaml`, each with a `scope` (`universal` or a region code
+  like `IN`). `RulePackLoader.notice_standard(pack_id, region)` returns the
+  **universal base with the regional overlay merged on top**: a regional
+  category overrides the base category with the same `key` **only in the fields
+  it explicitly sets** (`exclude_unset` — an omitted field keeps the base
+  value), and region-only categories are appended. This is the flexibility
+  mechanism the whole geographic roadmap rides on — adding a market or an
+  unexpected clause type is a new YAML file, never a code change. Each category
+  carries `expected` (whether a well-formed contract should include the regime),
+  `typical_days`, and matching `keywords`; `source` + `confidence` remain
+  mandatory (B1/B2 apply).
 
 ## Acceptance criteria
 
@@ -48,7 +60,12 @@ citable references, and golden tests. Launch pack: `in-works` (India works).
 - A2: the 5 Phase-0 patterns (payment_terms, price_escalation, liquidated_damages,
   defect_liability, termination) load with `confidence: unvalidated` and `source:`.
 - A3: filtering by `confidence` works (`validated_only=True` hides unvalidated).
+- A4: `notice_standard("in-works")` returns the universal base; adding region
+  `"IN"` tightens the `claim` window (28→15d), appends the India-only
+  `escalation` category, and leaves untouched base categories intact (B7).
 
 ## Out of scope
 
-`gcc-fidic` and `uk-jct-nec` packs (Phases 4–5); employer-family baselines (P2).
+`gcc-fidic` and `uk-jct-nec` packs (Phases 4–5) — but B7's layering is exactly
+the seam they plug into (a `gcc.yaml`/`uk.yaml` overlay); employer-family
+baselines beyond notice standards (P2).

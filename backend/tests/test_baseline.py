@@ -195,6 +195,38 @@ def test_notice_register_reads_clauses_without_llm(client):
         f"/api/baseline/opportunities/{opp_id}/notice-register", headers=headers
     ).json()
     assert any(r["days"] == 14 for r in reg["rules"])
+    # The 14-day window mentions "claim" → classified against the standard.
+    assert any(r["category"] == "claim" for r in reg["rules"])
+
+
+def test_notice_register_flags_expected_regime_gaps(client):
+    # Standards-aware: a contract with only a claims window should still flag the
+    # OTHER expected regimes (EOT, payment, variation, …) as gaps — universal
+    # base + India overlay drive this deterministically, no LLM.
+    headers = _auth(client)
+    opp_id = client.post(
+        "/api/ingestion/opportunities", json={"title": "Depot"}, headers=headers
+    ).json()["id"]
+    client.post(
+        f"/api/ingestion/opportunities/{opp_id}/documents",
+        json={
+            "filename": "gcc.pdf",
+            "sample_text": (
+                "[p3]\nClause 44 — Claims. Notify any claim within 14 days, "
+                "failing which it is time-barred."
+            ),
+        },
+        headers=headers,
+    )
+    reg = client.get(
+        f"/api/baseline/opportunities/{opp_id}/notice-register", headers=headers
+    ).json()
+    assert reg["region"] == "IN"
+    gap_keys = {g["key"] for g in reg["gaps"]}
+    # claim is present, so it must NOT be a gap; EOT/payment are expected + absent.
+    assert "claim" not in gap_keys
+    assert "extension_of_time" in gap_keys
+    assert "payment" in gap_keys
 
 
 def test_app_boots_with_baseline_disabled():

@@ -49,23 +49,27 @@ const STEPS = [
   },
 ];
 
-const COVERAGE: { area: string; state: "yes" | "partial" | "no"; note: string }[] = [
-  { area: "Pre-bid tender & contract risk review", state: "yes", note: "Risk register with verbatim citations and rule-based severity." },
-  { area: "Deadline / submission timeline extraction", state: "yes", note: "Deterministic date parsing with page-level provenance." },
-  { area: "BOQ arithmetic & consistency assurance", state: "yes", note: "Rate×qty, totals, blanks, duplicates, unit and outlier checks — no LLM maths." },
-  { area: "Scope-gap detection", state: "yes", note: "Trade checklists cross-referenced against spec / BOQ (e.g. missing dewatering)." },
-  { area: "Bid-decision artifacts", state: "yes", note: "Clarification letter, assumptions register, bid-review pack — validated & gated." },
-  { area: "Cost estimating & rate build-up", state: "no", note: "Not built. TenderShield reads the pack; it does not price the job." },
-  { area: "Drawing take-off / measurement", state: "no", note: "Not built. No CAD/BIM quantity measurement." },
-  { area: "BOQ preparation / bill authoring", state: "no", note: "Not built. It audits a BOQ; it does not compile one from drawings." },
-  { area: "Interim valuations & payment certificates", state: "no", note: "Not built — post-award commercial control is out of the current scope." },
-  { area: "Variations, claims & final account", state: "no", note: "Not built — post-award change management is out of the current scope." },
+const COVERAGE: { area: string; state: "now" | "planned" | "never"; note: string }[] = [
+  { area: "Pre-bid tender & contract risk review", state: "now", note: "Risk register with verbatim citations and rule-based severity." },
+  { area: "Deadline / submission timeline extraction", state: "now", note: "Deterministic date parsing with page-level provenance." },
+  { area: "BOQ arithmetic & consistency assurance", state: "now", note: "Rate×qty, totals, blanks, duplicates, unit and outlier checks — no LLM maths." },
+  { area: "Scope-gap detection", state: "now", note: "Trade checklists cross-referenced against spec / BOQ (e.g. missing dewatering)." },
+  { area: "Bid-decision artifacts", state: "now", note: "Clarification letter, assumptions register, bid-review pack — validated & gated." },
+  { area: "Baseline lock & commercial handover pack", state: "planned", note: "Phase 2: freeze the accepted BOQ + contract at award so tender knowledge survives handover." },
+  { area: "Change / variation inbox & notice drafts", state: "planned", note: "Phase 3: potential-variation tracking with notice drafts populated from verified facts." },
+  { area: "Contractual notice / time-bar engine", state: "planned", note: "Phase 3+: 7/14/28-day windows, FIDIC 20.1 and NEC compensation-event bars." },
+  { area: "Cross-tender outcome graph", state: "planned", note: "Phase 3: learn which risks actually materialised across your bids — the data moat." },
+  { area: "Cost estimating & rate build-up", state: "never", note: "TenderShield reads and audits the pack; it does not price the job." },
+  { area: "Drawing take-off / measurement", state: "never", note: "No CAD/BIM quantity extraction (gated in the doc until text findings are trusted)." },
+  { area: "BOQ preparation / bill authoring", state: "never", note: "It audits a BOQ; it does not compile one from drawings." },
+  { area: "Interim valuations & payment certificates", state: "never", note: "Post-award payment certification is not TenderShield's job." },
+  { area: "BIM / clash detection, live pricing, CPM scheduling, legal opinions", state: "never", note: "Explicitly ruled out in the build doc (§0.2)." },
 ];
 
 const BADGE = {
-  yes: { text: "Covered", cls: "bg-emerald-100 text-emerald-700" },
-  partial: { text: "Partial", cls: "bg-amber-100 text-amber-700" },
-  no: { text: "Not covered", cls: "bg-slate-200 text-slate-600" },
+  now: { text: "Covered now", cls: "bg-emerald-100 text-emerald-700" },
+  planned: { text: "On the roadmap", cls: "bg-amber-100 text-amber-700" },
+  never: { text: "Not ours", cls: "bg-slate-200 text-slate-600" },
 } as const;
 
 export default function HelpPage() {
@@ -128,12 +132,14 @@ export default function HelpPage() {
           Does it cover the full QS lifecycle?
         </h2>
         <p className="text-sm text-slate-600">
-          Honestly — <b>no, and it is not meant to.</b> Quantity surveying spans the whole project:
-          estimating, take-off, tender pricing, then post-award valuations, variations and the final
-          account. TenderShield deliberately owns one slice of that: the <b>pre-bid review</b> —
-          deciding whether and how to bid, with the risks and BOQ defects laid bare. It is a
-          decision-support tool for the bid/no-bid moment, not a replacement for QS software or a
-          quantity surveyor.
+          Not all of it today — and not the parts other software already does well. Quantity
+          surveying spans estimating, take-off and pricing, then post-award valuations, variations and
+          the final account. TenderShield starts at the <b>pre-bid review</b> — deciding whether and
+          how to bid, with the risks and BOQ defects laid bare — then follows the contract forward
+          into <b>baseline lock</b> and <b>change / notice management</b> on the roadmap. It is not
+          here to replace your estimating or measurement software; it fills the commercial-intelligence
+          gap those tools leave open. The table below is honest about what runs today, what is planned,
+          and what is deliberately not ours to build.
         </p>
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full text-left text-sm">
@@ -162,6 +168,29 @@ export default function HelpPage() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold text-ink">Where it goes beyond typical QS tools</h2>
+        <p className="text-sm text-slate-600">
+          Estimating and measurement packages are strong at quantities and rates. They rarely read
+          the contract, and they never track the clock. TenderShield fills that gap:
+        </p>
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {[
+            ["Reads the contract, not just the bill", "Surfaces uncapped LDs, deleted escalation and one-sided termination — quoted verbatim with a page citation."],
+            ["Tracks the clock", "Deadline wall now; contractual notice / time-bar windows (7/14/28-day, FIDIC 20.1, NEC CE) on the roadmap — the traps that cost crores when missed."],
+            ["Compares against your playbook", "Flags where a tender deviates from your firm's standard acceptable terms, not just what the numbers are."],
+            ["Learns across tenders", "The cross-tender outcome graph records which flagged risks actually materialised — a data moat no spreadsheet has."],
+            ["Every fact is inspectable", "Provenance and a verified verbatim quote on each finding; trust by inspection, not by faith."],
+            ["Numbers never come from AI", "All arithmetic and severity scoring is deterministic code — the AI drafts prose, it never invents a figure."],
+          ].map(([t, d]) => (
+            <li key={t} className="rounded-lg border border-slate-200 bg-white p-4">
+              <h3 className="text-sm font-semibold text-ink">{t}</h3>
+              <p className="mt-1 text-sm text-slate-600">{d}</p>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="rounded-xl border border-amber-200 bg-amber-50 p-5">

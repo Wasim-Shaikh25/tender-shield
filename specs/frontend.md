@@ -44,9 +44,13 @@ one repo (`apps/web` later; starts as `frontend/`).
   generated from OpenAPI.
 
 - **B8:** the Help page (`/help`) is a static server component: an 8-step
-  how-to-use walkthrough, the never-broken safety rules, an honest
-  QS-lifecycle coverage table (what is covered vs. deliberately out of scope),
-  and a not-legal/QS-advice disclaimer (Doc §11.4). It is reachable from the
+  how-to-use walkthrough, the never-broken safety rules, a three-bucket
+  QS-lifecycle coverage table (**Covered now** = Phase-1 pre-bid slice;
+  **On the roadmap** = baseline lock / change-notice / time-bar engine /
+  outcome graph per Doc §0.1, §1.2; **Not ours** = takeoff / BIM / pricing /
+  CPM / legal opinions per §0.2), a "where it goes beyond typical QS tools"
+  differentiator list, and a not-legal/QS-advice disclaimer (Doc §11.4). The
+  table must not flatten roadmap items into "not covered." Reachable from the
   header nav.
 
 ## Acceptance criteria

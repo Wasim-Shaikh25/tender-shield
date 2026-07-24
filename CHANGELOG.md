@@ -23,6 +23,16 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   - a not-legal / not-QS-certification **disclaimer** (Doc §11.4) reinforcing that
     findings are prompts for a qualified human, which is why the accept/reject
     step exists.
+- **Scope framing corrected (same session):** the coverage table no longer
+  flattens roadmap items into "not covered." It now uses three buckets —
+  **Covered now** (Phase-1 pre-bid slice), **On the roadmap** (baseline lock,
+  change/variation inbox + notice drafts, contractual time-bar engine incl.
+  FIDIC 20.1 / NEC CE, cross-tender outcome graph — all from Doc §0.1/§1.2), and
+  **Not ours** (takeoff, BIM/clash, live pricing, CPM, legal opinions — Doc §0.2).
+  Added a "where it goes beyond typical QS tools" section (reads the contract,
+  tracks the clock, playbook deviation, cross-tender learning, inspectable
+  provenance, deterministic numbers). The AI assistant is not advertised since
+  it is hidden from users.
 - Spec `specs/frontend.md` updated (structure, B8, A2) to record the Help page,
   the hidden assistant, and human-label/typography decisions from session 18.
 - Frontend builds clean; `/help` prerenders as static content.

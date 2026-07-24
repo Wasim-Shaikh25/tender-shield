@@ -6,6 +6,27 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-24 (session 19: in-app Help page + honest QS-lifecycle scope)
+
+- **TS-040** — new static Help page at `/help` (`frontend/app/help/page.tsx`),
+  linked from the header nav:
+  - an 8-step **how-to-use** walkthrough (create workspace → open opportunity →
+    upload full pack → confirm deadline wall → run risk review → run BOQ
+    assurance → review/accept findings → generate & export);
+  - the **rules it never breaks** (numbers from code not AI, every finding cited
+    & quote-verified, human approves before export, data isolated per workspace);
+  - an honest **QS-lifecycle coverage table** — states plainly that TenderShield
+    owns the **pre-bid slice** (risk review, deadline extraction, BOQ arithmetic
+    assurance, scope-gap detection, bid-decision artifacts) and deliberately does
+    **not** do estimating, drawing take-off, BOQ authoring, interim valuations, or
+    variations/claims/final account;
+  - a not-legal / not-QS-certification **disclaimer** (Doc §11.4) reinforcing that
+    findings are prompts for a qualified human, which is why the accept/reject
+    step exists.
+- Spec `specs/frontend.md` updated (structure, B8, A2) to record the Help page,
+  the hidden assistant, and human-label/typography decisions from session 18.
+- Frontend builds clean; `/help` prerenders as static content.
+
 ### Done — 2026-07-24 (session 18: UI polish — hide assistant, human labels, fonts)
 
 - **AI assistant hidden from users:** the Assistant tab, chat state, and handler

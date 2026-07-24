@@ -68,6 +68,12 @@ until Phase-1 exit gates pass (§10).
 | TS-036 | Phone OTP (MSG91) + Google OIDC login | Doc §5 | `specs/modules/auth.md` | todo (needs creds) |
 | TS-037 | Stripe (GCC/UK) provider + live Razorpay keys behind the billing interface | Doc §7, §15.6 | `specs/modules/billing.md` | todo (needs creds) |
 
+## Phase 1 — UX & docs
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-040 | In-app Help page: how-to-use walkthrough + honest scope / QS-lifecycle coverage + disclaimer | Doc §0.1–0.2, §11.4 | `specs/frontend.md` | done |
+
 ## Notes
 
 - A task moves to `in-progress` when work starts and `done` in the commit that

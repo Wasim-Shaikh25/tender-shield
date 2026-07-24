@@ -2,12 +2,14 @@
 
 **Status:** skeleton implemented — Next.js 15 app (landing, auth, opportunity
 board/countdown wall, opportunity detail with document checklist + risk
-workbench), typed API client, session context. Builds clean; verified full-stack
-against the API. shadcn, PDF.js source view, and the deadline wall (needs
-TS-015) are follow-ups. Plain Tailwind for now (no component kit) so it builds
-without extra tooling.
-**Requirement refs:** Doc §9
-**Task refs:** TS-025
+workbench, static Help page), typed API client, session context. Builds clean;
+verified full-stack against the API. shadcn, PDF.js source view, and the deadline
+wall (needs TS-015) are follow-ups. Plain Tailwind for now (no component kit) so
+it builds without extra tooling. The end-user AI assistant is intentionally not
+surfaced in the UI; internal codes are rendered through human labels
+(`lib/labels.ts`), and the type is set with a system font stack led by Inter.
+**Requirement refs:** Doc §9, §0.1–0.2, §11.4
+**Task refs:** TS-025, TS-040
 
 ## Purpose
 
@@ -23,7 +25,8 @@ one repo (`apps/web` later; starts as `frontend/`).
   opportunities/            # countdown board
   opportunities/[id]/
     overview | risks | boq | artifacts | export
-  assistant/ billing/ team/ playbook/
+  help/                     # static how-to + honest QS-lifecycle scope + disclaimer
+  billing/ team/ playbook/
 ```
 
 ## Behavior (UX principles — binding)
@@ -40,9 +43,17 @@ one repo (`apps/web` later; starts as `frontend/`).
 - **B7:** access token in memory only; silent refresh on 401; API client
   generated from OpenAPI.
 
+- **B8:** the Help page (`/help`) is a static server component: an 8-step
+  how-to-use walkthrough, the never-broken safety rules, an honest
+  QS-lifecycle coverage table (what is covered vs. deliberately out of scope),
+  and a not-legal/QS-advice disclaimer (Doc §11.4). It is reachable from the
+  header nav.
+
 ## Acceptance criteria
 
 - A1: app skeleton renders board + opportunity tabs against the mock API.
+- A2: `/help` renders statically and states plainly that TenderShield covers the
+  pre-bid slice, not the full QS lifecycle.
 
 ## Out of scope
 

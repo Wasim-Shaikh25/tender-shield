@@ -121,6 +121,64 @@ export const api = {
     ),
   listArtifacts: (token: string, id: string) =>
     req<{ artifacts: Artifact[] }>(`/drafting/opportunities/${id}/artifacts`, {}, token),
+  // Baseline lock (Phase 2)
+  freezeBaseline: (token: string, id: string, source: "tender" | "award", note?: string) =>
+    req<Baseline>(
+      `/baseline/opportunities/${id}/freeze`,
+      { method: "POST", body: JSON.stringify({ source, note }) },
+      token
+    ),
+  listBaselines: (token: string, id: string) =>
+    req<{ baselines: Baseline[] }>(`/baseline/opportunities/${id}/baselines`, {}, token),
+  noticeRegister: (token: string, id: string) =>
+    req<{ source: string; version: number | null; rules: NoticeRule[] }>(
+      `/baseline/opportunities/${id}/notice-register`,
+      {},
+      token
+    ),
+  handover: (token: string, id: string) =>
+    req<HandoverPack>(`/baseline/opportunities/${id}/handover`, {}, token),
+  compareBaselines: (token: string, id: string) =>
+    req<BaselineCompare>(`/baseline/opportunities/${id}/compare`, {}, token),
+};
+
+export type Baseline = {
+  id: string;
+  version: number;
+  source: string;
+  content_sha256: string;
+  note: string | null;
+  sealed_at: string | null;
+  counts: { findings?: number; deadlines?: number; notice_rules?: number };
+};
+
+export type NoticeRule = {
+  days: number;
+  unit_raw: string;
+  trigger: string;
+  category: string;
+  source_page: number | null;
+  source_quote: string | null;
+};
+
+export type HandoverPack = {
+  version: number;
+  source: string;
+  sealed_hash: string;
+  sealed_at: string | null;
+  opportunity: Record<string, string | null>;
+  key_obligations: Finding[];
+  notice_register: NoticeRule[];
+  deadline_calendar: Array<{ kind: string; due_at: string | null; source_page: number | null }>;
+  counts: Record<string, number>;
+};
+
+export type BaselineCompare = {
+  tender_version: number;
+  award_version: number;
+  added: Finding[];
+  removed: Finding[];
+  changed: Array<{ category: string; title: string; changes: Record<string, unknown> }>;
 };
 
 export type Gate = {

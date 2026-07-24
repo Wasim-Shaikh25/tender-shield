@@ -74,6 +74,21 @@ until Phase-1 exit gates pass (§10).
 |---|---|---|---|---|
 | TS-040 | In-app Help page: how-to-use walkthrough + honest scope / QS-lifecycle coverage + disclaimer | Doc §0.1–0.2, §11.4 | `specs/frontend.md` | done |
 
+## Phase 2 — Baseline lock (stickiness beyond the bid)
+
+Trigger for building now: product-owner directive (2026-07-24) to build baseline
+lock end-to-end. Doc §0.1 (P2 stage), §10 Phase 2/3, §1.2 feature matrix.
+NB: the doc gates P2 behind the Phase-1 accuracy gate (§10); this is built as a
+config-flagged, fully decoupled module so it ships without disturbing Phase-1.
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-041 | `baseline` module: hash-sealed baseline freeze (immutable snapshot of accepted findings + confirmed deadlines + opportunity meta), integrity verify, deterministic notice-rule register (findings + clauses), award-vs-tender delta, commercial handover pack | Doc §0.1 (P2), §10, §1.2 | `specs/modules/baseline.md` | done |
+| TS-042 | Frontend: opportunity "Handover" tab — freeze baseline, notice register, award-vs-tender delta, handover pack | Doc §9, §0.1 | `specs/frontend.md` | done |
+| TS-043 | Notice-deadline countdowns + alerts driven by the notice-rule register (wire register → deadline/notification path) | Doc §0.1 (P3), §10 | `specs/modules/baseline.md` | todo |
+| TS-044 | Award-document ingestion: parse negotiated contract / award letter so the award baseline seals from real award text | Doc §0.1 (P2/P3) | `specs/modules/baseline.md` | todo |
+| TS-045 | Handover-pack file export (DOCX/PDF) reusing the export renderer | Doc §1.1(8), §0.1 | `specs/modules/baseline.md` | todo |
+
 ## Notes
 
 - A task moves to `in-progress` when work starts and `done` in the commit that

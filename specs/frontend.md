@@ -24,7 +24,7 @@ one repo (`apps/web` later; starts as `frontend/`).
 (app)/
   opportunities/            # countdown board
   opportunities/[id]/
-    overview | risks | boq | artifacts | export
+    overview | risks | boq | artifacts | handover | export
   help/                     # static how-to + honest QS-lifecycle scope + disclaimer
   billing/ team/ playbook/
 ```
@@ -43,6 +43,11 @@ one repo (`apps/web` later; starts as `frontend/`).
 - **B7:** access token in memory only; silent refresh on 401; API client
   generated from OpenAPI.
 
+- **B9:** the opportunity **Handover** tab (Phase 2) drives baseline lock:
+  freeze tender/award baselines (gated on a completed review), lists the sealed
+  baselines with their content hashes, shows the deterministic notice-rule
+  register with page citations, the award-vs-tender delta when two baselines
+  exist, and the commercial handover pack (sealed hash + key obligations).
 - **B8:** the Help page (`/help`) is a static server component: an 8-step
   how-to-use walkthrough, the never-broken safety rules, a three-bucket
   QS-lifecycle coverage table (**Covered now** = Phase-1 pre-bid slice;

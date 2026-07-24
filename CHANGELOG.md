@@ -6,6 +6,45 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-24 (session 20: Phase-2 baseline lock — end to end)
+
+- **TS-041** — new pluggable `baseline` module (backend), the first Phase-2
+  feature. At award it freezes the reviewed commercial state into an immutable,
+  hash-sealed snapshot so tender knowledge survives handover (Doc §0.1 P2):
+  - **Hash-sealed freeze** — SHA-256 over the canonical snapshot (accepted/edited
+    findings with verbatim provenance + confirmed deadlines + opportunity meta).
+    Append-only versions; `verify` recomputes the hash and reports tamper
+    (the doc's "baseline freeze (hashes)" requirement).
+  - **Freeze gate** — sealing is blocked until the `review` gate is satisfied
+    (Doc §11.4), reusing the professional-liability spine; refused when `review`
+    is disabled.
+  - **Deterministic notice-rule register** — regex over the accepted findings
+    **and the segmented contract clauses** extracts contractual notice windows
+    ("within 14 days", "28 days' notice"), normalised to days, with page
+    citations. No LLM (Doc §4) — populates from real contract text even with no
+    API key. These seed the Phase-3 time-bar countdowns.
+  - **Award-vs-tender delta** — diffs the latest tender seal against the latest
+    award seal (added / dropped / changed findings). Deterministic.
+  - **Commercial handover pack** — sealed hash, critical/high obligations, notice
+    register and confirmed-deadline calendar from the latest baseline.
+  - Cross-module only via capabilities (`findings`/`review`/`ingestion`); the app
+    boots and Phase-1 flows pass with `baseline` disabled. Migration `0010`,
+    org-scoped + RLS on PostgreSQL. 8 new tests (freeze gate, seal, verify,
+    compare, handover, live-clause notice extraction).
+- **TS-042** — frontend **Handover** tab on the opportunity workbench: freeze
+  tender/award baselines (gated on review), sealed-baseline list with hashes,
+  notice-rule register with citations, award-vs-tender delta, and the handover
+  pack. Typed `baseline` client methods added.
+- Verified end to end against a live server + browser: freeze refused before
+  review (403), sealed v1 (64-char hash), `verify` intact, notice register
+  extracting the 14-day and 28-day windows from clause text with p3 provenance,
+  and the rendered Handover tab.
+- 106 backend tests passing; ruff clean; frontend builds clean.
+- **Phasing note:** the doc gates P2 behind the Phase-1 accuracy gate (§10);
+  this ships as a config-flagged, fully decoupled module so it does not disturb
+  Phase-1. The accuracy gate (5 real tenders + QS review) remains the real gate
+  before P2 is *promoted*.
+
 ### Done — 2026-07-24 (session 19: in-app Help page + honest QS-lifecycle scope)
 
 - **TS-040** — new static Help page at `/help` (`frontend/app/help/page.tsx`),
@@ -431,25 +470,28 @@ Test suite: 23 passing, ruff clean.
 
 ### Next
 
-The Phase-1 feature engine is functionally complete end-to-end
-(upload → classify → deadlines → clauses → risk register → BOQ checks → review →
-clarification letter/assumptions → gated DOCX/XLSX export → billing), with risk
-AND BOQ findings flowing through one reviewed, exportable register. Remaining:
+The Phase-1 feature engine is complete end-to-end (upload → classify →
+deadlines → clauses → risk register → BOQ checks → review → clarification
+letter/assumptions → gated DOCX/XLSX/PDF export → billing), the `assistant`
+module is built (hidden from the UI by product choice), and the first Phase-2
+feature — **baseline lock** (TS-041/042) — now ships end to end. Next:
 
-- **TS-024** — `assistant` (grounded Q&A, citations mandatory) — optional per
-  Doc §13.5; the last unbuilt module.
-- **Production hardening (infra, not logic):** real resumable upload (tus/S3),
-  OCR (Textract), Celery streaming, Postgres/RDS deploy, email/WhatsApp alerts,
-  OTP/Google/MFA, Stripe + GST invoices, PDF export, frontend lint/build in CI.
+- **Phase-2 continuation (natural follow-ons to baseline lock):**
+  - **TS-043** — notice-deadline countdowns + alerts driven by the notice-rule
+    register (the register now exists; wire it to the deadline/notification
+    path). Doc §0.1 (P3), §10.
+  - **TS-044** — award-document ingestion: parse the negotiated contract/award
+    letter so the award baseline is sealed from real award text (today it seals
+    the reviewed state). Doc §0.1 (P2/P3).
+  - **TS-045** — handover-pack file export (DOCX/PDF) reusing the export
+    renderer (today the pack is structured JSON in the UI).
 - **The real gate (not code):** domain-accuracy validation — 5 real tenders +
-  gold answers + a QS review (Doc §18.3/§19.2); set `ANTHROPIC_API_KEY` to turn
-  on LLM judgment.
-- Ingestion follow-ups (Doc §6.2): relative-date formula resolution
-  ("21 days from pre-bid") and LLM-assisted extraction for scanned/messy packs.
-- Frontend follow-ups: BOQ tab, PDF.js source-page view, shadcn polish, a
-  frontend lint/build step in CI.
-- With `ANTHROPIC_API_KEY` set on the server, the risk engine's LLM classifier
-  activates automatically and the Risks tab populates; without it, absence
-  detection still runs. Same key runs the Week-2 accuracy harness.
-- Decision still open for founder: collect the 5 real tenders + gold answers
-  for the Week-2 accuracy test (Doc §19.2) — code can't substitute for these.
+  gold answers + a QS review (Doc §18.3/§19.2) — is the gate that *promotes*
+  Phase 2 out of "built-ahead". Set `ANTHROPIC_API_KEY` to turn on the LLM
+  classifier + the Week-2 accuracy harness. Founder still needs to collect the
+  5 real tenders + gold answers — code can't substitute for these.
+- **Production hardening (infra, not logic):** tus resumable upload, Celery/Redis
+  streaming, Postgres/RDS deploy, email/WhatsApp send adapters, phone-OTP/Google
+  OIDC, live Razorpay/Stripe keys — all logic-ready behind existing interfaces
+  (TS-033/034/035/036/037), pending external creds.
+- Frontend follow-ups: PDF.js source-page view, a frontend lint/build step in CI.

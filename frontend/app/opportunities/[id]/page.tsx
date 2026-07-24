@@ -5,10 +5,14 @@ import {
   api,
   API_BASE,
   type Artifact,
+  type Baseline,
+  type BaselineCompare,
   type Deadline,
   type Finding,
   type Gate,
+  type HandoverPack,
   type MissingDocs,
+  type NoticeRule,
 } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { SeverityBadge, SourceBadge } from "@/components/badges";
@@ -42,13 +46,19 @@ BOQ,9,7.1,Waterproofing treatment to foundation raft,Sqm,800,950,760000
 export default function OpportunityDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { session } = useSession();
-  const [tab, setTab] = useState<"overview" | "risks" | "boq" | "artifacts">("overview");
+  const [tab, setTab] = useState<"overview" | "risks" | "boq" | "artifacts" | "handover">(
+    "overview"
+  );
   const [title, setTitle] = useState("Opportunity");
   const [missing, setMissing] = useState<MissingDocs | null>(null);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [findings, setFindings] = useState<Finding[] | null>(null);
   const [gate, setGate] = useState<Gate | null>(null);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const [baselines, setBaselines] = useState<Baseline[]>([]);
+  const [notices, setNotices] = useState<NoticeRule[]>([]);
+  const [handoverPack, setHandoverPack] = useState<HandoverPack | null>(null);
+  const [compareData, setCompareData] = useState<BaselineCompare | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
@@ -60,6 +70,10 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
     api.listFindings(session.token, id).then((f) => setFindings(f.findings)).catch(() => {});
     api.gate(session.token, id).then(setGate).catch(() => {});
     api.listArtifacts(session.token, id).then((a) => setArtifacts(a.artifacts)).catch(() => {});
+    api.listBaselines(session.token, id).then((b) => setBaselines(b.baselines)).catch(() => {});
+    api.noticeRegister(session.token, id).then((n) => setNotices(n.rules)).catch(() => {});
+    api.handover(session.token, id).then(setHandoverPack).catch(() => setHandoverPack(null));
+    api.compareBaselines(session.token, id).then(setCompareData).catch(() => setCompareData(null));
   }, [session, id]);
 
   useEffect(() => {
@@ -145,6 +159,21 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
     }
   }
 
+  async function freeze(source: "tender" | "award") {
+    setBusy(true);
+    setNote(null);
+    try {
+      const b = await api.freezeBaseline(session!.token, id, source);
+      await refresh();
+      setNote(`Baseline v${b.version} sealed (${source}) — hash ${b.content_sha256.slice(0, 12)}…`);
+      setTab("handover");
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "Freeze failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const riskFindings = (findings ?? []).filter((f) => f.producer !== "boq");
   const boqFindings = (findings ?? []).filter((f) => f.producer === "boq");
 
@@ -173,7 +202,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
       {note && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{note}</p>}
 
       <div className="flex gap-1 border-b border-slate-200">
-        {(["overview", "risks", "boq", "artifacts"] as const).map((t) => (
+        {(["overview", "risks", "boq", "artifacts", "handover"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -390,6 +419,190 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
             ))
           )}
         </div>
+      )}
+
+      {tab === "handover" && (
+        <HandoverTab
+          gate={gate}
+          baselines={baselines}
+          notices={notices}
+          pack={handoverPack}
+          compare={compareData}
+          busy={busy}
+          onFreeze={freeze}
+        />
+      )}
+    </div>
+  );
+}
+
+function HandoverTab({
+  gate,
+  baselines,
+  notices,
+  pack,
+  compare,
+  busy,
+  onFreeze,
+}: {
+  gate: Gate | null;
+  baselines: Baseline[];
+  notices: NoticeRule[];
+  pack: HandoverPack | null;
+  compare: BaselineCompare | null;
+  busy: boolean;
+  onFreeze: (source: "tender" | "award") => void;
+}) {
+  const canFreeze = !!gate?.export_allowed;
+  return (
+    <div className="space-y-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
+        <h3 className="font-semibold text-ink">Baseline lock</h3>
+        <p className="mt-1 text-sm text-slate-600">
+          At award, freeze the reviewed commercial state into an immutable, hash-sealed record so
+          tender knowledge survives handover. Freezing needs a completed review.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            onClick={() => onFreeze("tender")}
+            disabled={busy || !canFreeze}
+            className="rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40"
+          >
+            Freeze tender baseline
+          </button>
+          <button
+            onClick={() => onFreeze("award")}
+            disabled={busy || !canFreeze}
+            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-white disabled:opacity-40"
+          >
+            Freeze award baseline
+          </button>
+        </div>
+        {!canFreeze && (
+          <p className="mt-2 text-xs text-amber-700">
+            Accept/reject all findings on the Risks tab first — the freeze is gated on review.
+          </p>
+        )}
+        {baselines.length > 0 && (
+          <ul className="mt-4 divide-y divide-slate-100 border-t border-slate-100">
+            {baselines.map((b) => (
+              <li key={b.id} className="flex items-center justify-between py-2 text-sm">
+                <span className="font-medium text-ink capitalize">
+                  v{b.version} · {b.source}
+                </span>
+                <span className="font-mono text-xs text-slate-400">
+                  {b.content_sha256.slice(0, 16)}…
+                </span>
+                <span className="text-xs text-slate-500">
+                  {b.counts.findings ?? 0} findings · {b.counts.notice_rules ?? 0} notices
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
+        <h3 className="font-semibold text-ink">Notice-rule register</h3>
+        <p className="mt-1 text-xs text-slate-500">
+          Contractual time windows extracted deterministically — the traps that become time-bar
+          countdowns. Each carries its page citation.
+        </p>
+        {notices.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-500">
+            No notice windows detected in the reviewed findings yet.
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {notices.map((n, i) => (
+              <li key={i} className="rounded-lg border border-slate-200 p-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="rounded bg-ink px-2 py-0.5 text-xs font-bold text-white">
+                    {n.days}d
+                  </span>
+                  <span className="uppercase tracking-wide text-xs text-slate-400">
+                    {categoryLabel(n.category)}
+                  </span>
+                  {n.source_page && <span className="text-xs text-slate-400">p{n.source_page}</span>}
+                </div>
+                <p className="mt-1 text-slate-600">{n.trigger}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {compare && (
+        <div className="rounded-xl border border-slate-200 bg-white p-6">
+          <h3 className="font-semibold text-ink">Award vs tender</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Delta between the sealed tender baseline (v{compare.tender_version}) and the award
+            baseline (v{compare.award_version}).
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3 text-sm">
+            <DeltaCol title="Added at award" items={compare.added.map((f) => f.title)} tone="emerald" />
+            <DeltaCol title="Dropped at award" items={compare.removed.map((f) => f.title)} tone="slate" />
+            <DeltaCol title="Changed" items={compare.changed.map((c) => c.title)} tone="amber" />
+          </div>
+        </div>
+      )}
+
+      {pack && (
+        <div className="rounded-xl border border-slate-200 bg-white p-6">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-ink">Commercial handover pack</h3>
+            <span className="font-mono text-xs text-slate-400">
+              sealed {pack.sealed_hash.slice(0, 16)}…
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            v{pack.version} ({pack.source}) · {pack.counts.findings ?? 0} findings,{" "}
+            {pack.counts.deadlines ?? 0} deadlines, {pack.counts.notice_rules ?? 0} notice rules.
+          </p>
+          <h4 className="mt-4 text-sm font-semibold text-ink">Key obligations</h4>
+          {pack.key_obligations.length === 0 ? (
+            <p className="text-sm text-slate-500">No critical/high obligations frozen.</p>
+          ) : (
+            <ul className="mt-2 space-y-2">
+              {pack.key_obligations.map((f, i) => (
+                <li key={i} className="border-l-2 border-slate-200 pl-3 text-sm">
+                  <div className="flex items-center gap-2">
+                    <SeverityBadge severity={f.severity} />
+                    <span className="font-medium text-slate-800">{f.title}</span>
+                  </div>
+                  {f.source_quote && (
+                    <div className="mt-0.5 italic text-slate-500">“{f.source_quote}”</div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DeltaCol({ title, items, tone }: { title: string; items: string[]; tone: string }) {
+  const cls =
+    tone === "emerald"
+      ? "text-emerald-700"
+      : tone === "amber"
+        ? "text-amber-700"
+        : "text-slate-500";
+  return (
+    <div className="rounded-lg border border-slate-200 p-3">
+      <div className={`text-xs font-semibold uppercase tracking-wide ${cls}`}>{title}</div>
+      {items.length === 0 ? (
+        <p className="mt-1 text-xs text-slate-400">none</p>
+      ) : (
+        <ul className="mt-1 space-y-1">
+          {items.map((t, i) => (
+            <li key={i} className="text-slate-700">
+              {t}
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

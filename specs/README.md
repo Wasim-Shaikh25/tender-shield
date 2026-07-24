@@ -23,6 +23,7 @@ change (`CLAUDE.md` §1.2).
 | `modules/review.md` | Review workbench, audit log, export gating | §1.1(7), §11.4 |
 | `modules/billing.md` | Metering, paywall, Razorpay/Stripe, payment_log | §7, §15, §16.5 |
 | `modules/assistant.md` | Grounded in-app assistant | §8 |
+| `modules/baseline.md` | Baseline lock: hash-sealed freeze, notice register, handover | §0.1, §10, §1.2 |
 
 ## Template (use for every new spec)
 

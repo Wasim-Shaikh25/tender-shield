@@ -6,6 +6,23 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-24 (session 18: UI polish — hide assistant, human labels, fonts)
+
+- **AI assistant hidden from users:** the Assistant tab, chat state, and handler
+  removed from the opportunity workbench — user-facing tabs are now Overview /
+  Risks / BOQ / Artifacts. (The backend module still exists; disable it fully by
+  omitting `assistant` from `TS_ENABLED_MODULES`.)
+- **No raw identifiers on screen:** new `lib/labels.ts` maps every internal code
+  to a proper label — categories (`grand_total` → "Grand-total mismatch",
+  `blank_rate` → "Blank rate", `ld` → "Liquidated damages", …), review status,
+  deadline kinds, artifact kinds, opportunity status, doc kinds. Board + detail
+  render through it; the BOQ tab label shows "BOQ" (not "Boq").
+- **Proper typography:** app-wide Inter → system-UI font stack in Tailwind +
+  legibility/feature settings in globals (drop in `next/font` Inter for an exact
+  self-hosted face when building with network).
+
+Frontend builds clean; backend unaffected (98 tests still passing).
+
 ### Done — 2026-07-23 (session 17: no-AWS scanned-table path)
 
 - **TS-039** — the hard scanned-table BOQ case, **without AWS**: `RapidTableProvider`

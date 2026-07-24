@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { api, type Opportunity } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { CountdownBadge } from "@/components/badges";
+import { statusLabel } from "@/lib/labels";
 
 export default function BoardPage() {
   const { session } = useSession();
@@ -80,7 +81,9 @@ export default function BoardPage() {
             >
               <div className="mb-3 flex items-center justify-between">
                 <CountdownBadge due={o.submission_due} />
-                <span className="text-xs uppercase tracking-wide text-slate-400">{o.status}</span>
+                <span className="text-xs uppercase tracking-wide text-slate-400">
+                  {statusLabel(o.status)}
+                </span>
               </div>
               <h3 className="font-semibold text-ink">{o.title}</h3>
               <p className="mt-2 text-sm text-slate-500">Open workbench →</p>

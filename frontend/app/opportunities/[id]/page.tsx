@@ -12,6 +12,7 @@ import {
 } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { SeverityBadge, SourceBadge } from "@/components/badges";
+import { artifactLabel, categoryLabel, deadlineLabel, statusLabel } from "@/lib/labels";
 
 const SAMPLE = `[p1]
 NOTICE INVITING TENDER (NIT No. TS/DEMO/2026/001)
@@ -38,23 +39,10 @@ BOQ,8,6.1,Supplying and fixing MS railing,Rmt,500,0,0
 BOQ,9,7.1,Waterproofing treatment to foundation raft,Sqm,800,950,760000
 `;
 
-const KIND_LABEL: Record<string, string> = {
-  submission: "Bid submission",
-  prebid_meeting: "Pre-bid meeting",
-  clarification: "Clarification cut-off",
-  validity: "Bid validity",
-  emd: "EMD",
-  completion_milestone: "Completion",
-};
-
 export default function OpportunityDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { session } = useSession();
-  const [tab, setTab] = useState<
-    "overview" | "risks" | "boq" | "artifacts" | "assistant"
-  >("overview");
-  const [chat, setChat] = useState<{ q: string; a: string }[]>([]);
-  const [chatInput, setChatInput] = useState("");
+  const [tab, setTab] = useState<"overview" | "risks" | "boq" | "artifacts">("overview");
   const [title, setTitle] = useState("Opportunity");
   const [missing, setMissing] = useState<MissingDocs | null>(null);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
@@ -145,15 +133,6 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
     }
   }
 
-  async function ask(e: React.FormEvent) {
-    e.preventDefault();
-    const q = chatInput.trim();
-    if (!q) return;
-    setChatInput("");
-    const res = await api.askAssistant(session!.token, id, q);
-    setChat((c) => [...c, { q, a: res.answer }]);
-  }
-
   async function runBoq() {
     setBusy(true);
     setNote(null);
@@ -194,7 +173,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
       {note && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{note}</p>}
 
       <div className="flex gap-1 border-b border-slate-200">
-        {(["overview", "risks", "boq", "artifacts", "assistant"] as const).map((t) => (
+        {(["overview", "risks", "boq", "artifacts"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -202,7 +181,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
               tab === t ? "border-b-2 border-ink text-ink" : "text-slate-500 hover:text-ink"
             }`}
           >
-            {t}
+            {t === "boq" ? "BOQ" : t}
           </button>
         ))}
       </div>
@@ -262,7 +241,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
               <div key={f.id ?? i} className="rounded-xl border border-slate-200 bg-white p-5">
                 <div className="mb-2 flex items-center gap-2">
                   <SeverityBadge severity={f.severity} />
-                  <span className="text-xs uppercase tracking-wide text-slate-400">{f.category}</span>
+                  <span className="text-xs uppercase tracking-wide text-slate-400">{categoryLabel(f.category)}</span>
                   <SourceBadge source={f.source ?? "ai_suggestion"} />
                   {f.source_page && <span className="text-xs text-slate-400">p{f.source_page}</span>}
                   {f.review_status && f.review_status !== "proposed" && (
@@ -271,7 +250,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
                         f.review_status === "rejected" ? "text-slate-400" : "text-emerald-600"
                       }`}
                     >
-                      {f.review_status}
+                      {statusLabel(f.review_status)}
                     </span>
                   )}
                 </div>
@@ -327,7 +306,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
               <div key={f.id ?? i} className="rounded-xl border border-slate-200 bg-white p-5">
                 <div className="mb-1 flex items-center gap-2">
                   <SeverityBadge severity={f.severity} />
-                  <span className="text-xs uppercase tracking-wide text-slate-400">{f.category}</span>
+                  <span className="text-xs uppercase tracking-wide text-slate-400">{categoryLabel(f.category)}</span>
                   <SourceBadge source="deterministic_check" />
                 </div>
                 <h4 className="font-semibold text-ink">{f.title}</h4>
@@ -384,7 +363,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
                 <div className="mb-2 flex items-center justify-between">
                   <h4 className="font-semibold text-ink">{a.body.title}</h4>
                   <span className="text-xs text-slate-400">
-                    {a.kind} · v{a.version}
+                    {artifactLabel(a.kind)} · v{a.version}
                   </span>
                 </div>
                 {a.body.preamble && <p className="mb-3 text-sm text-slate-600">{a.body.preamble}</p>}
@@ -410,36 +389,6 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
               </div>
             ))
           )}
-        </div>
-      )}
-
-      {tab === "assistant" && (
-        <div className="space-y-4">
-          <p className="text-sm text-slate-500">
-            Ask TenderShield — grounded only in this tender. Try “list the deadlines”, “show me
-            the risk findings”, or “which documents are missing?”.
-          </p>
-          <div className="space-y-3">
-            {chat.map((turn, i) => (
-              <div key={i} className="space-y-1">
-                <div className="text-sm font-medium text-ink">You: {turn.q}</div>
-                <pre className="whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700">
-                  {turn.a}
-                </pre>
-              </div>
-            ))}
-          </div>
-          <form onSubmit={ask} className="flex gap-2">
-            <input
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              placeholder="Ask about this tender…"
-              className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-ink"
-            />
-            <button className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:opacity-90">
-              Ask
-            </button>
-          </form>
         </div>
       )}
     </div>
@@ -481,7 +430,7 @@ function DeadlineWall({
               <li key={d.id} className="flex items-center justify-between py-3">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-ink">{KIND_LABEL[d.kind] ?? d.kind}</span>
+                    <span className="font-medium text-ink">{deadlineLabel(d.kind)}</span>
                     {d.source_page && (
                       <span className="text-xs text-slate-400">p{d.source_page}</span>
                     )}

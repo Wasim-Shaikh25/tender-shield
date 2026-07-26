@@ -6,7 +6,7 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
-### Done — 2026-07-26 (session 23 continued: TS-049 + TS-052 + TS-054 + TS-055)
+### Done — 2026-07-26 (session 23 continued: TS-048 + TS-049 + TS-052 + TS-054 + TS-055)
 
 - **TS-052** — Tender Timeline:
   - New `timeline` module with `TimelineService` and routes
@@ -27,6 +27,18 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
     criteria are `not_met` (severity `high`), found criteria are `unknown`
     (severity `medium`) pending org evidence.
   - `specs/modules/qualification.md` and `tests/test_qualification.py` added.
+
+- **TS-048** — Bid / No-Bid Recommendation:
+  - Extended `drafting` to generate a `bid_decision` artifact from accepted
+    findings only.
+  - Deterministic score (0–100) with transparent weights over `risk_clause`,
+    `qualification_gap`, `boq_defect`, and `standard_violation` findings.
+  - Weights default to a documented table and can be overridden through the
+    rule-pack playbook (`default_contractor.bid_decision_weights`).
+  - Output: score, strengths, concerns, recommendation
+    (`proceed` / `proceed_with_conditions` / `do_not_proceed`), and conditions.
+  - Gated by review: no `proposed` or `needs_clarification` findings allowed.
+  - Updated `specs/modules/drafting.md` and `tests/test_drafting.py`.
 
 - **TS-054** — Risk Explainability:
   - `Finding` contract and `findings` table now carry an `explanation` JSON field.

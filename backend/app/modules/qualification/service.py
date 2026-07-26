@@ -220,4 +220,5 @@ def _to_finding(c: QualificationCriterion) -> Finding:
         source_quote=c.source_quote,
         suggested_action=c.action_required,
         pattern_id=c.key,
+        explanation={"status": c.status, "key": c.key, "label": c.label},
     )

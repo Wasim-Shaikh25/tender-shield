@@ -9,12 +9,21 @@ from app.modules.drafting.service import DraftingError, DraftingService
 
 router = APIRouter()
 
-_STATUS = {"no_accepted_findings": 409, "bad_kind": 400, "findings_unavailable": 503}
+_STATUS = {
+    "no_accepted_findings": 409,
+    "bad_kind": 400,
+    "findings_unavailable": 503,
+    "review_pending": 409,
+}
 
 
 def _service(request: Request, session: Session) -> DraftingService:
     reg = request.app.state.ctx.registry
-    return DraftingService(session, store_factory=reg.get("findings.store_factory"))
+    return DraftingService(
+        session,
+        store_factory=reg.get("findings.store_factory"),
+        loader=reg.get("rulepacks.loader"),
+    )
 
 
 class GenerateBody(BaseModel):

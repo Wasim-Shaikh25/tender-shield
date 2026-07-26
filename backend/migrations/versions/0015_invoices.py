@@ -35,10 +35,10 @@ def upgrade() -> None:
         sa.Column("raw", sa.JSON(), nullable=False, server_default="{}"),
         sa.Column("paid_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.UniqueConstraint("invoice_number", name="uq_invoices_invoice_number"),
     )
     op.create_index("ix_invoices_org_id", "invoices", ["org_id"])
     op.create_index("ix_invoices_invoice_number", "invoices", ["invoice_number"])
-    op.create_unique_constraint("uq_invoices_invoice_number", "invoices", ["invoice_number"])
 
     if op.get_bind().dialect.name == "postgresql":
         for stmt in rls_statements("invoices"):

@@ -17,14 +17,20 @@ gated by validators.
 
 ## Public interface
 
-- **Capabilities published:** `drafting.generate(opportunity_id, kind)`,
-  `drafting.export(artifact_id, format)`.
-- **Capabilities consumed (soft):** `rulepacks.loader` (templates),
-  `risk.findings` / `boq.items` (accepted findings via registry),
-  `review.gate` (export authorization), `billing.metering`.
-- **Events emitted:** `artifact.generated`, `artifact.exported`.
-- **API routes:** `/api/opportunities/{id}/artifacts` (generate/list/version),
-  `/api/artifacts/{id}/export`.
+- **Capabilities published:**
+  - `drafting.service_factory` → `DraftingService(session)` with `generate`, `list`,
+    `get`, and `bid_decision` methods.
+- **Capabilities consumed (soft):**
+  - `findings.store_factory` (accepted findings).
+  - `rulepacks.loader` (artifact templates + bid-decision weight overrides).
+  - `standards.commercial_service_factory` (org policy violations).
+  - `ingestion.service_factory` (opportunity title for artifact headers).
+- **Events emitted:** none at this phase.
+- **API routes** (prefix `/api/drafting`):
+  - `POST /opportunities/{id}/artifacts` (estimator) — generate `clarification_letter`,
+    `assumptions_register`, or `bid_decision`.
+  - `GET /opportunities/{id}/artifacts` (viewer) — list versions.
+  - `GET /artifacts/{id}` (viewer) — retrieve an artifact.
 
 ## Data owned
 
@@ -47,10 +53,12 @@ with `evidence_refs[]` + `citations[]`; `model_meta`).
   (`proceed` / `proceed_with_conditions` / `do_not_proceed`), and conditions.
 - **B4 (bid-decision gating):** a `bid_decision` artifact can only be generated
   when every finding is resolved (no `proposed` or `needs_clarification`).
-- **B5 (export gating):** export blocked until reviewer completes review (via
-  `review.gate`); every export stamps reviewer name, date, pack version.
-- **B6 (watermark):** free-tier artifacts watermarked "DRAFT — TenderShield".
-- **B7 (formats):** docxtpl (DOCX), WeasyPrint (PDF), openpyxl (XLSX).
+- **B5 (export gating):** handled by the separate `export` module, which calls
+  `review.service_factory.gate` before producing a file.
+- **B6 (watermark):** applied by the `export` module on generated files; drafting
+  artifacts themselves are stored as JSON bodies.
+- **B7 (formats):** artifact bodies are JSON; DOCX/PDF/XLSX rendering is performed
+  by the `export` module.
 - **B8 (immutability):** new generation = new version; approved artifacts are
   never mutated.
 

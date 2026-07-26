@@ -11,6 +11,9 @@ router = APIRouter()
 
 def _service(request: Request, session: Session) -> ComparisonService:
     reg = request.app.state.ctx.registry
+    factory = reg.get("comparison.service_factory")
+    if factory:
+        return factory(session)
     return ComparisonService(
         session,
         ingestion_factory=reg.get("ingestion.service_factory"),

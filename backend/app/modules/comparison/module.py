@@ -1,9 +1,19 @@
 from app.core.module import AppContext, ModuleSpec
 from app.modules.comparison.router import router
+from app.modules.comparison.service import ComparisonService
 
 
 def setup(ctx: AppContext) -> None:
-    pass
+    reg = ctx.registry
+    reg.provide(
+        "comparison.service_factory",
+        lambda session: ComparisonService(
+            session,
+            ingestion_factory=reg.get("ingestion.service_factory"),
+            findings_factory=reg.get("findings.store_factory"),
+            drafting_factory=reg.get("drafting.service_factory"),
+        ),
+    )
 
 
 module = ModuleSpec(

@@ -6,6 +6,33 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-26 (spec audit follow-up: Sprints 0–2)
+
+- **TS-058..TS-070** — Spec-audit follow-up task IDs and `tasks/spec_audit_tracker.md` created.
+- **TS-062** — `analytics` and `comparison` now publish `*.service_factory` capabilities
+  via `module.py`, and their routers consume the factory when available.
+- **TS-063** — Fixed route wording in `specs/modules/timeline.md` and `specs/modules/crossref.md`
+  to match the implemented router paths.
+- **TS-058..TS-061** — Added missing module specs:
+  - `specs/modules/findings.md` (shared findings store and contract).
+  - `specs/modules/export.md` (Bid Review Pack export with review gate).
+  - `specs/modules/health.md` (health/capabilities endpoint).
+  - `specs/modules/notifications.md` (deadline-digest sender abstraction).
+- **TS-059 (code)** — `export` now publishes `export.service_factory` and the router
+  consumes it, matching the pluggable pattern.
+- **TS-064..TS-066** — Aligned `ingestion`, `risk`, and `drafting` public-interface
+  specs with the capabilities and routes actually implemented.
+- **TS-067** — Added tests for `export`, `health`, and `notifications`:
+  - `test_export.py` covers review-gated XLSX export and bad-format handling.
+  - `test_health.py` covers the `/api/health` module/capability report.
+  - `test_notifications.py` covers deadline alert thresholds and `ConsoleSender`.
+
+### Next
+
+- Sprint 4: implement deeper feature gaps (TS-068 `doc_chunks`/`doc_text`,
+  TS-069 assistant SSE/history, TS-070 billing invoice list/`record_usage`)
+  or split them into dedicated follow-up tasks after spec review.
+
 ### Done — 2026-07-26 (session 23 continued: TS-057)
 
 - **TS-057** — Internal Accuracy Dashboard:

@@ -11,6 +11,9 @@ router = APIRouter()
 
 def _service(request: Request, session: Session) -> ExportService:
     reg = request.app.state.ctx.registry
+    factory = reg.get("export.service_factory")
+    if factory:
+        return factory(session)
     loader = reg.get("rulepacks.loader")
     pack_version = loader.get_pack("in-works").version_tag if loader else "in-works"
     return ExportService(

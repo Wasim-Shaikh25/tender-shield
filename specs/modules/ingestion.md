@@ -16,20 +16,37 @@ Everything downstream (risk, BOQ, drafting) consumes its outputs.
 
 ## Public interface
 
-- **Capabilities published:** `ingestion.opportunities` (CRUD/query),
-  `ingestion.clauses` (clause retrieval for risk engine),
-  `ingestion.doc_text` (page text access).
+- **Capabilities published:**
+  - `ingestion.service_factory` → `IngestionService(session)` exposing opportunity
+    CRUD, document registration, deadline/clause listing, and missing-doc reports.
+  - `ingestion.ocr` → `OcrProvider` (RapidOCR when `TS_OCR_ENABLED`, else
+    `NullOcrProvider` for honest degradation).
+  - `ingestion.file_to_boq_csv` → pure helper converting PDF/XLSX tables to a
+    CSV string for the BOQ module.
+  - `ingestion.scanned_boq_csv` → scanned-table fallback (rapid-table) when OCR is
+    enabled.
 - **Capabilities consumed (soft):** `rulepacks.loader` (doc types, expected-doc
-  set, deadline calculators), `billing.metering` (review authorization gate).
-- **Events emitted:** `document.uploaded`, `document.classified`,
-  `document.ocr_completed`, `deadlines.extracted`, `clauses.segmented`,
-  `opportunity.processing_completed`.
-- **API routes:** `/api/opportunities` CRUD, document upload/list,
-  `/api/opportunities/{id}/deadlines`, missing-doc checklist endpoint.
+  set, deadline calculators).
+- **Events emitted:** `opportunity.created`, `document.classified`,
+  `deadlines.extracted`, `clauses.segmented`.
+- **API routes** (prefix `/api/ingestion`):
+  - `GET /opportunities` (viewer)
+  - `GET /opportunities/{id}` (viewer)
+  - `POST /opportunities` (viewer)
+  - `GET /opportunities/{id}/documents` (viewer)
+  - `POST /opportunities/{id}/documents` (viewer) — register a classified document
+  - `POST /opportunities/{id}/upload` (viewer) — multipart upload + text extraction
+  - `GET /opportunities/{id}/deadlines` (viewer)
+  - `POST /opportunities/{id}/deadlines/{deadline_id}/confirm` (viewer)
+  - `GET /opportunities/{id}/clauses` (viewer)
+  - `GET /opportunities/{id}/missing-docs` (viewer)
 
 ## Data owned
 
-`opportunities`, `documents`, `clauses`, `deadlines`, `doc_chunks`.
+`opportunities`, `documents`, `clauses`, `deadlines`.
+
+`doc_chunks` (page-level text chunks) is planned as part of TS-068 but is not
+yet implemented; the `ingestion.doc_text` capability will be published with it.
 
 ## Behavior
 

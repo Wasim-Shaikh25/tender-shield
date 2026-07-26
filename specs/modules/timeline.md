@@ -16,7 +16,7 @@ calendar file.
   an opportunity).
 - **Capabilities consumed (soft):** `ingestion.service_factory` (opportunity + deadlines).
 - **API routes:**
-  - `GET /api/timeline/opportunities/{id}` — JSON list of timeline events.
+  - `GET /api/timeline/opportunities/{id}/timeline` — JSON list of timeline events.
   - `GET /api/timeline/opportunities/{id}/timeline.ics` — iCal export.
 
 ## Data owned
@@ -42,7 +42,7 @@ None; the module is a read-only view over ingestion's `deadlines` and `opportuni
 
 ## Acceptance criteria
 
-- A1: `GET /api/timeline/opportunities/{id}` returns at least the 9 required
+- A1: `GET /api/timeline/opportunities/{id}/timeline` returns at least the 9 required
   milestone kinds when matching text is present in the tender pack.
 - A2: undated events do not break sorting or export.
 - A3: iCal export contains one `VEVENT` per dated milestone.

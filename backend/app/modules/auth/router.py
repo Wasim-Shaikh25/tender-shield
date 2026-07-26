@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import current_principal, get_session, require
 from app.modules.auth import mfa
+from app.modules.auth.apple import AppleClient
 from app.modules.auth.models import User
 from app.modules.auth.rbac import Principal
 from app.modules.auth.service import AuthError, AuthService
@@ -15,11 +16,13 @@ router = APIRouter()
 def _service(request: Request, session: Session) -> AuthService:
     settings = request.app.state.ctx.settings
     keys = request.app.state.ctx.registry.require("auth.keys")
+    apple_client = AppleClient(settings) if settings.apple_services_id else None
     return AuthService(
         session,
         keys,
         access_ttl_min=settings.access_ttl_minutes,
         refresh_ttl_days=settings.refresh_ttl_days,
+        apple_client=apple_client,
     )
 
 
@@ -50,6 +53,9 @@ _STATUS = {
     "invalid_refresh": 401,
     "reuse_detected": 401,
     "no_org": 401,
+    "apple_not_configured": 503,
+    "apple_token_invalid": 401,
+    "apple_email_missing": 400,
 }
 
 
@@ -140,4 +146,35 @@ def add_member(
 ):
     return _handle(
         lambda: _service(request, session).add_member(principal.org_id, body.email, body.role)
+    )
+
+
+class AppleCallbackBody(BaseModel):
+    id_token: str | None = None
+    code: str | None = None
+    user: str | None = None  # Apple sends a JSON string on first sign-in
+
+
+@router.get("/apple/authorize")
+def apple_authorize(request: Request):
+    settings = request.app.state.ctx.settings
+    url = (
+        "https://appleid.apple.com/auth/authorize"
+        f"?client_id={settings.apple_services_id}"
+        f"&redirect_uri={settings.apple_redirect_uri}"
+        "&response_type=code id_token"
+        "&scope=name email"
+        "&response_mode=form_post"
+    )
+    return {"url": url}
+
+
+@router.post("/apple/callback")
+def apple_callback(
+    body: AppleCallbackBody,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    return _handle(
+        lambda: _service(request, session).apple_callback(body.id_token, body.code, body.user)
     )

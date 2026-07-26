@@ -27,7 +27,7 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   - `test_health.py` covers the `/api/health` module/capability report.
   - `test_notifications.py` covers deadline alert thresholds and `ConsoleSender`.
 
-### Done — 2026-07-26 (Sprint 4 complete: TS-068..TS-070)
+### Done — 2026-07-26 (Sprint 4 complete + TS-071)
 
 - **TS-068** — Implemented `ingestion.doc_chunks` table + migration and the
   `ingestion.doc_text` capability (`DocTextService`), plus `GET /api/ingestion/documents/{id}/text`.
@@ -35,12 +35,17 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   `billing.record_usage` capability; Razorpay `order.paid`/`subscription.charged` now generate a paid invoice.
 - **TS-069** — Implemented assistant chat sessions (`chat_sessions` + `chat_messages`),
   history endpoints, and SSE `/api/assistant/sessions/{id}/stream`.
-- Added integration tests for billing, ingestion doc chunks, and assistant sessions.
+- **TS-071** — Implemented Sign in with Apple backend skeleton: `users.apple_id`,
+  `GET /api/auth/apple/authorize`, `POST /api/auth/apple/callback`, client-secret
+  generation, and id_token verification. Disabled until Apple Developer credentials
+  are configured (`TS_APPLE_*`).
+- Added integration tests for billing, ingestion doc chunks, assistant sessions, and
+  Apple sign-in.
 
 ### Next
 
-- **TS-071** — Sign in with Apple: add `/auth/apple/callback`, link verified Apple
-  IDs to users, and update the auth spec. Requires Apple Developer credentials.
+- Configure Apple Developer credentials and test end-to-end Sign in with Apple, or
+  freeze auth at the current capability set.
 
 ### Done — 2026-07-26 (session 23 continued: TS-057)
 

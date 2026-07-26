@@ -1,7 +1,8 @@
 # Auth — Spec
 
 **Status:** implemented (email+password, JWT, refresh rotation, RBAC, RLS bind;
-TOTP MFA enroll/verify done; phone OTP + Google OIDC + Sign in with Apple deferred)
+TOTP MFA enroll/verify done; phone OTP + Google OIDC deferred; Sign in with Apple
+backend callback implemented but requires Apple Developer credentials to enable)
 **Requirement refs:** Doc §5, §3.2
 **Task refs:** TS-011, TS-012
 
@@ -18,12 +19,13 @@ relies on.
 - **Events emitted:** `auth.user_registered`, `auth.org_created`,
   `auth.refresh_reuse_detected`.
 - **API routes:** `/api/auth/signup`, `/login`, `/refresh`, `/logout`,
-  `/otp/send`, `/otp/verify`, `/google/callback`, `/apple/callback`, org CRUD +
-  member management.
+  `/otp/send`, `/otp/verify`, `/google/callback`, `/apple/authorize`,
+  `/apple/callback`, org CRUD + member management.
 
 ## Data owned
 
-`users`, `orgs`, `org_members`, `refresh_tokens` (family-tracked), OTP state (Redis).
+`users` (including `google_sub`, `apple_id` OIDC links), `orgs`, `org_members`,
+`refresh_tokens` (family-tracked), OTP state (Redis).
 
 ## Behavior
 

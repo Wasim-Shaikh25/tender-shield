@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     # Billing (Doc §7, §15). Webhook secret verifies the only billing truth.
     razorpay_webhook_secret: str = "dev-razorpay-secret"
 
+    # Sign in with Apple (Doc §5). PEM private key may contain escaped newlines.
+    apple_team_id: str = ""
+    apple_services_id: str = ""
+    apple_key_id: str = ""
+    apple_private_key: str = ""
+    apple_redirect_uri: str = ""
+
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()] or ["*"]
     # Comma-separated module names. Empty string means "discover everything

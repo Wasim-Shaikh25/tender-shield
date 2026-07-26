@@ -3,8 +3,8 @@ import logging
 from app.core.module import AppContext, ModuleSpec
 from app.modules.auth import security as sec
 from app.modules.auth.deps import authenticate, check_role
-from app.modules.auth.orgs import OrgAdmin
 from app.modules.auth.router import router
+from app.modules.auth.workspaces import WorkspaceAdmin
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ def setup(ctx: AppContext) -> None:
     # Cross-module API — consumed via app.core.deps by capability name, never imported.
     ctx.registry.provide("auth.authenticate", authenticate)
     ctx.registry.provide("auth.check_role", check_role)
-    ctx.registry.provide("auth.orgs_factory", lambda session: OrgAdmin(session))
+    ctx.registry.provide("auth.workspace_factory", lambda session: WorkspaceAdmin(session))
 
 
 module = ModuleSpec(

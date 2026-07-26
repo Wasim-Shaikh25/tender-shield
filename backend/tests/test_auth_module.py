@@ -25,7 +25,7 @@ def client() -> TestClient:
 def _signup(client, email="a@example.com"):
     r = client.post(
         "/api/auth/signup",
-        json={"email": email, "password": "hunter2hunter2", "org_name": "Acme Infra"},
+        json={"email": email, "password": "hunter2hunter2", "workspace_name": "Acme Infra"},
     )
     assert r.status_code == 200, r.text
     return r.json()
@@ -48,7 +48,7 @@ def test_duplicate_email_rejected(client):
     _signup(client)
     r = client.post(
         "/api/auth/signup",
-        json={"email": "a@example.com", "password": "hunter2hunter2", "org_name": "Other"},
+        json={"email": "a@example.com", "password": "hunter2hunter2", "workspace_name": "Other"},
     )
     assert r.status_code == 409
 
@@ -88,8 +88,11 @@ def test_rbac_viewer_cannot_add_member(client):
     _signup(client)
     keys: sec.KeyPair = client.app.state.ctx.registry.require("auth.keys")
     viewer = sec.mint_access(
-        keys, user_id="00000000-0000-0000-0000-000000000001",
-        org_id="00000000-0000-0000-0000-0000000000aa", role="viewer", ttl=timedelta(minutes=5),
+        keys,
+        user_id="00000000-0000-0000-0000-000000000001",
+        workspace_id="00000000-0000-0000-0000-0000000000aa",
+        role="viewer",
+        ttl=timedelta(minutes=5),
     )
     r = client.post(
         "/api/auth/members",
@@ -139,3 +142,73 @@ def test_apple_callback_creates_user_and_issues_tokens(client, monkeypatch):
     )
     assert r.status_code == 200
     assert r.json()["role"] == "owner"
+
+
+def _login(client, email="a@example.com"):
+    r = client.post("/api/auth/login", json={"email": email, "password": "hunter2hunter2"})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_create_and_list_workspaces(client):
+    _signup(client)
+    token = _login(client)["access_token"]
+    r = client.post(
+        "/api/auth/workspaces",
+        json={"name": "Second Workspace"},
+        headers={"authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 200, r.text
+    r = client.get("/api/auth/workspaces", headers={"authorization": f"Bearer {token}"})
+    assert r.status_code == 200, r.text
+    assert len(r.json()) == 2
+
+
+def test_create_project_and_share_with_member(client):
+    _signup(client, "owner@example.com")
+    owner = _login(client, "owner@example.com")
+    # add member to workspace
+    _signup(client, "member@example.com")
+    r = client.post(
+        "/api/auth/members",
+        json={"email": "member@example.com", "role": "viewer"},
+        headers={"authorization": f"Bearer {owner['access_token']}"},
+    )
+    assert r.status_code == 200, r.text
+    # create project
+    r = client.post(
+        "/api/auth/workspaces/{}/projects".format(owner["workspace_id"]),
+        json={"name": "Bridge Tender", "status": "tendering"},
+        headers={"authorization": f"Bearer {owner['access_token']}"},
+    )
+    assert r.status_code == 200, r.text
+    project_id = r.json()["project_id"]
+    r = client.get(
+        "/api/auth/workspaces/{}/projects".format(owner["workspace_id"]),
+        headers={"authorization": f"Bearer {owner['access_token']}"},
+    )
+    assert r.status_code == 200, r.text
+    assert len(r.json()) == 1
+    # add project member
+    r = client.post(
+        f"/api/auth/projects/{project_id}/members",
+        json={"email": "member@example.com", "role": "reviewer"},
+        headers={"authorization": f"Bearer {owner['access_token']}"},
+    )
+    assert r.status_code == 200, r.text
+    r = client.get(
+        f"/api/auth/projects/{project_id}/members",
+        headers={"authorization": f"Bearer {owner['access_token']}"},
+    )
+    assert r.status_code == 200, r.text
+    assert any(m["email"] == "member@example.com" for m in r.json())
+
+
+def test_superadmin_endpoints(client):
+    _signup(client, "admin@example.com")
+    user = _login(client, "admin@example.com")
+    r = client.get(
+        "/api/auth/admin/users",
+        headers={"authorization": f"Bearer {user['access_token']}"},
+    )
+    assert r.status_code == 403, r.text

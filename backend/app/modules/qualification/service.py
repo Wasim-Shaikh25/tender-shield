@@ -141,12 +141,12 @@ class QualificationService:
             return None
         return self._store_factory(self.s)
 
-    def build_matrix(self, org_id, opportunity_id) -> list[QualificationCriterion]:
+    def build_matrix(self, workspace_id, opportunity_id) -> list[QualificationCriterion]:
         svc = self._ingestion()
         if svc is None:
             return []
 
-        clauses = svc.list_clauses(org_id, opportunity_id)
+        clauses = svc.list_clauses(workspace_id, opportunity_id)
         records: list[QualificationCriterion] = []
 
         for cfg in _CRITERIA_CONFIG:
@@ -199,11 +199,13 @@ class QualificationService:
 
         return records
 
-    def run_opportunity(self, org_id, opportunity_id) -> list[QualificationCriterion]:
-        matrix = self.build_matrix(org_id, opportunity_id)
+    def run_opportunity(self, workspace_id, opportunity_id) -> list[QualificationCriterion]:
+        matrix = self.build_matrix(workspace_id, opportunity_id)
         findings = [_to_finding(c) for c in matrix]
         if self._store is not None and findings:
-            self._store().replace_for_producer(org_id, opportunity_id, self.PRODUCER, findings)
+            self._store().replace_for_producer(
+                workspace_id, opportunity_id, self.PRODUCER, findings
+            )
         return matrix
 
 

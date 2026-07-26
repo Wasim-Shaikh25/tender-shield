@@ -26,7 +26,7 @@ def client():
 def _auth(client):
     client.post(
         "/api/auth/signup",
-        json={"email": "cr@x.com", "password": "hunter2hunter2", "org_name": "Acme"},
+        json={"email": "cr@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
     )
     tok = client.post(
         "/api/auth/login", json={"email": "cr@x.com", "password": "hunter2hunter2"}
@@ -57,9 +57,7 @@ def _opp_with_docs(client, headers):
         json={
             "filename": "scc.pdf",
             "sample_text": (
-                "[p1]\n"
-                "Clause A - Payment terms. Interest at 12% per annum on "
-                "delayed payments.\n"
+                "[p1]\nClause A - Payment terms. Interest at 12% per annum on delayed payments.\n"
             ),
         },
         headers=headers,
@@ -71,9 +69,7 @@ def test_cross_reference_search(client):
     headers = _auth(client)
     opp_id = _opp_with_docs(client, headers)
 
-    resp = client.get(
-        f"/api/crossref/opportunities/{opp_id}?q=payment&limit=10", headers=headers
-    )
+    resp = client.get(f"/api/crossref/opportunities/{opp_id}?q=payment&limit=10", headers=headers)
     assert resp.status_code == 200
     results = resp.json()["results"]
     assert len(results) >= 2

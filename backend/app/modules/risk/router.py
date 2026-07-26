@@ -30,7 +30,7 @@ def run(
     reg = request.app.state.ctx.registry
     if reg.get("rulepacks.loader") is None or reg.get("ingestion.service_factory") is None:
         raise HTTPException(503, "risk_dependencies_unavailable")
-    findings = _service(request, session).run_opportunity(principal.org_id, opportunity_id)
+    findings = _service(request, session).run_opportunity(principal.workspace_id, opportunity_id)
     return {
         "count": len(findings),
         "findings": [

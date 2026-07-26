@@ -28,7 +28,7 @@ def client():
 def _auth(client):
     client.post(
         "/api/auth/signup",
-        json={"email": "r@x.com", "password": "hunter2hunter2", "org_name": "Acme"},
+        json={"email": "r@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
     )
     tok = client.post(
         "/api/auth/login", json={"email": "r@x.com", "password": "hunter2hunter2"}
@@ -128,9 +128,7 @@ def test_bad_decision_and_missing_finding(client):
     fid = client.get(f"/api/review/opportunities/{opp_id}/queue", headers=headers).json()[
         "findings"
     ][0]["id"]
-    bad = client.post(
-        f"/api/review/findings/{fid}", json={"decision": "banana"}, headers=headers
-    )
+    bad = client.post(f"/api/review/findings/{fid}", json={"decision": "banana"}, headers=headers)
     assert bad.status_code == 400
     missing = "00000000-0000-0000-0000-0000000000ff"
     gone = client.post(

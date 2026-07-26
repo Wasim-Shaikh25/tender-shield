@@ -61,9 +61,7 @@ def test_notice_extraction_week_month_normalisation_and_dedup():
 
 @pytest.fixture
 def client():
-    application = create_app(
-        Settings(enabled_modules=MODULES, database_url="sqlite:///:memory:")
-    )
+    application = create_app(Settings(enabled_modules=MODULES, database_url="sqlite:///:memory:"))
     Base.metadata.create_all(application.state.ctx.registry.require("db.engine"))
     return TestClient(application)
 
@@ -71,7 +69,7 @@ def client():
 def _auth(client):
     client.post(
         "/api/auth/signup",
-        json={"email": "b@x.com", "password": "hunter2hunter2", "org_name": "Acme"},
+        json={"email": "b@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
     )
     tok = client.post(
         "/api/auth/login", json={"email": "b@x.com", "password": "hunter2hunter2"}
@@ -93,13 +91,11 @@ def _opp_with_findings(client, headers):
 
 
 def _accept_all(client, headers, opp_id, decision="accepted"):
-    queue = client.get(
-        f"/api/review/opportunities/{opp_id}/queue", headers=headers
-    ).json()["findings"]
+    queue = client.get(f"/api/review/opportunities/{opp_id}/queue", headers=headers).json()[
+        "findings"
+    ]
     for f in queue:
-        client.post(
-            f"/api/review/findings/{f['id']}", json={"decision": decision}, headers=headers
-        )
+        client.post(f"/api/review/findings/{f['id']}", json={"decision": decision}, headers=headers)
     return queue
 
 
@@ -150,16 +146,12 @@ def test_award_vs_tender_compare_and_handover(client):
     assert award["version"] == 2
 
     # A4: compare shows the accepted finding removed at award.
-    delta = client.get(
-        f"/api/baseline/opportunities/{opp_id}/compare", headers=headers
-    ).json()
+    delta = client.get(f"/api/baseline/opportunities/{opp_id}/compare", headers=headers).json()
     assert delta["tender_version"] == 1 and delta["award_version"] == 2
     assert len(delta["removed"]) >= 1
 
     # A5: handover pack surfaces the sealed hash from the latest baseline.
-    pack = client.get(
-        f"/api/baseline/opportunities/{opp_id}/handover", headers=headers
-    ).json()
+    pack = client.get(f"/api/baseline/opportunities/{opp_id}/handover", headers=headers).json()
     assert len(pack["sealed_hash"]) == 64
     assert pack["opportunity"]["title"] == "Metro Depot"
 
@@ -287,8 +279,12 @@ def test_org_standard_side_by_side_keeps_both(client):
         json={
             "mode": "side_by_side",
             "categories": [
-                {"key": "claim", "label": "Our stricter claim policy", "typical_days": 7,
-                 "keywords": ["claim"]}
+                {
+                    "key": "claim",
+                    "label": "Our stricter claim policy",
+                    "typical_days": 7,
+                    "keywords": ["claim"],
+                }
             ],
         },
         headers=headers,

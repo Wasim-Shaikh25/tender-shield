@@ -50,10 +50,10 @@ class BaselineService:
         self._pack_id = pack_id
 
     # ---- reads from other modules (capabilities only) ---------------------
-    def _accepted_findings(self, org_id, opportunity_id) -> list[dict]:
+    def _accepted_findings(self, workspace_id, opportunity_id) -> list[dict]:
         if self._findings_factory is None:
             raise BaselineError("findings_unavailable")
-        rows = self._findings_factory(self.s).list(org_id, opportunity_id)
+        rows = self._findings_factory(self.s).list(workspace_id, opportunity_id)
         return [
             {
                 "category": r.category,
@@ -72,12 +72,12 @@ class BaselineService:
             if r.review_status in _ACCEPTED
         ]
 
-    def _confirmed_deadlines(self, org_id, opportunity_id) -> list[dict]:
+    def _confirmed_deadlines(self, workspace_id, opportunity_id) -> list[dict]:
         if self._ingestion_factory is None:
             return []
         svc = self._ingestion_factory(self.s)
         out = []
-        for d in svc.list_deadlines(org_id, opportunity_id):
+        for d in svc.list_deadlines(workspace_id, opportunity_id):
             if not d.confirmed:
                 continue
             out.append(
@@ -91,7 +91,7 @@ class BaselineService:
             )
         return out
 
-    def _clause_records(self, org_id, opportunity_id) -> list[dict]:
+    def _clause_records(self, workspace_id, opportunity_id) -> list[dict]:
         """Segmented clauses mapped to the shape extract_notice_rules consumes,
         so the notice register reads the actual contract text — not only what
         the risk engine flagged (works with no LLM configured)."""
@@ -102,7 +102,7 @@ class BaselineService:
         if lister is None:
             return []
         out = []
-        for c in lister(org_id, opportunity_id):
+        for c in lister(workspace_id, opportunity_id):
             text = c.text or ""
             out.append(
                 {
@@ -135,18 +135,18 @@ class BaselineService:
             out.append(d)
         return out
 
-    def _org_overlay(self, org_id) -> dict | None:
+    def _org_overlay(self, workspace_id) -> dict | None:
         """The org's custom notice standard (mode + categories) via capability."""
         if self._standards_factory is None:
             return None
-        return self._standards_factory(self.s).get_notice(org_id)
+        return self._standards_factory(self.s).get_notice(workspace_id)
 
-    def _effective_categories(self, org_id, region: str | None) -> list[dict]:
+    def _effective_categories(self, workspace_id, region: str | None) -> list[dict]:
         """The three-layer merge: universal + regional (rulepack) then the org's
         custom standard on top (spec standards B1). `prevail` overrides matching
         keys; `side_by_side` appends the org regimes alongside so both show."""
         cats = self._rulepack_categories(region)
-        overlay = self._org_overlay(org_id)
+        overlay = self._org_overlay(workspace_id)
         if not overlay or not overlay.get("categories"):
             return cats
         mode = overlay.get("mode", "prevail")
@@ -154,7 +154,7 @@ class BaselineService:
         for oc in overlay["categories"]:
             entry = {**oc, "origin": "org"}
             if mode == "prevail" and oc["key"] in by_key:
-                # Org values win, but keep base fields the org omitted.
+                # Workspace values win, but keep base fields the org omitted.
                 merged = {**cats[by_key[oc["key"]]], **oc, "origin": "org"}
                 cats[by_key[oc["key"]]] = merged
             else:
@@ -174,9 +174,11 @@ class BaselineService:
                 return cat["key"]
         return rule.get("category", "clause")
 
-    def _notice_analysis(self, org_id, opportunity_id, findings: list[dict], region: str | None):
-        records = findings + self._clause_records(org_id, opportunity_id)
-        categories = self._effective_categories(org_id, region)
+    def _notice_analysis(
+        self, workspace_id, opportunity_id, findings: list[dict], region: str | None
+    ):
+        records = findings + self._clause_records(workspace_id, opportunity_id)
+        categories = self._effective_categories(workspace_id, region)
         rules = []
         for r in extract_notice_rules(records):
             d = r.as_dict()
@@ -216,10 +218,10 @@ class BaselineService:
             "standard_categories": std_categories,
         }
 
-    def _opportunity_meta(self, org_id, opportunity_id) -> dict:
+    def _opportunity_meta(self, workspace_id, opportunity_id) -> dict:
         if self._ingestion_factory is None:
             return {"id": str(opportunity_id), "title": "this tender"}
-        opp = self._ingestion_factory(self.s).get_opportunity(org_id, opportunity_id)
+        opp = self._ingestion_factory(self.s).get_opportunity(workspace_id, opportunity_id)
         if opp is None:
             raise BaselineError("opportunity_not_found")
         return {
@@ -231,21 +233,21 @@ class BaselineService:
             "jurisdiction": opp.jurisdiction,
         }
 
-    def _gate_ok(self, org_id, opportunity_id) -> None:
+    def _gate_ok(self, workspace_id, opportunity_id) -> None:
         """Freeze is blocked until review completes (spec B1, Doc §11.4)."""
         if self._review_factory is None:
             raise BaselineError("review_unavailable")
-        gate = self._review_factory(self.s).gate(org_id, opportunity_id)
+        gate = self._review_factory(self.s).gate(workspace_id, opportunity_id)
         if not gate.get("export_allowed", False):
             raise BaselineError("review_incomplete")
 
     # ---- snapshot + hashing ----------------------------------------------
-    def _build_snapshot(self, org_id, opportunity_id, source: str) -> dict:
-        findings = self._accepted_findings(org_id, opportunity_id)
-        deadlines = self._confirmed_deadlines(org_id, opportunity_id)
-        meta = self._opportunity_meta(org_id, opportunity_id)
+    def _build_snapshot(self, workspace_id, opportunity_id, source: str) -> dict:
+        findings = self._accepted_findings(workspace_id, opportunity_id)
+        deadlines = self._confirmed_deadlines(workspace_id, opportunity_id)
+        meta = self._opportunity_meta(workspace_id, opportunity_id)
         analysis = self._notice_analysis(
-            org_id, opportunity_id, findings, meta.get("jurisdiction")
+            workspace_id, opportunity_id, findings, meta.get("jurisdiction")
         )
         return {
             "source": source,
@@ -271,11 +273,11 @@ class BaselineService:
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
     # ---- freeze / read ----------------------------------------------------
-    def freeze(self, org_id, opportunity_id, *, source="tender", note=None, sealer_id=None):
+    def freeze(self, workspace_id, opportunity_id, *, source="tender", note=None, sealer_id=None):
         if source not in {"tender", "award"}:
             raise BaselineError("bad_source")
-        self._gate_ok(org_id, opportunity_id)
-        snapshot = self._build_snapshot(org_id, opportunity_id, source)
+        self._gate_ok(workspace_id, opportunity_id)
+        snapshot = self._build_snapshot(workspace_id, opportunity_id, source)
         opp = uuid.UUID(str(opportunity_id))
         next_version = (
             self.s.scalar(
@@ -286,7 +288,7 @@ class BaselineService:
             + 1
         )
         row = Baseline(
-            org_id=uuid.UUID(str(org_id)),
+            workspace_id=uuid.UUID(str(workspace_id)),
             opportunity_id=opp,
             version=next_version,
             source=source,
@@ -300,7 +302,7 @@ class BaselineService:
         # Audit the seal through the review module's append-only log if present.
         if self._review_factory is not None:
             self._review_factory(self.s).audit(
-                org_id,
+                workspace_id,
                 actor=sealer_id,
                 action="baseline.sealed",
                 object_type="baseline",
@@ -318,37 +320,37 @@ class BaselineService:
         )
         return row
 
-    def list(self, org_id, opportunity_id) -> list[Baseline]:
+    def list(self, workspace_id, opportunity_id) -> list[Baseline]:
         return list(
             self.s.scalars(
                 select(Baseline)
                 .where(
-                    Baseline.org_id == uuid.UUID(str(org_id)),
+                    Baseline.workspace_id == uuid.UUID(str(workspace_id)),
                     Baseline.opportunity_id == uuid.UUID(str(opportunity_id)),
                 )
                 .order_by(Baseline.version.desc())
             )
         )
 
-    def get(self, org_id, baseline_id) -> Baseline | None:
+    def get(self, workspace_id, baseline_id) -> Baseline | None:
         return self.s.scalar(
             select(Baseline).where(
                 Baseline.id == uuid.UUID(str(baseline_id)),
-                Baseline.org_id == uuid.UUID(str(org_id)),
+                Baseline.workspace_id == uuid.UUID(str(workspace_id)),
             )
         )
 
-    def latest(self, org_id, opportunity_id, *, source: str | None = None) -> Baseline | None:
+    def latest(self, workspace_id, opportunity_id, *, source: str | None = None) -> Baseline | None:
         stmt = select(Baseline).where(
-            Baseline.org_id == uuid.UUID(str(org_id)),
+            Baseline.workspace_id == uuid.UUID(str(workspace_id)),
             Baseline.opportunity_id == uuid.UUID(str(opportunity_id)),
         )
         if source is not None:
             stmt = stmt.where(Baseline.source == source)
         return self.s.scalar(stmt.order_by(Baseline.version.desc()))
 
-    def verify(self, org_id, baseline_id) -> dict:
-        row = self.get(org_id, baseline_id)
+    def verify(self, workspace_id, baseline_id) -> dict:
+        row = self.get(workspace_id, baseline_id)
         if row is None:
             raise BaselineError("not_found")
         recomputed = self._hash(row.snapshot)
@@ -361,10 +363,10 @@ class BaselineService:
         }
 
     # ---- derived views ----------------------------------------------------
-    def notice_register(self, org_id, opportunity_id) -> dict:
+    def notice_register(self, workspace_id, opportunity_id) -> dict:
         """The notice-rule register from the latest sealed baseline; falls back
         to the live accepted findings when nothing is sealed yet."""
-        latest = self.latest(org_id, opportunity_id)
+        latest = self.latest(workspace_id, opportunity_id)
         if latest is not None:
             snap = latest.snapshot
             return {
@@ -374,10 +376,10 @@ class BaselineService:
                 "rules": snap.get("notice_rules", []),
                 "gaps": snap.get("notice_gaps", []),
             }
-        findings = self._accepted_findings(org_id, opportunity_id)
-        meta = self._opportunity_meta(org_id, opportunity_id)
+        findings = self._accepted_findings(workspace_id, opportunity_id)
+        meta = self._opportunity_meta(workspace_id, opportunity_id)
         analysis = self._notice_analysis(
-            org_id, opportunity_id, findings, meta.get("jurisdiction")
+            workspace_id, opportunity_id, findings, meta.get("jurisdiction")
         )
         return {
             "source": "live",
@@ -391,11 +393,11 @@ class BaselineService:
     def _by_identity(findings: list[dict]) -> dict[tuple[str, str], dict]:
         return {(f.get("category", ""), f.get("title", "")): f for f in findings}
 
-    def compare(self, org_id, opportunity_id) -> dict:
+    def compare(self, workspace_id, opportunity_id) -> dict:
         """Award-vs-tender delta: latest tender seal vs latest award seal
         (spec B5). Deterministic diff by finding identity (category+title)."""
-        tender = self.latest(org_id, opportunity_id, source="tender")
-        award = self.latest(org_id, opportunity_id, source="award")
+        tender = self.latest(workspace_id, opportunity_id, source="tender")
+        award = self.latest(workspace_id, opportunity_id, source="award")
         if tender is None or award is None:
             raise BaselineError("need_two_baselines")
         t = self._by_identity(tender.snapshot.get("findings", []))
@@ -420,17 +422,15 @@ class BaselineService:
             "changed": changed,
         }
 
-    def handover(self, org_id, opportunity_id) -> dict:
+    def handover(self, workspace_id, opportunity_id) -> dict:
         """Commercial handover pack assembled from the latest sealed baseline
         (spec B6)."""
-        latest = self.latest(org_id, opportunity_id)
+        latest = self.latest(workspace_id, opportunity_id)
         if latest is None:
             raise BaselineError("no_baseline")
         snap = latest.snapshot
         findings = snap.get("findings", [])
-        obligations = [
-            f for f in findings if f.get("severity") in {"critical", "high"}
-        ]
+        obligations = [f for f in findings if f.get("severity") in {"critical", "high"}]
         return {
             "baseline_id": str(latest.id),
             "version": latest.version,

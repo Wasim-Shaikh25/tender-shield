@@ -9,10 +9,10 @@ from datetime import datetime
 from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.db import Base, OrgScopedMixin
+from app.core.db import Base, WorkspaceScopedMixin
 
 
-class Opportunity(Base, OrgScopedMixin):
+class Opportunity(Base, WorkspaceScopedMixin):
     _tablename_ = "opportunities"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     title: Mapped[str] = mapped_column(String, nullable=False)
@@ -31,7 +31,7 @@ class Opportunity(Base, OrgScopedMixin):
     )
 
 
-class Document(Base, OrgScopedMixin):
+class Document(Base, WorkspaceScopedMixin):
     _tablename_ = "documents"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     opportunity_id: Mapped[uuid.UUID] = mapped_column(
@@ -53,7 +53,7 @@ class Document(Base, OrgScopedMixin):
     )
 
 
-class Deadline(Base, OrgScopedMixin):
+class Deadline(Base, WorkspaceScopedMixin):
     _tablename_ = "deadlines"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     opportunity_id: Mapped[uuid.UUID] = mapped_column(
@@ -67,7 +67,7 @@ class Deadline(Base, OrgScopedMixin):
     confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
-class DocChunk(Base, OrgScopedMixin):
+class DocChunk(Base, WorkspaceScopedMixin):
     _tablename_ = "doc_chunks"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     opportunity_id: Mapped[uuid.UUID] = mapped_column(
@@ -80,7 +80,7 @@ class DocChunk(Base, OrgScopedMixin):
     text: Mapped[str] = mapped_column(String, nullable=False)
 
 
-class Clause(Base, OrgScopedMixin):
+class Clause(Base, WorkspaceScopedMixin):
     _tablename_ = "clauses"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     document_id: Mapped[uuid.UUID] = mapped_column(

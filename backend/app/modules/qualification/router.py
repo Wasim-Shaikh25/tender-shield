@@ -37,7 +37,7 @@ def get_matrix(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    rows = _service(request, session).build_matrix(principal.org_id, opportunity_id)
+    rows = _service(request, session).build_matrix(principal.workspace_id, opportunity_id)
     return {"status": _summary(rows), "criteria": [_row_json(r) for r in rows]}
 
 
@@ -48,7 +48,7 @@ def run_matrix(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("estimator")),
 ):
-    rows = _service(request, session).run_opportunity(principal.org_id, opportunity_id)
+    rows = _service(request, session).run_opportunity(principal.workspace_id, opportunity_id)
     return {"status": _summary(rows), "criteria": [_row_json(r) for r in rows]}
 
 

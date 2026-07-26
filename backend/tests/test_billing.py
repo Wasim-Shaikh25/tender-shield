@@ -63,10 +63,10 @@ def client():
 def _auth(client):
     client.post(
         "/api/auth/signup",
-        json={"email": "b@x.com", "password": "hunter2hunter2", "org_name": "Acme"},
+        json={"email": "b@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
     )
     r = client.post("/api/auth/login", json={"email": "b@x.com", "password": "hunter2hunter2"})
-    return {"authorization": f"Bearer {r.json()['access_token']}"}, r.json()["org_id"]
+    return {"authorization": f"Bearer {r.json()['access_token']}"}, r.json()["workspace_id"]
 
 
 def _signed(body: dict):
@@ -86,11 +86,13 @@ def test_free_review_metering(client):
 
 
 def test_webhook_activates_plan_and_is_idempotent(client):
-    headers, org_id = _auth(client)
+    headers, workspace_id = _auth(client)
     body = {
         "id": "evt_sub_1",
         "event": "subscription.activated",
-        "payload": {"subscription": {"entity": {"notes": {"org_id": org_id, "plan": "pro"}}}},
+        "payload": {
+            "subscription": {"entity": {"notes": {"workspace_id": workspace_id, "plan": "pro"}}}
+        },
     }
     raw, sig = _signed(body)
     r1 = client.post(
@@ -116,7 +118,7 @@ def test_tampered_signature_rejected(client):
 
 
 def test_order_paid_creates_invoice_and_list_returns_it(client):
-    headers, org_id = _auth(client)
+    headers, workspace_id = _auth(client)
     body = {
         "id": "evt_order_paid_1",
         "event": "order.paid",
@@ -125,7 +127,7 @@ def test_order_paid_creates_invoice_and_list_returns_it(client):
                 "entity": {
                     "id": "pay_1",
                     "amount": 100000,
-                    "notes": {"org_id": org_id},
+                    "notes": {"workspace_id": workspace_id},
                 }
             }
         },
@@ -144,7 +146,7 @@ def test_order_paid_creates_invoice_and_list_returns_it(client):
 
 
 def test_record_usage_capability_logs_event(client):
-    _, org_id = _auth(client)
+    _, workspace_id = _auth(client)
     reg = client.app.state.ctx.registry
     factory = reg.get("billing.record_usage")
     assert factory is not None
@@ -152,5 +154,5 @@ def test_record_usage_capability_logs_event(client):
     from sqlalchemy.orm import Session
 
     with Session(engine) as session:
-        factory(session, org_id, "test_event")
+        factory(session, workspace_id, "test_event")
     # usage is internal; the capability was reachable and callable without error

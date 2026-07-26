@@ -6,7 +6,7 @@ import type { Tokens } from "@/lib/api";
 // Skeleton simplification: access token kept in memory + mirrored to
 // localStorage so a reload survives. Production keeps the refresh token in an
 // httpOnly cookie and the access token in memory only (Doc §5).
-type Session = { token: string; role: string; orgId: string } | null;
+type Session = { token: string; role: string; workspaceId: string; is_superadmin?: boolean } | null;
 
 type Ctx = {
   session: Session;
@@ -25,7 +25,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = (t: Tokens) => {
-    const s = { token: t.access_token, role: t.role, orgId: t.org_id };
+    const s = { token: t.access_token, role: t.role, workspaceId: t.workspace_id, is_superadmin: t.is_superadmin };
     setSession(s);
     localStorage.setItem("ts_session", JSON.stringify(s));
   };

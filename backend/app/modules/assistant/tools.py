@@ -5,7 +5,7 @@ results — no LLM involved, so the common queries work with no API key."""
 from __future__ import annotations
 
 
-def list_deadlines(ingestion_factory, session, org_id, opportunity_id) -> list[dict]:
+def list_deadlines(ingestion_factory, session, workspace_id, opportunity_id) -> list[dict]:
     if not ingestion_factory:
         return []
     svc = ingestion_factory(session)
@@ -16,16 +16,16 @@ def list_deadlines(ingestion_factory, session, org_id, opportunity_id) -> list[d
             "page": d.source_page,
             "confirmed": d.confirmed,
         }
-        for d in svc.list_deadlines(org_id, opportunity_id)
+        for d in svc.list_deadlines(workspace_id, opportunity_id)
     ]
 
 
 def filter_findings(
-    findings_factory, session, org_id, opportunity_id, *, severity=None, category=None
+    findings_factory, session, workspace_id, opportunity_id, *, severity=None, category=None
 ) -> list[dict]:
     if not findings_factory:
         return []
-    rows = findings_factory(session).list(org_id, opportunity_id)
+    rows = findings_factory(session).list(workspace_id, opportunity_id)
     out = []
     for r in rows:
         if severity and r.severity != severity:
@@ -44,10 +44,10 @@ def filter_findings(
     return out
 
 
-def missing_docs(ingestion_factory, session, org_id, opportunity_id) -> dict:
+def missing_docs(ingestion_factory, session, workspace_id, opportunity_id) -> dict:
     if not ingestion_factory:
         return {"present": [], "missing": [], "expected": []}
-    return ingestion_factory(session).missing_doc_report(org_id, opportunity_id)
+    return ingestion_factory(session).missing_doc_report(workspace_id, opportunity_id)
 
 
 def rulepack_lookup(loader, topic: str, pack_id: str = "in-works") -> list[dict]:

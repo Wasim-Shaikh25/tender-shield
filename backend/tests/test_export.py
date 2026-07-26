@@ -28,7 +28,7 @@ def client():
 def _auth(client):
     client.post(
         "/api/auth/signup",
-        json={"email": "ex@x.com", "password": "hunter2hunter2", "org_name": "Acme"},
+        json={"email": "ex@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
     )
     tok = client.post(
         "/api/auth/login", json={"email": "ex@x.com", "password": "hunter2hunter2"}
@@ -52,9 +52,7 @@ def _opp_with_findings(client, headers):
 def test_export_blocked_until_review_complete(client):
     headers = _auth(client)
     opp_id = _opp_with_findings(client, headers)
-    r = client.get(
-        f"/api/export/opportunities/{opp_id}?format=xlsx", headers=headers
-    )
+    r = client.get(f"/api/export/opportunities/{opp_id}?format=xlsx", headers=headers)
     assert r.status_code == 403
     assert r.json()["detail"] == "review_incomplete"
 
@@ -69,9 +67,7 @@ def test_export_xlsx_after_review(client):
             f"/api/review/findings/{f['id']}", json={"decision": "accepted"}, headers=headers
         )
 
-    r = client.get(
-        f"/api/export/opportunities/{opp_id}?format=xlsx", headers=headers
-    )
+    r = client.get(f"/api/export/opportunities/{opp_id}?format=xlsx", headers=headers)
     assert r.status_code == 200
     assert r.headers["content-type"] == (
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -92,8 +88,6 @@ def test_export_bad_format(client):
             f"/api/review/findings/{f['id']}", json={"decision": "accepted"}, headers=headers
         )
 
-    r = client.get(
-        f"/api/export/opportunities/{opp_id}?format=txt", headers=headers
-    )
+    r = client.get(f"/api/export/opportunities/{opp_id}?format=txt", headers=headers)
     assert r.status_code == 400
     assert r.json()["detail"] == "bad_format"

@@ -2,7 +2,7 @@
 classification, and produces the missing-doc checklist.
 
 Consumes `rulepacks.loader` as a lazily-resolved soft dependency (doc-type
-anchors + expected-doc set). Queries are scoped by org_id explicitly (defense
+anchors + expected-doc set). Queries are scoped by workspace_id explicitly (defense
 in depth alongside RLS) so isolation holds on any backend."""
 
 from __future__ import annotations
@@ -56,38 +56,38 @@ class IngestionService:
         return loader.get_pack(self._pack_id).expected_documents or _FALLBACK_EXPECTED
 
     # ---- opportunities ----------------------------------------------------
-    def create_opportunity(self, org_id, title: str, **fields) -> Opportunity:
-        opp = Opportunity(org_id=uuid.UUID(str(org_id)), title=title, **fields)
+    def create_opportunity(self, workspace_id, title: str, **fields) -> Opportunity:
+        opp = Opportunity(workspace_id=uuid.UUID(str(workspace_id)), title=title, **fields)
         self.s.add(opp)
         self.s.commit()
         self._publish("opportunity.created", {"opportunity_id": str(opp.id)})
         return opp
 
-    def list_opportunities(self, org_id) -> list[Opportunity]:
+    def list_opportunities(self, workspace_id) -> list[Opportunity]:
         return list(
             self.s.scalars(
                 select(Opportunity)
-                .where(Opportunity.org_id == uuid.UUID(str(org_id)))
+                .where(Opportunity.workspace_id == uuid.UUID(str(workspace_id)))
                 .order_by(Opportunity.created_at.desc())
             )
         )
 
-    def get_opportunity(self, org_id, opportunity_id) -> Opportunity | None:
+    def get_opportunity(self, workspace_id, opportunity_id) -> Opportunity | None:
         return self.s.scalar(
             select(Opportunity).where(
                 Opportunity.id == uuid.UUID(str(opportunity_id)),
-                Opportunity.org_id == uuid.UUID(str(org_id)),
+                Opportunity.workspace_id == uuid.UUID(str(workspace_id)),
             )
         )
 
     # ---- documents --------------------------------------------------------
     def register_document(
-        self, org_id, opportunity_id, filename: str, sample_text: str = "", **fields
+        self, workspace_id, opportunity_id, filename: str, sample_text: str = "", **fields
     ) -> Document:
         """Classify (rules-first) and persist a document for an opportunity."""
         kind = classify_text(sample_text, self._anchors()) or "other"
         doc = Document(
-            org_id=uuid.UUID(str(org_id)),
+            workspace_id=uuid.UUID(str(workspace_id)),
             opportunity_id=uuid.UUID(str(opportunity_id)),
             filename=filename,
             kind=kind,
@@ -99,7 +99,7 @@ class IngestionService:
         if sample_text.strip():
             self._segment(doc, sample_text)
             self._extract_deadlines(doc, sample_text)
-            persist_chunks(self.s, doc.org_id, doc.opportunity_id, doc.id, sample_text)
+            persist_chunks(self.s, doc.workspace_id, doc.opportunity_id, doc.id, sample_text)
         return doc
 
     def _extract_deadlines(self, doc: Document, text: str) -> int:
@@ -111,7 +111,7 @@ class IngestionService:
         for ex in extract_deadlines(text):
             self.s.add(
                 Deadline(
-                    org_id=doc.org_id,
+                    workspace_id=doc.workspace_id,
                     opportunity_id=doc.opportunity_id,
                     kind=ex.kind,
                     due_at=ex.due_at,
@@ -125,7 +125,7 @@ class IngestionService:
                 if earliest_submission is None or ex.due_at < earliest_submission:
                     earliest_submission = ex.due_at
         if earliest_submission is not None:
-            opp = self.get_opportunity(doc.org_id, doc.opportunity_id)
+            opp = self.get_opportunity(doc.workspace_id, doc.opportunity_id)
             if opp is not None:
                 opp.submission_due = earliest_submission
         self.s.commit()
@@ -133,21 +133,21 @@ class IngestionService:
             self._publish("deadlines.extracted", {"document_id": str(doc.id), "count": count})
         return count
 
-    def list_deadlines(self, org_id, opportunity_id) -> list[Deadline]:
+    def list_deadlines(self, workspace_id, opportunity_id) -> list[Deadline]:
         return list(
             self.s.scalars(
                 select(Deadline).where(
                     Deadline.opportunity_id == uuid.UUID(str(opportunity_id)),
-                    Deadline.org_id == uuid.UUID(str(org_id)),
+                    Deadline.workspace_id == uuid.UUID(str(workspace_id)),
                 )
             )
         )
 
-    def confirm_deadline(self, org_id, deadline_id) -> Deadline | None:
+    def confirm_deadline(self, workspace_id, deadline_id) -> Deadline | None:
         dl = self.s.scalar(
             select(Deadline).where(
                 Deadline.id == uuid.UUID(str(deadline_id)),
-                Deadline.org_id == uuid.UUID(str(org_id)),
+                Deadline.workspace_id == uuid.UUID(str(workspace_id)),
             )
         )
         if dl is not None:
@@ -161,7 +161,7 @@ class IngestionService:
         for seg in segment_clauses(text):
             self.s.add(
                 Clause(
-                    org_id=doc.org_id,
+                    workspace_id=doc.workspace_id,
                     document_id=doc.id,
                     opportunity_id=doc.opportunity_id,
                     clause_ref=seg.clause_ref,
@@ -178,52 +178,52 @@ class IngestionService:
             self._publish("clauses.segmented", {"document_id": str(doc.id), "count": count})
         return count
 
-    def get_document(self, org_id, document_id) -> Document | None:
+    def get_document(self, workspace_id, document_id) -> Document | None:
         return self.s.scalar(
             select(Document).where(
                 Document.id == uuid.UUID(str(document_id)),
-                Document.org_id == uuid.UUID(str(org_id)),
+                Document.workspace_id == uuid.UUID(str(workspace_id)),
             )
         )
 
-    def list_clauses(self, org_id, opportunity_id) -> list[Clause]:
+    def list_clauses(self, workspace_id, opportunity_id) -> list[Clause]:
         return list(
             self.s.scalars(
                 select(Clause).where(
                     Clause.opportunity_id == uuid.UUID(str(opportunity_id)),
-                    Clause.org_id == uuid.UUID(str(org_id)),
+                    Clause.workspace_id == uuid.UUID(str(workspace_id)),
                 )
             )
         )
 
-    def list_clauses_for_document(self, org_id, document_id) -> list[Clause]:
+    def list_clauses_for_document(self, workspace_id, document_id) -> list[Clause]:
         return list(
             self.s.scalars(
                 select(Clause).where(
                     Clause.document_id == uuid.UUID(str(document_id)),
-                    Clause.org_id == uuid.UUID(str(org_id)),
+                    Clause.workspace_id == uuid.UUID(str(workspace_id)),
                 )
             )
         )
 
-    def list_documents(self, org_id, opportunity_id) -> list[Document]:
+    def list_documents(self, workspace_id, opportunity_id) -> list[Document]:
         return list(
             self.s.scalars(
                 select(Document).where(
                     Document.opportunity_id == uuid.UUID(str(opportunity_id)),
-                    Document.org_id == uuid.UUID(str(org_id)),
+                    Document.workspace_id == uuid.UUID(str(workspace_id)),
                 )
             )
         )
 
-    def missing_doc_report(self, org_id, opportunity_id) -> dict:
-        present = [d.kind for d in self.list_documents(org_id, opportunity_id)]
+    def missing_doc_report(self, workspace_id, opportunity_id) -> dict:
+        present = [d.kind for d in self.list_documents(workspace_id, opportunity_id)]
         missing = missing_documents(present, self._expected())
         return {"present": sorted(set(present)), "missing": missing, "expected": self._expected()}
 
-    def get_doc_text(self, org_id, document_id, page: int | None = None):
+    def get_doc_text(self, workspace_id, document_id, page: int | None = None):
         """Page-level text access used by crossref, assistant, and search."""
         svc = DocTextService(self.s)
         if page is not None:
-            return {"page": page, "text": svc.text_for_page(org_id, document_id, page)}
-        return {"pages": svc.text_for_document(org_id, document_id)}
+            return {"page": page, "text": svc.text_for_page(workspace_id, document_id, page)}
+        return {"pages": svc.text_for_document(workspace_id, document_id)}

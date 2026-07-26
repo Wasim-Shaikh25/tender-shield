@@ -25,7 +25,7 @@ def get_session(request: Request) -> Iterator[Session]:
 
 
 def current_principal(request: Request, session: Session = Depends(get_session)) -> Any:
-    """Returns the auth module's Principal (structural: has user_id/org_id/role).
+    """Returns the auth module's Principal (structural: has user_id/workspace_id/role).
     Binds RLS as a side effect via auth.authenticate."""
     authenticate = request.app.state.ctx.registry.get("auth.authenticate")
     if authenticate is None:

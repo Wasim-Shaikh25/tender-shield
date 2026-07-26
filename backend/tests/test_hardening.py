@@ -25,13 +25,15 @@ from app.modules.notifications.digest import deadlines_to_alert, format_digest
 
 def test_gst_intra_vs_inter_state():
     # seller in state 27; buyer in 27 → CGST+SGST
-    intra = compute_invoice(number="TS/1", base_minor=750000, buyer_gstin="27ABCDE1234F1Z5",
-                            seller_state_code="27")
+    intra = compute_invoice(
+        number="TS/1", base_minor=750000, buyer_gstin="27ABCDE1234F1Z5", seller_state_code="27"
+    )
     assert [line.name for line in intra.lines] == ["CGST", "SGST"]
     assert intra.total_minor == 750000 + 67500 + 67500  # 9% + 9%
     # buyer in 29 → IGST
-    inter = compute_invoice(number="TS/2", base_minor=750000, buyer_gstin="29ABCDE1234F1Z5",
-                            seller_state_code="27")
+    inter = compute_invoice(
+        number="TS/2", base_minor=750000, buyer_gstin="29ABCDE1234F1Z5", seller_state_code="27"
+    )
     assert [line.name for line in inter.lines] == ["IGST"]
     assert inter.total_minor == 750000 + 135000  # 18%
 
@@ -101,7 +103,7 @@ def client(tmp_path):
 def _auth(client):
     client.post(
         "/api/auth/signup",
-        json={"email": "h@x.com", "password": "hunter2hunter2", "org_name": "Acme"},
+        json={"email": "h@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
     )
     tok = client.post(
         "/api/auth/login", json={"email": "h@x.com", "password": "hunter2hunter2"}
@@ -127,15 +129,13 @@ def test_real_pdf_upload_runs_pipeline(client):
         "/api/ingestion/opportunities", json={"title": "Metro"}, headers=headers
     ).json()["id"]
     files = {"file": ("nit.pdf", _make_pdf(), "application/pdf")}
-    up = client.post(
-        f"/api/ingestion/opportunities/{opp_id}/upload", files=files, headers=headers
-    )
+    up = client.post(f"/api/ingestion/opportunities/{opp_id}/upload", files=files, headers=headers)
     assert up.status_code == 200, up.text
     assert up.json()["kind"] == "nit"  # classified from extracted text
     # deadline extracted from the real PDF's text
-    dls = client.get(
-        f"/api/ingestion/opportunities/{opp_id}/deadlines", headers=headers
-    ).json()["deadlines"]
+    dls = client.get(f"/api/ingestion/opportunities/{opp_id}/deadlines", headers=headers).json()[
+        "deadlines"
+    ]
     assert any(d["kind"] == "submission" for d in dls)
 
 

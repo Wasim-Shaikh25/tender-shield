@@ -9,10 +9,10 @@ from datetime import datetime
 from sqlalchemy import JSON, DateTime, ForeignKey, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.db import Base, OrgScopedMixin
+from app.core.db import Base, WorkspaceScopedMixin
 
 
-class ChatSession(Base, OrgScopedMixin):
+class ChatSession(Base, WorkspaceScopedMixin):
     _tablename_ = "chat_sessions"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     opportunity_id: Mapped[uuid.UUID] = mapped_column(
@@ -27,7 +27,7 @@ class ChatSession(Base, OrgScopedMixin):
     )
 
 
-class ChatMessage(Base, OrgScopedMixin):
+class ChatMessage(Base, WorkspaceScopedMixin):
     _tablename_ = "chat_messages"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     session_id: Mapped[uuid.UUID] = mapped_column(

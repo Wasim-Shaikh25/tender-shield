@@ -26,24 +26,26 @@ class ComparisonService:
         self._findings_factory = findings_factory
         self._drafting_factory = drafting_factory
 
-    def compare(self, org_id) -> list[dict]:
-        opps = self._opportunities(org_id)
+    def compare(self, workspace_id) -> list[dict]:
+        opps = self._opportunities(workspace_id)
         rows = []
         for opp in opps:
             opp_id = str(opp.id)
-            metrics = self._metrics_for(org_id, opp_id)
-            rows.append({
-                "id": opp_id,
-                "title": getattr(opp, "title", ""),
-                "submission_due": metrics["submission_due"],
-                "days_to_submission": metrics["days_to_submission"],
-                "risk": metrics["risk"],
-                "qualification_gaps": metrics["qualification_gaps"],
-                "boq_defects": metrics["boq_defects"],
-                "standard_violations": metrics["standard_violations"],
-                "bid_readiness_score": metrics["bid_readiness_score"],
-                "recommendation": metrics["recommendation"],
-            })
+            metrics = self._metrics_for(workspace_id, opp_id)
+            rows.append(
+                {
+                    "id": opp_id,
+                    "title": getattr(opp, "title", ""),
+                    "submission_due": metrics["submission_due"],
+                    "days_to_submission": metrics["days_to_submission"],
+                    "risk": metrics["risk"],
+                    "qualification_gaps": metrics["qualification_gaps"],
+                    "boq_defects": metrics["boq_defects"],
+                    "standard_violations": metrics["standard_violations"],
+                    "bid_readiness_score": metrics["bid_readiness_score"],
+                    "recommendation": metrics["recommendation"],
+                }
+            )
 
         # Stable deterministic ranking.
         for idx, row in enumerate(_rank(rows), start=1):
@@ -51,16 +53,16 @@ class ComparisonService:
             row["rank"] = idx
         return rows
 
-    def _opportunities(self, org_id) -> list:
+    def _opportunities(self, workspace_id) -> list:
         if self._ingestion_factory is None:
             return []
         svc = self._ingestion_factory(self.s)
         if not hasattr(svc, "list_opportunities"):
             return []
-        return svc.list_opportunities(org_id)
+        return svc.list_opportunities(workspace_id)
 
-    def _metrics_for(self, org_id, opportunity_id: str) -> dict:
-        submission_due = self._submission_due(org_id, opportunity_id)
+    def _metrics_for(self, workspace_id, opportunity_id: str) -> dict:
+        submission_due = self._submission_due(workspace_id, opportunity_id)
         days_to_submission = None
         if submission_due:
             ref = datetime.utcnow() if submission_due.tzinfo is None else datetime.now(UTC)
@@ -72,7 +74,7 @@ class ComparisonService:
         boq_defects = 0
         standard_violations = 0
 
-        findings = self._findings(org_id, opportunity_id)
+        findings = self._findings(workspace_id, opportunity_id)
         for f in findings:
             kind = getattr(f, "kind", "") or ""
             severity = getattr(f, "severity", "") or ""
@@ -88,7 +90,7 @@ class ComparisonService:
             elif kind == "standard_violation":
                 standard_violations += 1
 
-        score, recommendation = self._bid_decision(org_id, opportunity_id)
+        score, recommendation = self._bid_decision(workspace_id, opportunity_id)
 
         return {
             "submission_due": submission_due.isoformat() if submission_due else None,
@@ -101,19 +103,19 @@ class ComparisonService:
             "recommendation": recommendation,
         }
 
-    def _submission_due(self, org_id, opportunity_id: str):
+    def _submission_due(self, workspace_id, opportunity_id: str):
         if self._ingestion_factory is None:
             return None
         svc = self._ingestion_factory(self.s)
         # Prefer the explicit submission_due on the opportunity.
         if hasattr(svc, "get_opportunity"):
-            opp = svc.get_opportunity(org_id, opportunity_id)
+            opp = svc.get_opportunity(workspace_id, opportunity_id)
             if opp is not None and getattr(opp, "submission_due", None) is not None:
                 return opp.submission_due
         # Fall back to the earliest bid_submission deadline.
         if hasattr(svc, "list_deadlines"):
             earliest = None
-            for dl in svc.list_deadlines(org_id, opportunity_id):
+            for dl in svc.list_deadlines(workspace_id, opportunity_id):
                 if getattr(dl, "kind", "") in {"bid_submission", "submission"}:
                     due = getattr(dl, "due_at", None)
                     if due is not None and (earliest is None or due < earliest):
@@ -121,22 +123,22 @@ class ComparisonService:
             return earliest
         return None
 
-    def _findings(self, org_id, opportunity_id: str) -> list:
+    def _findings(self, workspace_id, opportunity_id: str) -> list:
         if self._findings_factory is None:
             return []
         svc = self._findings_factory(self.s)
         if not hasattr(svc, "list"):
             return []
-        return svc.list(org_id, opportunity_id)
+        return svc.list(workspace_id, opportunity_id)
 
-    def _bid_decision(self, org_id, opportunity_id: str) -> tuple:
+    def _bid_decision(self, workspace_id, opportunity_id: str) -> tuple:
         if self._drafting_factory is None:
             return None, None
         svc = self._drafting_factory(self.s)
         if not hasattr(svc, "list"):
             return None, None
         try:
-            artifacts = svc.list(org_id, opportunity_id)
+            artifacts = svc.list(workspace_id, opportunity_id)
         except Exception:
             return None, None
         bid_artifacts = [a for a in artifacts if getattr(a, "kind", None) == "bid_decision"]

@@ -82,7 +82,7 @@ def client():
 def _auth(client):
     client.post(
         "/api/auth/signup",
-        json={"email": "o@x.com", "password": "hunter2hunter2", "org_name": "Acme"},
+        json={"email": "o@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
     )
     tok = client.post(
         "/api/auth/login", json={"email": "o@x.com", "password": "hunter2hunter2"}
@@ -96,9 +96,7 @@ def test_boq_pdf_upload_runs_checks(client):
         "/api/ingestion/opportunities", json={"title": "Depot"}, headers=headers
     ).json()["id"]
     files = {"file": ("boq.pdf", _boq_pdf(), "application/pdf")}
-    r = client.post(
-        f"/api/boq/opportunities/{opp_id}/upload", files=files, headers=headers
-    )
+    r = client.post(f"/api/boq/opportunities/{opp_id}/upload", files=files, headers=headers)
     assert r.status_code == 200, r.text
     cats = {f["category"] for f in r.json()["findings"]}
     assert "duplicate" in cats and "arith" in cats  # read straight out of the PDF table

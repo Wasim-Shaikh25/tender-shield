@@ -17,50 +17,52 @@ class FindingStore:
         self.s = session
 
     def replace_for_producer(
-        self, org_id, opportunity_id, producer: str, findings: list[Finding]
+        self, workspace_id, opportunity_id, producer: str, findings: list[Finding]
     ) -> list[FindingRow]:
         """Replace this producer's findings for the opportunity (idempotent
         re-run): a risk re-run never disturbs BOQ rows, and vice versa."""
-        org = uuid.UUID(str(org_id))
+        ws = uuid.UUID(str(workspace_id))
         opp = uuid.UUID(str(opportunity_id))
         self.s.execute(
             delete(FindingRow).where(
-                FindingRow.org_id == org,
+                FindingRow.workspace_id == ws,
                 FindingRow.opportunity_id == opp,
                 FindingRow.producer == producer,
             )
         )
-        rows = [self._to_row(org, opp, producer, f) for f in findings]
+        rows = [self._to_row(ws, opp, producer, f) for f in findings]
         self.s.add_all(rows)
         self.s.commit()
         return rows
 
-    def list(self, org_id, opportunity_id, *, producer: str | None = None) -> list[FindingRow]:
+    def list(
+        self, workspace_id, opportunity_id, *, producer: str | None = None
+    ) -> list[FindingRow]:
         stmt = select(FindingRow).where(
-            FindingRow.org_id == uuid.UUID(str(org_id)),
+            FindingRow.workspace_id == uuid.UUID(str(workspace_id)),
             FindingRow.opportunity_id == uuid.UUID(str(opportunity_id)),
         )
         if producer:
             stmt = stmt.where(FindingRow.producer == producer)
         return list(self.s.scalars(stmt))
 
-    def get(self, org_id, finding_id) -> FindingRow | None:
+    def get(self, workspace_id, finding_id) -> FindingRow | None:
         return self.s.scalar(
             select(FindingRow).where(
                 FindingRow.id == uuid.UUID(str(finding_id)),
-                FindingRow.org_id == uuid.UUID(str(org_id)),
+                FindingRow.workspace_id == uuid.UUID(str(workspace_id)),
             )
         )
 
-    def list_for_org(self, org_id, *, producer: str | None = None) -> list[FindingRow]:
-        stmt = select(FindingRow).where(FindingRow.org_id == uuid.UUID(str(org_id)))
+    def list_for_workspace(self, workspace_id, *, producer: str | None = None) -> list[FindingRow]:
+        stmt = select(FindingRow).where(FindingRow.workspace_id == uuid.UUID(str(workspace_id)))
         if producer:
             stmt = stmt.where(FindingRow.producer == producer)
         return list(self.s.scalars(stmt))
 
     def set_review(
         self,
-        org_id,
+        workspace_id,
         finding_id,
         *,
         status,
@@ -70,7 +72,7 @@ class FindingStore:
     ) -> FindingRow | None:
         """Set the review columns on a finding (called by the review module via
         the store capability — the findings module owns these columns)."""
-        row = self.get(org_id, finding_id)
+        row = self.get(workspace_id, finding_id)
         if row is None:
             return None
         row.review_status = status
@@ -81,9 +83,9 @@ class FindingStore:
         return row
 
     @staticmethod
-    def _to_row(org: uuid.UUID, opp: uuid.UUID, producer: str, f: Finding) -> FindingRow:
+    def _to_row(ws: uuid.UUID, opp: uuid.UUID, producer: str, f: Finding) -> FindingRow:
         return FindingRow(
-            org_id=org,
+            workspace_id=ws,
             opportunity_id=opp,
             producer=producer,
             kind=f.kind.value,

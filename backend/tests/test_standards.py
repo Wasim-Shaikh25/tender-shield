@@ -35,7 +35,7 @@ def client():
 def _auth(client):
     client.post(
         "/api/auth/signup",
-        json={"email": "st@x.com", "password": "hunter2hunter2", "org_name": "Acme"},
+        json={"email": "st@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
     )
     tok = client.post(
         "/api/auth/login", json={"email": "st@x.com", "password": "hunter2hunter2"}
@@ -44,10 +44,7 @@ def _auth(client):
 
 
 def _opp_with_turnover(client, headers):
-    text = (
-        "[p1] The bidder shall have a minimum turnover of Rs. 10 Cr "
-        "in the last three years."
-    )
+    text = "[p1] The bidder shall have a minimum turnover of Rs. 10 Cr in the last three years."
     opp_id = client.post(
         "/api/ingestion/opportunities", json={"title": "Road"}, headers=headers
     ).json()["id"]
@@ -79,9 +76,9 @@ def test_policy_crud(client):
     listed = client.get("/api/standards/commercial", headers=headers).json()["policies"]
     assert any(p["key"] == "max_turnover_req" for p in listed)
 
-    assert client.delete(
-        "/api/standards/commercial/max_turnover_req", headers=headers
-    ).json()["deleted"]
+    assert client.delete("/api/standards/commercial/max_turnover_req", headers=headers).json()[
+        "deleted"
+    ]
 
 
 def test_violation_detection_persists_standard_violation(client):
@@ -108,9 +105,7 @@ def test_violation_detection_persists_standard_violation(client):
             f"/api/review/findings/{f['id']}", json={"decision": "accepted"}, headers=headers
         )
 
-    check = client.post(
-        f"/api/standards/opportunities/{opp_id}/check", headers=headers
-    )
+    check = client.post(f"/api/standards/opportunities/{opp_id}/check", headers=headers)
     assert check.status_code == 200
     assert len(check.json()["violations"]) == 1
     assert check.json()["violations"][0]["value"] == 10.0

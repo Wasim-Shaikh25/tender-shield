@@ -71,19 +71,19 @@ class TimelineService:
             return None
         return self._ingestion_factory(self.s)
 
-    def build(self, org_id, opportunity_id) -> list[TimelineEvent]:
+    def build(self, workspace_id, opportunity_id) -> list[TimelineEvent]:
         svc = self._ingestion()
         if svc is None:
             return []
 
-        opp = svc.get_opportunity(org_id, opportunity_id)
+        opp = svc.get_opportunity(workspace_id, opportunity_id)
         if opp is None:
             return []
 
         events: list[TimelineEvent] = []
         has_published = False
 
-        for dl in svc.list_deadlines(org_id, opportunity_id):
+        for dl in svc.list_deadlines(workspace_id, opportunity_id):
             kind = _normalize(dl.kind)
             events.append(
                 TimelineEvent(

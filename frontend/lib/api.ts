@@ -1,9 +1,9 @@
 // Typed client for the TenderShield API. Base URL from env; every mutating call
-// is org-scoped server-side (RLS) — the client just carries the bearer token.
+// is workspace-scoped server-side (RLS) — the client just carries the bearer token.
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
 
-export type Tokens = { access_token: string; refresh_token: string; role: string; org_id: string };
+export type Tokens = { access_token: string; refresh_token: string; role: string; workspace_id: string; is_superadmin?: boolean };
 export type Opportunity = { id: string; title: string; status: string; submission_due?: string | null };
 export type MissingDocs = { present: string[]; missing: string[]; expected: string[] };
 export type Clause = { id: string; clause_ref: string | null; heading: string | null; page_from: number | null };
@@ -47,10 +47,10 @@ async function req<T>(path: string, opts: RequestInit = {}, token?: string): Pro
 }
 
 export const api = {
-  signup: (email: string, password: string, org_name: string) =>
-    req<{ user_id: string; org_id: string }>("/auth/signup", {
+  signup: (email: string, password: string, workspace_name: string) =>
+    req<{ user_id: string; workspace_id: string }>("/auth/signup", {
       method: "POST",
-      body: JSON.stringify({ email, password, org_name }),
+      body: JSON.stringify({ email, password, workspace_name }),
     }),
   login: (email: string, password: string) =>
     req<Tokens>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),

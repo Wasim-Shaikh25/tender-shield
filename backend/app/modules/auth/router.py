@@ -4,8 +4,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.deps import current_principal, get_session, require
-from app.modules.auth import mfa
 from app.modules.auth.apple import AppleClient
+from app.modules.auth.deps import require_superadmin
 from app.modules.auth.models import User
 from app.modules.auth.rbac import Principal
 from app.modules.auth.service import AuthError, AuthService
@@ -29,7 +29,7 @@ def _service(request: Request, session: Session) -> AuthService:
 class SignupBody(BaseModel):
     email: str
     password: str = Field(min_length=8)
-    org_name: str = Field(min_length=1)
+    workspace_name: str | None = Field(default="Personal", min_length=1)
     country: str = "IN"
 
 
@@ -47,15 +47,58 @@ class AddMemberBody(BaseModel):
     role: str
 
 
+class CreateWorkspaceBody(BaseModel):
+    name: str = Field(min_length=1)
+    country: str = "IN"
+
+
+class CreateProjectBody(BaseModel):
+    name: str = Field(min_length=1)
+    status: str = "planning"
+
+
+class CreateInvitationBody(BaseModel):
+    email: str
+    role: str
+    project_id: str | None = None
+
+
+class MfaEnrollBody(BaseModel):
+    method: str = Field(default="totp", pattern="^(totp|email|sms)$")
+    phone: str | None = None
+
+
+class MfaVerifyBody(BaseModel):
+    code: str
+
+
+class CreateSuperadminBody(BaseModel):
+    email: str
+    password: str = Field(min_length=8)
+
+
+class SetSuperadminBody(BaseModel):
+    is_superadmin: bool
+
+
 _STATUS = {
     "email_taken": 409,
     "invalid_credentials": 401,
     "invalid_refresh": 401,
     "reuse_detected": 401,
-    "no_org": 401,
+    "no_workspace": 401,
+    "no_such_user": 400,
+    "no_such_project": 400,
+    "bad_role": 400,
+    "not_workspace_member": 403,
     "apple_not_configured": 503,
     "apple_token_invalid": 401,
     "apple_email_missing": 400,
+    "bad_mfa_method": 400,
+    "mfa_not_enrolled": 400,
+    "invalid_invitation": 400,
+    "invitation_used": 400,
+    "invitation_email_mismatch": 400,
 }
 
 
@@ -70,7 +113,7 @@ def _handle(fn):
 def signup(body: SignupBody, request: Request, session: Session = Depends(get_session)):
     return _handle(
         lambda: _service(request, session).signup(
-            body.email, body.password, body.org_name, body.country
+            body.email, body.password, body.workspace_name, body.country
         )
     )
 
@@ -93,11 +136,139 @@ def logout(body: RefreshBody, request: Request, session: Session = Depends(get_s
 
 @router.get("/me")
 def me(principal: Principal = Depends(current_principal)):
-    return {"user_id": principal.user_id, "org_id": principal.org_id, "role": principal.role}
+    return {
+        "user_id": principal.user_id,
+        "workspace_id": principal.workspace_id,
+        "role": principal.role,
+        "is_superadmin": principal.is_superadmin,
+    }
 
 
-class MfaVerifyBody(BaseModel):
-    code: str
+# ---- workspaces & projects ---------------------------------------------
+
+
+@router.post("/workspaces")
+def create_workspace(
+    body: CreateWorkspaceBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(current_principal),
+):
+    return _handle(
+        lambda: _service(request, session).create_workspace(
+            principal.user_id, body.name, body.country
+        )
+    )
+
+
+@router.get("/workspaces")
+def list_workspaces(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(current_principal),
+):
+    return _service(request, session).list_workspaces(principal.user_id)
+
+
+@router.post("/workspaces/{workspace_id}/members")
+def add_workspace_member(
+    workspace_id: str,
+    body: AddMemberBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require("admin")),
+):
+    return _handle(
+        lambda: _service(request, session).add_workspace_member(workspace_id, body.email, body.role)
+    )
+
+
+@router.get("/workspaces/{workspace_id}/members")
+def list_workspace_members(
+    workspace_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(current_principal),
+):
+    return _service(request, session).list_workspace_members(workspace_id)
+
+
+@router.post("/workspaces/{workspace_id}/projects")
+def create_project(
+    workspace_id: str,
+    body: CreateProjectBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require("admin")),
+):
+    return _handle(
+        lambda: _service(request, session).create_project(
+            principal.user_id, workspace_id, body.name, body.status
+        )
+    )
+
+
+@router.get("/workspaces/{workspace_id}/projects")
+def list_projects(
+    workspace_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(current_principal),
+):
+    return _service(request, session).list_projects(principal.user_id, workspace_id)
+
+
+@router.post("/projects/{project_id}/members")
+def add_project_member(
+    project_id: str,
+    body: AddMemberBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require("admin")),
+):
+    # project membership is scoped to the active workspace from the token
+    return _handle(
+        lambda: _service(request, session).add_project_member(
+            principal.workspace_id, project_id, body.email, body.role
+        )
+    )
+
+
+@router.get("/projects/{project_id}/members")
+def list_project_members(
+    project_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(current_principal),
+):
+    return _service(request, session).list_project_members(project_id)
+
+
+@router.post("/invitations")
+def create_invitation(
+    body: CreateInvitationBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require("admin")),
+):
+    return _handle(
+        lambda: _service(request, session).create_invitation(
+            principal.workspace_id, body.email, body.role, body.project_id
+        )
+    )
+
+
+@router.post("/invitations/{token}/accept")
+def accept_invitation(
+    token: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(current_principal),
+):
+    return _handle(lambda: _service(request, session).accept_invitation(principal.user_id, token))
+
+
+# ---- MFA -----------------------------------------------------------------
 
 
 def _user(session: Session, principal: Principal) -> User:
@@ -111,16 +282,14 @@ def _user(session: Session, principal: Principal) -> User:
 
 @router.post("/mfa/enroll")
 def mfa_enroll(
+    body: MfaEnrollBody,
     request: Request,
     session: Session = Depends(get_session),
     principal: Principal = Depends(current_principal),
 ):
-    """Generate + store a TOTP secret; return the otpauth URI for the QR code."""
-    user = _user(session, principal)
-    secret = mfa.new_secret()
-    user.mfa_totp_secret = secret
-    session.commit()
-    return {"secret": secret, "otpauth_uri": mfa.provisioning_uri(secret, user.email)}
+    return _handle(
+        lambda: _service(request, session).mfa_enroll(principal.user_id, body.method, body.phone)
+    )
 
 
 @router.post("/mfa/verify")
@@ -130,11 +299,10 @@ def mfa_verify(
     session: Session = Depends(get_session),
     principal: Principal = Depends(current_principal),
 ):
-    user = _user(session, principal)
-    ok = mfa.verify(user.mfa_totp_secret or "", body.code)
-    if not ok:
-        raise HTTPException(400, "invalid_code")
-    return {"verified": True}
+    return _handle(lambda: _service(request, session).mfa_verify(principal.user_id, body.code))
+
+
+# ---- legacy workspace member route (kept for compatibility) ---------------
 
 
 @router.post("/members")
@@ -145,8 +313,13 @@ def add_member(
     principal: Principal = Depends(require("admin")),
 ):
     return _handle(
-        lambda: _service(request, session).add_member(principal.org_id, body.email, body.role)
+        lambda: _service(request, session).add_workspace_member(
+            principal.workspace_id, body.email, body.role
+        )
     )
+
+
+# ---- Sign in with Apple --------------------------------------------------
 
 
 class AppleCallbackBody(BaseModel):
@@ -178,3 +351,45 @@ def apple_callback(
     return _handle(
         lambda: _service(request, session).apple_callback(body.id_token, body.code, body.user)
     )
+
+
+# ---- super-admin (application owner) -------------------------------------
+
+
+@router.get("/admin/users")
+def admin_list_users(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require_superadmin),
+):
+    return _service(request, session).list_users()
+
+
+@router.get("/admin/workspaces")
+def admin_list_workspaces(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require_superadmin),
+):
+    return _service(request, session).list_all_workspaces()
+
+
+@router.post("/admin/users")
+def admin_create_superadmin(
+    body: CreateSuperadminBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require_superadmin),
+):
+    return _handle(lambda: _service(request, session).create_superadmin(body.email, body.password))
+
+
+@router.post("/admin/users/{user_id}/superadmin")
+def admin_set_superadmin(
+    user_id: str,
+    body: SetSuperadminBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require_superadmin),
+):
+    return _handle(lambda: _service(request, session).set_superadmin(user_id, body.is_superadmin))

@@ -9,14 +9,14 @@ from datetime import datetime
 from sqlalchemy import JSON, BigInteger, DateTime, Integer, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.db import Base, OrgScopedMixin
+from app.core.db import Base, WorkspaceScopedMixin
 
 # BIGSERIAL on Postgres; plain INTEGER on SQLite (the only rowid alias that
 # autoincrements there).
 _BigId = BigInteger().with_variant(Integer, "sqlite")
 
 
-class AuditLog(Base, OrgScopedMixin):
+class AuditLog(Base, WorkspaceScopedMixin):
     _tablename_ = "audit_log"
     id: Mapped[int] = mapped_column(_BigId, primary_key=True, autoincrement=True)
     actor_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)

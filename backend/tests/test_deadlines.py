@@ -50,7 +50,9 @@ def test_extract_skips_lines_without_keywords():
 @pytest.fixture
 def client():
     app = create_app(
-        Settings(enabled_modules="health,rulepacks,auth,ingestion", database_url="sqlite:///:memory:")
+        Settings(
+            enabled_modules="health,rulepacks,auth,ingestion", database_url="sqlite:///:memory:"
+        )
     )
     Base.metadata.create_all(app.state.ctx.registry.require("db.engine"))
     return TestClient(app)
@@ -59,7 +61,7 @@ def client():
 def _auth(client):
     client.post(
         "/api/auth/signup",
-        json={"email": "d@x.com", "password": "hunter2hunter2", "org_name": "Acme"},
+        json={"email": "d@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
     )
     tok = client.post(
         "/api/auth/login", json={"email": "d@x.com", "password": "hunter2hunter2"}

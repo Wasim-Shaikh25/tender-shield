@@ -25,9 +25,12 @@ def search(
 ):
     if not q.strip():
         raise HTTPException(422, "query_required")
-    return {"query": q, "results": _service(request, session).search(
-        principal.org_id, opportunity_id, q, limit=limit
-    )}
+    return {
+        "query": q,
+        "results": _service(request, session).search(
+            principal.workspace_id, opportunity_id, q, limit=limit
+        ),
+    }
 
 
 @router.post("/opportunities/{opportunity_id}/diff")
@@ -38,4 +41,4 @@ def diff(
     principal: Any = Depends(require("viewer")),
     document_id: str | None = None,
 ):
-    return _service(request, session).diff(principal.org_id, opportunity_id, document_id)
+    return _service(request, session).diff(principal.workspace_id, opportunity_id, document_id)

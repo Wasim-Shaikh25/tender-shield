@@ -49,7 +49,7 @@ def app_client():
 def _owner_token(client: TestClient, email="e@example.com") -> str:
     client.post(
         "/api/auth/signup",
-        json={"email": email, "password": "hunter2hunter2", "org_name": "Acme"},
+        json={"email": email, "password": "hunter2hunter2", "workspace_name": "Acme"},
     )
     return client.post(
         "/api/auth/login", json={"email": email, "password": "hunter2hunter2"}
@@ -73,9 +73,7 @@ def test_opportunity_and_document_flow(app_client):
     assert d1.json()["kind"] == "nit"
 
     # missing-doc checklist flags absent gcc + boq (expected set from the pack)
-    report = client.get(
-        f"/api/ingestion/opportunities/{opp_id}/missing-docs", headers=auth
-    ).json()
+    report = client.get(f"/api/ingestion/opportunities/{opp_id}/missing-docs", headers=auth).json()
     assert report["present"] == ["nit"]
     assert set(report["missing"]) == {"gcc", "boq"}
 
@@ -106,7 +104,7 @@ def test_org_isolation(app_client):
     opp_id = client.post(
         "/api/ingestion/opportunities", json={"title": "A secret bid"}, headers=a
     ).json()["id"]
-    # org B must not see org A's opportunity (explicit org_id scoping)
+    # org B must not see org A's opportunity (explicit workspace_id scoping)
     assert client.get(f"/api/ingestion/opportunities/{opp_id}", headers=b).status_code == 404
     assert client.get(f"/api/ingestion/opportunities/{opp_id}", headers=a).status_code == 200
 
@@ -119,9 +117,9 @@ def test_soft_dep_absent_uses_fallback_anchors():
     Base.metadata.create_all(application.state.ctx.registry.require("db.engine"))
     client = TestClient(application)
     auth = {"authorization": f"Bearer {_owner_token(client)}"}
-    opp_id = client.post(
-        "/api/ingestion/opportunities", json={"title": "t"}, headers=auth
-    ).json()["id"]
+    opp_id = client.post("/api/ingestion/opportunities", json={"title": "t"}, headers=auth).json()[
+        "id"
+    ]
     d = client.post(
         f"/api/ingestion/opportunities/{opp_id}/documents",
         json={"filename": "b.xlsx", "sample_text": "BILL OF QUANTITIES"},
@@ -145,15 +143,11 @@ def test_doc_chunks_stored_on_register_and_can_be_read_back(app_client):
         headers=auth,
     ).json()["id"]
 
-    all_pages = client.get(
-        f"/api/ingestion/documents/{doc_id}/text", headers=auth
-    ).json()
+    all_pages = client.get(f"/api/ingestion/documents/{doc_id}/text", headers=auth).json()
     assert "1" in all_pages["pages"]
     assert "2" in all_pages["pages"]
     assert "Page one line." in all_pages["pages"]["1"]
 
-    p2 = client.get(
-        f"/api/ingestion/documents/{doc_id}/text?page=2", headers=auth
-    ).json()
+    p2 = client.get(f"/api/ingestion/documents/{doc_id}/text?page=2", headers=auth).json()
     assert p2["page"] == 2
     assert "Page two line." in p2["text"]

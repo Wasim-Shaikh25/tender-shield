@@ -11,8 +11,9 @@ ROLES = tuple(ROLE_RANK)
 @dataclass(frozen=True)
 class Principal:
     user_id: str
-    org_id: str
+    workspace_id: str
     role: str
+    is_superadmin: bool = False
 
 
 def role_at_least(role: str, min_role: str) -> bool:

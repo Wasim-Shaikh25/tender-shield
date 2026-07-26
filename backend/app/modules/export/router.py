@@ -36,7 +36,7 @@ def export_pack(
 ):
     try:
         filename, media_type, data = _service(request, session).export(
-            principal.org_id, opportunity_id, format
+            principal.workspace_id, opportunity_id, format
         )
     except ExportError as exc:
         status = 403 if exc.code == "review_incomplete" else 400

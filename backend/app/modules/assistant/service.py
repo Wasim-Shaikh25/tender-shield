@@ -44,9 +44,9 @@ class AssistantService:
         self._agent = agent
 
     # ---- sessions & history ------------------------------------------------
-    def create_session(self, org_id, opportunity_id, title: str | None = None) -> ChatSession:
+    def create_session(self, workspace_id, opportunity_id, title: str | None = None) -> ChatSession:
         sess = ChatSession(
-            org_id=uuid.UUID(str(org_id)),
+            workspace_id=uuid.UUID(str(workspace_id)),
             opportunity_id=uuid.UUID(str(opportunity_id)),
             title=title,
         )
@@ -54,41 +54,35 @@ class AssistantService:
         self.s.commit()
         return sess
 
-    def list_sessions(self, org_id, opportunity_id=None) -> list[ChatSession]:
-        stmt = select(ChatSession).where(
-            ChatSession.org_id == uuid.UUID(str(org_id))
-        )
+    def list_sessions(self, workspace_id, opportunity_id=None) -> list[ChatSession]:
+        stmt = select(ChatSession).where(ChatSession.workspace_id == uuid.UUID(str(workspace_id)))
         if opportunity_id:
-            stmt = stmt.where(
-                ChatSession.opportunity_id == uuid.UUID(str(opportunity_id))
-            )
+            stmt = stmt.where(ChatSession.opportunity_id == uuid.UUID(str(opportunity_id)))
         return list(self.s.scalars(stmt.order_by(ChatSession.updated_at.desc())))
 
-    def get_session(self, org_id, session_id):
+    def get_session(self, workspace_id, session_id):
         return self.s.scalar(
             select(ChatSession).where(
                 ChatSession.id == uuid.UUID(str(session_id)),
-                ChatSession.org_id == uuid.UUID(str(org_id)),
+                ChatSession.workspace_id == uuid.UUID(str(workspace_id)),
             )
         )
 
-    def get_messages(self, org_id, session_id) -> list[ChatMessage]:
+    def get_messages(self, workspace_id, session_id) -> list[ChatMessage]:
         return list(
             self.s.scalars(
                 select(ChatMessage)
                 .where(
                     ChatMessage.session_id == uuid.UUID(str(session_id)),
-                    ChatMessage.org_id == uuid.UUID(str(org_id)),
+                    ChatMessage.workspace_id == uuid.UUID(str(workspace_id)),
                 )
                 .order_by(ChatMessage.created_at)
             )
         )
 
-    def _add_message(
-        self, org_id, session_id, role: str, answer: dict
-    ) -> ChatMessage:
+    def _add_message(self, workspace_id, session_id, role: str, answer: dict) -> ChatMessage:
         msg = ChatMessage(
-            org_id=uuid.UUID(str(org_id)),
+            workspace_id=uuid.UUID(str(workspace_id)),
             session_id=uuid.UUID(str(session_id)),
             role=role,
             content=answer["answer"],
@@ -100,11 +94,9 @@ class AssistantService:
         self.s.commit()
         return msg
 
-    def answer_and_store(
-        self, org_id, session_id, opportunity_id, message: str
-    ) -> dict:
+    def answer_and_store(self, workspace_id, session_id, opportunity_id, message: str) -> dict:
         user_msg = ChatMessage(
-            org_id=uuid.UUID(str(org_id)),
+            workspace_id=uuid.UUID(str(workspace_id)),
             session_id=uuid.UUID(str(session_id)),
             role="user",
             content=message,
@@ -113,14 +105,14 @@ class AssistantService:
         )
         self.s.add(user_msg)
         self.s.commit()
-        answer = self.answer(org_id, opportunity_id, message)
-        self._add_message(org_id, session_id, "assistant", answer)
+        answer = self.answer(workspace_id, opportunity_id, message)
+        self._add_message(workspace_id, session_id, "assistant", answer)
         return answer
 
-    def answer_stream(self, org_id, session_id, opportunity_id, message: str):
+    def answer_stream(self, workspace_id, session_id, opportunity_id, message: str):
         """Generator of SSE `data:` lines for the chat response."""
         user_msg = ChatMessage(
-            org_id=uuid.UUID(str(org_id)),
+            workspace_id=uuid.UUID(str(workspace_id)),
             session_id=uuid.UUID(str(session_id)),
             role="user",
             content=message,
@@ -130,25 +122,21 @@ class AssistantService:
         self.s.add(user_msg)
         self.s.commit()
 
-        answer = self.answer(org_id, opportunity_id, message)
+        answer = self.answer(workspace_id, opportunity_id, message)
         payload = json.dumps(answer)
         yield f"data: {payload}\n\n"
 
-        self._add_message(org_id, session_id, "assistant", answer)
+        self._add_message(workspace_id, session_id, "assistant", answer)
         yield "event: done\ndata: {}\n\n"
 
     # ---- answer logic ------------------------------------------------------
-    def answer(self, org_id, opportunity_id, message: str) -> dict:
+    def answer(self, workspace_id, opportunity_id, message: str) -> dict:
         m = message.lower()
 
-        if any(
-            w in m for w in ("deadline", "due", "submission", "pre-bid", "clarification cut")
-        ):
-            return self._deadlines(org_id, opportunity_id)
-        if any(
-            w in m for w in ("missing", "document checklist", "which docs", "what documents")
-        ):
-            return self._missing(org_id, opportunity_id)
+        if any(w in m for w in ("deadline", "due", "submission", "pre-bid", "clarification cut")):
+            return self._deadlines(workspace_id, opportunity_id)
+        if any(w in m for w in ("missing", "document checklist", "which docs", "what documents")):
+            return self._missing(workspace_id, opportunity_id)
         if any(
             w in m
             for w in (
@@ -164,22 +152,22 @@ class AssistantService:
                 "severity",
             )
         ):
-            return self._findings(org_id, opportunity_id, m)
+            return self._findings(workspace_id, opportunity_id, m)
 
         # Not a recognized grounded intent → defer to the LLM if configured,
         # else refuse (grounded-only, Doc §8).
         if self._agent is not None:
             context = {
-                "deadlines": tools.list_deadlines(self._ing, self.s, org_id, opportunity_id),
-                "findings": tools.filter_findings(self._find, self.s, org_id, opportunity_id),
+                "deadlines": tools.list_deadlines(self._ing, self.s, workspace_id, opportunity_id),
+                "findings": tools.filter_findings(self._find, self.s, workspace_id, opportunity_id),
             }
             reply = self._agent.answer(message, context)
             return {"answer": reply, "grounded": True, "source": "llm"}
         return {"answer": _REFUSAL, "grounded": True, "source": "refusal"}
 
     # ---- deterministic intent handlers -------------------------------------
-    def _deadlines(self, org_id, opportunity_id) -> dict:
-        rows = tools.list_deadlines(self._ing, self.s, org_id, opportunity_id)
+    def _deadlines(self, workspace_id, opportunity_id) -> dict:
+        rows = tools.list_deadlines(self._ing, self.s, workspace_id, opportunity_id)
         if not rows:
             return {
                 "answer": "No deadlines have been extracted yet.",
@@ -198,8 +186,8 @@ class AssistantService:
             "citations": [f"p{r['page']}" for r in rows],
         }
 
-    def _missing(self, org_id, opportunity_id) -> dict:
-        rep = tools.missing_docs(self._ing, self.s, org_id, opportunity_id)
+    def _missing(self, workspace_id, opportunity_id) -> dict:
+        rep = tools.missing_docs(self._ing, self.s, workspace_id, opportunity_id)
         if rep["missing"]:
             names = ", ".join(k.upper() for k in rep["missing"])
             ans = f"Missing expected documents: {names}."
@@ -207,10 +195,10 @@ class AssistantService:
             ans = "All expected documents are present."
         return {"answer": ans, "grounded": True, "source": "tool"}
 
-    def _findings(self, org_id, opportunity_id, m: str) -> dict:
+    def _findings(self, workspace_id, opportunity_id, m: str) -> dict:
         severity = next((s for s in _SEVERITIES if s in m), None)
         rows = tools.filter_findings(
-            self._find, self.s, org_id, opportunity_id, severity=severity
+            self._find, self.s, workspace_id, opportunity_id, severity=severity
         )
         if not rows:
             scope = f"{severity} " if severity else ""

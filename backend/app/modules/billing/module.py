@@ -8,13 +8,15 @@ def setup(ctx: AppContext) -> None:
     # Metering consumed by risk/ingestion before starting a review (Doc §7).
     reg.provide(
         "billing.service_factory",
-        lambda session: BillingService(session, orgs_factory=reg.get("auth.orgs_factory")),
+        lambda session: BillingService(
+            session, workspace_factory=reg.get("auth.workspace_factory")
+        ),
     )
     reg.provide(
         "billing.record_usage",
-        lambda session, org_id, event, ref_id=None: BillingService(
-            session, orgs_factory=reg.get("auth.orgs_factory")
-        ).record_usage(org_id, event, ref_id),
+        lambda session, workspace_id, event, ref_id=None: BillingService(
+            session, workspace_factory=reg.get("auth.workspace_factory")
+        ).record_usage(workspace_id, event, ref_id),
     )
 
 

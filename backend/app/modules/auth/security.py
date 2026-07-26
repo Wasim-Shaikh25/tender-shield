@@ -72,8 +72,9 @@ def mint_access(
     keys: KeyPair,
     *,
     user_id: str,
-    org_id: str,
+    workspace_id: str,
     role: str,
+    is_superadmin: bool = False,
     ttl: timedelta,
     now: datetime | None = None,
 ) -> str:
@@ -81,8 +82,9 @@ def mint_access(
     return jwt.encode(
         {
             "sub": user_id,
-            "org": org_id,
+            "workspace": workspace_id,
             "role": role,
+            "is_superadmin": is_superadmin,
             "iat": now,
             "exp": now + ttl,
             "iss": ISSUER,
@@ -97,8 +99,6 @@ def mint_access(
 
 def decode_access(token: str, public_pem: str) -> dict:
     try:
-        return jwt.decode(
-            token, public_pem, algorithms=[ALGO], audience=AUDIENCE, issuer=ISSUER
-        )
+        return jwt.decode(token, public_pem, algorithms=[ALGO], audience=AUDIENCE, issuer=ISSUER)
     except jwt.PyJWTError as exc:
         raise AuthError(f"invalid_token: {exc}") from exc

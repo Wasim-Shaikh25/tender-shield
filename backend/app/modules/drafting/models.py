@@ -8,10 +8,10 @@ from datetime import datetime
 from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, UniqueConstraint, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.db import Base, OrgScopedMixin
+from app.core.db import Base, WorkspaceScopedMixin
 
 
-class Artifact(Base, OrgScopedMixin):
+class Artifact(Base, WorkspaceScopedMixin):
     _tablename_ = "artifacts"
     __table_args__ = (UniqueConstraint("opportunity_id", "kind", "version"),)
 

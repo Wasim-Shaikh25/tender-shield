@@ -26,7 +26,7 @@ def client():
 def _auth(client):
     client.post(
         "/api/auth/signup",
-        json={"email": "q@x.com", "password": "hunter2hunter2", "org_name": "Acme"},
+        json={"email": "q@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
     )
     tok = client.post(
         "/api/auth/login", json={"email": "q@x.com", "password": "hunter2hunter2"}
@@ -60,9 +60,7 @@ def test_qualification_matrix_extracts_criteria(client):
     )
     opp_id = _opp_with_text(client, headers, text)
 
-    resp = client.post(
-        f"/api/qualification/opportunities/{opp_id}", headers=headers
-    )
+    resp = client.post(f"/api/qualification/opportunities/{opp_id}", headers=headers)
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "needs_review"

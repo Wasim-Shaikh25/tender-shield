@@ -6,10 +6,10 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
 from app.modules.standards.service import (
-    OrgCommercialStandardsService,
-    OrgStandardsService,
     PolicyBody,
     StandardsError,
+    WorkspaceCommercialStandardsService,
+    WorkspaceStandardsService,
 )
 
 router = APIRouter()
@@ -24,12 +24,12 @@ _ERROR_STATUS = {
 }
 
 
-def _notice_service(session: Session) -> OrgStandardsService:
-    return OrgStandardsService(session)
+def _notice_service(session: Session) -> WorkspaceStandardsService:
+    return WorkspaceStandardsService(session)
 
 
-def _commercial_service(session: Session) -> OrgCommercialStandardsService:
-    return OrgCommercialStandardsService(session)
+def _commercial_service(session: Session) -> WorkspaceCommercialStandardsService:
+    return WorkspaceCommercialStandardsService(session)
 
 
 class CategoryBody(BaseModel):
@@ -51,7 +51,7 @@ def get_notice(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    std = _notice_service(session).get_notice(principal.org_id)
+    std = _notice_service(session).get_notice(principal.workspace_id)
     return std or {"mode": "prevail", "categories": []}
 
 
@@ -63,7 +63,7 @@ def set_notice(
 ):
     try:
         return _notice_service(session).set_notice(
-            principal.org_id,
+            principal.workspace_id,
             mode=body.mode,
             categories=[c.model_dump() for c in body.categories],
             actor=principal.user_id,
@@ -77,7 +77,7 @@ def clear_notice(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("admin")),
 ):
-    _notice_service(session).clear_notice(principal.org_id)
+    _notice_service(session).clear_notice(principal.workspace_id)
     return {"cleared": True}
 
 
@@ -89,7 +89,7 @@ def get_policies(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    return {"policies": _commercial_service(session).list_policies(principal.org_id)}
+    return {"policies": _commercial_service(session).list_policies(principal.workspace_id)}
 
 
 @router.put("/commercial/{key}")
@@ -103,7 +103,7 @@ def set_policy(
     payload["key"] = key
     try:
         return _commercial_service(session).set_policy(
-            principal.org_id, policy=payload, actor=principal.user_id
+            principal.workspace_id, policy=payload, actor=principal.user_id
         )
     except StandardsError as exc:
         raise HTTPException(_ERROR_STATUS.get(exc.code, 400), exc.code) from exc
@@ -115,7 +115,7 @@ def delete_policy(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("admin")),
 ):
-    deleted = _commercial_service(session).delete_policy(principal.org_id, key)
+    deleted = _commercial_service(session).delete_policy(principal.workspace_id, key)
     if not deleted:
         raise HTTPException(404, "not_found")
     return {"deleted": True}
@@ -136,11 +136,11 @@ def check_standards(
         raise HTTPException(503, "findings_unavailable")
 
     store = store_factory(session)
-    findings = store.list(principal.org_id, opportunity_id)
+    findings = store.list(principal.workspace_id, opportunity_id)
     accepted = [f for f in findings if f.review_status in {"accepted", "edited"}]
 
     commercial = _commercial_service(session)
-    violations = commercial.check_violations(principal.org_id, _rows_to_dicts(accepted))
+    violations = commercial.check_violations(principal.workspace_id, _rows_to_dicts(accepted))
 
     from app.core.contracts.findings import Finding, FindingKind, FindingSource, Severity
 
@@ -167,7 +167,7 @@ def check_standards(
 
     if violation_findings:
         store.replace_for_producer(
-            principal.org_id, opportunity_id, "standards", violation_findings
+            principal.workspace_id, opportunity_id, "standards", violation_findings
         )
 
     return {"violations": violations}

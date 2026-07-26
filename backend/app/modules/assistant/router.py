@@ -66,7 +66,9 @@ def chat(
     principal: Any = Depends(require("viewer")),
 ):
     """Transient single-turn chat (no session persistence)."""
-    return _service(request, session).answer(principal.org_id, body.opportunity_id, body.message)
+    return _service(request, session).answer(
+        principal.workspace_id, body.opportunity_id, body.message
+    )
 
 
 @router.post("/sessions")
@@ -77,7 +79,7 @@ def create_session(
     principal: Any = Depends(require("viewer")),
 ):
     s = _service(request, session).create_session(
-        principal.org_id, body.opportunity_id, body.title
+        principal.workspace_id, body.opportunity_id, body.title
     )
     return _session_json(s)
 
@@ -89,7 +91,7 @@ def list_sessions(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    sessions = _service(request, session).list_sessions(principal.org_id, opportunity_id)
+    sessions = _service(request, session).list_sessions(principal.workspace_id, opportunity_id)
     return {"sessions": [_session_json(s) for s in sessions]}
 
 
@@ -100,12 +102,12 @@ def get_messages(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    msgs = _service(request, session).get_messages(principal.org_id, session_id)
+    msgs = _service(request, session).get_messages(principal.workspace_id, session_id)
     return {"messages": [_message_json(m) for m in msgs]}
 
 
-def _resolve_session(svc: AssistantService, session_id: str, org_id):
-    sess = svc.get_session(org_id, session_id)
+def _resolve_session(svc: AssistantService, session_id: str, workspace_id):
+    sess = svc.get_session(workspace_id, session_id)
     if not sess:
         raise HTTPException(404, "session_not_found")
     return sess
@@ -120,9 +122,9 @@ def session_chat(
     principal: Any = Depends(require("viewer")),
 ):
     svc = _service(request, session)
-    sess = _resolve_session(svc, session_id, principal.org_id)
+    sess = _resolve_session(svc, session_id, principal.workspace_id)
     return svc.answer_and_store(
-        principal.org_id, session_id, str(sess.opportunity_id), body.message
+        principal.workspace_id, session_id, str(sess.opportunity_id), body.message
     )
 
 
@@ -135,10 +137,10 @@ def stream_chat(
     principal: Any = Depends(require("viewer")),
 ):
     svc = _service(request, session)
-    sess = _resolve_session(svc, session_id, principal.org_id)
+    sess = _resolve_session(svc, session_id, principal.workspace_id)
     return StreamingResponse(
         svc.answer_stream(
-            principal.org_id, session_id, str(sess.opportunity_id), body.message
+            principal.workspace_id, session_id, str(sess.opportunity_id), body.message
         ),
         media_type="text/event-stream",
     )

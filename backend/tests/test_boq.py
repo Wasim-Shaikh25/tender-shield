@@ -101,20 +101,18 @@ def test_boq_run_persists_defects_via_findings():
     client = TestClient(application)
     client.post(
         "/api/auth/signup",
-        json={"email": "bq@x.com", "password": "hunter2hunter2", "org_name": "Acme"},
+        json={"email": "bq@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
     )
     tok = client.post(
         "/api/auth/login", json={"email": "bq@x.com", "password": "hunter2hunter2"}
     ).json()["access_token"]
     h = {"authorization": f"Bearer {tok}"}
-    opp_id = client.post(
-        "/api/ingestion/opportunities", json={"title": "Depot"}, headers=h
-    ).json()["id"]
+    opp_id = client.post("/api/ingestion/opportunities", json={"title": "Depot"}, headers=h).json()[
+        "id"
+    ]
 
     csv_text = (SAMPLE / "boq.csv").read_text()
-    out = client.post(
-        f"/api/boq/opportunities/{opp_id}/run", json={"csv": csv_text}, headers=h
-    )
+    out = client.post(f"/api/boq/opportunities/{opp_id}/run", json={"csv": csv_text}, headers=h)
     assert out.status_code == 200
     cats = {f["category"] for f in out.json()["findings"]}
     assert {"arith", "duplicate", "blank_rate", "grand_total"} <= cats

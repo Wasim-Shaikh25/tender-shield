@@ -65,7 +65,7 @@ def freeze(
 ):
     try:
         row = _service(request, session).freeze(
-            principal.org_id,
+            principal.workspace_id,
             opportunity_id,
             source=body.source,
             note=body.note,
@@ -83,7 +83,7 @@ def list_baselines(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    rows = _service(request, session).list(principal.org_id, opportunity_id)
+    rows = _service(request, session).list(principal.workspace_id, opportunity_id)
     return {"baselines": [_baseline_dict(r) for r in rows]}
 
 
@@ -94,7 +94,7 @@ def get_baseline(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    row = _service(request, session).get(principal.org_id, baseline_id)
+    row = _service(request, session).get(principal.workspace_id, baseline_id)
     if row is None:
         raise HTTPException(404, "not_found")
     return {**_baseline_dict(row), "snapshot": row.snapshot}
@@ -108,7 +108,7 @@ def verify_baseline(
     principal: Any = Depends(require("viewer")),
 ):
     try:
-        return _service(request, session).verify(principal.org_id, baseline_id)
+        return _service(request, session).verify(principal.workspace_id, baseline_id)
     except BaselineError as exc:
         _raise(exc)
 
@@ -121,7 +121,7 @@ def notice_register(
     principal: Any = Depends(require("viewer")),
 ):
     try:
-        return _service(request, session).notice_register(principal.org_id, opportunity_id)
+        return _service(request, session).notice_register(principal.workspace_id, opportunity_id)
     except BaselineError as exc:
         _raise(exc)
 
@@ -134,7 +134,7 @@ def compare(
     principal: Any = Depends(require("viewer")),
 ):
     try:
-        return _service(request, session).compare(principal.org_id, opportunity_id)
+        return _service(request, session).compare(principal.workspace_id, opportunity_id)
     except BaselineError as exc:
         _raise(exc)
 
@@ -147,6 +147,6 @@ def handover(
     principal: Any = Depends(require("estimator")),
 ):
     try:
-        return _service(request, session).handover(principal.org_id, opportunity_id)
+        return _service(request, session).handover(principal.workspace_id, opportunity_id)
     except BaselineError as exc:
         _raise(exc)

@@ -20,11 +20,11 @@ def test_password_hash_roundtrip():
 def test_access_token_mint_and_decode():
     keys = sec.generate_keypair()
     token = sec.mint_access(
-        keys, user_id="u1", org_id="o1", role="owner", ttl=timedelta(minutes=15)
+        keys, user_id="u1", workspace_id="o1", role="owner", ttl=timedelta(minutes=15)
     )
     claims = sec.decode_access(token, keys.public_pem)
     assert claims["sub"] == "u1"
-    assert claims["org"] == "o1"
+    assert claims["workspace"] == "o1"
     assert claims["role"] == "owner"
     assert claims["iss"] == sec.ISSUER
 
@@ -33,7 +33,7 @@ def test_expired_token_rejected():
     keys = sec.generate_keypair()
     past = datetime.now(UTC) - timedelta(hours=1)
     token = sec.mint_access(
-        keys, user_id="u", org_id="o", role="viewer", ttl=timedelta(minutes=15), now=past
+        keys, user_id="u", workspace_id="o", role="viewer", ttl=timedelta(minutes=15), now=past
     )
     with pytest.raises(sec.AuthError):
         sec.decode_access(token, keys.public_pem)
@@ -41,7 +41,9 @@ def test_expired_token_rejected():
 
 def test_token_from_other_key_rejected():
     a, b = sec.generate_keypair(), sec.generate_keypair()
-    token = sec.mint_access(a, user_id="u", org_id="o", role="viewer", ttl=timedelta(minutes=5))
+    token = sec.mint_access(
+        a, user_id="u", workspace_id="o", role="viewer", ttl=timedelta(minutes=5)
+    )
     with pytest.raises(sec.AuthError):
         sec.decode_access(token, b.public_pem)
 

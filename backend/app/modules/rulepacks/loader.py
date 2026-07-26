@@ -100,9 +100,7 @@ class RulePackLoader:
         self._cache[pack_id] = pack
         return pack
 
-    def notice_standard(
-        self, pack_id: str, region: str | None = None
-    ) -> NoticeStandard | None:
+    def notice_standard(self, pack_id: str, region: str | None = None) -> NoticeStandard | None:
         """The universal base standard with the region overlay merged on top
         (spec rulepacks B7 — universal-first, regional refinement). A regional
         category overrides the base category with the same `key`; region-only

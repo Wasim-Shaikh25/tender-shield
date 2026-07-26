@@ -20,7 +20,7 @@ class CrossRefService:
     def _tokens(text: str) -> set[str]:
         return set(re.findall(r"[a-z]+", text.lower()))
 
-    def search(self, org_id, opportunity_id, query: str, limit: int = 20) -> list[dict]:
+    def search(self, workspace_id, opportunity_id, query: str, limit: int = 20) -> list[dict]:
         svc = self._ingestion()
         if svc is None:
             return []
@@ -28,8 +28,8 @@ class CrossRefService:
         if not query_tokens:
             return []
 
-        docs = {str(d.id): d for d in svc.list_documents(org_id, opportunity_id)}
-        clauses = svc.list_clauses(org_id, opportunity_id)
+        docs = {str(d.id): d for d in svc.list_documents(workspace_id, opportunity_id)}
+        clauses = svc.list_clauses(workspace_id, opportunity_id)
 
         scored = []
         for c in clauses:
@@ -60,17 +60,17 @@ class CrossRefService:
         scored.sort(key=lambda x: x["score"], reverse=True)
         return scored[:limit]
 
-    def diff(self, org_id, opportunity_id, document_id: str | None = None) -> dict:
+    def diff(self, workspace_id, opportunity_id, document_id: str | None = None) -> dict:
         svc = self._ingestion()
         if svc is None:
             return {"added": [], "removed": [], "changed": []}
 
-        old_doc, new_doc = self._resolve_pair(svc, org_id, opportunity_id, document_id)
+        old_doc, new_doc = self._resolve_pair(svc, workspace_id, opportunity_id, document_id)
         if old_doc is None or new_doc is None:
             return {"added": [], "removed": [], "changed": []}
 
-        old_clauses = svc.list_clauses_for_document(org_id, str(old_doc.id))
-        new_clauses = svc.list_clauses_for_document(org_id, str(new_doc.id))
+        old_clauses = svc.list_clauses_for_document(workspace_id, str(old_doc.id))
+        new_clauses = svc.list_clauses_for_document(workspace_id, str(new_doc.id))
 
         old_by_ref = {c.clause_ref or f"__{i}": c for i, c in enumerate(old_clauses)}
         new_by_ref = {c.clause_ref or f"__{i}": c for i, c in enumerate(new_clauses)}
@@ -107,15 +107,15 @@ class CrossRefService:
             "changed": changed,
         }
 
-    def _resolve_pair(self, svc, org_id, opportunity_id, document_id):
+    def _resolve_pair(self, svc, workspace_id, opportunity_id, document_id):
         if document_id:
-            new_doc = svc.get_document(org_id, document_id)
+            new_doc = svc.get_document(workspace_id, document_id)
             if new_doc is None or new_doc.supersedes is None:
                 return None, None
-            old_doc = svc.get_document(org_id, str(new_doc.supersedes))
+            old_doc = svc.get_document(workspace_id, str(new_doc.supersedes))
             return old_doc, new_doc
 
-        docs = svc.list_documents(org_id, opportunity_id)
+        docs = svc.list_documents(workspace_id, opportunity_id)
         if not docs:
             return None, None
         # Group by kind and pick the most recent pair within each kind.
@@ -129,7 +129,7 @@ class CrossRefService:
         # Otherwise try explicit supersedes chain across the whole opportunity.
         for d in sorted(docs, key=lambda d: (d.created_at, str(d.id))):
             if d.supersedes:
-                old = svc.get_document(org_id, str(d.supersedes))
+                old = svc.get_document(workspace_id, str(d.supersedes))
                 if old:
                     return old, d
         return None, None

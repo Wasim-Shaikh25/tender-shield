@@ -72,7 +72,7 @@ def client():
 def _auth(client):
     client.post(
         "/api/auth/signup",
-        json={"email": "f@x.com", "password": "hunter2hunter2", "org_name": "Acme"},
+        json={"email": "f@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
     )
     tok = client.post(
         "/api/auth/login", json={"email": "f@x.com", "password": "hunter2hunter2"}

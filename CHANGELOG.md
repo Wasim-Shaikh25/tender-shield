@@ -6,6 +6,21 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-26 (spec audit follow-up: TS-062 + TS-063 + TS-058..TS-070 tracking)
+
+- **TS-058..TS-070** — Spec-audit follow-up task IDs and `tasks/spec_audit_tracker.md` created.
+- **TS-062** — `analytics` and `comparison` now publish `*.service_factory` capabilities
+  via `module.py`, and their routers consume the factory when available.
+- **TS-063** — Fixed route wording in `specs/modules/timeline.md` and `specs/modules/crossref.md`
+  to match the implemented router paths.
+
+### Next
+
+- Sprint 1: write missing module specs for `findings` (TS-058), `export` (TS-059), `health` (TS-060), and `notifications` (TS-061).
+- Sprint 2: align public-interface declarations in `ingestion` (TS-064), `risk` (TS-065), and `drafting` (TS-066) specs with the current code.
+- Sprint 3: add tests for `export`, `health`, and `notifications` (TS-067).
+- Sprint 4: implement deeper feature gaps (TS-068..TS-070) or split them into dedicated follow-up tasks after spec review.
+
 ### Done — 2026-07-26 (session 23 continued: TS-057)
 
 - **TS-057** — Internal Accuracy Dashboard:

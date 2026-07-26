@@ -6,6 +6,19 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-26 (session 23 continued: TS-050)
+
+- **TS-050** — Tender Comparison:
+  - New `comparison` module with `GET /api/comparison/opportunities` returning a
+    portfolio ranking table.
+  - Aggregates per-opportunity counts (risk by severity, qualification gaps,
+    BOQ defects, standard violations), earliest submission deadline, and the
+    latest `bid_decision` score/recommendation from `drafting`.
+  - Deterministic priority ranking: `proceed` > `proceed_with_conditions` >
+    `do_not_proceed` > none, then bid score desc, critical risk asc,
+    days-to-submission asc.
+  - `specs/modules/comparison.md` and `tests/test_comparison.py` added.
+
 ### Done — 2026-07-26 (session 23 continued: TS-053 + TS-051)
 
 - **TS-053** — Clause Cross-Reference:

@@ -11,7 +11,7 @@ Goal: extend the pre-bid workflow from risk surfacing to a defensible bid/no-bid
 | 1 | Eligibility & policy | TS-049 Qualification Matrix, TS-056 Org Standards Enforcement | done |
 | 2 | Bid decision capstone | TS-048 Bid/No-Bid Recommendation, TS-052 Tender Timeline | done |
 | 3 | Trust & change | TS-053 Clause Cross-Reference, TS-051 Clause Change Detection | done |
-| 4 | Portfolio & ops | TS-050 Tender Comparison, TS-057 Internal Accuracy Dashboard | todo |
+| 4 | Portfolio & ops | TS-050 Tender Comparison, TS-057 Internal Accuracy Dashboard | in_progress |
 
 ## Feature tracker
 
@@ -19,7 +19,7 @@ Goal: extend the pre-bid workflow from risk surfacing to a defensible bid/no-bid
 |----|---------|-----------|----------|--------|-----------------|----------|
 | TS-048 | Bid / No-Bid Recommendation | `drafting` | P0 — capstone | done | Score is deterministic, org-editable weights, cites accepted findings, gated by review | TS-056 (standard violation input) |
 | TS-049 | Qualification Compliance Matrix | `qualification` (new) | P0 — input | done | Extracts ≥8 requirement types, writes `qualification_gap` findings, feeds bid score | rulepack patterns for qualification |
-| TS-050 | Tender Comparison | `comparison` (new) | P2 | todo | `/opportunities/compare` API + page, priority rank | TS-048 (score useful) |
+| TS-050 | Tender Comparison | `comparison` (new) | P2 | done | `/opportunities` API + stable rank | TS-048 (score useful) |
 | TS-051 | Clause Change Detection | `crossref` (new) | P2 | done | Added/removed/changed clauses for new document versions | document versioning in `ingestion` |
 | TS-052 | Tender Timeline | `ingestion` + `timeline` (new) | P0 — input | done | ≥9 milestone kinds, timeline view/export | existing deadline extraction |
 | TS-053 | Clause Cross-Reference | `crossref` (new) | P2 | done | Cross-document term search with confidence | clause store |

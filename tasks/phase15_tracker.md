@@ -11,7 +11,7 @@ Goal: extend the pre-bid workflow from risk surfacing to a defensible bid/no-bid
 | 1 | Eligibility & policy | TS-049 Qualification Matrix, TS-056 Org Standards Enforcement | done |
 | 2 | Bid decision capstone | TS-048 Bid/No-Bid Recommendation, TS-052 Tender Timeline | done |
 | 3 | Trust & change | TS-053 Clause Cross-Reference, TS-051 Clause Change Detection | done |
-| 4 | Portfolio & ops | TS-050 Tender Comparison, TS-057 Internal Accuracy Dashboard | in_progress |
+| 4 | Portfolio & ops | TS-050 Tender Comparison, TS-057 Internal Accuracy Dashboard | done |
 
 ## Feature tracker
 
@@ -26,12 +26,14 @@ Goal: extend the pre-bid workflow from risk surfacing to a defensible bid/no-bid
 | TS-054 | Risk Explainability | `risk` + frontend | P0 — input | done | `explanation` object on every finding, rendered in UI | core `Finding` contract change |
 | TS-055 | Structured Review Outcomes | `review` | P0 — input | done | New `NEEDS_CLARIFICATION`/`FALSE_POSITIVE` states, rejection reasons, audit logging | core `ReviewStatus` change |
 | TS-056 | Organization Standards Enforcement | `standards` + `review`/`drafting` | P0 — input | done | Org thresholds → `standard_violation` findings, used by bid score | TS-047 org standards editor |
-| TS-057 | Internal Accuracy Dashboard | `analytics` (new) | P3 | todo | Admin-only precision/recall/FP/FN by pattern | real-tender gold labels |
+| TS-057 | Internal Accuracy Dashboard | `analytics` (new) | P3 | done | Admin-only precision/recall/FP/FN by pattern | real-tender gold labels |
 
 ## Definition of done for Phase 1.5
 
 - [x] Sprint 0 complete and tests passing.
 - [x] Sprint 1 complete and at least one real tender validated for qualification extraction.
 - [x] Sprint 2 complete; Bid Decision artifact generated end-to-end in the UI.
+- [x] Sprint 3 complete; Clause cross-reference and change detection working end-to-end.
+- [x] Sprint 4 complete; Tender comparison and internal accuracy dashboard wired.
 - [ ] QS review confirms the score factors and weights are commercially reasonable.
 - [ ] Phase 1 accuracy gate remains open until the validation set passes ≥70% QS acceptance.

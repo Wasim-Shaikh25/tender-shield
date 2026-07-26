@@ -6,6 +6,25 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-26 (session 23 continued: TS-057)
+
+- **TS-057** — Internal Accuracy Dashboard:
+  - New `analytics` module with `GET /api/analytics/accuracy` (admin/owner only).
+  - Aggregates review outcomes from the shared findings table and produces
+    per-pattern and per-source precision proxies, false-positive counts, and
+    a most-rejected patterns list.
+  - Recall and true false negatives are reported as `null` because they require
+    an external golden-label set; the shape is ready for that feed.
+  - Added `FindingStore.list_for_org` to support org-wide analytics without
+    direct table imports.
+  - `specs/modules/analytics.md` and `tests/test_analytics.py` added.
+
+### Next
+
+- Phase 1 accuracy gate: validate the Bid Readiness score and weights against a
+  real tender set and QS sign-off; no Phase-2 expansion until ≥70% QS acceptance.
+- Golden-label import for true precision/recall in `analytics` (TS-057 follow-up).
+
 ### Done — 2026-07-26 (session 23 continued: TS-050)
 
 - **TS-050** — Tender Comparison:

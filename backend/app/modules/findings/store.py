@@ -52,6 +52,12 @@ class FindingStore:
             )
         )
 
+    def list_for_org(self, org_id, *, producer: str | None = None) -> list[FindingRow]:
+        stmt = select(FindingRow).where(FindingRow.org_id == uuid.UUID(str(org_id)))
+        if producer:
+            stmt = stmt.where(FindingRow.producer == producer)
+        return list(self.s.scalars(stmt))
+
     def set_review(
         self,
         org_id,

@@ -18,6 +18,18 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   `accept_invitation` now normalizes a naive `expires_at` to UTC before comparing.
   Added `test_invitation_flow` to `tests/test_auth_module.py`.
 
+### Done — 2026-07-26 (password reset: TS-082)
+
+- **TS-082** — Added forgot-password and reset-password flow:
+  - New `password_resets` table with 15-minute single-use tokens stored as SHA-256 hashes.
+  - `POST /api/auth/forgot-password` returns `ok` even for unknown emails to prevent
+    enumeration; returns the raw token in dev/test until real email delivery is wired.
+  - `POST /api/auth/reset-password` validates the token, enforces an 8-character minimum,
+    hashes the new password with argon2id, and marks the token used.
+  - Frontend: `/forgot-password` and `/reset-password?token=...` pages, plus a link
+    from `/login`.
+  - Added regression tests for reset, reuse, and expired-token rejection.
+
 ### Done — 2026-07-26 (workspace/project tenant refactor + super admin: TS-074..TS-078)
 
 - **TS-074** — Spec for the workspace/project tenant refactor + super admin:
@@ -93,7 +105,8 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ### Next
 
-- TS-079 — Wire real email/SMS delivery for `email`/`sms` MFA methods and OTP codes.
+- TS-079 — Wire real email/SMS delivery for `email`/`sms` MFA methods, OTP codes, and
+  password-reset links (replace dev-only token return).
 - TS-036 — Complete Google OIDC login (`/api/auth/google/callback`) and live
   messaging-provider credentials.
 - Configure Apple Developer credentials and test end-to-end Sign in with Apple.

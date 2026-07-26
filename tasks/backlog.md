@@ -138,6 +138,7 @@ staying inside the tender-review domain. Full requirements and tracker:
 | TS-079 | Real email/SMS delivery for `email`/`sms` MFA and OTP codes | product; Doc §5 | `specs/modules/auth.md` (update), `specs/modules/notifications.md` (update) | todo |
 | TS-080 | Real web automation validation of signup -> workspace -> project -> invite flow | testing; Doc §11.1 | — | done |
 | TS-081 | Fix `accept_invitation` naive/aware datetime comparison and add invitation flow test | bugfix; Doc §11.1 | `tests/test_auth_module.py` (update) | done |
+| TS-082 | Forgot-password and reset-password flow (token via email, dev mode returns token) | product; Doc §5 | `specs/modules/auth.md` (update) | done |
 
 ## Notes
 

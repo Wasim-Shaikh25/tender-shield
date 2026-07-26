@@ -1,7 +1,7 @@
 # Auth — Spec
 
 **Status:** implemented (email+password, JWT, refresh rotation, RBAC, RLS bind;
-TOTP/email/SMS MFA enroll/verify done; phone OTP + Google OIDC deferred; Sign in
+TOTP/email/SMS MFA enroll/verify done; password reset via token; phone OTP + Google OIDC deferred; Sign in
 with Apple backend callback implemented but requires Apple Developer credentials to
 enable)
 **Requirement refs:** Doc §5, §3.2, §16
@@ -22,6 +22,7 @@ endpoints under `/api/auth/admin/*`.
   `auth.refresh_reuse_detected`.
 - **API routes:**
   - `/api/auth/signup`, `/login`, `/refresh`, `/logout`, `/me`
+  - `/api/auth/forgot-password`, `/reset-password`
   - `/api/auth/workspaces` (create/list)
   - `/api/auth/workspaces/{id}/members` (add/list)
   - `/api/auth/workspaces/{id}/projects` (create/list)
@@ -36,7 +37,7 @@ endpoints under `/api/auth/admin/*`.
 
 `users` (including `google_sub`, `apple_id`, OIDC links, `is_superadmin`, `mfa_method`,
 `mfa_phone`), `workspaces`, `workspace_members`, `projects`, `project_members`,
-`invitations`, `refresh_tokens` (family-tracked), OTP state (Redis).
+`invitations`, `password_resets`, `refresh_tokens` (family-tracked), OTP state (Redis).
 
 ## Behavior
 
@@ -59,6 +60,9 @@ endpoints under `/api/auth/admin/*`.
   "Personal") so existing workspace-scoped endpoints keep working.
 - **B10:** super-admins bypass workspace checks on `/api/auth/admin/*`; their access
   token carries `is_superadmin=true` and a placeholder `workspace` claim.
+- **B11:** forgot-password accepts an email and creates a single-use 15-minute reset token;
+  the endpoint returns `ok` even for unknown emails to prevent enumeration. Reset consumes
+  the token and updates the user's password hash; expired or reused tokens are rejected.
 
 ## Acceptance criteria
 
@@ -67,6 +71,8 @@ endpoints under `/api/auth/admin/*`.
 - A3: two-workspace RLS isolation test passes through the whole request stack.
 - A4: workspace/project CRUD and invitation flow work through the API.
 - A5: super-admin endpoints reject non-super-admins with 403.
+- A6: forgot-password returns `ok` for unknown emails and a usable token for known emails;
+  reset updates the password and invalidates the token.
 
 ## Out of scope
 

@@ -42,6 +42,15 @@ class RefreshBody(BaseModel):
     refresh_token: str
 
 
+class ForgotPasswordBody(BaseModel):
+    email: str
+
+
+class ResetPasswordBody(BaseModel):
+    token: str
+    new_password: str = Field(min_length=8)
+
+
 class AddMemberBody(BaseModel):
     email: str
     role: str
@@ -99,6 +108,8 @@ _STATUS = {
     "invalid_invitation": 400,
     "invitation_used": 400,
     "invitation_email_mismatch": 400,
+    "invalid_reset_token": 400,
+    "password_too_short": 400,
 }
 
 
@@ -142,6 +153,24 @@ def me(principal: Principal = Depends(current_principal)):
         "role": principal.role,
         "is_superadmin": principal.is_superadmin,
     }
+
+
+@router.post("/forgot-password")
+def forgot_password(
+    body: ForgotPasswordBody,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    return _handle(lambda: _service(request, session).forgot_password(body.email))
+
+
+@router.post("/reset-password")
+def reset_password(
+    body: ResetPasswordBody,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    return _handle(lambda: _service(request, session).reset_password(body.token, body.new_password))
 
 
 # ---- workspaces & projects ---------------------------------------------

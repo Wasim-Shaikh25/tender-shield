@@ -91,6 +91,25 @@ config-flagged, fully decoupled module so it ships without disturbing Phase-1.
 | TS-044 | Award-document ingestion: parse negotiated contract / award letter so the award baseline seals from real award text | Doc §0.1 (P2/P3) | `specs/modules/baseline.md` | todo |
 | TS-045 | Handover-pack file export (DOCX/PDF) reusing the export renderer | Doc §1.1(8), §0.1 | `specs/modules/baseline.md` | todo |
 
+## Phase 1.5 — Bid-Decision Extensions
+
+Extends the pre-bid workflow from "what are the risks?" to "should we bid?" while
+staying inside the tender-review domain. Full requirements and tracker:
+`docs/TenderShield_Phase15_Extensions.md` and `tasks/phase15_tracker.md`.
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-054 | Risk Explainability: structured `explanation` object on every risk finding (pattern, evidence, industry reason, suggested reviewer) | Phase 1.5 doc §5 | `specs/modules/risk.md` (update) | todo |
+| TS-055 | Structured Review Outcomes: add `needs_clarification`/`false_positive` states and rejection reasons to the review workbench | Phase 1.5 doc §5 | `specs/modules/review.md` (update) | todo |
+| TS-049 | Qualification Compliance Matrix: extract eligibility criteria (turnover, experience, EMD, certifications, etc.) and flag gaps as findings | Phase 1.5 doc §5 | `specs/modules/qualification.md` | todo |
+| TS-056 | Organization Standards Enforcement: compare findings/org terms against org-published thresholds and create `standard_violation` findings | Phase 1.5 doc §5 | `specs/modules/standards.md` (update) | todo |
+| TS-052 | Tender Timeline: expand deadline extraction into a milestone calendar (pre-bid, clarification, submission, technical/financial opening, EMD/BG validity, contract signing) | Phase 1.5 doc §5 | `specs/modules/timeline.md` | todo |
+| TS-048 | Bid / No-Bid Recommendation: deterministic Bid Readiness Score + conditional recommendation artifact consuming accepted findings, qualification, timeline, and org standards | Phase 1.5 doc §5 | `specs/modules/drafting.md` (update) | todo |
+| TS-053 | Clause Cross-Reference: cross-document citation search for a clause/topic across NIT/GCC/SCC/addenda/BOQ notes | Phase 1.5 doc §5 | `specs/modules/crossref.md` | todo |
+| TS-051 | Clause Change Detection: diff added/removed/changed clauses between document versions (addendum/corrigendum) | Phase 1.5 doc §5 | `specs/modules/diff.md` | todo |
+| TS-050 | Tender Comparison: portfolio dashboard ranking opportunities by risk, BOQ quality, deadline, and bid readiness | Phase 1.5 doc §5 | `specs/modules/comparison.md` | todo |
+| TS-057 | Internal Accuracy Dashboard: admin-only precision/recall/FP/FN metrics by pattern and review-outcome telemetry | Phase 1.5 doc §5 | `specs/modules/analytics.md` | todo |
+
 ## Notes
 
 - A task moves to `in-progress` when work starts and `done` in the commit that

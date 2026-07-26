@@ -6,6 +6,22 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-26 (session 23: Phase 1.5 bid-decision extensions planning)
+
+- Product requirements and roadmap for **Phase 1.5 — Bid-Decision Extensions**
+  (`docs/TenderShield_Phase15_Extensions.md`). Maps the 10 requested
+  capabilities to the existing modular architecture, defines domain/market
+  rationale, priority, sprint sequencing, acceptance criteria, and module mapping.
+- Task backlog updated with sequential IDs **TS-048…TS-057** for Bid / No-Bid
+  Recommendation, Qualification Matrix, Tender Comparison, Clause Change
+  Detection, Tender Timeline, Clause Cross-Reference, Risk Explainability,
+  Structured Review Outcomes, Organization Standards Enforcement, and Internal
+  Accuracy Dashboard (`tasks/backlog.md`).
+- Progress tracker created (`tasks/phase15_tracker.md`) with sprint themes,
+  acceptance gates, and blockers; Bid Decision Intelligence is the capstone
+  feature with Sprint 0–2 inputs (explainability, review outcomes,
+  qualification, timeline, org standards) sequenced first.
+
 ### Done — 2026-07-24 (session 22: org-custom standards + researched notice figures)
 
 - **TS-047** — the third standards layer: a firm can publish **its own** notice

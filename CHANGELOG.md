@@ -6,7 +6,7 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
-### Done — 2026-07-26 (session 23 continued: TS-052 + TS-054 + TS-055)
+### Done — 2026-07-26 (session 23 continued: TS-049 + TS-052 + TS-054 + TS-055)
 
 - **TS-052** — Tender Timeline:
   - New `timeline` module with `TimelineService` and routes
@@ -16,6 +16,17 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   - Timeline normalizes raw kinds to a canonical milestone vocabulary, includes a
     `tender_published` synthetic fallback, and sorts dated events.
   - `specs/modules/timeline.md` and `tests/test_timeline.py` added.
+
+- **TS-049** — Qualification Compliance Matrix:
+  - New `qualification` module with `QualificationService` and routes
+    `GET/POST /api/qualification/opportunities/{id}`.
+  - Deterministic extraction of 8 eligibility criteria (minimum turnover,
+    similar project experience, equipment, engineer, certifications, EMD,
+    bid security, experience years) with source quote + page.
+  - Writes `qualification_gap` findings to the shared findings store; missing
+    criteria are `not_met` (severity `high`), found criteria are `unknown`
+    (severity `medium`) pending org evidence.
+  - `specs/modules/qualification.md` and `tests/test_qualification.py` added.
 
 - **TS-054** — Risk Explainability:
   - `Finding` contract and `findings` table now carry an `explanation` JSON field.

@@ -8,7 +8,7 @@ Goal: extend the pre-bid workflow from risk surfacing to a defensible bid/no-bid
 | Sprint | Theme | Tasks | Status |
 |--------|-------|-------|--------|
 | 0 | Data quality | TS-054 Risk Explainability, TS-055 Structured Review Outcomes | done |
-| 1 | Eligibility & policy | TS-049 Qualification Matrix, TS-056 Org Standards Enforcement | todo |
+| 1 | Eligibility & policy | TS-049 Qualification Matrix, TS-056 Org Standards Enforcement | in-progress |
 | 2 | Bid decision capstone | TS-048 Bid/No-Bid Recommendation, TS-052 Tender Timeline | in-progress |
 | 3 | Trust & change | TS-053 Clause Cross-Reference, TS-051 Clause Change Detection | todo |
 | 4 | Portfolio & ops | TS-050 Tender Comparison, TS-057 Internal Accuracy Dashboard | todo |
@@ -18,7 +18,7 @@ Goal: extend the pre-bid workflow from risk surfacing to a defensible bid/no-bid
 | ID | Feature | Module(s) | Priority | Status | Acceptance Gate | Blockers |
 |----|---------|-----------|----------|--------|-----------------|----------|
 | TS-048 | Bid / No-Bid Recommendation | `drafting` | P0 — capstone | todo | Score is deterministic, org-editable weights, cites accepted findings, gated by review | TS-049, TS-054, TS-055, TS-056, TS-052 |
-| TS-049 | Qualification Compliance Matrix | `qualification` (new) | P0 — input | todo | Extracts ≥8 requirement types, writes `qualification_gap` findings, feeds bid score | rulepack patterns for qualification |
+| TS-049 | Qualification Compliance Matrix | `qualification` (new) | P0 — input | done | Extracts ≥8 requirement types, writes `qualification_gap` findings, feeds bid score | rulepack patterns for qualification |
 | TS-050 | Tender Comparison | `comparison` (new) | P2 | todo | `/opportunities/compare` API + page, priority rank | TS-048 (score useful) |
 | TS-051 | Clause Change Detection | `diff` (new) or `ingestion` | P2 | todo | Added/removed/changed clauses for new document versions | document versioning in `ingestion` |
 | TS-052 | Tender Timeline | `ingestion` + `timeline` (new) | P0 — input | done | ≥9 milestone kinds, timeline view/export | existing deadline extraction |

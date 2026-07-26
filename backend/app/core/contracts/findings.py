@@ -18,6 +18,8 @@ class FindingKind(StrEnum):
     SCOPE_GAP = "scope_gap"
     DEADLINE = "deadline"
     MISSING_DOC = "missing_doc"
+    QUALIFICATION_GAP = "qualification_gap"
+    STANDARD_VIOLATION = "standard_violation"
 
 
 class Severity(StrEnum):

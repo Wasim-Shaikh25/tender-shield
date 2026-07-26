@@ -53,7 +53,14 @@ class FindingStore:
         )
 
     def set_review(
-        self, org_id, finding_id, *, status, note=None, reviewer_id=None
+        self,
+        org_id,
+        finding_id,
+        *,
+        status,
+        note=None,
+        review_reason=None,
+        reviewer_id=None,
     ) -> FindingRow | None:
         """Set the review columns on a finding (called by the review module via
         the store capability — the findings module owns these columns)."""
@@ -62,6 +69,7 @@ class FindingStore:
             return None
         row.review_status = status
         row.review_note = note
+        row.review_reason = review_reason
         row.reviewed_by = uuid.UUID(str(reviewer_id)) if reviewer_id else None
         self.s.commit()
         return row
@@ -86,4 +94,6 @@ class FindingStore:
             pattern_version=f.pattern_version,
             amount_exposure=f.amount_exposure,
             review_status=f.review_status.value,
+            review_reason=f.review_reason,
+            explanation=f.explanation,
         )

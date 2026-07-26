@@ -24,6 +24,9 @@ negative_examples:
 default_playbook:
   acceptable: "escalation formula present for contracts > 18 months"
   flag_when: "escalation deleted or 'firm price' stated for long-duration works"
+industry_reason: >
+  A fixed-price contract on long-duration works exposes the contractor to
+  input-cost inflation (steel, cement, fuel) that can wipe out margin.
 suggested_clarification: >
   Seek confirmation whether escalation per a published formula (e.g. 10CA
   basis) applies; if barred, price the risk or seek amendment.

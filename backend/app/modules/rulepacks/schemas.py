@@ -25,6 +25,7 @@ class RiskPattern(BaseModel):
     negative_examples: list[str] = Field(default_factory=list)
     default_playbook: PlaybookHint | None = None
     suggested_clarification: str | None = None
+    industry_reason: str | None = None
     affected_trades: list[str] = Field(default_factory=list)
     absence_is_finding: bool = False
 

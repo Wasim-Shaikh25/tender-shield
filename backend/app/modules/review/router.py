@@ -16,8 +16,9 @@ def _service(request: Request, session: Session) -> ReviewService:
 
 
 class ReviewBody(BaseModel):
-    decision: str  # accepted | edited | rejected
+    decision: str  # accepted | edited | rejected | false_positive | needs_clarification
     note: str | None = None
+    review_reason: str | None = None
 
 
 @router.get("/opportunities/{opportunity_id}/queue")
@@ -37,6 +38,8 @@ def queue(
                 "title": r.title,
                 "review_status": r.review_status,
                 "review_note": r.review_note,
+                "review_reason": r.review_reason,
+                "explanation": r.explanation,
             }
             for r in rows
         ]
@@ -53,7 +56,11 @@ def review_finding(
 ):
     try:
         row = _service(request, session).review_finding(
-            principal.org_id, finding_id, decision=body.decision, note=body.note,
+            principal.org_id,
+            finding_id,
+            decision=body.decision,
+            note=body.note,
+            review_reason=body.review_reason,
             reviewer_id=principal.user_id,
         )
     except ReviewError as exc:

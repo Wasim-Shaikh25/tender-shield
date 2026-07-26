@@ -41,6 +41,8 @@ class ReviewStatus(StrEnum):
     ACCEPTED = "accepted"
     EDITED = "edited"
     REJECTED = "rejected"
+    FALSE_POSITIVE = "false_positive"
+    NEEDS_CLARIFICATION = "needs_clarification"
 
 
 class Finding(BaseModel):
@@ -59,3 +61,5 @@ class Finding(BaseModel):
     pattern_version: str | None = None
     amount_exposure: float | None = None
     review_status: ReviewStatus = ReviewStatus.PROPOSED
+    review_reason: str | None = None
+    explanation: dict | None = None

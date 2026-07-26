@@ -36,4 +36,6 @@ class FindingRow(Base, OrgScopedMixin):
     # review state (Doc §11.4) — driven by the review module later (TS-021).
     review_status: Mapped[str] = mapped_column(String, nullable=False, default="proposed")
     review_note: Mapped[str | None] = mapped_column(String, nullable=True)
+    review_reason: Mapped[str | None] = mapped_column(String, nullable=True)
     reviewed_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    explanation: Mapped[dict | None] = mapped_column(JSON, nullable=True)

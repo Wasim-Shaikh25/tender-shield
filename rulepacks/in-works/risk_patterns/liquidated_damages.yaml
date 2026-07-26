@@ -21,6 +21,9 @@ judgment_prompt: >
   finding. Quote verbatim.
 negative_examples:
   - "Performance-security forfeiture clauses are not LD."
+industry_reason: >
+  Uncapped or unusually high liquidated damages shift delay risk entirely to the
+  contractor and can erase margin on a late project.
 suggested_clarification: >
   Request confirmation of the LD cap (typically 10% of contract value) and the
   basis of levy (delayed portion vs whole works).

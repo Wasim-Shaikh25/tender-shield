@@ -7,7 +7,7 @@ Goal: extend the pre-bid workflow from risk surfacing to a defensible bid/no-bid
 
 | Sprint | Theme | Tasks | Status |
 |--------|-------|-------|--------|
-| 0 | Data quality | TS-054 Risk Explainability, TS-055 Structured Review Outcomes | todo |
+| 0 | Data quality | TS-054 Risk Explainability, TS-055 Structured Review Outcomes | done |
 | 1 | Eligibility & policy | TS-049 Qualification Matrix, TS-056 Org Standards Enforcement | todo |
 | 2 | Bid decision capstone | TS-048 Bid/No-Bid Recommendation, TS-052 Tender Timeline | todo |
 | 3 | Trust & change | TS-053 Clause Cross-Reference, TS-051 Clause Change Detection | todo |
@@ -23,8 +23,8 @@ Goal: extend the pre-bid workflow from risk surfacing to a defensible bid/no-bid
 | TS-051 | Clause Change Detection | `diff` (new) or `ingestion` | P2 | todo | Added/removed/changed clauses for new document versions | document versioning in `ingestion` |
 | TS-052 | Tender Timeline | `ingestion` + `timeline` (new) | P0 — input | todo | ≥9 milestone kinds, timeline view/export | existing deadline extraction |
 | TS-053 | Clause Cross-Reference | `crossref` (new) | P2 | todo | Cross-document term search with confidence | clause store |
-| TS-054 | Risk Explainability | `risk` + frontend | P0 — input | todo | `explanation` object on every finding, rendered in UI | core `Finding` contract change |
-| TS-055 | Structured Review Outcomes | `review` | P0 — input | todo | New `NEEDS_CLARIFICATION`/`FALSE_POSITIVE` states, rejection reasons, audit logging | core `ReviewStatus` change |
+| TS-054 | Risk Explainability | `risk` + frontend | P0 — input | done | `explanation` object on every finding, rendered in UI | core `Finding` contract change |
+| TS-055 | Structured Review Outcomes | `review` | P0 — input | done | New `NEEDS_CLARIFICATION`/`FALSE_POSITIVE` states, rejection reasons, audit logging | core `ReviewStatus` change |
 | TS-056 | Organization Standards Enforcement | `standards` + `review`/`drafting` | P0 — input | todo | Org thresholds → `standard_violation` findings, used by bid score | TS-047 org standards editor |
 | TS-057 | Internal Accuracy Dashboard | `analytics` (new) | P3 | todo | Admin-only precision/recall/FP/FN by pattern | real-tender gold labels |
 

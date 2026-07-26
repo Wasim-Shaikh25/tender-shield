@@ -87,6 +87,41 @@ def test_review_writes_audit_trail(client):
     assert any(a["action"] == "finding.rejected" for a in audit)
 
 
+def test_structured_review_outcomes_and_review_reason(client):
+    headers = _auth(client)
+    opp_id = _opp_with_findings(client, headers)
+    fid = client.get(f"/api/review/opportunities/{opp_id}/queue", headers=headers).json()[
+        "findings"
+    ][0]["id"]
+
+    # false_positive is a resolved state and should open the gate when all are resolved
+    r = client.post(
+        f"/api/review/findings/{fid}",
+        json={"decision": "false_positive", "review_reason": "wrong_clause"},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    assert r.json()["review_status"] == "false_positive"
+
+    queue = client.get(f"/api/review/opportunities/{opp_id}/queue", headers=headers).json()
+    assert queue["findings"][0]["review_reason"] == "wrong_clause"
+
+
+def test_needs_clarification_blocks_gate(client):
+    headers = _auth(client)
+    opp_id = _opp_with_findings(client, headers)
+    queue = client.get(f"/api/review/opportunities/{opp_id}/queue", headers=headers).json()
+    for f in queue["findings"]:
+        client.post(
+            f"/api/review/findings/{f['id']}",
+            json={"decision": "needs_clarification"},
+            headers=headers,
+        )
+    gate = client.get(f"/api/review/opportunities/{opp_id}/gate", headers=headers).json()
+    assert gate["export_allowed"] is False
+    assert gate["pending"] == gate["total"]
+
+
 def test_bad_decision_and_missing_finding(client):
     headers = _auth(client)
     opp_id = _opp_with_findings(client, headers)

@@ -6,6 +6,31 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-26 (session 23 continued: TS-054 + TS-055)
+
+- **TS-054** — Risk Explainability:
+  - `Finding` contract and `findings` table now carry an `explanation` JSON field.
+  - `RiskPattern` schema accepts `industry_reason`; all five `in-works` India
+    patterns updated with real, domain-appropriate reasons.
+  - `risk.engine.run_pattern` builds an explanation object for every finding
+    (`matched_pattern`, `evidence_quote`, `industry_reason`, `suggested_review`,
+    `absence` flag).
+  - `risk` and `review` API responses now include `explanation`.
+  - Tests updated: `test_risk.py` asserts explanation shape.
+
+- **TS-055** — Structured Review Outcomes:
+  - `ReviewStatus` expanded: `accepted`, `edited`, `rejected`, `false_positive`,
+    `needs_clarification`.
+  - `findings` table and contract gain `review_reason`.
+  - Review endpoint accepts `decision` + `review_reason`; audit logs both.
+  - Export gate now blocks on `proposed` **and** `needs_clarification`.
+  - Tests added for `false_positive`/`needs_clarification` and gate behavior.
+
+- Migration `0012_review_explain.py` adds `review_reason` and `explanation`
+  columns to `findings`; Alembic up/down verified.
+- `specs/modules/risk.md` and `specs/modules/review.md` updated in the same change.
+- `tasks/backlog.md` / `tasks/phase15_tracker.md`: TS-054, TS-055 marked `done`.
+
 ### Done — 2026-07-26 (session 23: Phase 1.5 bid-decision extensions planning)
 
 - Product requirements and roadmap for **Phase 1.5 — Bid-Decision Extensions**

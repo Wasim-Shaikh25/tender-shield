@@ -114,10 +114,10 @@ staying inside the tender-review domain. Full requirements and tracker:
 
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
-| TS-058 | Spec: `findings` module (shared findings store, `Finding` contract, review columns) | spec audit | `specs/modules/findings.md` (new) | todo |
-| TS-059 | Spec: `export` module (Bid Review Pack DOCX/XLSX/PDF renderer, review gate, watermark) | spec audit; Doc §1.1(8), §6.5 | `specs/modules/export.md` (new) | todo |
-| TS-060 | Spec: `health` module (health/capabilities endpoint, module load report) | spec audit; Doc §11.1 | `specs/modules/health.md` (new) | todo |
-| TS-061 | Spec: `notifications` module (digest sender abstraction, dev console adapter) | spec audit; Doc §11.6, §11.7 | `specs/modules/notifications.md` (new) | todo |
+| TS-058 | Spec: `findings` module (shared findings store, `Finding` contract, review columns) | spec audit | `specs/modules/findings.md` (new) | done |
+| TS-059 | Spec: `export` module (Bid Review Pack DOCX/XLSX/PDF renderer, review gate, watermark) | spec audit; Doc §1.1(8), §6.5 | `specs/modules/export.md` (new) | done |
+| TS-060 | Spec: `health` module (health/capabilities endpoint, module load report) | spec audit; Doc §11.1 | `specs/modules/health.md` (new) | done |
+| TS-061 | Spec: `notifications` module (digest sender abstraction, dev console adapter) | spec audit; Doc §11.6, §11.7 | `specs/modules/notifications.md` (new) | done |
 | TS-062 | Publish `analytics.service_factory` and `comparison.service_factory` from their `module.py` files | spec audit | `specs/modules/analytics.md`, `specs/modules/comparison.md` (update) | done |
 | TS-063 | Fix route wording in `specs/modules/timeline.md` and `specs/modules/crossref.md` to match implementation | spec audit | `specs/modules/timeline.md`, `specs/modules/crossref.md` (update) | done |
 | TS-064 | Align `ingestion` public interface with code: publish `ingestion.service_factory` shape, add `doc_chunks` and `doc_text` | spec audit; Doc §3.3, §6.1 | `specs/modules/ingestion.md` (update) | todo |

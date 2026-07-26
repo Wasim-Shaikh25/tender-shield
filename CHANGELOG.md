@@ -6,6 +6,24 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-26 (session 23 continued: TS-053 + TS-051)
+
+- **TS-053** — Clause Cross-Reference:
+  - New `crossref` module with `CrossRefService` and routes
+    `GET /api/crossref/opportunities/{id}?q=...&limit=...`.
+  - Token-level search across every clause in an opportunity, ranked by overlap,
+    with provenance (document kind/filename, clause ref, heading, page, 300-char preview).
+  - `specs/modules/crossref.md` and `tests/test_crossref.py` added.
+
+- **TS-051** — Clause Change Detection:
+  - `POST /api/crossref/opportunities/{id}/diff?document_id=...` compares two
+    versions of a document and returns `added`, `removed`, and `changed` clauses.
+  - Uses explicit `supersedes` chains when provided; falls back to the two most
+    recent uploads of the same document kind.
+  - Clause matching is deterministic: keyed by `clause_ref`, with text similarity
+    on normalised clauses.
+  - Wired into the ingestion clause store; no hard cross-module imports.
+
 ### Done — 2026-07-26 (session 23 continued: TS-048 + TS-049 + TS-052 + TS-054 + TS-055 + TS-056)
 
 - **TS-052** — Tender Timeline:

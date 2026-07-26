@@ -1,18 +1,21 @@
 from app.core.module import AppContext, ModuleSpec
 from app.modules.standards.router import router
-from app.modules.standards.service import OrgCommercialStandardsService, OrgStandardsService
+from app.modules.standards.service import (
+    WorkspaceCommercialStandardsService,
+    WorkspaceStandardsService,
+)
 
 
 def setup(ctx: AppContext) -> None:
-    # Published so the baseline module can merge the org's custom notice
+    # Published so the baseline module can merge the workspace's custom notice
     # standard onto universal+regional without importing this module.
     ctx.registry.provide(
         "standards.org_notice_provider",
-        lambda session: OrgStandardsService(session),
+        lambda session: WorkspaceStandardsService(session),
     )
     ctx.registry.provide(
         "standards.commercial_service_factory",
-        lambda session: OrgCommercialStandardsService(session),
+        lambda session: WorkspaceCommercialStandardsService(session),
     )
 
 

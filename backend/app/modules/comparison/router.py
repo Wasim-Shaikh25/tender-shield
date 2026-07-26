@@ -28,5 +28,5 @@ def compare_opportunities(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    rows = _service(request, session).compare(principal.org_id)
+    rows = _service(request, session).compare(principal.workspace_id)
     return {"opportunities": rows}

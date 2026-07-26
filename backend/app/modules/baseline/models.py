@@ -1,7 +1,7 @@
 """baseline-owned table (Doc §3.2 extension). A sealed baseline is an immutable,
 hash-sealed snapshot of the reviewed commercial state at a point in time. Rows
 are append-only: a re-freeze inserts a new version, never mutates an existing
-one (spec baseline B3). Org-scoped (RLS)."""
+one (spec baseline B3). Workspace-scoped (RLS)."""
 
 from __future__ import annotations
 
@@ -11,10 +11,10 @@ from datetime import datetime
 from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.db import Base, OrgScopedMixin
+from app.core.db import Base, WorkspaceScopedMixin
 
 
-class Baseline(Base, OrgScopedMixin):
+class Baseline(Base, WorkspaceScopedMixin):
     _tablename_ = "baselines"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     opportunity_id: Mapped[uuid.UUID] = mapped_column(

@@ -6,10 +6,11 @@ modules consume auth via app.core.deps without importing anything here.
 
 from __future__ import annotations
 
-from fastapi import HTTPException, Request
+from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from app.core.db import bind_org_context
+from app.core.db import bind_workspace_context
+from app.core.deps import current_principal
 from app.modules.auth import security as sec
 from app.modules.auth.rbac import Principal, role_at_least
 
@@ -28,11 +29,22 @@ def authenticate(request: Request, session: Session) -> Principal:
     except sec.AuthError as exc:
         raise HTTPException(401, str(exc)) from exc
     # The non-negotiable RLS binding: this request's queries are scoped to the
-    # caller's org (Doc §3.2, §5). FastAPI caches get_session per request, so the
-    # endpoint's own queries reuse this same bound session.
-    bind_org_context(session, claims["org"])
-    return Principal(user_id=claims["sub"], org_id=claims["org"], role=claims["role"])
+    # caller's workspace (Doc §3.2, §5). FastAPI caches get_session per request,
+    # so the endpoint's own queries reuse this same bound session.
+    bind_workspace_context(session, claims["workspace"])
+    return Principal(
+        user_id=claims["sub"],
+        workspace_id=claims["workspace"],
+        role=claims["role"],
+        is_superadmin=claims.get("is_superadmin", False),
+    )
 
 
 def check_role(role: str, min_role: str) -> bool:
     return role_at_least(role, min_role)
+
+
+def require_superadmin(principal: Principal = Depends(current_principal)) -> Principal:
+    if not principal.is_superadmin:
+        raise HTTPException(403, "superadmin_required")
+    return principal

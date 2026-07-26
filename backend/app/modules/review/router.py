@@ -28,7 +28,7 @@ def queue(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    rows = _service(request, session).queue(principal.org_id, opportunity_id)
+    rows = _service(request, session).queue(principal.workspace_id, opportunity_id)
     return {
         "findings": [
             {
@@ -57,7 +57,7 @@ def review_finding(
 ):
     try:
         row = _service(request, session).review_finding(
-            principal.org_id,
+            principal.workspace_id,
             finding_id,
             decision=body.decision,
             note=body.note,
@@ -77,7 +77,7 @@ def gate(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    return _service(request, session).gate(principal.org_id, opportunity_id)
+    return _service(request, session).gate(principal.workspace_id, opportunity_id)
 
 
 @router.get("/opportunities/{opportunity_id}/audit")
@@ -87,11 +87,15 @@ def audit_trail(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("reviewer")),
 ):
-    rows = _service(request, session).audit_trail(principal.org_id, opportunity_id)
+    rows = _service(request, session).audit_trail(principal.workspace_id, opportunity_id)
     return {
         "audit": [
-            {"id": r.id, "action": r.action, "object_id": str(r.object_id) if r.object_id else None,
-             "at": r.at.isoformat() if r.at else None}
+            {
+                "id": r.id,
+                "action": r.action,
+                "object_id": str(r.object_id) if r.object_id else None,
+                "at": r.at.isoformat() if r.at else None,
+            }
             for r in rows
         ]
     }

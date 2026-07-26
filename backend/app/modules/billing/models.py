@@ -10,12 +10,12 @@ from datetime import datetime
 from sqlalchemy import JSON, BigInteger, DateTime, Integer, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.db import Base, OrgScopedMixin
+from app.core.db import Base, WorkspaceScopedMixin
 
 _BigId = BigInteger().with_variant(Integer, "sqlite")
 
 
-class UsageEvent(Base, OrgScopedMixin):
+class UsageEvent(Base, WorkspaceScopedMixin):
     _tablename_ = "usage_events"
     id: Mapped[int] = mapped_column(_BigId, primary_key=True, autoincrement=True)
     event: Mapped[str] = mapped_column(String, nullable=False)  # review_started|review_paid|...
@@ -26,7 +26,7 @@ class UsageEvent(Base, OrgScopedMixin):
     )
 
 
-class PaymentLog(Base, OrgScopedMixin):
+class PaymentLog(Base, WorkspaceScopedMixin):
     _tablename_ = "payment_log"
     id: Mapped[int] = mapped_column(_BigId, primary_key=True, autoincrement=True)
     provider: Mapped[str] = mapped_column(String, nullable=False)  # razorpay|stripe|internal
@@ -41,7 +41,7 @@ class PaymentLog(Base, OrgScopedMixin):
     )
 
 
-class WebhookEvent(Base, OrgScopedMixin):
+class WebhookEvent(Base, WorkspaceScopedMixin):
     """Idempotency ledger — a processed provider event id is a no-op on replay."""
 
     _tablename_ = "webhook_events"
@@ -53,7 +53,7 @@ class WebhookEvent(Base, OrgScopedMixin):
     )
 
 
-class Invoice(Base, OrgScopedMixin):
+class Invoice(Base, WorkspaceScopedMixin):
     """Customer-visible GST invoices generated from paid events."""
 
     _tablename_ = "invoices"

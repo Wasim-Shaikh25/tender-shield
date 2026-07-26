@@ -77,7 +77,9 @@ def bind_workspace_context(session: Session, workspace_id: uuid.UUID | str) -> N
     if session.get_bind().dialect.name != "postgresql":
         logger.debug("bind_workspace_context is a no-op on non-PostgreSQL dialects")
         return
-    session.execute(text("SET LOCAL app.workspace_id = :workspace_id"), {"workspace_id": str(workspace_id)})
+    session.execute(
+        text("SET LOCAL app.workspace_id = :workspace_id"), {"workspace_id": str(workspace_id)}
+    )
 
 
 def make_engine(settings: Settings) -> Engine:

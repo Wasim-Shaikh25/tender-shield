@@ -5,32 +5,32 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.config import Settings
 from app.core.db import (
-    ORG_SCOPED_TABLES,
+    WORKSPACE_SCOPED_TABLES,
     Base,
-    OrgScopedMixin,
     TimestampMixin,
-    bind_org_context,
+    WorkspaceScopedMixin,
+    bind_workspace_context,
     make_engine,
     make_session_factory,
     rls_statements,
 )
 
 
-class _SampleRow(Base, OrgScopedMixin, TimestampMixin):
+class _SampleRow(Base, WorkspaceScopedMixin, TimestampMixin):
     _tablename_ = "sample_rows"
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     label: Mapped[str] = mapped_column(String)
 
 
 def test_org_scoped_table_registered_for_rls():
-    assert "sample_rows" in ORG_SCOPED_TABLES
+    assert "sample_rows" in WORKSPACE_SCOPED_TABLES
 
 
 def test_rls_statements_shape():
     stmts = rls_statements("findings")
     assert stmts[0] == "ALTER TABLE findings ENABLE ROW LEVEL SECURITY"
-    assert "current_setting('app.org_id')::uuid" in stmts[1]
-    assert "CREATE POLICY org_isolation ON findings" in stmts[1]
+    assert "current_setting('app.workspace_id')::uuid" in stmts[1]
+    assert "CREATE POLICY workspace_isolation ON findings" in stmts[1]
 
 
 def test_session_roundtrip_on_sqlite():
@@ -39,14 +39,14 @@ def test_session_roundtrip_on_sqlite():
     factory = make_session_factory(engine)
     org = uuid.uuid4()
     with factory() as session:
-        # bind_org_context is a no-op on SQLite but must not raise (spec B1 path)
-        bind_org_context(session, org)
-        session.add(_SampleRow(id=uuid.uuid4(), org_id=org, label="hi"))
+        # bind_workspace_context is a no-op on SQLite but must not raise (spec B1 path)
+        bind_workspace_context(session, org)
+        session.add(_SampleRow(id=uuid.uuid4(), workspace_id=org, label="hi"))
         session.commit()
     with factory() as session:
         rows = session.query(_SampleRow).all()
         assert len(rows) == 1
-        assert rows[0].org_id == org
+        assert rows[0].workspace_id == org
         assert rows[0].created_at is not None
 
 

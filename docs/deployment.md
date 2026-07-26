@@ -55,7 +55,7 @@ docker compose --env-file .env.prod up --build
 
 Before going live, set real values for:
 
-- `TS_DATABASE_URL` — PostgreSQL 16+ (RLS org-isolation is Postgres-only).
+- `TS_DATABASE_URL` — PostgreSQL 16+ (RLS workspace-isolation is Postgres-only).
 - `TS_JWT_PRIVATE_KEY` / `TS_JWT_PUBLIC_KEY` — RS256 PEM keypair; rotate quarterly.
 - `TS_RAZORPAY_WEBHOOK_SECRET` — the only source of billing truth.
 - `TS_APPLE_*` — to enable Sign in with Apple.

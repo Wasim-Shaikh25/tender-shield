@@ -1,6 +1,6 @@
-"""OrgStandardsService — CRUD for a firm's custom notice standard.
+"""WorkspaceStandardsService — CRUD for a firm's custom notice standard.
 
-Owns the org_notice_standards table. Publishes the stored standard as plain
+Owns the workspace_notice_standards table. Publishes the stored standard as plain
 dicts (the notice-category shape) so consumers — the baseline module — merge it
 without importing this module (CLAUDE.md §2).
 """
@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.modules.standards.models import OrgCommercialStandard, OrgNoticeStandard
+from app.modules.standards.models import WorkspaceCommercialStandard, WorkspaceNoticeStandard
 
 MODES = {"prevail", "side_by_side"}
 
@@ -38,28 +38,28 @@ class StandardsError(Exception):
         self.code = code
 
 
-class OrgStandardsService:
+class WorkspaceStandardsService:
     def __init__(self, session: Session):
         self.s = session
 
-    def _row(self, org_id) -> OrgNoticeStandard | None:
+    def _row(self, workspace_id) -> WorkspaceNoticeStandard | None:
         return self.s.scalar(
-            select(OrgNoticeStandard).where(
-                OrgNoticeStandard.org_id == uuid.UUID(str(org_id))
+            select(WorkspaceNoticeStandard).where(
+                WorkspaceNoticeStandard.workspace_id == uuid.UUID(str(workspace_id))
             )
         )
 
-    def get_notice(self, org_id) -> dict | None:
-        """The org's custom notice standard as a plain dict, or None if unset.
+    def get_notice(self, workspace_id) -> dict | None:
+        """The workspace's custom notice standard as a plain dict, or None if unset.
         This is the shape the baseline merge consumes."""
-        row = self._row(org_id)
+        row = self._row(workspace_id)
         if row is None:
             return None
         return {"mode": row.mode, "categories": list(row.categories)}
 
     def set_notice(
         self,
-        org_id,
+        workspace_id,
         *,
         mode: Literal["prevail", "side_by_side"],
         categories: list[dict],
@@ -75,9 +75,9 @@ class OrgStandardsService:
         if len(keys) != len(set(keys)):
             raise StandardsError("duplicate_keys")
 
-        row = self._row(org_id)
+        row = self._row(workspace_id)
         if row is None:
-            row = OrgNoticeStandard(org_id=uuid.UUID(str(org_id)))
+            row = WorkspaceNoticeStandard(workspace_id=uuid.UUID(str(workspace_id)))
             self.s.add(row)
         row.mode = mode
         row.categories = clean
@@ -85,8 +85,8 @@ class OrgStandardsService:
         self.s.commit()
         return {"mode": row.mode, "categories": list(row.categories)}
 
-    def clear_notice(self, org_id) -> None:
-        row = self._row(org_id)
+    def clear_notice(self, workspace_id) -> None:
+        row = self._row(workspace_id)
         if row is not None:
             self.s.delete(row)
             self.s.commit()
@@ -108,19 +108,19 @@ class PolicyBody(BaseModel):
     note: str | None = None
 
 
-class OrgCommercialStandardsService:
+class WorkspaceCommercialStandardsService:
     def __init__(self, session: Session):
         self.s = session
 
-    def list_policies(self, org_id) -> list[dict]:
+    def list_policies(self, workspace_id) -> list[dict]:
         rows = self.s.scalars(
-            select(OrgCommercialStandard).where(
-                OrgCommercialStandard.org_id == uuid.UUID(str(org_id))
+            select(WorkspaceCommercialStandard).where(
+                WorkspaceCommercialStandard.workspace_id == uuid.UUID(str(workspace_id))
             )
         )
         return [_policy_json(r) for r in rows]
 
-    def set_policy(self, org_id, *, policy: dict, actor=None) -> dict:
+    def set_policy(self, workspace_id, *, policy: dict, actor=None) -> dict:
         clean = PolicyBody.model_validate(policy).model_dump()
         if clean["operator"] not in _OPERATORS:
             raise StandardsError("bad_operator")
@@ -129,15 +129,17 @@ class OrgCommercialStandardsService:
         if not clean.get("key"):
             raise StandardsError("missing_key")
         existing = self.s.scalar(
-            select(OrgCommercialStandard).where(
-                OrgCommercialStandard.org_id == uuid.UUID(str(org_id)),
-                OrgCommercialStandard.key == clean["key"],
+            select(WorkspaceCommercialStandard).where(
+                WorkspaceCommercialStandard.workspace_id == uuid.UUID(str(workspace_id)),
+                WorkspaceCommercialStandard.key == clean["key"],
             )
         )
         if existing:
             row = existing
         else:
-            row = OrgCommercialStandard(org_id=uuid.UUID(str(org_id)), key=clean["key"])
+            row = WorkspaceCommercialStandard(
+                workspace_id=uuid.UUID(str(workspace_id)), key=clean["key"]
+            )
             self.s.add(row)
         row.label = clean["label"]
         row.operator = clean["operator"]
@@ -149,11 +151,11 @@ class OrgCommercialStandardsService:
         self.s.commit()
         return _policy_json(row)
 
-    def delete_policy(self, org_id, key: str) -> bool:
+    def delete_policy(self, workspace_id, key: str) -> bool:
         row = self.s.scalar(
-            select(OrgCommercialStandard).where(
-                OrgCommercialStandard.org_id == uuid.UUID(str(org_id)),
-                OrgCommercialStandard.key == key,
+            select(WorkspaceCommercialStandard).where(
+                WorkspaceCommercialStandard.workspace_id == uuid.UUID(str(workspace_id)),
+                WorkspaceCommercialStandard.key == key,
             )
         )
         if row is None:
@@ -162,9 +164,9 @@ class OrgCommercialStandardsService:
         self.s.commit()
         return True
 
-    def check_violations(self, org_id, findings: list[dict]) -> list[dict]:
+    def check_violations(self, workspace_id, findings: list[dict]) -> list[dict]:
         """Return violation dicts for findings that breach an org policy."""
-        policies = self.list_policies(org_id)
+        policies = self.list_policies(workspace_id)
         violations = []
         for f in findings:
             text = " ".join(
@@ -174,9 +176,7 @@ class OrgCommercialStandardsService:
                 )
             ).lower()
             for p in policies:
-                if p["applies_to"] and not any(
-                    kw.lower() in text for kw in p["applies_to"]
-                ):
+                if p["applies_to"] and not any(kw.lower() in text for kw in p["applies_to"]):
                     continue
                 value = _extract_number(f, p["unit"])
                 if value is None:
@@ -195,7 +195,7 @@ class OrgCommercialStandardsService:
         return violations
 
 
-def _policy_json(r: OrgCommercialStandard) -> dict:
+def _policy_json(r: WorkspaceCommercialStandard) -> dict:
     return {
         "id": str(r.id),
         "key": r.key,
@@ -214,9 +214,7 @@ _AMOUNT_RE = re.compile(r"(?:₹|Rs\.?|INR)\s*([\d,]+(?:\.\d+)?)", re.IGNORECASE
 
 
 def _extract_number(finding: dict, unit: str) -> float | None:
-    text = " ".join(
-        filter(None, [finding.get("source_quote", ""), finding.get("detail", "")])
-    )
+    text = " ".join(filter(None, [finding.get("source_quote", ""), finding.get("detail", "")]))
     if unit == "percent":
         m = _PERCENT_RE.search(text)
     elif unit == "days":

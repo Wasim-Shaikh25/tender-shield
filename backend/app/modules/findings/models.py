@@ -9,10 +9,10 @@ import uuid
 from sqlalchemy import JSON, ForeignKey, Integer, Numeric, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.db import Base, OrgScopedMixin
+from app.core.db import Base, WorkspaceScopedMixin
 
 
-class FindingRow(Base, OrgScopedMixin):
+class FindingRow(Base, WorkspaceScopedMixin):
     _tablename_ = "findings"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     opportunity_id: Mapped[uuid.UUID] = mapped_column(

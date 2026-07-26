@@ -33,7 +33,7 @@ def client():
 def _auth(client):
     client.post(
         "/api/auth/signup",
-        json={"email": "cmp@x.com", "password": "hunter2hunter2", "org_name": "Acme"},
+        json={"email": "cmp@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
     )
     tok = client.post(
         "/api/auth/login",
@@ -58,9 +58,9 @@ def _opp_with_bid_decision(client, headers, title, due_date_text):
         headers=headers,
     )
     client.post(f"/api/risk/opportunities/{opp_id}/run", headers=headers)
-    for f in client.get(
-        f"/api/review/opportunities/{opp_id}/queue", headers=headers
-    ).json()["findings"]:
+    for f in client.get(f"/api/review/opportunities/{opp_id}/queue", headers=headers).json()[
+        "findings"
+    ]:
         client.post(
             f"/api/review/findings/{f['id']}",
             json={"decision": "accepted"},

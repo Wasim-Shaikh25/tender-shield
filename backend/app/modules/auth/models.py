@@ -1,5 +1,5 @@
 """Auth-owned tables (Doc §3.2). Portable types so the same migration runs on
-SQLite (tests) and PostgreSQL (prod). Workspaces replace the old `Org` tenant;
+SQLite (tests) and PostgreSQL (prod). Workspaces replace the old org tenant;
 projects live under workspaces; invitations enable sharing.
 """
 
@@ -67,10 +67,13 @@ class Workspace(Base):
     )
 
 
-class WorkspaceMember(Base, WorkspaceScopedMixin):
-    _tablename_ = "workspace_members"
+class WorkspaceMember(Base):
+    __tablename__ = "workspace_members"
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("workspaces.id", ondelete="CASCADE"), primary_key=True
+    )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, primary_key=True
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
     role: Mapped[str] = mapped_column(String, nullable=False)
 
@@ -85,13 +88,16 @@ class Project(Base, WorkspaceScopedMixin):
     status: Mapped[str] = mapped_column(String, nullable=False, default="planning")
 
 
-class ProjectMember(Base, WorkspaceScopedMixin):
-    _tablename_ = "project_members"
+class ProjectMember(Base):
+    __tablename__ = "project_members"
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     project_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, primary_key=True
+        Uuid, ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, primary_key=True
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
     role: Mapped[str] = mapped_column(String, nullable=False)
 

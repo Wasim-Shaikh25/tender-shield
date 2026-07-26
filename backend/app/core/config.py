@@ -39,6 +39,7 @@ class Settings(BaseSettings):
 
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()] or ["*"]
+
     # Comma-separated module names. Empty string means "discover everything
     # under app/modules". The app must boot with any subset (spec core B2).
     enabled_modules: str = ""

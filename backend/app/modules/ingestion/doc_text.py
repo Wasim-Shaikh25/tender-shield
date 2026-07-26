@@ -46,16 +46,16 @@ def extract_pages(text: str) -> list[PageChunk]:
 
 
 def persist_chunks(
-    session: Session, org_id, opportunity_id, document_id, text: str
+    session: Session, workspace_id, opportunity_id, document_id, text: str
 ) -> list[DocChunk]:
     """Replace existing doc_chunks for a document with the current extraction."""
-    org = uuid.UUID(str(org_id))
+    ws = uuid.UUID(str(workspace_id))
     opp = uuid.UUID(str(opportunity_id))
     doc = uuid.UUID(str(document_id))
     session.execute(delete(DocChunk).where(DocChunk.document_id == doc))
     rows = [
         DocChunk(
-            org_id=org,
+            workspace_id=ws,
             opportunity_id=opp,
             document_id=doc,
             page=chunk.page,
@@ -75,12 +75,18 @@ class DocTextService:
     def __init__(self, session: Session):
         self.s = session
 
-    def text_for_document(self, org_id, document_id, *, pages: Iterable[int] | None = None) -> dict:
+    def text_for_document(
+        self, workspace_id, document_id, *, pages: Iterable[int] | None = None
+    ) -> dict:
         """Return `{page: text}` for a document, optionally filtered to a page list."""
-        stmt = select(DocChunk).where(
-            DocChunk.document_id == uuid.UUID(str(document_id)),
-            DocChunk.org_id == uuid.UUID(str(org_id)),
-        ).order_by(DocChunk.page)
+        stmt = (
+            select(DocChunk)
+            .where(
+                DocChunk.document_id == uuid.UUID(str(document_id)),
+                DocChunk.workspace_id == uuid.UUID(str(workspace_id)),
+            )
+            .order_by(DocChunk.page)
+        )
         rows = list(self.s.scalars(stmt))
         result: dict[int, str] = {}
         if pages is not None:
@@ -93,11 +99,11 @@ class DocTextService:
                 result[r.page] = r.text
         return result
 
-    def text_for_page(self, org_id, document_id, page: int) -> str | None:
+    def text_for_page(self, workspace_id, document_id, page: int) -> str | None:
         row = self.s.scalar(
             select(DocChunk).where(
                 DocChunk.document_id == uuid.UUID(str(document_id)),
-                DocChunk.org_id == uuid.UUID(str(org_id)),
+                DocChunk.workspace_id == uuid.UUID(str(workspace_id)),
                 DocChunk.page == page,
             )
         )

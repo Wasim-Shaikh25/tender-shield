@@ -54,11 +54,11 @@ def generate(
     title = ""
     ing = reg.get("ingestion.service_factory")
     if ing:
-        opp = ing(session).get_opportunity(principal.org_id, opportunity_id)
+        opp = ing(session).get_opportunity(principal.workspace_id, opportunity_id)
         title = opp.title if opp else ""
     try:
         artifact = _service(request, session).generate(
-            principal.org_id, opportunity_id, body.kind, title
+            principal.workspace_id, opportunity_id, body.kind, title
         )
     except DraftingError as exc:
         raise HTTPException(_STATUS.get(exc.code, 400), exc.code) from exc
@@ -72,7 +72,7 @@ def list_artifacts(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    arts = _service(request, session).list(principal.org_id, opportunity_id)
+    arts = _service(request, session).list(principal.workspace_id, opportunity_id)
     return {"artifacts": [_artifact_json(a) for a in arts]}
 
 
@@ -83,7 +83,7 @@ def get_artifact(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    a = _service(request, session).get(principal.org_id, artifact_id)
+    a = _service(request, session).get(principal.workspace_id, artifact_id)
     if not a:
         raise HTTPException(404, "not_found")
     return _artifact_json(a)

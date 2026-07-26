@@ -26,7 +26,7 @@ def client():
 def _auth(client):
     client.post(
         "/api/auth/signup",
-        json={"email": "t@x.com", "password": "hunter2hunter2", "org_name": "Acme"},
+        json={"email": "t@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
     )
     tok = client.post(
         "/api/auth/login", json={"email": "t@x.com", "password": "hunter2hunter2"}
@@ -92,9 +92,7 @@ def test_timeline_ics_export(client):
     text = "[p1] Last date of submission of bid: 25/07/2026 up to 15:00 hrs.\n"
     opp_id = _opp_with_text(client, headers, text)
 
-    resp = client.get(
-        f"/api/timeline/opportunities/{opp_id}/timeline.ics", headers=headers
-    )
+    resp = client.get(f"/api/timeline/opportunities/{opp_id}/timeline.ics", headers=headers)
     assert resp.status_code == 200
     body = resp.text
     assert "BEGIN:VCALENDAR" in body

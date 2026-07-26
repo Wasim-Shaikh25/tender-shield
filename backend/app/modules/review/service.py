@@ -33,10 +33,10 @@ class ReviewService:
             raise ReviewError("findings_unavailable")
         return self._store_factory(self.s)
 
-    def audit(self, org_id, *, actor, action, object_type=None, object_id=None, detail=None):
+    def audit(self, workspace_id, *, actor, action, object_type=None, object_id=None, detail=None):
         self.s.add(
             AuditLog(
-                org_id=uuid.UUID(str(org_id)),
+                workspace_id=uuid.UUID(str(workspace_id)),
                 actor_user_id=uuid.UUID(str(actor)) if actor else None,
                 action=action,
                 object_type=object_type,
@@ -46,16 +46,16 @@ class ReviewService:
         )
         self.s.commit()
 
-    def queue(self, org_id, opportunity_id) -> list:
-        return self._store().list(org_id, opportunity_id)
+    def queue(self, workspace_id, opportunity_id) -> list:
+        return self._store().list(workspace_id, opportunity_id)
 
     def review_finding(
-        self, org_id, finding_id, *, decision, note=None, review_reason=None, reviewer_id=None
+        self, workspace_id, finding_id, *, decision, note=None, review_reason=None, reviewer_id=None
     ) -> object:
         if decision not in DECISIONS:
             raise ReviewError("bad_decision")
         row = self._store().set_review(
-            org_id,
+            workspace_id,
             finding_id,
             status=decision,
             note=note,
@@ -70,7 +70,7 @@ class ReviewService:
         if review_reason:
             detail["review_reason"] = review_reason
         self.audit(
-            org_id,
+            workspace_id,
             actor=reviewer_id,
             action=f"finding.{decision}",
             object_type="finding",
@@ -79,11 +79,11 @@ class ReviewService:
         )
         return row
 
-    def gate(self, org_id, opportunity_id) -> dict:
+    def gate(self, workspace_id, opportunity_id) -> dict:
         """Export is allowed only when there are findings and none remain
         `proposed` or `needs_clarification` (Doc §11.4 — export blocked until
         review completes, including clarifications)."""
-        rows = self._store().list(org_id, opportunity_id)
+        rows = self._store().list(workspace_id, opportunity_id)
         by_status: dict[str, int] = {}
         for r in rows:
             by_status[r.review_status] = by_status.get(r.review_status, 0) + 1
@@ -95,6 +95,6 @@ class ReviewService:
             "by_status": by_status,
         }
 
-    def audit_trail(self, org_id, opportunity_id=None) -> list[AuditLog]:
-        stmt = select(AuditLog).where(AuditLog.org_id == uuid.UUID(str(org_id)))
+    def audit_trail(self, workspace_id, opportunity_id=None) -> list[AuditLog]:
+        stmt = select(AuditLog).where(AuditLog.workspace_id == uuid.UUID(str(workspace_id)))
         return list(self.s.scalars(stmt.order_by(AuditLog.id.desc())))

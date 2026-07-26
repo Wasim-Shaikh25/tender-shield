@@ -45,7 +45,9 @@ def run_boq(
     principal: Any = Depends(require("estimator")),
 ):
     try:
-        findings = _runner(request, session).run_csv(principal.org_id, opportunity_id, body.csv)
+        findings = _runner(request, session).run_csv(
+            principal.workspace_id, opportunity_id, body.csv
+        )
     except (ValueError, KeyError) as exc:
         raise HTTPException(400, f"bad_boq: {exc}") from exc
     return _findings_json(findings)
@@ -76,7 +78,9 @@ async def upload_boq(
     if not csv_text:
         raise HTTPException(422, "no_boq_table_found")
     try:
-        findings = _runner(request, session).run_csv(principal.org_id, opportunity_id, csv_text)
+        findings = _runner(request, session).run_csv(
+            principal.workspace_id, opportunity_id, csv_text
+        )
     except (ValueError, KeyError) as exc:
         raise HTTPException(400, f"bad_boq: {exc}") from exc
     return _findings_json(findings)

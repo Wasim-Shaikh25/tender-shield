@@ -34,7 +34,7 @@ def client():
 def _owner(client):
     client.post(
         "/api/auth/signup",
-        json={"email": "owner@x.com", "password": "hunter2hunter2", "org_name": "Acme"},
+        json={"email": "owner@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
     )
     tok = client.post(
         "/api/auth/login",
@@ -48,7 +48,7 @@ def _viewer_headers(client):
     tok = sec.mint_access(
         keys,
         user_id="00000000-0000-0000-0000-000000000001",
-        org_id="00000000-0000-0000-0000-0000000000aa",
+        workspace_id="00000000-0000-0000-0000-0000000000aa",
         role="viewer",
         ttl=timedelta(minutes=5),
     )

@@ -38,7 +38,7 @@ def get_timeline(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    events = _service(request, session).build(principal.org_id, opportunity_id)
+    events = _service(request, session).build(principal.workspace_id, opportunity_id)
     if not events and not _service(request, session)._ingestion():
         raise HTTPException(503, "ingestion_unavailable")
     return {"events": [_event_json(e) for e in events]}
@@ -51,7 +51,7 @@ def export_ics(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    events = _service(request, session).build(principal.org_id, opportunity_id)
+    events = _service(request, session).build(principal.workspace_id, opportunity_id)
     if not events:
         raise HTTPException(404, "no_timeline_events")
 

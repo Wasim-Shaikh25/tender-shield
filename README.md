@@ -110,7 +110,7 @@ A ready-made synthetic tender with a known answer key lives in
 
 ## Migrations
 
-Alembic auto-discovers each module's `models.py`. Current chain: `0001`–`0017`.
+Alembic auto-discovers each module's `models.py`. The chain was regenerated as `e26e85245237_workspace_tenant.py` after the `org` → `workspace` refactor.
 
 ```bash
 cd backend

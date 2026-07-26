@@ -6,6 +6,32 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-26 (workspace/project tenant refactor + super admin: TS-074..TS-078)
+
+- **TS-074** — Spec for the workspace/project tenant refactor + super admin:
+  `specs/workspace-and-admin-refactor.md`.
+- **TS-075** — New auth data model: removed `org`/`org_members`, added `User`,
+  `Workspace`/`WorkspaceMember`, `Project`/`ProjectMember`, `Invitation`, global
+  `is_superadmin` flag, and `mfa_method`/`mfa_phone` on `User`.
+- **TS-076** — Renamed `org_id` → `workspace_id` across all modules, RLS helpers,
+  and `core.db`; regenerated the migration chain as
+  `migrations/versions/e26e85245237_workspace_tenant.py` with workspace-scoped
+  RLS policies for PostgreSQL.
+- **TS-077** — Workspace/project CRUD, sharing/invites, MFA method selection, and
+  super-admin endpoints:
+  - `POST/GET /api/auth/workspaces`
+  - `POST/GET /api/auth/workspaces/{id}/members`
+  - `POST/GET /api/auth/workspaces/{id}/projects`
+  - `POST/GET /api/auth/projects/{id}/members`
+  - `POST /api/auth/invitations` + `POST /api/auth/invitations/{token}/accept`
+  - `POST /api/auth/mfa/enroll` + `POST /api/auth/mfa/verify`
+  - `GET/POST /api/auth/admin/*` super-admin routes.
+- **TS-078** — Updated `tests/test_auth_module.py` and frontend `api.ts` / `session.tsx`
+  / `app/login/page.tsx` for `workspace_id`; verified `ruff`, `pytest`, `npm run build`,
+  and `alembic upgrade head && downgrade base` all pass.
+- Updated `README.md`, `docs/deployment.md`, `specs/modules/auth.md`, and
+  `tasks/backlog.md` to reflect the new workspace/super-admin model.
+
 ### Done — 2026-07-26 (spec audit follow-up: Sprints 0–2)
 
 - **TS-058..TS-070** — Spec-audit follow-up task IDs and `tasks/spec_audit_tracker.md` created.
@@ -55,8 +81,10 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ### Next
 
-- Configure Apple Developer credentials and test end-to-end Sign in with Apple, or
-  freeze auth at the current capability set.
+- TS-079 — Wire real email/SMS delivery for `email`/`sms` MFA methods and OTP codes.
+- TS-036 — Complete Google OIDC login (`/api/auth/google/callback`) and live
+  messaging-provider credentials.
+- Configure Apple Developer credentials and test end-to-end Sign in with Apple.
 
 ### Done — 2026-07-26 (session 23 continued: TS-057)
 

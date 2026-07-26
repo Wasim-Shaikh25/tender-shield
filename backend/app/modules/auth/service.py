@@ -10,10 +10,19 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.modules.auth import mfa
 from app.modules.auth import refresh as rf
 from app.modules.auth import security as sec
 from app.modules.auth.apple import AppleClient
-from app.modules.auth.models import Org, OrgMember, RefreshToken, User
+from app.modules.auth.models import (
+    Invitation,
+    Project,
+    ProjectMember,
+    RefreshToken,
+    User,
+    Workspace,
+    WorkspaceMember,
+)
 from app.modules.auth.rbac import ROLES
 
 
@@ -40,17 +49,22 @@ class AuthService:
         self._apple = apple_client
 
     # ---- registration -----------------------------------------------------
-    def signup(self, email: str, password: str, org_name: str, country: str = "IN") -> dict:
+    def signup(
+        self, email: str, password: str, workspace_name: str | None = None, country: str = "IN"
+    ) -> dict:
         email = email.strip().lower()
         if self.s.scalar(select(User).where(User.email == email)):
             raise AuthError("email_taken")
         user = User(email=email, password_hash=sec.hash_password(password))
-        org = Org(name=org_name, country=country)
-        self.s.add_all([user, org])
+        self.s.add(user)
         self.s.flush()
-        self.s.add(OrgMember(org_id=org.id, user_id=user.id, role="owner"))
+        workspace_name = workspace_name or "Personal"
+        workspace = Workspace(owner_id=user.id, name=workspace_name, country=country)
+        self.s.add(workspace)
+        self.s.flush()
+        self.s.add(WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role="owner"))
         self.s.commit()
-        return {"user_id": str(user.id), "org_id": str(org.id)}
+        return {"user_id": str(user.id), "workspace_id": str(workspace.id)}
 
     # ---- login ------------------------------------------------------------
     def login(self, email: str, password: str) -> dict:
@@ -62,10 +76,20 @@ class AuthService:
             or not sec.verify_password(password, user.password_hash)
         ):
             raise AuthError("invalid_credentials")
-        member = self.s.scalar(select(OrgMember).where(OrgMember.user_id == user.id))
+        member = self.s.scalar(select(WorkspaceMember).where(WorkspaceMember.user_id == user.id))
         if not member:
-            raise AuthError("no_org")
-        return self._issue_tokens(user.id, member.org_id, member.role, new_family=True)
+            if user.is_superadmin:
+                return self._issue_tokens(
+                    user.id, None, "owner", is_superadmin=True, new_family=True
+                )
+            raise AuthError("no_workspace")
+        return self._issue_tokens(
+            user.id,
+            member.workspace_id,
+            member.role,
+            is_superadmin=user.is_superadmin,
+            new_family=True,
+        )
 
     # ---- refresh rotation + reuse detection -------------------------------
     def refresh(self, raw_token: str) -> dict:
@@ -81,10 +105,25 @@ class AuthService:
         if verdict == rf.RefreshVerdict.INVALID:
             raise AuthError("invalid_refresh")
         row.used_at = datetime.now(UTC)
-        member = self.s.scalar(select(OrgMember).where(OrgMember.user_id == row.user_id))
-        tokens = self._issue_tokens(
-            row.user_id, member.org_id, member.role, family_id=row.family_id
+        user = self.s.get(User, row.user_id)
+        member = self.s.scalar(
+            select(WorkspaceMember).where(WorkspaceMember.user_id == row.user_id)
         )
+        if not member:
+            if user and user.is_superadmin:
+                tokens = self._issue_tokens(
+                    row.user_id, None, "owner", is_superadmin=True, family_id=row.family_id
+                )
+            else:
+                raise AuthError("no_workspace")
+        else:
+            tokens = self._issue_tokens(
+                row.user_id,
+                member.workspace_id,
+                member.role,
+                is_superadmin=user.is_superadmin if user else False,
+                family_id=row.family_id,
+            )
         self.s.commit()
         return tokens
 
@@ -97,17 +136,19 @@ class AuthService:
             self.s.commit()
 
     # ---- org membership ---------------------------------------------------
-    def add_member(self, org_id: uuid.UUID | str, email: str, role: str) -> dict:
+    def add_member(self, workspace_id: uuid.UUID | str, email: str, role: str) -> dict:
         if role not in ROLES:
             raise AuthError("bad_role")
-        org_id = uuid.UUID(str(org_id))  # principal.org_id arrives as a JWT string
+        workspace_id = uuid.UUID(
+            str(workspace_id)
+        )  # principal.workspace_id arrives as a JWT string
         email = email.strip().lower()
         user = self.s.scalar(select(User).where(User.email == email))
         if not user:
             raise AuthError("no_such_user")
-        self.s.merge(OrgMember(org_id=org_id, user_id=user.id, role=role))
+        self.s.merge(WorkspaceMember(workspace_id=workspace_id, user_id=user.id, role=role))
         self.s.commit()
-        return {"org_id": str(org_id), "user_id": str(user.id), "role": role}
+        return {"workspace_id": str(workspace_id), "user_id": str(user.id), "role": role}
 
     # ---- Sign in with Apple -----------------------------------------------
     def apple_callback(self, id_token: str | None, code: str | None, user_json: str | None) -> dict:
@@ -140,11 +181,13 @@ class AuthService:
             if not email:
                 raise AuthError("apple_email_missing")
             user = User(email=email, email_verified=True, apple_id=sub)
-            org_name = self._apple_org_name(user_json)
-            org = Org(name=org_name, country="IN")
-            self.s.add_all([user, org])
+            workspace_name = self._apple_workspace_name(user_json)
+            self.s.add(user)
             self.s.flush()
-            self.s.add(OrgMember(org_id=org.id, user_id=user.id, role="owner"))
+            workspace = Workspace(owner_id=user.id, name=workspace_name, country="IN")
+            self.s.add(workspace)
+            self.s.flush()
+            self.s.add(WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role="owner"))
         else:
             if not user.apple_id:
                 user.apple_id = sub
@@ -153,12 +196,22 @@ class AuthService:
             user.email_verified = True
 
         self.s.commit()
-        member = self.s.scalar(select(OrgMember).where(OrgMember.user_id == user.id))
+        member = self.s.scalar(select(WorkspaceMember).where(WorkspaceMember.user_id == user.id))
         if not member:
-            raise AuthError("no_org")
-        return self._issue_tokens(user.id, member.org_id, member.role, new_family=True)
+            if user.is_superadmin:
+                return self._issue_tokens(
+                    user.id, None, "owner", is_superadmin=True, new_family=True
+                )
+            raise AuthError("no_workspace")
+        return self._issue_tokens(
+            user.id,
+            member.workspace_id,
+            member.role,
+            is_superadmin=user.is_superadmin,
+            new_family=True,
+        )
 
-    def _apple_org_name(self, user_json: str | None) -> str:
+    def _apple_workspace_name(self, user_json: str | None) -> str:
         if not user_json:
             return "Apple User"
         try:
@@ -172,9 +225,18 @@ class AuthService:
             return "Apple User"
 
     # ---- internals --------------------------------------------------------
-    def _issue_tokens(self, user_id, org_id, role, *, new_family=False, family_id=None) -> dict:
+    _NO_WORKSPACE = "00000000-0000-0000-0000-000000000000"
+
+    def _issue_tokens(
+        self, user_id, workspace_id, role, *, is_superadmin=False, new_family=False, family_id=None
+    ) -> dict:
         access = sec.mint_access(
-            self.keys, user_id=str(user_id), org_id=str(org_id), role=role, ttl=self.access_ttl
+            self.keys,
+            user_id=str(user_id),
+            workspace_id=str(workspace_id) if workspace_id else self._NO_WORKSPACE,
+            role=role,
+            is_superadmin=is_superadmin,
+            ttl=self.access_ttl,
         )
         raw, token_hash = rf.new_refresh()
         fam = uuid.uuid4() if new_family else family_id
@@ -188,10 +250,276 @@ class AuthService:
         )
         if new_family:
             self.s.commit()
-        return {"access_token": access, "refresh_token": raw, "role": role, "org_id": str(org_id)}
+        return {
+            "access_token": access,
+            "refresh_token": raw,
+            "role": role,
+            "workspace_id": str(workspace_id) if workspace_id else self._NO_WORKSPACE,
+            "is_superadmin": is_superadmin,
+        }
+
+    # ---- workspaces & projects ---------------------------------------------
+    def create_workspace(self, user_id, name: str, country: str = "IN") -> dict:
+        user = self.s.get(User, uuid.UUID(str(user_id)))
+        if not user:
+            raise AuthError("no_such_user")
+        workspace = Workspace(owner_id=user.id, name=name, country=country)
+        self.s.add(workspace)
+        self.s.flush()
+        self.s.add(WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role="owner"))
+        self.s.commit()
+        return {"workspace_id": str(workspace.id), "name": workspace.name}
+
+    def list_workspaces(self, user_id) -> list[dict]:
+        rows = self.s.execute(
+            select(Workspace, WorkspaceMember)
+            .join(WorkspaceMember, Workspace.id == WorkspaceMember.workspace_id)
+            .where(WorkspaceMember.user_id == uuid.UUID(str(user_id)))
+        ).all()
+        return [{"workspace_id": str(ws.id), "name": ws.name, "role": m.role} for ws, m in rows]
+
+    def _workspace_member(self, workspace_id, user_id):
+        return self.s.scalar(
+            select(WorkspaceMember).where(
+                WorkspaceMember.workspace_id == uuid.UUID(str(workspace_id)),
+                WorkspaceMember.user_id == uuid.UUID(str(user_id)),
+            )
+        )
+
+    def add_workspace_member(self, workspace_id, email: str, role: str) -> dict:
+        if role not in ROLES:
+            raise AuthError("bad_role")
+        workspace_id = uuid.UUID(str(workspace_id))
+        user = self.s.scalar(select(User).where(User.email == email.strip().lower()))
+        if not user:
+            raise AuthError("no_such_user")
+        existing = self.s.scalar(
+            select(WorkspaceMember).where(
+                WorkspaceMember.workspace_id == workspace_id,
+                WorkspaceMember.user_id == user.id,
+            )
+        )
+        if existing:
+            existing.role = role
+        else:
+            self.s.add(WorkspaceMember(workspace_id=workspace_id, user_id=user.id, role=role))
+        self.s.commit()
+        return {"workspace_id": str(workspace_id), "user_id": str(user.id), "role": role}
+
+    def list_workspace_members(self, workspace_id) -> list[dict]:
+        rows = self.s.execute(
+            select(WorkspaceMember, User)
+            .join(User, WorkspaceMember.user_id == User.id)
+            .where(WorkspaceMember.workspace_id == uuid.UUID(str(workspace_id)))
+        ).all()
+        return [
+            {"user_id": str(user.id), "email": user.email, "role": member.role}
+            for member, user in rows
+        ]
+
+    def create_project(self, user_id, workspace_id, name: str, status: str = "planning") -> dict:
+        workspace_id = uuid.UUID(str(workspace_id))
+        if not self._workspace_member(workspace_id, user_id):
+            raise AuthError("not_workspace_member")
+        project = Project(
+            workspace_id=workspace_id, owner_id=uuid.UUID(str(user_id)), name=name, status=status
+        )
+        self.s.add(project)
+        self.s.flush()
+        self.s.add(
+            ProjectMember(
+                workspace_id=workspace_id,
+                project_id=project.id,
+                user_id=uuid.UUID(str(user_id)),
+                role="owner",
+            )
+        )
+        self.s.commit()
+        return {"project_id": str(project.id), "name": project.name, "status": project.status}
+
+    def list_projects(self, user_id, workspace_id) -> list[dict]:
+        workspace_id = uuid.UUID(str(workspace_id))
+        rows = self.s.execute(
+            select(Project)
+            .join(ProjectMember, Project.id == ProjectMember.project_id)
+            .where(
+                Project.workspace_id == workspace_id,
+                ProjectMember.user_id == uuid.UUID(str(user_id)),
+            )
+        ).all()
+        return [{"project_id": str(p.id), "name": p.name, "status": p.status} for (p,) in rows]
+
+    def add_project_member(self, workspace_id, project_id, email: str, role: str) -> dict:
+        if role not in ROLES:
+            raise AuthError("bad_role")
+        workspace_id = uuid.UUID(str(workspace_id))
+        project_id = uuid.UUID(str(project_id))
+        project = self.s.scalar(select(Project).where(Project.id == project_id))
+        if not project or project.workspace_id != workspace_id:
+            raise AuthError("no_such_project")
+        user = self.s.scalar(select(User).where(User.email == email.strip().lower()))
+        if not user:
+            raise AuthError("no_such_user")
+        existing = self.s.scalar(
+            select(ProjectMember).where(
+                ProjectMember.project_id == project_id,
+                ProjectMember.user_id == user.id,
+            )
+        )
+        if existing:
+            existing.role = role
+        else:
+            self.s.add(
+                ProjectMember(
+                    workspace_id=workspace_id,
+                    project_id=project_id,
+                    user_id=user.id,
+                    role=role,
+                )
+            )
+        self.s.commit()
+        return {"project_id": str(project_id), "user_id": str(user.id), "role": role}
+
+    def list_project_members(self, project_id) -> list[dict]:
+        project_id = uuid.UUID(str(project_id))
+        rows = self.s.execute(
+            select(ProjectMember, User)
+            .join(User, ProjectMember.user_id == User.id)
+            .where(ProjectMember.project_id == project_id)
+        ).all()
+        return [
+            {"user_id": str(user.id), "email": user.email, "role": member.role}
+            for member, user in rows
+        ]
+
+    def create_invitation(
+        self, workspace_id, email: str, role: str, project_id: str | None = None
+    ) -> dict:
+        if role not in ROLES:
+            raise AuthError("bad_role")
+        workspace_id = uuid.UUID(str(workspace_id))
+        project_uuid = uuid.UUID(str(project_id)) if project_id else None
+        token = uuid.uuid4().hex
+        expires_at = datetime.now(UTC) + timedelta(days=7)
+        invitation = Invitation(
+            workspace_id=workspace_id,
+            project_id=project_uuid,
+            email=email.strip().lower(),
+            role=role,
+            token=token,
+            expires_at=expires_at,
+        )
+        self.s.add(invitation)
+        self.s.commit()
+        # TODO: wire email/SMS delivery; for now the token is returned directly.
+        return {"token": token, "expires_at": expires_at.isoformat()}
+
+    def accept_invitation(self, user_id, token: str) -> dict:
+        user_id = uuid.UUID(str(user_id))
+        invitation = self.s.scalar(select(Invitation).where(Invitation.token == token))
+        if not invitation or invitation.expires_at < datetime.now(UTC):
+            raise AuthError("invalid_invitation")
+        if invitation.used_at:
+            raise AuthError("invitation_used")
+        user = self.s.get(User, user_id)
+        if not user or user.email != invitation.email:
+            raise AuthError("invitation_email_mismatch")
+        existing = self.s.scalar(
+            select(WorkspaceMember).where(
+                WorkspaceMember.workspace_id == invitation.workspace_id,
+                WorkspaceMember.user_id == user_id,
+            )
+        )
+        if not existing:
+            self.s.add(
+                WorkspaceMember(
+                    workspace_id=invitation.workspace_id,
+                    user_id=user_id,
+                    role=invitation.role,
+                )
+            )
+        if invitation.project_id:
+            existing_project = self.s.scalar(
+                select(ProjectMember).where(
+                    ProjectMember.project_id == invitation.project_id,
+                    ProjectMember.user_id == user_id,
+                )
+            )
+            if not existing_project:
+                self.s.add(
+                    ProjectMember(
+                        workspace_id=invitation.workspace_id,
+                        project_id=invitation.project_id,
+                        user_id=user_id,
+                        role=invitation.role,
+                    )
+                )
+        invitation.used_at = datetime.now(UTC)
+        self.s.commit()
+        return {"workspace_id": str(invitation.workspace_id), "role": invitation.role}
+
+    # ---- MFA ---------------------------------------------------------------
+    def mfa_enroll(self, user_id, method: str, phone: str | None = None) -> dict:
+        if method not in ("totp", "email", "sms"):
+            raise AuthError("bad_mfa_method")
+        user = self.s.get(User, uuid.UUID(str(user_id)))
+        if not user:
+            raise AuthError("no_such_user")
+        user.mfa_method = method
+        user.mfa_phone = phone
+        user.mfa_totp_secret = mfa.new_secret()
+        self.s.commit()
+        result: dict = {"method": method, "secret": user.mfa_totp_secret}
+        if method == "totp":
+            result["otpauth_uri"] = mfa.provisioning_uri(user.mfa_totp_secret, user.email)
+        return result
+
+    def mfa_verify(self, user_id, code: str) -> bool:
+        user = self.s.get(User, uuid.UUID(str(user_id)))
+        if not user or not user.mfa_totp_secret:
+            raise AuthError("mfa_not_enrolled")
+        return mfa.verify(user.mfa_totp_secret, code)
+
+    # ---- super-admin -------------------------------------------------------
+    def list_users(self) -> list[dict]:
+        return [
+            {
+                "user_id": str(u.id),
+                "email": u.email,
+                "is_superadmin": u.is_superadmin,
+                "email_verified": u.email_verified,
+            }
+            for u in self.s.scalars(select(User)).all()
+        ]
+
+    def list_all_workspaces(self) -> list[dict]:
+        return [
+            {
+                "workspace_id": str(w.id),
+                "name": w.name,
+                "owner_id": str(w.owner_id),
+                "plan": w.plan,
+            }
+            for w in self.s.scalars(select(Workspace)).all()
+        ]
+
+    def create_superadmin(self, email: str, password: str) -> dict:
+        email = email.strip().lower()
+        if self.s.scalar(select(User).where(User.email == email)):
+            raise AuthError("email_taken")
+        user = User(email=email, password_hash=sec.hash_password(password), is_superadmin=True)
+        self.s.add(user)
+        self.s.commit()
+        return {"user_id": str(user.id), "email": user.email, "is_superadmin": True}
+
+    def set_superadmin(self, user_id, is_superadmin: bool) -> dict:
+        user = self.s.get(User, uuid.UUID(str(user_id)))
+        if not user:
+            raise AuthError("no_such_user")
+        user.is_superadmin = is_superadmin
+        self.s.commit()
+        return {"user_id": str(user.id), "is_superadmin": user.is_superadmin}
 
     def _revoke_family(self, family_id) -> None:
-        for row in self.s.scalars(
-            select(RefreshToken).where(RefreshToken.family_id == family_id)
-        ):
+        for row in self.s.scalars(select(RefreshToken).where(RefreshToken.family_id == family_id)):
             row.revoked = True

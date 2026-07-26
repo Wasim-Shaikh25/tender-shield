@@ -1,6 +1,6 @@
 """standards-owned table (org-scoped, RLS). One row per org holds that firm's
 custom notice standard: a merge mode + a list of notice categories (same shape
-as a rule-pack NoticeCategory). Org data, not filesystem pack data."""
+as a rule-pack NoticeCategory). Workspace data, not filesystem pack data."""
 
 from __future__ import annotations
 
@@ -11,11 +11,11 @@ import sqlalchemy as sa
 from sqlalchemy import JSON, DateTime, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.db import Base, OrgScopedMixin
+from app.core.db import Base, WorkspaceScopedMixin
 
 
-class OrgNoticeStandard(Base, OrgScopedMixin):
-    _tablename_ = "org_notice_standards"
+class WorkspaceNoticeStandard(Base, WorkspaceScopedMixin):
+    _tablename_ = "workspace_notice_standards"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     # "prevail"  → org categories override the rule-pack standard by key.
     # "side_by_side" → org categories are shown alongside (never override).
@@ -27,8 +27,8 @@ class OrgNoticeStandard(Base, OrgScopedMixin):
     )
 
 
-class OrgCommercialStandard(Base, OrgScopedMixin):
-    _tablename_ = "org_commercial_standards"
+class WorkspaceCommercialStandard(Base, WorkspaceScopedMixin):
+    _tablename_ = "workspace_commercial_standards"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     key: Mapped[str] = mapped_column(String, nullable=False)
     label: Mapped[str] = mapped_column(String, nullable=False)

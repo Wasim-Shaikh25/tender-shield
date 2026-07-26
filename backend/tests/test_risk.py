@@ -114,8 +114,15 @@ def test_run_pattern_drops_unverified_quote():
     pack = RulePackLoader().get_pack("in-works")
     pattern = _pattern(pack, "liquidated_damages_uncapped")
     clf = _FakeClassifier(
-        [{"found": True, "finding": "x", "facts": {"cap_absent": True},
-          "source_quote": "a quote that is nowhere in the source text", "source_page": 4}]
+        [
+            {
+                "found": True,
+                "finding": "x",
+                "facts": {"cap_absent": True},
+                "source_quote": "a quote that is nowhere in the source text",
+                "source_page": 4,
+            }
+        ]
     )
     f = run_pattern(pattern, CLAUSES, clf)[0]
     assert f.source_quote is None
@@ -150,7 +157,7 @@ def client():
 def _auth(client):
     client.post(
         "/api/auth/signup",
-        json={"email": "e@x.com", "password": "hunter2hunter2", "org_name": "Acme"},
+        json={"email": "e@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
     )
     tok = client.post(
         "/api/auth/login", json={"email": "e@x.com", "password": "hunter2hunter2"}

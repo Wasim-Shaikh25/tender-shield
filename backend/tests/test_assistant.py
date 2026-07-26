@@ -27,7 +27,7 @@ def client():
 def _auth(client):
     client.post(
         "/api/auth/signup",
-        json={"email": "as@x.com", "password": "hunter2hunter2", "org_name": "Acme"},
+        json={"email": "as@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
     )
     tok = client.post(
         "/api/auth/login", json={"email": "as@x.com", "password": "hunter2hunter2"}
@@ -110,9 +110,9 @@ def test_session_and_history(client):
     ).json()
     assert ans["source"] == "tool"
 
-    msgs = client.get(
-        f"/api/assistant/sessions/{session_id}/messages", headers=headers
-    ).json()["messages"]
+    msgs = client.get(f"/api/assistant/sessions/{session_id}/messages", headers=headers).json()[
+        "messages"
+    ]
     assert len(msgs) == 2
     assert msgs[0]["role"] == "user"
     assert msgs[1]["role"] == "assistant"
@@ -138,7 +138,7 @@ def test_sse_stream_stores_messages(client):
     # stream contains at least one data line
     assert b"data:" in r.content
 
-    msgs = client.get(
-        f"/api/assistant/sessions/{session_id}/messages", headers=headers
-    ).json()["messages"]
+    msgs = client.get(f"/api/assistant/sessions/{session_id}/messages", headers=headers).json()[
+        "messages"
+    ]
     assert len(msgs) == 2

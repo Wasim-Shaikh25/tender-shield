@@ -17,21 +17,21 @@ from app.modules.billing.webhook import verify_signature
 
 
 class BillingService:
-    def __init__(self, session: Session, *, orgs_factory=None):
+    def __init__(self, session: Session, *, workspace_factory=None):
         self.s = session
-        self._orgs_factory = orgs_factory
+        self._workspace_factory = workspace_factory
 
-    def _orgs(self):
-        if self._orgs_factory is None:
-            raise PaywallError("orgs_unavailable")
-        return self._orgs_factory(self.s)
+    def _workspaces(self):
+        if self._workspace_factory is None:
+            raise PaywallError("workspace_unavailable")
+        return self._workspace_factory(self.s)
 
-    def _month_reviews(self, org_id) -> int:
+    def _month_reviews(self, workspace_id) -> int:
         start = datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         return (
             self.s.scalar(
                 select(func.count(UsageEvent.id)).where(
-                    UsageEvent.org_id == uuid.UUID(str(org_id)),
+                    UsageEvent.workspace_id == uuid.UUID(str(workspace_id)),
                     UsageEvent.event == "review_started",
                     UsageEvent.created_at >= start,
                 )
@@ -39,56 +39,56 @@ class BillingService:
             or 0
         )
 
-    def record_usage(self, org_id, event: str, ref_id=None) -> None:
+    def record_usage(self, workspace_id, event: str, ref_id=None) -> None:
         self.s.add(
             UsageEvent(
-                org_id=uuid.UUID(str(org_id)),
+                workspace_id=uuid.UUID(str(workspace_id)),
                 event=event,
                 ref_id=uuid.UUID(str(ref_id)) if ref_id else None,
             )
         )
         self.s.commit()
 
-    def authorize_review(self, org_id) -> Grant:
+    def authorize_review(self, workspace_id) -> Grant:
         """Meter a review at processing start (Doc §7). Raises PaywallError with
         an upsell payload when blocked."""
-        org = self._orgs().get(org_id)
-        if org is None:
-            raise PaywallError("no_org")
+        workspace = self._workspaces().get(workspace_id)
+        if workspace is None:
+            raise PaywallError("no_workspace")
         grant = authorize(
-            plan=org.plan,
-            free_review_used=org.free_review_used,
-            reviews_this_month=self._month_reviews(org_id),
+            plan=workspace.plan,
+            free_review_used=workspace.free_review_used,
+            reviews_this_month=self._month_reviews(workspace_id),
         )
         if grant.kind == "free_first_review":
-            self._orgs().mark_free_review_used(org_id)
-            self.record_usage(org_id, "review_started")
+            self._workspaces().mark_free_review_used(workspace_id)
+            self.record_usage(workspace_id, "review_started")
         elif grant.kind == "plan":
-            self.record_usage(org_id, "review_started")
+            self.record_usage(workspace_id, "review_started")
         # paygo: nothing recorded until the webhook confirms payment
         return grant
 
-    def status(self, org_id) -> dict:
-        org = self._orgs().get(org_id)
+    def status(self, workspace_id) -> dict:
+        workspace = self._workspaces().get(workspace_id)
         return {
-            "plan": org.plan if org else None,
-            "free_review_used": org.free_review_used if org else None,
-            "reviews_this_month": self._month_reviews(org_id),
+            "plan": workspace.plan if workspace else None,
+            "free_review_used": workspace.free_review_used if workspace else None,
+            "reviews_this_month": self._month_reviews(workspace_id),
         }
 
     # ---- invoices ---------------------------------------------------------
-    def list_invoices(self, org_id) -> list[Invoice]:
+    def list_invoices(self, workspace_id) -> list[Invoice]:
         return list(
             self.s.scalars(
                 select(Invoice)
-                .where(Invoice.org_id == uuid.UUID(str(org_id)))
+                .where(Invoice.workspace_id == uuid.UUID(str(workspace_id)))
                 .order_by(Invoice.created_at.desc())
             )
         )
 
     def create_invoice(
         self,
-        org_id,
+        workspace_id,
         *,
         amount_minor: int,
         currency: str = "INR",
@@ -98,7 +98,7 @@ class BillingService:
         status: str = "pending",
     ) -> Invoice:
         inv = Invoice(
-            org_id=uuid.UUID(str(org_id)),
+            workspace_id=uuid.UUID(str(workspace_id)),
             invoice_number=uuid.uuid4().hex,  # temporary; replaced with INV- id after flush
             amount_minor=amount_minor,
             currency=currency,
@@ -125,10 +125,16 @@ class BillingService:
             evt = {}
         event_id = evt.get("id", "")
         notes = _extract_notes(evt)
-        org_id = notes.get("org_id")
+        workspace_id = notes.get("workspace_id")
 
-        self._log(org_id, "razorpay", event_id, evt.get("event", "unknown"),
-                  status="verified" if verified else "failed", raw=evt)
+        self._log(
+            workspace_id,
+            "razorpay",
+            event_id,
+            evt.get("event", "unknown"),
+            status="verified" if verified else "failed",
+            raw=evt,
+        )
         if not verified:
             return {"ok": False, "reason": "bad_signature"}
 
@@ -141,37 +147,37 @@ class BillingService:
         # 3) apply effect
         typ = evt.get("event")
         amount = _extract_amount(evt)
-        if typ == "order.paid" and org_id:
-            self.record_usage(org_id, "review_paid", ref_id=notes.get("opportunity_id"))
+        if typ == "order.paid" and workspace_id:
+            self.record_usage(workspace_id, "review_paid", ref_id=notes.get("opportunity_id"))
             if amount:
                 self.create_invoice(
-                    org_id,
+                    workspace_id,
                     amount_minor=amount,
                     provider="razorpay",
                     provider_invoice_id=event_id,
                     raw=evt,
                     status="paid",
                 )
-        elif typ == "subscription.charged" and org_id:
-            self._orgs().set_plan(org_id, notes.get("plan", "pro"))
+        elif typ == "subscription.charged" and workspace_id:
+            self._workspaces().set_plan(workspace_id, notes.get("plan", "pro"))
             if amount:
                 self.create_invoice(
-                    org_id,
+                    workspace_id,
                     amount_minor=amount,
                     provider="razorpay",
                     provider_invoice_id=event_id,
                     raw=evt,
                     status="paid",
                 )
-        elif typ == "subscription.activated" and org_id:
-            self._orgs().set_plan(org_id, notes.get("plan", "pro"))
-        elif typ in ("subscription.halted", "subscription.cancelled") and org_id:
-            self._orgs().set_plan(org_id, "free")
+        elif typ == "subscription.activated" and workspace_id:
+            self._workspaces().set_plan(workspace_id, notes.get("plan", "pro"))
+        elif typ in ("subscription.halted", "subscription.cancelled") and workspace_id:
+            self._workspaces().set_plan(workspace_id, "free")
 
         if event_id:
             self.s.add(
                 WebhookEvent(
-                    org_id=uuid.UUID(str(org_id)) if org_id else uuid.UUID(int=0),
+                    workspace_id=uuid.UUID(str(workspace_id)) if workspace_id else uuid.UUID(int=0),
                     provider="razorpay",
                     provider_event_id=event_id,
                 )
@@ -179,10 +185,10 @@ class BillingService:
         self.s.commit()
         return {"ok": True, "applied": typ}
 
-    def _log(self, org_id, provider, event_id, event_type, *, status, raw):
+    def _log(self, workspace_id, provider, event_id, event_type, *, status, raw):
         self.s.add(
             PaymentLog(
-                org_id=uuid.UUID(str(org_id)) if org_id else uuid.UUID(int=0),
+                workspace_id=uuid.UUID(str(workspace_id)) if workspace_id else uuid.UUID(int=0),
                 provider=provider,
                 provider_event_id=event_id or None,
                 event_type=event_type,

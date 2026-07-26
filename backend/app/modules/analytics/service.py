@@ -26,8 +26,8 @@ class AnalyticsService:
         self._findings_factory = findings_factory
         self._ingestion_factory = ingestion_factory
 
-    def accuracy_dashboard(self, org_id) -> dict:
-        findings = self._findings(org_id)
+    def accuracy_dashboard(self, workspace_id) -> dict:
+        findings = self._findings(workspace_id)
         summary = self._summarize(findings)
         per_pattern = self._per_pattern(findings)
         per_source = self._per_source(findings)
@@ -39,24 +39,24 @@ class AnalyticsService:
             "most_rejected": most_rejected,
         }
 
-    def _findings(self, org_id) -> list:
+    def _findings(self, workspace_id) -> list:
         if self._findings_factory is None:
             return []
         svc = self._findings_factory(self.s)
-        if not hasattr(svc, "list_for_org"):
+        if not hasattr(svc, "list_for_workspace"):
             # Degrade to per-opportunity listing if the store is older.
-            return self._findings_via_opportunities(org_id, svc)
-        return svc.list_for_org(org_id)
+            return self._findings_via_opportunities(workspace_id, svc)
+        return svc.list_for_workspace(workspace_id)
 
-    def _findings_via_opportunities(self, org_id, findings_svc) -> list:
+    def _findings_via_opportunities(self, workspace_id, findings_svc) -> list:
         if self._ingestion_factory is None:
             return []
         ing = self._ingestion_factory(self.s)
         if not hasattr(ing, "list_opportunities") or not hasattr(findings_svc, "list"):
             return []
         findings: list = []
-        for opp in ing.list_opportunities(org_id):
-            findings.extend(findings_svc.list(org_id, str(opp.id)))
+        for opp in ing.list_opportunities(workspace_id):
+            findings.extend(findings_svc.list(workspace_id, str(opp.id)))
         return findings
 
     @staticmethod
@@ -108,18 +108,20 @@ class AnalyticsService:
         for pattern_id, b in sorted(buckets.items(), key=lambda x: -x[1]["total"]):
             accepted_plus = b["accepted"] + b["edited"]
             denom = accepted_plus + b["rejected"] + b["false_positive"]
-            rows.append({
-                "pattern_id": pattern_id,
-                "kind": b["kind"],
-                "total": b["total"],
-                "accepted": b["accepted"],
-                "edited": b["edited"],
-                "rejected": b["rejected"],
-                "false_positive": b["false_positive"],
-                "needs_clarification": b["needs_clarification"],
-                "proposed": b["proposed"],
-                "precision": accepted_plus / denom if denom else None,
-            })
+            rows.append(
+                {
+                    "pattern_id": pattern_id,
+                    "kind": b["kind"],
+                    "total": b["total"],
+                    "accepted": b["accepted"],
+                    "edited": b["edited"],
+                    "rejected": b["rejected"],
+                    "false_positive": b["false_positive"],
+                    "needs_clarification": b["needs_clarification"],
+                    "proposed": b["proposed"],
+                    "precision": accepted_plus / denom if denom else None,
+                }
+            )
         return rows
 
     @staticmethod
@@ -135,17 +137,19 @@ class AnalyticsService:
         for source, counts in sorted(by_source.items(), key=lambda x: -x[1]["total"]):
             accepted_plus = counts["accepted"] + counts["edited"]
             denom = accepted_plus + counts["rejected"] + counts["false_positive"]
-            rows.append({
-                "producer": source,
-                "total": counts["total"],
-                "accepted": counts["accepted"],
-                "edited": counts["edited"],
-                "rejected": counts["rejected"],
-                "false_positive": counts["false_positive"],
-                "needs_clarification": counts["needs_clarification"],
-                "proposed": counts["proposed"],
-                "precision": accepted_plus / denom if denom else None,
-            })
+            rows.append(
+                {
+                    "producer": source,
+                    "total": counts["total"],
+                    "accepted": counts["accepted"],
+                    "edited": counts["edited"],
+                    "rejected": counts["rejected"],
+                    "false_positive": counts["false_positive"],
+                    "needs_clarification": counts["needs_clarification"],
+                    "proposed": counts["proposed"],
+                    "precision": accepted_plus / denom if denom else None,
+                }
+            )
         return rows
 
     @staticmethod

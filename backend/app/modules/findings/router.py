@@ -18,7 +18,7 @@ def list_findings(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    rows = FindingStore(session).list(principal.org_id, opportunity_id)
+    rows = FindingStore(session).list(principal.workspace_id, opportunity_id)
     rows.sort(key=lambda r: _SEV_RANK.get(r.severity, 9))
     return {
         "findings": [

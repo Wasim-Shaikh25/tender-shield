@@ -70,7 +70,7 @@ def client():
 def _auth(client):
     client.post(
         "/api/auth/signup",
-        json={"email": "dr@x.com", "password": "hunter2hunter2", "org_name": "Acme"},
+        json={"email": "dr@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
     )
     tok = client.post(
         "/api/auth/login", json={"email": "dr@x.com", "password": "hunter2hunter2"}
@@ -156,7 +156,7 @@ def test_generate_after_accept_and_version_bump(client):
     ).json()
     assert a2["version"] == 2  # regeneration is a new version, never a mutation
 
-    listed = client.get(
-        f"/api/drafting/opportunities/{opp_id}/artifacts", headers=headers
-    ).json()["artifacts"]
+    listed = client.get(f"/api/drafting/opportunities/{opp_id}/artifacts", headers=headers).json()[
+        "artifacts"
+    ]
     assert len(listed) == 2

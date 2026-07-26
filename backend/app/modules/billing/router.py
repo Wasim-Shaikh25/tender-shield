@@ -13,7 +13,7 @@ router = APIRouter()
 
 def _service(request: Request, session: Session) -> BillingService:
     reg = request.app.state.ctx.registry
-    return BillingService(session, orgs_factory=reg.get("auth.orgs_factory"))
+    return BillingService(session, workspace_factory=reg.get("auth.workspace_factory"))
 
 
 class CheckoutBody(BaseModel):
@@ -28,7 +28,7 @@ def status(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    return _service(request, session).status(principal.org_id)
+    return _service(request, session).status(principal.workspace_id)
 
 
 @router.post("/checkout")
@@ -42,7 +42,7 @@ def checkout(
     Activates NOTHING — only the verified webhook does (Doc §15.1)."""
     # Live Razorpay order creation requires provider keys; without them we return
     # a deterministic handle carrying the notes the webhook will echo back.
-    notes = {"org_id": str(principal.org_id), "kind": body.kind}
+    notes = {"workspace_id": str(principal.workspace_id), "kind": body.kind}
     if body.opportunity_id:
         notes["opportunity_id"] = body.opportunity_id
     if body.plan:
@@ -62,7 +62,7 @@ def authorize_review(
     principal: Any = Depends(require("estimator")),
 ):
     try:
-        grant = _service(request, session).authorize_review(principal.org_id)
+        grant = _service(request, session).authorize_review(principal.workspace_id)
     except PaywallError as exc:
         raise HTTPException(402, detail={"code": exc.code, "upsell": exc.upsell}) from exc
     return {
@@ -90,7 +90,7 @@ def list_invoices(
                 "paid_at": inv.paid_at.isoformat() if inv.paid_at else None,
                 "created_at": inv.created_at.isoformat(),
             }
-            for inv in _service(request, session).list_invoices(principal.org_id)
+            for inv in _service(request, session).list_invoices(principal.workspace_id)
         ]
     }
 

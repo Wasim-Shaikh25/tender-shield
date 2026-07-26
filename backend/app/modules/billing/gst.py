@@ -46,8 +46,12 @@ def compute_invoice(
         lines = [GstLine("IGST", GST_RATE, igst)]
     total = base_minor + sum(line.amount_minor for line in lines)
     return GstInvoice(
-        number=number, sac=SAC_CODE, base_minor=base_minor, lines=lines,
-        total_minor=total, intra_state=intra,
+        number=number,
+        sac=SAC_CODE,
+        base_minor=base_minor,
+        lines=lines,
+        total_minor=total,
+        intra_state=intra,
     )
 
 

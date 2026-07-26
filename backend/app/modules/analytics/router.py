@@ -27,4 +27,4 @@ def accuracy_dashboard(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("admin")),
 ):
-    return _service(request, session).accuracy_dashboard(principal.org_id)
+    return _service(request, session).accuracy_dashboard(principal.workspace_id)

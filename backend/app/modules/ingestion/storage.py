@@ -10,7 +10,7 @@ from typing import Protocol
 
 
 class Storage(Protocol):
-    def put(self, org_id: str, filename: str, data: bytes) -> tuple[str, str]:
+    def put(self, workspace_id: str, filename: str, data: bytes) -> tuple[str, str]:
         """Store bytes; return (storage_key, sha256_hex)."""
         ...
 
@@ -19,10 +19,10 @@ class LocalStorage:
     def __init__(self, root: str):
         self.root = Path(root)
 
-    def put(self, org_id: str, filename: str, data: bytes) -> tuple[str, str]:
+    def put(self, workspace_id: str, filename: str, data: bytes) -> tuple[str, str]:
         sha = hashlib.sha256(data).hexdigest()
         ext = Path(filename).suffix
-        key = f"{org_id}/{sha}{ext}"
+        key = f"{workspace_id}/{sha}{ext}"
         dest = self.root / key
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(data)

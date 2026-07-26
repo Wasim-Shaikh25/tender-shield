@@ -42,7 +42,7 @@ def list_opportunities(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    opps = _service(request, session).list_opportunities(principal.org_id)
+    opps = _service(request, session).list_opportunities(principal.workspace_id)
     return {"opportunities": [_opp_json(o) for o in opps]}
 
 
@@ -63,7 +63,7 @@ def create_opportunity(
     principal: Any = Depends(require("estimator")),
 ):
     opp = _service(request, session).create_opportunity(
-        principal.org_id,
+        principal.workspace_id,
         body.title,
         employer=body.employer,
         employer_family=body.employer_family,
@@ -79,7 +79,7 @@ def get_opportunity(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    opp = _service(request, session).get_opportunity(principal.org_id, opportunity_id)
+    opp = _service(request, session).get_opportunity(principal.workspace_id, opportunity_id)
     if not opp:
         raise HTTPException(404, "not_found")
     return _opp_json(opp)
@@ -94,10 +94,13 @@ def register_document(
     principal: Any = Depends(require("estimator")),
 ):
     svc = _service(request, session)
-    if not svc.get_opportunity(principal.org_id, opportunity_id):
+    if not svc.get_opportunity(principal.workspace_id, opportunity_id):
         raise HTTPException(404, "not_found")
     doc = svc.register_document(
-        principal.org_id, opportunity_id, body.filename, body.sample_text,
+        principal.workspace_id,
+        opportunity_id,
+        body.filename,
+        body.sample_text,
         uploaded_by=_to_uuid(principal.user_id),
         supersedes=_to_uuid(body.supersedes),
     )
@@ -115,22 +118,31 @@ async def upload_document(
     """Real multipart upload → store file → extract text (PDF/XLSX/CSV) → run the
     classify/segment/deadline pipeline."""
     svc = _service(request, session)
-    if not svc.get_opportunity(principal.org_id, opportunity_id):
+    if not svc.get_opportunity(principal.workspace_id, opportunity_id):
         raise HTTPException(404, "not_found")
     data = await file.read()
     if len(data) > MAX_UPLOAD_BYTES:
         raise HTTPException(413, "file_too_large")
     storage = LocalStorage(request.app.state.ctx.settings.storage_dir)
-    key, sha = storage.put(str(principal.org_id), file.filename, data)
+    key, sha = storage.put(str(principal.workspace_id), file.filename, data)
     ocr = request.app.state.ctx.registry.get("ingestion.ocr")
     text, ocr_status = extract_upload(file.filename, data, ocr)
     doc = svc.register_document(
-        principal.org_id, opportunity_id, file.filename, text,
-        s3_key=key, sha256=sha, ocr_status=ocr_status, uploaded_by=_to_uuid(principal.user_id),
+        principal.workspace_id,
+        opportunity_id,
+        file.filename,
+        text,
+        s3_key=key,
+        sha256=sha,
+        ocr_status=ocr_status,
+        uploaded_by=_to_uuid(principal.user_id),
     )
     return {
-        "id": str(doc.id), "filename": doc.filename, "kind": doc.kind,
-        "chars": len(text), "ocr_status": ocr_status,
+        "id": str(doc.id),
+        "filename": doc.filename,
+        "kind": doc.kind,
+        "chars": len(text),
+        "ocr_status": ocr_status,
     }
 
 
@@ -141,7 +153,7 @@ def list_clauses(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    clauses = _service(request, session).list_clauses(principal.org_id, opportunity_id)
+    clauses = _service(request, session).list_clauses(principal.workspace_id, opportunity_id)
     return {
         "clauses": [
             {
@@ -163,7 +175,7 @@ def list_deadlines(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    deadlines = _service(request, session).list_deadlines(principal.org_id, opportunity_id)
+    deadlines = _service(request, session).list_deadlines(principal.workspace_id, opportunity_id)
     return {
         "deadlines": [
             {
@@ -188,7 +200,7 @@ def confirm_deadline(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("estimator")),
 ):
-    dl = _service(request, session).confirm_deadline(principal.org_id, deadline_id)
+    dl = _service(request, session).confirm_deadline(principal.workspace_id, deadline_id)
     if not dl:
         raise HTTPException(404, "not_found")
     return {"id": str(dl.id), "confirmed": dl.confirmed}
@@ -201,7 +213,7 @@ def missing_docs(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    return _service(request, session).missing_doc_report(principal.org_id, opportunity_id)
+    return _service(request, session).missing_doc_report(principal.workspace_id, opportunity_id)
 
 
 @router.get("/documents/{document_id}/text")
@@ -212,9 +224,7 @@ def get_document_text(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    return _service(request, session).get_doc_text(
-        principal.org_id, document_id, page=page
-    )
+    return _service(request, session).get_doc_text(principal.workspace_id, document_id, page=page)
 
 
 def _to_uuid(value: str):

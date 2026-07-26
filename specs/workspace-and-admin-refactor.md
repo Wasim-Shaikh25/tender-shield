@@ -7,10 +7,9 @@
 ## Purpose
 
 Remove the hard-coded `org` tenant and replace it with a flexible `User →
-Workspace → Project` hierarchy plus a global super-admin role. Sign-up now
-creates a bare user; a default `Workspace` is created on first use so existing
-workflows keep working while users can later create additional workspaces and
-projects and invite collaborators.
+Workspace → Project` hierarchy plus a global super-admin role. Sign-up creates a
+bare user and a default `Workspace` so existing workflows keep working; users can
+create additional workspaces and projects later and invite collaborators.
 
 ## Public interface
 
@@ -26,9 +25,11 @@ projects and invite collaborators.
   - `GET /api/auth/projects/{id}/members` — list members.
   - `POST /api/auth/mfa/enroll` — choose totp|email|sms.
   - `POST /api/auth/mfa/verify` — verify an MFA code.
-- Admin routes (super-admin only):
-  - `GET /api/admin/users`
-  - `GET /api/admin/workspaces`
+- Admin routes (super-admin only, mounted under `/api/auth/admin/`):
+  - `GET /admin/users`
+  - `GET /admin/workspaces`
+  - `POST /admin/users`
+  - `POST /admin/users/{id}/superadmin`
 
 ## Data owned
 
@@ -42,11 +43,10 @@ projects and invite collaborators.
 - `Project` is a lifecycle container under a workspace. `Project` status enum:
   `planning`, `tendering`, `awarded`, `execution`, `closed`.
 - `User` has a global `is_superadmin` flag. Super-admins bypass RLS on `/api/admin/*`.
-- Sign-up no longer requires an org name. A default workspace named `<email>'s
-  workspace` is created the first time the user accesses a workspace-scoped
-  endpoint without an active workspace, preserving the existing single-tenant UX.
-- Invitations are token-based, expire in 7 days, and are accepted by signing up or
-  logging in.
+- Sign-up creates a bare user and a default `Workspace` named from the sign-up
+  form (or "Personal"). The access token carries that workspace.
+- Invitations are token-based, expire in 7 days, and are accepted by an
+  authenticated user via `POST /api/auth/invitations/{token}/accept`.
 - MFA supports `totp` (existing), `email`, and `sms` methods; the secret is stored
   on the user row and the delivery channel is logged to console until a real
   email/SMS provider is wired.
@@ -55,10 +55,11 @@ projects and invite collaborators.
 
 - A1: `pytest` passes after `org_id` is renamed to `workspace_id` across all
   modules and migrations.
-- A2: Sign-up returns a user token with no workspace; a workspace-scoped token
-  is issued after creating/selecting a workspace.
-- A3: Super-admin endpoints list all users/workspaces; non-super-admins receive 403.
-- A4: Existing pre-bid flow still works through a default workspace.
+- A2: Sign-up creates a user and a default workspace; the returned token carries
+  that workspace.
+- A3: Super-admin endpoints list/create users and list workspaces; non-super-admins
+  receive 403.
+- A4: Existing pre-bid flow still works through workspace-scoped RLS.
 
 ## Out of scope
 

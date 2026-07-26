@@ -27,11 +27,16 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   - `test_health.py` covers the `/api/health` module/capability report.
   - `test_notifications.py` covers deadline alert thresholds and `ConsoleSender`.
 
+### Done — 2026-07-26 (Sprint 4 continues: TS-068)
+
+- **TS-068** — Implemented `ingestion.doc_chunks` table + migration and the
+  `ingestion.doc_text` capability (`DocTextService`), plus `GET /api/ingestion/documents/{id}/text`.
+- Added integration test for page-level chunk storage and retrieval.
+
 ### Next
 
-- Sprint 4: implement deeper feature gaps (TS-068 `doc_chunks`/`doc_text`,
-  TS-069 assistant SSE/history, TS-070 billing invoice list/`record_usage`)
-  or split them into dedicated follow-up tasks after spec review.
+- Sprint 4: implement remaining deeper feature gaps (TS-070 billing invoice list/
+  `record_usage`, TS-069 assistant SSE/history).
 
 ### Done — 2026-07-26 (session 23 continued: TS-057)
 

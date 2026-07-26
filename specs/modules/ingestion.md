@@ -25,6 +25,8 @@ Everything downstream (risk, BOQ, drafting) consumes its outputs.
     CSV string for the BOQ module.
   - `ingestion.scanned_boq_csv` → scanned-table fallback (rapid-table) when OCR is
     enabled.
+  - `ingestion.doc_text` → `DocTextService(session)` for page-level text retrieval
+    (`text_for_document`, `text_for_page`).
 - **Capabilities consumed (soft):** `rulepacks.loader` (doc types, expected-doc
   set, deadline calculators).
 - **Events emitted:** `opportunity.created`, `document.classified`,
@@ -40,13 +42,15 @@ Everything downstream (risk, BOQ, drafting) consumes its outputs.
   - `POST /opportunities/{id}/deadlines/{deadline_id}/confirm` (viewer)
   - `GET /opportunities/{id}/clauses` (viewer)
   - `GET /opportunities/{id}/missing-docs` (viewer)
+  - `GET /documents/{id}/text` (viewer) — page-level document text
+    (`?page=N` returns a single page; no query returns all pages)
 
 ## Data owned
 
-`opportunities`, `documents`, `clauses`, `deadlines`.
+`opportunities`, `documents`, `clauses`, `deadlines`, `doc_chunks`.
 
-`doc_chunks` (page-level text chunks) is planned as part of TS-068 but is not
-yet implemented; the `ingestion.doc_text` capability will be published with it.
+`doc_chunks` stores page-level text chunks per document; rows are replaced when a
+document is re-registered or re-uploaded.
 
 ## Behavior
 

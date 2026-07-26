@@ -124,7 +124,7 @@ staying inside the tender-review domain. Full requirements and tracker:
 | TS-065 | Align `risk` public interface with code: publish `risk.service_factory` / document consumed capabilities | spec audit; Doc §6.3 | `specs/modules/risk.md` (update) | done |
 | TS-066 | Align `drafting` public interface with code: `drafting.service_factory` vs separate `export` module | spec audit; Doc §6.5 | `specs/modules/drafting.md` (update) | done |
 | TS-067 | Add tests for `export`, `health`, and `notifications` modules | spec audit | — | done |
-| TS-068 | Implement `ingestion.doc_chunks` table and `ingestion.doc_text` capability | spec audit; Doc §3.3 | `specs/modules/ingestion.md` (update) | todo |
+| TS-068 | Implement `ingestion.doc_chunks` table and `ingestion.doc_text` capability | spec audit; Doc §3.3 | `specs/modules/ingestion.md` (update) | done |
 | TS-069 | Implement assistant SSE `/chat` and conversation/session persistence | spec audit; Doc §8 | `specs/modules/assistant.md` (update) | todo |
 | TS-070 | Add billing invoice list and `billing.record_usage` capability | spec audit; Doc §7, §15 | `specs/modules/billing.md` (update) | todo |
 

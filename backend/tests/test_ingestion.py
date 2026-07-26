@@ -128,3 +128,32 @@ def test_soft_dep_absent_uses_fallback_anchors():
         headers=auth,
     )
     assert d.json()["kind"] == "boq"
+
+
+def test_doc_chunks_stored_on_register_and_can_be_read_back(app_client):
+    client = TestClient(app_client)
+    auth = {"authorization": f"Bearer {_owner_token(client, 'chunk@x.com')}"}
+    opp_id = client.post(
+        "/api/ingestion/opportunities", json={"title": "Chunky"}, headers=auth
+    ).json()["id"]
+    doc_id = client.post(
+        f"/api/ingestion/opportunities/{opp_id}/documents",
+        json={
+            "filename": "two.pdf",
+            "sample_text": "[p1]\nPage one line.\n[p2]\nPage two line.",
+        },
+        headers=auth,
+    ).json()["id"]
+
+    all_pages = client.get(
+        f"/api/ingestion/documents/{doc_id}/text", headers=auth
+    ).json()
+    assert "1" in all_pages["pages"]
+    assert "2" in all_pages["pages"]
+    assert "Page one line." in all_pages["pages"]["1"]
+
+    p2 = client.get(
+        f"/api/ingestion/documents/{doc_id}/text?page=2", headers=auth
+    ).json()
+    assert p2["page"] == 2
+    assert "Page two line." in p2["text"]

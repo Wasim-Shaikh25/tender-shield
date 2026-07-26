@@ -42,6 +42,12 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Added integration tests for billing, ingestion doc chunks, assistant sessions, and
   Apple sign-in.
 
+### Done — 2026-07-26 (Devin rules: TS-073)
+
+- **TS-073** — Created `.devin/rules/*.mdc` and `DEVIN.md` so Devin follows the same
+  mandatory workflow, architecture, and spec conventions as Cursor/Claude. Updated
+  `CLAUDE.md` and `.cursor/rules/00-workflow.mdc` to reference the Devin rules.
+
 ### Done — 2026-07-26 (deployment helpers: TS-072)
 
 - **TS-072** — Added `.env.local`, `.env.dev`, `.env.prod`, `scripts/run.sh`, and

@@ -129,6 +129,7 @@ staying inside the tender-review domain. Full requirements and tracker:
 | TS-070 | Add billing invoice list and `billing.record_usage` capability | spec audit; Doc §7, §15 | `specs/modules/billing.md` (update) | done |
 | TS-071 | Sign in with Apple (OIDC /auth/apple/callback, link verified Apple ID to user) | product; Doc §5 | `specs/modules/auth.md` (update) | done |
 | TS-072 | Provide .env.local/.env.dev/.env.prod, run script, and deployment instructions | dev-experience; Doc §11.1 | `docs/deployment.md` (new), `scripts/run.sh` (new) | done |
+| TS-073 | Create Devin AI assistant rules mirroring Cursor/Claude rules | dev-experience; Doc §11.1 | `.devin/rules/*.mdc` (new), `DEVIN.md` (new) | done |
 
 ## Notes
 

@@ -1,4 +1,4 @@
-# TenderShield AI — Rules for AI Assistants (Claude)
+# TenderShield AI — Rules for AI Assistants (Devin)
 
 TenderShield is contractor commercial intelligence: ingest a tender pack (NIT/RFP,
 GCC/SCC, specs, BOQ, addenda), surface risk clauses / deadline traps / BOQ defects
@@ -6,8 +6,8 @@ with exact citations, and generate bid-decision artifacts. Source of truth for a
 product decisions: `docs/TenderShield_Full_Build_Doc.md`.
 
 These rules are **mandatory** for every AI-assisted change in this repo. The same
-rules exist for Cursor in `.cursor/rules/` and for Devin in `.devin/rules/` plus
-`DEVIN.md`. Keep all three in sync when editing any of them.
+rules exist for Cursor in `.cursor/rules/` and for Claude in `CLAUDE.md`. Keep the
+three in sync when editing any of them.
 
 ---
 
@@ -88,3 +88,14 @@ pluggable module. This is non-negotiable:
   `source:` and `confidence: unvalidated|validated` (§14).
 - Scope discipline: only Phase 0/1 features get built until their exit gates pass
   (Build Doc §10, §12.6). Do not build ahead of the phase plan.
+
+## 6. Devin-specific notes
+
+- Prefer the built-in `todo_write` tool for multi-step tasks and keep the user-visible
+  checklist accurate.
+- Use `message_user` for important updates and the final wrap-up; plain assistant text is
+  not visible to the user.
+- Create a PR for any code change unless the user explicitly says otherwise; fetch the
+  PR template first and keep descriptions high-signal.
+- Run `ruff check .` and `pytest -q` in `backend/`, and `npm run build` in `frontend/`,
+  before pushing.

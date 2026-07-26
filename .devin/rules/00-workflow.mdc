@@ -22,5 +22,5 @@ Follow **Requirement → Task → Spec → Implement → Commit → Changelog**:
    changelog entry is incomplete work.
 6. **Close the loop**: flip the task status in `tasks/backlog.md` in the completing commit.
 
-Keep these rules in sync with `CLAUDE.md` and `.devin/rules/` — if you edit any
+Keep these rules in sync with `CLAUDE.md` and `.cursor/rules/` — if you edit any
 one, mirror the change in the others.

@@ -33,6 +33,7 @@ class CreateOpportunityBody(BaseModel):
 class RegisterDocumentBody(BaseModel):
     filename: str = Field(min_length=1)
     sample_text: str = ""
+    supersedes: str | None = None
 
 
 @router.get("/opportunities")
@@ -98,6 +99,7 @@ def register_document(
     doc = svc.register_document(
         principal.org_id, opportunity_id, body.filename, body.sample_text,
         uploaded_by=_to_uuid(principal.user_id),
+        supersedes=_to_uuid(body.supersedes),
     )
     return {"id": str(doc.id), "filename": doc.filename, "kind": doc.kind}
 

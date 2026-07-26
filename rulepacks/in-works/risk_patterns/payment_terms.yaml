@@ -23,6 +23,9 @@ judgment_prompt: >
 negative_examples:
   - "Clauses about payment of EMD refund are not payment-term findings."
   - "Advance payment (mobilization advance) clauses are a different pattern."
+industry_reason: >
+  Extended payment periods and pay-when-paid clauses hurt cash flow and transfer
+  the employer's financing risk to the contractor.
 suggested_clarification: >
   Request confirmation of the interim-bill payment timeline and deletion or
   qualification of any pay-when-paid condition.

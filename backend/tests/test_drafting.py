@@ -104,6 +104,31 @@ def test_generate_requires_accepted_findings(client):
     assert r.json()["detail"] == "no_accepted_findings"
 
 
+def test_generate_bid_decision(client):
+    headers = _auth(client)
+    opp_id = _opp_with_findings(client, headers)
+    for f in client.get(f"/api/review/opportunities/{opp_id}/queue", headers=headers).json()[
+        "findings"
+    ]:
+        client.post(
+            f"/api/review/findings/{f['id']}", json={"decision": "accepted"}, headers=headers
+        )
+
+    resp = client.post(
+        f"/api/drafting/opportunities/{opp_id}/artifacts",
+        json={"kind": "bid_decision"},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    body = resp.json()["body"]
+    assert body["kind"] == "bid_decision"
+    assert 0 <= body["score"] <= 100
+    assert body["recommendation"] in {"proceed", "proceed_with_conditions", "do_not_proceed"}
+    assert "strengths" in body
+    assert "concerns" in body
+    assert "conditions" in body
+
+
 def test_generate_after_accept_and_version_bump(client):
     headers = _auth(client)
     opp_id = _opp_with_findings(client, headers)

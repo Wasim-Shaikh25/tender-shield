@@ -125,9 +125,10 @@ These are inputs without which the final score would be incomplete:
 - Diffs are stored as a `document_diff` finding/artifact and shown in a "Changes" tab.
 
 ### TS-052 — Tender Timeline
-- `GET /api/ingestion/opportunities/{id}/timeline` returns milestone events with `kind`, `due_at`, `description`, `source_page`, `source_quote`, `confirmed`.
+- `GET /api/timeline/opportunities/{id}/timeline` returns milestone events with `kind`, `due_at`, `description`, `source_page`, `source_quote`, `confirmed`.
 - Kinds include at minimum: `tender_published`, `pre_bid_meeting`, `clarification_cutoff`, `bid_submission`, `technical_opening`, `financial_opening`, `emd_validity`, `bg_submission`, `contract_signing`.
-- Timeline can be exported to iCal or rendered as a Gantt-like artifact.
+- `GET /api/timeline/opportunities/{id}/timeline.ics` exports the dated milestones to iCal.
+- Timeline can also be rendered as a Gantt-like artifact.
 
 ### TS-053 — Clause Cross-Reference
 - `GET /api/crossref/opportunities/{id}?term=payment` returns a list of `(document_type, clause_ref, page, quote)` matches across all documents for the opportunity.

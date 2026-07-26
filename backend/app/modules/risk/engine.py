@@ -54,6 +54,16 @@ def verify_quote(quote: str, candidates: list[Clause], threshold: float = 0.85) 
     return False
 
 
+def _build_explanation(pattern, quote: str | None, *, absence: bool = False) -> dict:
+    return {
+        "matched_pattern": {"id": pattern.id, "title": pattern.title, "category": pattern.category},
+        "evidence_quote": quote,
+        "industry_reason": pattern.industry_reason or "Pattern matched the contract text.",
+        "suggested_review": pattern.suggested_clarification or "Review with the commercial team.",
+        "absence": absence,
+    }
+
+
 def _absence_finding(pattern, opp_facts: dict) -> Finding:
     return Finding(
         kind=FindingKind.RISK_CLAUSE,
@@ -68,6 +78,7 @@ def _absence_finding(pattern, opp_facts: dict) -> Finding:
         suggested_action=pattern.suggested_clarification,
         affected_trades=list(pattern.affected_trades),
         pattern_id=pattern.id,
+        explanation=_build_explanation(pattern, None, absence=True),
     )
 
 
@@ -103,6 +114,7 @@ def run_pattern(
                 suggested_action=pattern.suggested_clarification,
                 affected_trades=list(pattern.affected_trades),
                 pattern_id=pattern.id,
+                explanation=_build_explanation(pattern, quote[:200] if verified else quote),
             )
         )
     return findings

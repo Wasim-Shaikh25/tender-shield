@@ -1,12 +1,12 @@
 # Drafting & Export — Spec
 
 **Status:** implemented (generation) — clarification letter + assumptions
-register generated from ACCEPTED findings; the three validators (no invented
-quotes/clauses/numbers) gate every artifact; versioned, never mutated.
+register + bid/no-bid decision generated from ACCEPTED findings; the three validators
+(no invented quotes/clauses/numbers) gate every artifact; versioned, never mutated.
 Deterministic assembly (no LLM key needed); LLM polish pass and the file
 export renderer done for DOCX + XLSX (TS-023, gated by review + stamped); PDF (reportlab) now included; LLM polish is a follow-up.
-**Requirement refs:** Doc §6.5, §1.1(6,8), §11.4
-**Task refs:** TS-020, TS-023
+**Requirement refs:** Doc §6.5, §1.1(6,8), §11.4, Phase 1.5 doc §5
+**Task refs:** TS-020, TS-023, TS-048
 
 ## Purpose
 
@@ -39,13 +39,19 @@ with `evidence_refs[]` + `citations[]`; `model_meta`).
   (a) quotes not in the fact table, (b) clause refs not cited, (c) currency
   amounts not matching facts (tol 0.5). Regenerate on failure; hard-fail to
   human review after 2 attempts.
-- **B3 (bid/no-bid score):** transparent weighted sum over accepted findings,
-  weights org-editable, rendered with its factor table — never an ML black box.
-- **B4 (export gating):** export blocked until reviewer completes review (via
+- **B3 (bid/no-bid score):** transparent weighted sum over accepted findings
+  (`risk_clause`, `qualification_gap`, `boq_defect`, `standard_violation`); weights
+  default to a documented table and can be overridden per rule-pack playbook
+  (`default_contractor.bid_decision_weights`) — never an ML black box. Output is
+  a `bid_decision` artifact with score (0–100), strengths, concerns, recommendation
+  (`proceed` / `proceed_with_conditions` / `do_not_proceed`), and conditions.
+- **B4 (bid-decision gating):** a `bid_decision` artifact can only be generated
+  when every finding is resolved (no `proposed` or `needs_clarification`).
+- **B5 (export gating):** export blocked until reviewer completes review (via
   `review.gate`); every export stamps reviewer name, date, pack version.
-- **B5 (watermark):** free-tier artifacts watermarked "DRAFT — TenderShield".
-- **B6 (formats):** docxtpl (DOCX), WeasyPrint (PDF), openpyxl (XLSX).
-- **B7 (immutability):** new generation = new version; approved artifacts are
+- **B6 (watermark):** free-tier artifacts watermarked "DRAFT — TenderShield".
+- **B7 (formats):** docxtpl (DOCX), WeasyPrint (PDF), openpyxl (XLSX).
+- **B8 (immutability):** new generation = new version; approved artifacts are
   never mutated.
 
 ## Acceptance criteria
@@ -53,6 +59,8 @@ with `evidence_refs[]` + `citations[]`; `model_meta`).
 - A1: a draft with an invented quote is rejected by the validator (unit fixture).
 - A2: export without completed review returns 403 with gate reason.
 - A3: identical accepted findings → identical bid/no-bid score.
+- A4: `bid_decision` generation returns a score between 0 and 100, a recommendation,
+  and at least one strength when no critical concerns exist.
 
 ## Out of scope
 

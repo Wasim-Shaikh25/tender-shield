@@ -42,6 +42,7 @@ def run(
                 "source_page": f.source_page,
                 "source_quote": f.source_quote,
                 "pattern_id": f.pattern_id,
+                "explanation": f.explanation,
             }
             for f in findings
         ],

@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.review.models import AuditLog
 
-DECISIONS = {"accepted", "edited", "rejected"}
+DECISIONS = {"accepted", "edited", "rejected", "false_positive", "needs_clarification"}
 
 
 class ReviewError(Exception):
@@ -49,32 +49,45 @@ class ReviewService:
     def queue(self, org_id, opportunity_id) -> list:
         return self._store().list(org_id, opportunity_id)
 
-    def review_finding(self, org_id, finding_id, *, decision, note, reviewer_id) -> object:
+    def review_finding(
+        self, org_id, finding_id, *, decision, note=None, review_reason=None, reviewer_id=None
+    ) -> object:
         if decision not in DECISIONS:
             raise ReviewError("bad_decision")
         row = self._store().set_review(
-            org_id, finding_id, status=decision, note=note, reviewer_id=reviewer_id
+            org_id,
+            finding_id,
+            status=decision,
+            note=note,
+            review_reason=review_reason,
+            reviewer_id=reviewer_id,
         )
         if row is None:
             raise ReviewError("not_found")
+        detail = {}
+        if note:
+            detail["note"] = note
+        if review_reason:
+            detail["review_reason"] = review_reason
         self.audit(
             org_id,
             actor=reviewer_id,
             action=f"finding.{decision}",
             object_type="finding",
             object_id=finding_id,
-            detail={"note": note} if note else {},
+            detail=detail,
         )
         return row
 
     def gate(self, org_id, opportunity_id) -> dict:
         """Export is allowed only when there are findings and none remain
-        `proposed` (Doc §11.4 — export blocked until review completes)."""
+        `proposed` or `needs_clarification` (Doc §11.4 — export blocked until
+        review completes, including clarifications)."""
         rows = self._store().list(org_id, opportunity_id)
         by_status: dict[str, int] = {}
         for r in rows:
             by_status[r.review_status] = by_status.get(r.review_status, 0) + 1
-        pending = by_status.get("proposed", 0)
+        pending = by_status.get("proposed", 0) + by_status.get("needs_clarification", 0)
         return {
             "export_allowed": len(rows) > 0 and pending == 0,
             "total": len(rows),

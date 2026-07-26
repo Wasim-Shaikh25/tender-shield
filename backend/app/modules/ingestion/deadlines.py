@@ -30,11 +30,25 @@ _FORMATS = ("%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%d %B %Y", "%d %b %Y", "%B %d %
 
 # Keyword → deadline kind (checked in priority order).
 _KIND_KEYWORDS: list[tuple[str, list[str]]] = [
+    ("tender_published", ["tender published", "notice inviting tender", "date of issue"]),
     ("submission", ["last date of submission", "bid submission", "submission of bid", "closing"]),
     ("prebid_meeting", ["pre-bid meeting", "pre bid meeting", "prebid"]),
     ("clarification", ["clarification", "pre-bid quer", "query", "seeking clarification"]),
+    ("technical_opening", ["technical opening", "opening of technical bid"]),
+    ("financial_opening", ["financial opening", "opening of financial bid"]),
     ("validity", ["bid validity", "validity of bid", "validity period"]),
     ("emd", ["emd", "earnest money"]),
+    ("emd_validity", ["emd validity", "validity of emd"]),
+    (
+        "bg_submission",
+        [
+            "performance guarantee",
+            "bank guarantee",
+            "security deposit submission",
+            "bg submission",
+        ],
+    ),
+    ("contract_signing", ["contract signing", "signing of contract", "execution of contract"]),
     ("completion_milestone", ["completion", "milestone", "time for completion"]),
 ]
 

@@ -176,11 +176,29 @@ class IngestionService:
             self._publish("clauses.segmented", {"document_id": str(doc.id), "count": count})
         return count
 
+    def get_document(self, org_id, document_id) -> Document | None:
+        return self.s.scalar(
+            select(Document).where(
+                Document.id == uuid.UUID(str(document_id)),
+                Document.org_id == uuid.UUID(str(org_id)),
+            )
+        )
+
     def list_clauses(self, org_id, opportunity_id) -> list[Clause]:
         return list(
             self.s.scalars(
                 select(Clause).where(
                     Clause.opportunity_id == uuid.UUID(str(opportunity_id)),
+                    Clause.org_id == uuid.UUID(str(org_id)),
+                )
+            )
+        )
+
+    def list_clauses_for_document(self, org_id, document_id) -> list[Clause]:
+        return list(
+            self.s.scalars(
+                select(Clause).where(
+                    Clause.document_id == uuid.UUID(str(document_id)),
                     Clause.org_id == uuid.UUID(str(org_id)),
                 )
             )

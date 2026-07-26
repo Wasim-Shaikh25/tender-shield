@@ -21,6 +21,9 @@ judgment_prompt: >
 negative_examples:
   - "Termination for contractor default is normal; the risk is convenience
      termination without compensation."
+industry_reason: >
+  Termination for convenience without compensation leaves the contractor with
+  sunk mobilization, material and demobilization costs.
 suggested_clarification: >
   Request express compensation terms (work done, materials, demobilization) on
   convenience termination or foreclosure.

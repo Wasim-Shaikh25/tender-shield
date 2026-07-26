@@ -104,6 +104,10 @@ def test_run_pattern_deterministic_severity_and_verified_quote():
     assert f.source_quote is not None  # quote verified against the clause
     assert f.pattern_id == "liquidated_damages_uncapped"
     assert f.source.value == "ai_suggestion"
+    assert f.explanation is not None
+    assert f.explanation["matched_pattern"]["id"] == "liquidated_damages_uncapped"
+    assert "industry_reason" in f.explanation
+    assert f.explanation["absence"] is False
 
 
 def test_run_pattern_drops_unverified_quote():
@@ -125,6 +129,7 @@ def test_absence_detection_when_no_candidates():
     assert len(findings) == 1
     assert "ABSENT" in findings[0].title
     assert findings[0].severity.value == "critical"  # duration>18
+    assert findings[0].explanation["absence"] is True
 
 
 # ---- integration ----------------------------------------------------------

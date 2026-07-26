@@ -20,6 +20,9 @@ judgment_prompt: >
   DLP in months and each retention component %. Quote verbatim.
 negative_examples:
   - "EMD (bid security) is a separate pattern from retention/security deposit."
+industry_reason: >
+  Long defect-liability periods and high retention lock up working capital and
+  transfer post-completion performance risk to the contractor.
 suggested_clarification: >
   Seek release schedule for retention/security deposit and confirmation of the
   DLP duration against the norm for this employer family.

@@ -99,16 +99,16 @@ staying inside the tender-review domain. Full requirements and tracker:
 
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
-| TS-054 | Risk Explainability: structured `explanation` object on every risk finding (pattern, evidence, industry reason, suggested reviewer) | Phase 1.5 doc §5 | `specs/modules/risk.md` (update) | todo |
-| TS-055 | Structured Review Outcomes: add `needs_clarification`/`false_positive` states and rejection reasons to the review workbench | Phase 1.5 doc §5 | `specs/modules/review.md` (update) | todo |
-| TS-049 | Qualification Compliance Matrix: extract eligibility criteria (turnover, experience, EMD, certifications, etc.) and flag gaps as findings | Phase 1.5 doc §5 | `specs/modules/qualification.md` | todo |
-| TS-056 | Organization Standards Enforcement: compare findings/org terms against org-published thresholds and create `standard_violation` findings | Phase 1.5 doc §5 | `specs/modules/standards.md` (update) | todo |
-| TS-052 | Tender Timeline: expand deadline extraction into a milestone calendar (pre-bid, clarification, submission, technical/financial opening, EMD/BG validity, contract signing) | Phase 1.5 doc §5 | `specs/modules/timeline.md` | todo |
-| TS-048 | Bid / No-Bid Recommendation: deterministic Bid Readiness Score + conditional recommendation artifact consuming accepted findings, qualification, timeline, and org standards | Phase 1.5 doc §5 | `specs/modules/drafting.md` (update) | todo |
-| TS-053 | Clause Cross-Reference: cross-document citation search for a clause/topic across NIT/GCC/SCC/addenda/BOQ notes | Phase 1.5 doc §5 | `specs/modules/crossref.md` | todo |
-| TS-051 | Clause Change Detection: diff added/removed/changed clauses between document versions (addendum/corrigendum) | Phase 1.5 doc §5 | `specs/modules/diff.md` | todo |
-| TS-050 | Tender Comparison: portfolio dashboard ranking opportunities by risk, BOQ quality, deadline, and bid readiness | Phase 1.5 doc §5 | `specs/modules/comparison.md` | todo |
-| TS-057 | Internal Accuracy Dashboard: admin-only precision/recall/FP/FN metrics by pattern and review-outcome telemetry | Phase 1.5 doc §5 | `specs/modules/analytics.md` | todo |
+| TS-054 | Risk Explainability: structured `explanation` object on every risk finding (pattern, evidence, industry reason, suggested reviewer) | Phase 1.5 doc §5 | `specs/modules/risk.md` (update) | done |
+| TS-055 | Structured Review Outcomes: add `needs_clarification`/`false_positive` states and rejection reasons to the review workbench | Phase 1.5 doc §5 | `specs/modules/review.md` (update) | done |
+| TS-049 | Qualification Compliance Matrix: extract eligibility criteria (turnover, experience, EMD, certifications, etc.) and flag gaps as findings | Phase 1.5 doc §5 | `specs/modules/qualification.md` | done |
+| TS-056 | Organization Standards Enforcement: compare findings/org terms against org-published thresholds and create `standard_violation` findings | Phase 1.5 doc §5 | `specs/modules/standards.md` (update) | done |
+| TS-052 | Tender Timeline: expand deadline extraction into a milestone calendar (pre-bid, clarification, submission, technical/financial opening, EMD/BG validity, contract signing) | Phase 1.5 doc §5 | `specs/modules/timeline.md` | done |
+| TS-048 | Bid / No-Bid Recommendation: deterministic Bid Readiness Score + conditional recommendation artifact consuming accepted findings, qualification, timeline, and org standards | Phase 1.5 doc §5 | `specs/modules/drafting.md` (update) | done |
+| TS-053 | Clause Cross-Reference: cross-document citation search for a clause/topic across NIT/GCC/SCC/addenda/BOQ notes | Phase 1.5 doc §5 | `specs/modules/crossref.md` | done |
+| TS-051 | Clause Change Detection: diff added/removed/changed clauses between document versions (addendum/corrigendum) | Phase 1.5 doc §5 | `specs/modules/crossref.md` | done |
+| TS-050 | Tender Comparison: portfolio dashboard ranking opportunities by risk, BOQ quality, deadline, and bid readiness | Phase 1.5 doc §5 | `specs/modules/comparison.md` | done |
+| TS-057 | Internal Accuracy Dashboard: admin-only precision/recall/FP/FN metrics by pattern and review-outcome telemetry | Phase 1.5 doc §5 | `specs/modules/analytics.md` | done |
 
 ## Notes
 

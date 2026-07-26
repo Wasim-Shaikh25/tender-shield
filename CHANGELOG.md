@@ -6,6 +6,126 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-26 (session 23 continued: TS-057)
+
+- **TS-057** — Internal Accuracy Dashboard:
+  - New `analytics` module with `GET /api/analytics/accuracy` (admin/owner only).
+  - Aggregates review outcomes from the shared findings table and produces
+    per-pattern and per-source precision proxies, false-positive counts, and
+    a most-rejected patterns list.
+  - Recall and true false negatives are reported as `null` because they require
+    an external golden-label set; the shape is ready for that feed.
+  - Added `FindingStore.list_for_org` to support org-wide analytics without
+    direct table imports.
+  - `specs/modules/analytics.md` and `tests/test_analytics.py` added.
+
+### Next
+
+- Phase 1 accuracy gate: validate the Bid Readiness score and weights against a
+  real tender set and QS sign-off; no Phase-2 expansion until ≥70% QS acceptance.
+- Golden-label import for true precision/recall in `analytics` (TS-057 follow-up).
+
+### Done — 2026-07-26 (session 23 continued: TS-050)
+
+- **TS-050** — Tender Comparison:
+  - New `comparison` module with `GET /api/comparison/opportunities` returning a
+    portfolio ranking table.
+  - Aggregates per-opportunity counts (risk by severity, qualification gaps,
+    BOQ defects, standard violations), earliest submission deadline, and the
+    latest `bid_decision` score/recommendation from `drafting`.
+  - Deterministic priority ranking: `proceed` > `proceed_with_conditions` >
+    `do_not_proceed` > none, then bid score desc, critical risk asc,
+    days-to-submission asc.
+  - `specs/modules/comparison.md` and `tests/test_comparison.py` added.
+
+### Done — 2026-07-26 (session 23 continued: TS-053 + TS-051)
+
+- **TS-053** — Clause Cross-Reference:
+  - New `crossref` module with `CrossRefService` and routes
+    `GET /api/crossref/opportunities/{id}?q=...&limit=...`.
+  - Token-level search across every clause in an opportunity, ranked by overlap,
+    with provenance (document kind/filename, clause ref, heading, page, 300-char preview).
+  - `specs/modules/crossref.md` and `tests/test_crossref.py` added.
+
+- **TS-051** — Clause Change Detection:
+  - `POST /api/crossref/opportunities/{id}/diff?document_id=...` compares two
+    versions of a document and returns `added`, `removed`, and `changed` clauses.
+  - Uses explicit `supersedes` chains when provided; falls back to the two most
+    recent uploads of the same document kind.
+  - Clause matching is deterministic: keyed by `clause_ref`, with text similarity
+    on normalised clauses.
+  - Wired into the ingestion clause store; no hard cross-module imports.
+
+### Done — 2026-07-26 (session 23 continued: TS-048 + TS-049 + TS-052 + TS-054 + TS-055 + TS-056)
+
+- **TS-052** — Tender Timeline:
+  - New `timeline` module with `TimelineService` and routes
+    `/api/timeline/opportunities/{id}/timeline` and `.ics` export.
+  - Expanded `ingestion.deadlines` keywords to extract tender publication,
+    technical/financial opening, EMD validity, BG submission, contract signing.
+  - Timeline normalizes raw kinds to a canonical milestone vocabulary, includes a
+    `tender_published` synthetic fallback, and sorts dated events.
+  - `specs/modules/timeline.md` and `tests/test_timeline.py` added.
+
+- **TS-049** — Qualification Compliance Matrix:
+  - New `qualification` module with `QualificationService` and routes
+    `GET/POST /api/qualification/opportunities/{id}`.
+  - Deterministic extraction of 8 eligibility criteria (minimum turnover,
+    similar project experience, equipment, engineer, certifications, EMD,
+    bid security, experience years) with source quote + page.
+  - Writes `qualification_gap` findings to the shared findings store; missing
+    criteria are `not_met` (severity `high`), found criteria are `unknown`
+    (severity `medium`) pending org evidence.
+  - `specs/modules/qualification.md` and `tests/test_qualification.py` added.
+
+- **TS-048** — Bid / No-Bid Recommendation:
+  - Extended `drafting` to generate a `bid_decision` artifact from accepted
+    findings only.
+  - Deterministic score (0–100) with transparent weights over `risk_clause`,
+    `qualification_gap`, `boq_defect`, and `standard_violation` findings.
+  - Weights default to a documented table and can be overridden through the
+    rule-pack playbook (`default_contractor.bid_decision_weights`).
+  - Output: score, strengths, concerns, recommendation
+    (`proceed` / `proceed_with_conditions` / `do_not_proceed`), and conditions.
+  - Gated by review: no `proposed` or `needs_clarification` findings allowed.
+  - Updated `specs/modules/drafting.md` and `tests/test_drafting.py`.
+
+- **TS-056** — Organization Standards Enforcement:
+  - Extended `standards` with `OrgCommercialStandard` (org-scoped, RLS) for
+    per-org policy thresholds.
+  - New routes:
+    `GET/PUT/DELETE /api/standards/commercial/{key}` and
+    `POST /api/standards/opportunities/{id}/check`.
+  - `check_violations` extracts numbers from accepted findings (percent, days,
+    amount) and returns violations; the endpoint persists `standard_violation`
+    findings through the shared findings store.
+  - `drafting` `bid_decision` consumes `standards.commercial_service_factory`
+    and includes standard violations in score/concerns.
+  - Updated `specs/modules/standards.md` and added `tests/test_standards.py`.
+
+- **TS-054** — Risk Explainability:
+  - `Finding` contract and `findings` table now carry an `explanation` JSON field.
+  - `RiskPattern` schema accepts `industry_reason`; all five `in-works` India
+    patterns updated with real, domain-appropriate reasons.
+  - `risk.engine.run_pattern` builds an explanation object for every finding
+    (`matched_pattern`, `evidence_quote`, `industry_reason`, `suggested_review`,
+    `absence` flag).
+  - `risk` and `review` API responses now include `explanation`.
+  - Tests updated: `test_risk.py` asserts explanation shape.
+
+- **TS-055** — Structured Review Outcomes:
+  - `ReviewStatus` expanded: `accepted`, `edited`, `rejected`, `false_positive`,
+    `needs_clarification`.
+  - `findings` table and contract gain `review_reason`.
+  - Review endpoint accepts `decision` + `review_reason`; audit logs both.
+  - Export gate now blocks on `proposed` **and** `needs_clarification`.
+  - Tests added for `false_positive`/`needs_clarification` and gate behavior.
+
+- Migration `0012_review_explain.py` adds `review_reason` and `explanation`
+  columns to `findings`; Alembic up/down verified.
+- `specs/modules/risk.md` and `specs/modules/review.md` updated in the same change.
+- `tasks/backlog.md` / `tasks/phase15_tracker.md`: TS-052, TS-054, TS-055 marked `done`.
+
 ### Done — 2026-07-26 (session 23: Phase 1.5 bid-decision extensions planning)
 
 - Product requirements and roadmap for **Phase 1.5 — Bid-Decision Extensions**

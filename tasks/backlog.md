@@ -136,6 +136,8 @@ staying inside the tender-review domain. Full requirements and tracker:
 | TS-077 | Workspace/project CRUD, sharing/invites, super-admin endpoints, and 2FA method | product; Doc §5, §16 | `specs/modules/auth.md` (update) | done |
 | TS-078 | Update tests and verify `ruff`/`pytest`/frontend build for tenant refactor | testing; Doc §11.1 | — | done |
 | TS-079 | Real email/SMS delivery for `email`/`sms` MFA and OTP codes | product; Doc §5 | `specs/modules/auth.md` (update), `specs/modules/notifications.md` (update) | todo |
+| TS-080 | Real web automation validation of signup -> workspace -> project -> invite flow | testing; Doc §11.1 | — | done |
+| TS-081 | Fix `accept_invitation` naive/aware datetime comparison and add invitation flow test | bugfix; Doc §11.1 | `tests/test_auth_module.py` (update) | done |
 
 ## Notes
 

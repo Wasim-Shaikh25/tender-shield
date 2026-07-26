@@ -6,6 +6,18 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-26 (real web validation + invitation fix: TS-080..TS-081)
+
+- **TS-080** — Ran end-to-end browser validation against the local frontend + backend:
+  - UI signup (`http://localhost:3000/login`) created a user, default workspace, and
+    navigated to `/opportunities`.
+  - Real `fetch` calls from the browser verified workspace CRUD, project CRUD,
+    project-member listing, and super-admin 403 rejection.
+- **TS-081** — Fixed `POST /api/auth/invitations/{token}/accept` raising
+  `TypeError: can't compare offset-naive and offset-aware datetimes` on SQLite.
+  `accept_invitation` now normalizes a naive `expires_at` to UTC before comparing.
+  Added `test_invitation_flow` to `tests/test_auth_module.py`.
+
 ### Done — 2026-07-26 (workspace/project tenant refactor + super admin: TS-074..TS-078)
 
 - **TS-074** — Spec for the workspace/project tenant refactor + super admin:

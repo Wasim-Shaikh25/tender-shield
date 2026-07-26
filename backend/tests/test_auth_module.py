@@ -212,3 +212,32 @@ def test_superadmin_endpoints(client):
         headers={"authorization": f"Bearer {user['access_token']}"},
     )
     assert r.status_code == 403, r.text
+
+
+def test_invitation_flow(client):
+    _signup(client, "owner2@example.com")
+    owner = _login(client, "owner2@example.com")
+    _signup(client, "invited@example.com")
+    workspace_id = owner["workspace_id"]
+
+    r = client.post(
+        "/api/auth/invitations",
+        json={"email": "invited@example.com", "role": "reviewer"},
+        headers={"authorization": f"Bearer {owner['access_token']}"},
+    )
+    assert r.status_code == 200, r.text
+    token = r.json()["token"]
+
+    invitee = _login(client, "invited@example.com")
+    r = client.post(
+        f"/api/auth/invitations/{token}/accept",
+        headers={"authorization": f"Bearer {invitee['access_token']}"},
+    )
+    assert r.status_code == 200, r.text
+
+    r = client.get(
+        f"/api/auth/workspaces/{workspace_id}/members",
+        headers={"authorization": f"Bearer {owner['access_token']}"},
+    )
+    assert r.status_code == 200, r.text
+    assert any(m["email"] == "invited@example.com" and m["role"] == "reviewer" for m in r.json())

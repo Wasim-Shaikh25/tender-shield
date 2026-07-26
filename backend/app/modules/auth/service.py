@@ -417,7 +417,12 @@ class AuthService:
     def accept_invitation(self, user_id, token: str) -> dict:
         user_id = uuid.UUID(str(user_id))
         invitation = self.s.scalar(select(Invitation).where(Invitation.token == token))
-        if not invitation or invitation.expires_at < datetime.now(UTC):
+        if not invitation:
+            raise AuthError("invalid_invitation")
+        expires_at = invitation.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        if expires_at < datetime.now(UTC):
             raise AuthError("invalid_invitation")
         if invitation.used_at:
             raise AuthError("invitation_used")

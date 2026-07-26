@@ -72,6 +72,29 @@ def authorize_review(
     }
 
 
+@router.get("/invoices")
+def list_invoices(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    return {
+        "invoices": [
+            {
+                "id": inv.id,
+                "invoice_number": inv.invoice_number,
+                "amount_minor": inv.amount_minor,
+                "currency": inv.currency,
+                "status": inv.status,
+                "provider": inv.provider,
+                "paid_at": inv.paid_at.isoformat() if inv.paid_at else None,
+                "created_at": inv.created_at.isoformat(),
+            }
+            for inv in _service(request, session).list_invoices(principal.org_id)
+        ]
+    }
+
+
 @router.post("/webhooks/razorpay")
 async def razorpay_webhook(request: Request, session: Session = Depends(get_session)):
     raw = await request.body()

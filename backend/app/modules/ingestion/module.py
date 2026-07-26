@@ -1,4 +1,5 @@
 from app.core.module import AppContext, ModuleSpec
+from app.modules.ingestion.doc_text import DocTextService
 from app.modules.ingestion.ocr import NullOcrProvider, RapidOcrProvider, RapidTableProvider
 from app.modules.ingestion.router import router
 from app.modules.ingestion.service import IngestionService
@@ -32,6 +33,11 @@ def setup(ctx: AppContext) -> None:
             "ingestion.scanned_boq_csv",
             lambda data: scanned_boq_csv(table_provider.table_html(data)),
         )
+    # Page-level text access for crossref / assistant / search.
+    reg.provide(
+        "ingestion.doc_text",
+        lambda session: DocTextService(session),
+    )
 
 
 module = ModuleSpec(

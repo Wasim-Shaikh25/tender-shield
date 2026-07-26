@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.ingestion.classify import classify_text, missing_documents
 from app.modules.ingestion.deadlines import extract_deadlines
+from app.modules.ingestion.doc_text import DocTextService, persist_chunks
 from app.modules.ingestion.models import Clause, Deadline, Document, Opportunity
 from app.modules.ingestion.segment import segment_clauses
 
@@ -98,6 +99,7 @@ class IngestionService:
         if sample_text.strip():
             self._segment(doc, sample_text)
             self._extract_deadlines(doc, sample_text)
+            persist_chunks(self.s, doc.org_id, doc.opportunity_id, doc.id, sample_text)
         return doc
 
     def _extract_deadlines(self, doc: Document, text: str) -> int:
@@ -218,3 +220,10 @@ class IngestionService:
         present = [d.kind for d in self.list_documents(org_id, opportunity_id)]
         missing = missing_documents(present, self._expected())
         return {"present": sorted(set(present)), "missing": missing, "expected": self._expected()}
+
+    def get_doc_text(self, org_id, document_id, page: int | None = None):
+        """Page-level text access used by crossref, assistant, and search."""
+        svc = DocTextService(self.s)
+        if page is not None:
+            return {"page": page, "text": svc.text_for_page(org_id, document_id, page)}
+        return {"pages": svc.text_for_document(org_id, document_id)}

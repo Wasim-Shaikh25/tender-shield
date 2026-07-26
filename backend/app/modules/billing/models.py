@@ -51,3 +51,21 @@ class WebhookEvent(Base, OrgScopedMixin):
     processed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class Invoice(Base, OrgScopedMixin):
+    """Customer-visible GST invoices generated from paid events."""
+
+    _tablename_ = "invoices"
+    id: Mapped[int] = mapped_column(_BigId, primary_key=True, autoincrement=True)
+    invoice_number: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    currency: Mapped[str] = mapped_column(String, nullable=False, default="INR")
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    provider: Mapped[str] = mapped_column(String, nullable=False)
+    provider_invoice_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    raw: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

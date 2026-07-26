@@ -10,6 +10,12 @@ def setup(ctx: AppContext) -> None:
         "billing.service_factory",
         lambda session: BillingService(session, orgs_factory=reg.get("auth.orgs_factory")),
     )
+    reg.provide(
+        "billing.record_usage",
+        lambda session, org_id, event, ref_id=None: BillingService(
+            session, orgs_factory=reg.get("auth.orgs_factory")
+        ).record_usage(org_id, event, ref_id),
+    )
 
 
 module = ModuleSpec(

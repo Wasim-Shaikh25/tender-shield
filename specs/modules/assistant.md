@@ -12,15 +12,22 @@ questions.
 
 ## Public interface
 
-- **Capabilities consumed (soft):** `ingestion.doc_text`, `risk.findings`,
-  `boq.items`, `rulepacks.loader`, `drafting.generate` (versioned regeneration),
-  `billing.metering` (message quotas).
-- **API routes:** `/api/assistant/chat` (SSE), conversation history.
+- **Capabilities consumed (soft):** `ingestion.service_factory` (deadlines,
+  missing docs), `findings.store_factory` (filtered findings),
+  `rulepacks.loader` (rule-pack lookup).
+- **API routes** (prefix `/api/assistant`):
+  - `POST /chat` (viewer) — transient single-turn Q&A.
+  - `POST /sessions` (viewer) — create a chat session for an opportunity.
+  - `GET /sessions` (viewer) — list org sessions, optionally filtered by opportunity.
+  - `GET /sessions/{id}/messages` (viewer) — retrieve conversation history.
+  - `POST /sessions/{id}/chat` (viewer) — persist user + assistant messages and answer.
+  - `POST /sessions/{id}/stream` (viewer) — SSE stream of the assistant answer.
 
 ## Data owned
 
-Conversation/session records; retrieval uses `doc_chunks` (owned by ingestion)
-via capability, not direct table access.
+`chat_sessions` and `chat_messages` (org-scoped, RLS); retrieval of opportunity
+facts uses `ingestion.service_factory` and `findings.store_factory` via
+capability, not direct table access.
 
 ## Behavior
 

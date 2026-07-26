@@ -204,6 +204,19 @@ def missing_docs(
     return _service(request, session).missing_doc_report(principal.org_id, opportunity_id)
 
 
+@router.get("/documents/{document_id}/text")
+def get_document_text(
+    document_id: str,
+    page: int | None = None,
+    request: Request = None,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    return _service(request, session).get_doc_text(
+        principal.org_id, document_id, page=page
+    )
+
+
 def _to_uuid(value: str):
     import uuid
 

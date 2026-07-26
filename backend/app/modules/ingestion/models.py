@@ -67,6 +67,19 @@ class Deadline(Base, OrgScopedMixin):
     confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
+class DocChunk(Base, OrgScopedMixin):
+    _tablename_ = "doc_chunks"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    opportunity_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("opportunities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    page: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    text: Mapped[str] = mapped_column(String, nullable=False)
+
+
 class Clause(Base, OrgScopedMixin):
     _tablename_ = "clauses"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)

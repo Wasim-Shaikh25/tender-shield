@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.modules.billing.models import PaymentLog, UsageEvent, WebhookEvent
+from app.modules.billing.models import Invoice, PaymentLog, UsageEvent, WebhookEvent
 from app.modules.billing.plans import Grant, PaywallError, authorize
 from app.modules.billing.webhook import verify_signature
 
@@ -76,6 +76,45 @@ class BillingService:
             "reviews_this_month": self._month_reviews(org_id),
         }
 
+    # ---- invoices ---------------------------------------------------------
+    def list_invoices(self, org_id) -> list[Invoice]:
+        return list(
+            self.s.scalars(
+                select(Invoice)
+                .where(Invoice.org_id == uuid.UUID(str(org_id)))
+                .order_by(Invoice.created_at.desc())
+            )
+        )
+
+    def create_invoice(
+        self,
+        org_id,
+        *,
+        amount_minor: int,
+        currency: str = "INR",
+        provider: str = "manual",
+        provider_invoice_id: str | None = None,
+        raw: dict | None = None,
+        status: str = "pending",
+    ) -> Invoice:
+        inv = Invoice(
+            org_id=uuid.UUID(str(org_id)),
+            invoice_number=uuid.uuid4().hex,  # temporary; replaced with INV- id after flush
+            amount_minor=amount_minor,
+            currency=currency,
+            provider=provider,
+            provider_invoice_id=provider_invoice_id,
+            raw=raw or {},
+            status=status,
+        )
+        self.s.add(inv)
+        self.s.flush()  # obtain id
+        inv.invoice_number = f"INV-{inv.id:06d}"
+        if status == "paid":
+            inv.paid_at = datetime.now(UTC)
+        self.s.commit()
+        return inv
+
     # ---- webhook: the only billing truth (Doc §15.5) ----------------------
     def process_razorpay_webhook(self, raw_body: bytes, signature: str, secret: str) -> dict:
         # 1) log receipt BEFORE trusting anything (fraud/debug trail, §16.5)
@@ -101,9 +140,30 @@ class BillingService:
 
         # 3) apply effect
         typ = evt.get("event")
+        amount = _extract_amount(evt)
         if typ == "order.paid" and org_id:
             self.record_usage(org_id, "review_paid", ref_id=notes.get("opportunity_id"))
-        elif typ in ("subscription.activated", "subscription.charged") and org_id:
+            if amount:
+                self.create_invoice(
+                    org_id,
+                    amount_minor=amount,
+                    provider="razorpay",
+                    provider_invoice_id=event_id,
+                    raw=evt,
+                    status="paid",
+                )
+        elif typ == "subscription.charged" and org_id:
+            self._orgs().set_plan(org_id, notes.get("plan", "pro"))
+            if amount:
+                self.create_invoice(
+                    org_id,
+                    amount_minor=amount,
+                    provider="razorpay",
+                    provider_invoice_id=event_id,
+                    raw=evt,
+                    status="paid",
+                )
+        elif typ == "subscription.activated" and org_id:
             self._orgs().set_plan(org_id, notes.get("plan", "pro"))
         elif typ in ("subscription.halted", "subscription.cancelled") and org_id:
             self._orgs().set_plan(org_id, "free")
@@ -141,3 +201,17 @@ def _extract_notes(evt: dict) -> dict:
         if "notes" in entity and isinstance(entity["notes"], dict):
             return entity["notes"]
     return {}
+
+
+def _extract_amount(evt: dict) -> int | None:
+    """Best-effort amount in minor units from a Razorpay payment event."""
+    payload = evt.get("payload", {})
+    for wrapper in payload.values():
+        entity = wrapper.get("entity", {}) if isinstance(wrapper, dict) else {}
+        amt = entity.get("amount")
+        if isinstance(amt, (int, str)):
+            try:
+                return int(amt)
+            except ValueError:
+                continue
+    return None

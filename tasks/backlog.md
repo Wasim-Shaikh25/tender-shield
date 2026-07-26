@@ -126,7 +126,7 @@ staying inside the tender-review domain. Full requirements and tracker:
 | TS-067 | Add tests for `export`, `health`, and `notifications` modules | spec audit | — | done |
 | TS-068 | Implement `ingestion.doc_chunks` table and `ingestion.doc_text` capability | spec audit; Doc §3.3 | `specs/modules/ingestion.md` (update) | done |
 | TS-069 | Implement assistant SSE `/chat` and conversation/session persistence | spec audit; Doc §8 | `specs/modules/assistant.md` (update) | todo |
-| TS-070 | Add billing invoice list and `billing.record_usage` capability | spec audit; Doc §7, §15 | `specs/modules/billing.md` (update) | todo |
+| TS-070 | Add billing invoice list and `billing.record_usage` capability | spec audit; Doc §7, §15 | `specs/modules/billing.md` (update) | done |
 
 ## Notes
 

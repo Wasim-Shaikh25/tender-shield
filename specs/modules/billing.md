@@ -12,17 +12,25 @@ invoicing, and the append-only `payment_log`.
 
 ## Public interface
 
-- **Capabilities published:** `billing.metering.authorize_review(org) -> Grant`
-  (raises `PaywallError` with upsell payload), `billing.record_usage(...)`.
+- **Capabilities published:**
+  - `billing.service_factory` → `BillingService(session)` with `authorize_review`,
+    `record_usage`, `list_invoices`, and `create_invoice`.
+  - `billing.record_usage(session, org_id, event, ref_id=None)` — direct capability
+    for modules that only need to log usage without pulling in the full service.
+  - `billing.metering.authorize_review(org) -> Grant` (legacy alias via service).
 - **Events emitted:** `billing.plan_activated`, `billing.payment_applied`,
   `billing.paywall_hit`.
-- **API routes:** `/api/billing/checkout`, `/api/billing/status`,
-  `/api/billing/webhooks/razorpay` (+ `/stripe` later), invoice list.
+- **API routes:**
+  - `GET /api/billing/status` (viewer)
+  - `POST /api/billing/checkout` (admin)
+  - `POST /api/billing/authorize-review` (estimator)
+  - `GET /api/billing/invoices` (viewer)
+  - `POST /api/billing/webhooks/razorpay` (unauthenticated, HMAC-verified)
 
 ## Data owned
 
-`usage_events`, `payment_log` (append-only, from day one), payment intents,
-webhook-dedup records, plan state on `orgs`.
+`usage_events`, `payment_log` (append-only, from day one), `invoices`, payment
+intents, webhook-dedup records, plan state on `orgs`.
 
 ## Behavior
 

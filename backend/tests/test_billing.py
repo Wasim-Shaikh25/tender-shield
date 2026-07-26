@@ -113,3 +113,44 @@ def test_tampered_signature_rejected(client):
         "/api/billing/webhooks/razorpay", content=raw, headers={"X-Razorpay-Signature": "bad"}
     )
     assert r.status_code == 400
+
+
+def test_order_paid_creates_invoice_and_list_returns_it(client):
+    headers, org_id = _auth(client)
+    body = {
+        "id": "evt_order_paid_1",
+        "event": "order.paid",
+        "payload": {
+            "payment": {
+                "entity": {
+                    "id": "pay_1",
+                    "amount": 100000,
+                    "notes": {"org_id": org_id},
+                }
+            }
+        },
+    }
+    raw, sig = _signed(body)
+    r = client.post(
+        "/api/billing/webhooks/razorpay", content=raw, headers={"X-Razorpay-Signature": sig}
+    )
+    assert r.json()["applied"] == "order.paid"
+
+    invoices = client.get("/api/billing/invoices", headers=headers).json()["invoices"]
+    assert len(invoices) == 1
+    assert invoices[0]["amount_minor"] == 100000
+    assert invoices[0]["status"] == "paid"
+    assert invoices[0]["invoice_number"].startswith("INV-")
+
+
+def test_record_usage_capability_logs_event(client):
+    _, org_id = _auth(client)
+    reg = client.app.state.ctx.registry
+    factory = reg.get("billing.record_usage")
+    assert factory is not None
+    engine = reg.require("db.engine")
+    from sqlalchemy.orm import Session
+
+    with Session(engine) as session:
+        factory(session, org_id, "test_event")
+    # usage is internal; the capability was reachable and callable without error

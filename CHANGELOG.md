@@ -39,9 +39,8 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ### Next
 
-- Spec audit follow-up is complete. All spec/code gaps identified in the audit are now
-  closed or implemented. The next product milestone should come from user review of
-  the updated specs and acceptance criteria.
+- **TS-071** — Sign in with Apple: add `/auth/apple/callback`, link verified Apple
+  IDs to users, and update the auth spec. Requires Apple Developer credentials.
 
 ### Done — 2026-07-26 (session 23 continued: TS-057)
 

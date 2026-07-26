@@ -45,6 +45,14 @@ bus (`specs/modules/core.md`).
 
 ## Local development
 
+The fastest way to start is to copy `.env.local` to `.env` (or leave it as `.env.local`) and run:
+
+```bash
+./scripts/run.sh local
+```
+
+This installs nothing new on its own — make sure dependencies are installed first (see below). For full deployment options see `docs/deployment.md`.
+
 ### 1. Backend
 
 ```bash
@@ -74,6 +82,7 @@ Health check + loaded modules: `GET http://localhost:8000/api/health`.
 | `TS_JWT_PRIVATE_KEY` / `TS_JWT_PUBLIC_KEY` | *(ephemeral)* | RS256 PEM keypair. If unset an ephemeral one is generated (dev only). |
 | `TS_CORS_ORIGINS` | `*` | Allowed SPA origins. |
 | `TS_RAZORPAY_WEBHOOK_SECRET` | `dev-razorpay-secret` | Verifies the billing webhook (the only billing truth). |
+| `TS_APPLE_*` | *(unset)* | Sign in with Apple credentials. Empty = disabled. |
 | `ANTHROPIC_API_KEY` | *(unset)* | Env (no `TS_` prefix). When set, the risk engine's LLM classifier and the assistant's free-form answers activate; unset = deterministic paths only. |
 
 ### 2. Frontend
@@ -101,7 +110,7 @@ A ready-made synthetic tender with a known answer key lives in
 
 ## Migrations
 
-Alembic auto-discovers each module's `models.py`. Current chain: `0001`–`0008`.
+Alembic auto-discovers each module's `models.py`. Current chain: `0001`–`0017`.
 
 ```bash
 cd backend

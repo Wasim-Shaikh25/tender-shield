@@ -42,6 +42,11 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Added integration tests for billing, ingestion doc chunks, assistant sessions, and
   Apple sign-in.
 
+### Done — 2026-07-26 (deployment helpers: TS-072)
+
+- **TS-072** — Added `.env.local`, `.env.dev`, `.env.prod`, `scripts/run.sh`, and
+  `docs/deployment.md` with local / Docker / prod setup instructions.
+
 ### Next
 
 - Configure Apple Developer credentials and test end-to-end Sign in with Apple, or

@@ -130,6 +130,11 @@ staying inside the tender-review domain. Full requirements and tracker:
 | TS-071 | Sign in with Apple (OIDC /auth/apple/callback, link verified Apple ID to user) | product; Doc §5 | `specs/modules/auth.md` (update) | done |
 | TS-072 | Provide .env.local/.env.dev/.env.prod, run script, and deployment instructions | dev-experience; Doc §11.1 | `docs/deployment.md` (new), `scripts/run.sh` (new) | done |
 | TS-073 | Create Devin AI assistant rules mirroring Cursor/Claude rules | dev-experience; Doc §11.1 | `.devin/rules/*.mdc` (new), `DEVIN.md` (new) | done |
+| TS-074 | Spec for workspace/project tenant refactor + super admin | product; Doc §3.2, §5 | `specs/workspace-and-admin-refactor.md` (new) | in_progress |
+| TS-075 | Auth model: remove `org`/`org_members`, add `User` + `Workspace`/`WorkspaceMember` + `Project`/`ProjectMember` + `Invitation`, super-admin flag | product; Doc §5 | `specs/modules/auth.md` (update) | pending |
+| TS-076 | Rename `org_id` → `workspace_id` across all modules, RLS, and `core.db` | architecture; Doc §3.2 | `specs/data-model.md` (update) | pending |
+| TS-077 | Workspace/project CRUD, sharing/invites, super-admin endpoints, and 2FA method | product; Doc §5, §16 | `specs/modules/auth.md` (update) | pending |
+| TS-078 | Update tests and verify `ruff`/`pytest`/frontend build for tenant refactor | testing; Doc §11.1 | — | pending |
 
 ## Notes
 

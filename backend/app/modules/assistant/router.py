@@ -1,7 +1,8 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
@@ -15,6 +16,15 @@ class ChatBody(BaseModel):
     message: str
 
 
+class SessionBody(BaseModel):
+    opportunity_id: str = Field(min_length=1)
+    title: str | None = None
+
+
+class StreamBody(BaseModel):
+    message: str = Field(min_length=1)
+
+
 def _service(request: Request, session: Session) -> AssistantService:
     reg = request.app.state.ctx.registry
     return AssistantService(
@@ -26,6 +36,28 @@ def _service(request: Request, session: Session) -> AssistantService:
     )
 
 
+def _session_json(s) -> dict:
+    return {
+        "id": str(s.id),
+        "opportunity_id": str(s.opportunity_id),
+        "title": s.title,
+        "created_at": s.created_at.isoformat() if s.created_at else None,
+        "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+    }
+
+
+def _message_json(m) -> dict:
+    return {
+        "id": str(m.id),
+        "role": m.role,
+        "content": m.content,
+        "grounded": m.grounded,
+        "source": m.source,
+        "citations": m.citations,
+        "created_at": m.created_at.isoformat() if m.created_at else None,
+    }
+
+
 @router.post("/chat")
 def chat(
     body: ChatBody,
@@ -33,4 +65,80 @@ def chat(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
+    """Transient single-turn chat (no session persistence)."""
     return _service(request, session).answer(principal.org_id, body.opportunity_id, body.message)
+
+
+@router.post("/sessions")
+def create_session(
+    body: SessionBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    s = _service(request, session).create_session(
+        principal.org_id, body.opportunity_id, body.title
+    )
+    return _session_json(s)
+
+
+@router.get("/sessions")
+def list_sessions(
+    request: Request,
+    opportunity_id: str | None = None,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    sessions = _service(request, session).list_sessions(principal.org_id, opportunity_id)
+    return {"sessions": [_session_json(s) for s in sessions]}
+
+
+@router.get("/sessions/{session_id}/messages")
+def get_messages(
+    session_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    msgs = _service(request, session).get_messages(principal.org_id, session_id)
+    return {"messages": [_message_json(m) for m in msgs]}
+
+
+def _resolve_session(svc: AssistantService, session_id: str, org_id):
+    sess = svc.get_session(org_id, session_id)
+    if not sess:
+        raise HTTPException(404, "session_not_found")
+    return sess
+
+
+@router.post("/sessions/{session_id}/chat")
+def session_chat(
+    session_id: str,
+    body: StreamBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    svc = _service(request, session)
+    sess = _resolve_session(svc, session_id, principal.org_id)
+    return svc.answer_and_store(
+        principal.org_id, session_id, str(sess.opportunity_id), body.message
+    )
+
+
+@router.post("/sessions/{session_id}/stream")
+def stream_chat(
+    session_id: str,
+    body: StreamBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    svc = _service(request, session)
+    sess = _resolve_session(svc, session_id, principal.org_id)
+    return StreamingResponse(
+        svc.answer_stream(
+            principal.org_id, session_id, str(sess.opportunity_id), body.message
+        ),
+        media_type="text/event-stream",
+    )

@@ -3,6 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+import app.modules.assistant.models  # noqa: F401
 import app.modules.auth.models  # noqa: F401
 import app.modules.findings.models  # noqa: F401
 import app.modules.ingestion.models  # noqa: F401
@@ -88,3 +89,56 @@ def test_offtopic_is_refused(client):
     opp_id = _opp(client, headers)
     ans = _ask(client, headers, opp_id, "what's the weather in Mumbai today?")
     assert ans["source"] == "refusal"
+
+
+def test_session_and_history(client):
+    headers = _auth(client)
+    opp_id = _opp(client, headers)
+
+    s = client.post(
+        "/api/assistant/sessions",
+        json={"opportunity_id": opp_id, "title": "Risk chat"},
+        headers=headers,
+    ).json()
+    session_id = s["id"]
+    assert s["opportunity_id"] == opp_id
+
+    ans = client.post(
+        f"/api/assistant/sessions/{session_id}/chat",
+        json={"message": "show me the risk findings"},
+        headers=headers,
+    ).json()
+    assert ans["source"] == "tool"
+
+    msgs = client.get(
+        f"/api/assistant/sessions/{session_id}/messages", headers=headers
+    ).json()["messages"]
+    assert len(msgs) == 2
+    assert msgs[0]["role"] == "user"
+    assert msgs[1]["role"] == "assistant"
+    assert msgs[1]["content"] == ans["answer"]
+
+
+def test_sse_stream_stores_messages(client):
+    headers = _auth(client)
+    opp_id = _opp(client, headers)
+    s = client.post(
+        "/api/assistant/sessions",
+        json={"opportunity_id": opp_id},
+        headers=headers,
+    ).json()
+    session_id = s["id"]
+
+    r = client.post(
+        f"/api/assistant/sessions/{session_id}/stream",
+        json={"message": "list the deadlines"},
+        headers=headers,
+    )
+    assert r.headers["content-type"].startswith("text/event-stream")
+    # stream contains at least one data line
+    assert b"data:" in r.content
+
+    msgs = client.get(
+        f"/api/assistant/sessions/{session_id}/messages", headers=headers
+    ).json()["messages"]
+    assert len(msgs) == 2

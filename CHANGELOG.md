@@ -27,17 +27,21 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   - `test_health.py` covers the `/api/health` module/capability report.
   - `test_notifications.py` covers deadline alert thresholds and `ConsoleSender`.
 
-### Done — 2026-07-26 (Sprint 4: TS-068 + TS-070)
+### Done — 2026-07-26 (Sprint 4 complete: TS-068..TS-070)
 
 - **TS-068** — Implemented `ingestion.doc_chunks` table + migration and the
   `ingestion.doc_text` capability (`DocTextService`), plus `GET /api/ingestion/documents/{id}/text`.
 - **TS-070** — Added `invoices` table + migration, `GET /api/billing/invoices`, and the
   `billing.record_usage` capability; Razorpay `order.paid`/`subscription.charged` now generate a paid invoice.
-- Added billing integration tests.
+- **TS-069** — Implemented assistant chat sessions (`chat_sessions` + `chat_messages`),
+  history endpoints, and SSE `/api/assistant/sessions/{id}/stream`.
+- Added integration tests for billing, ingestion doc chunks, and assistant sessions.
 
 ### Next
 
-- Sprint 4: implement `TS-069` (assistant SSE `/chat` and conversation/session persistence).
+- Spec audit follow-up is complete. All spec/code gaps identified in the audit are now
+  closed or implemented. The next product milestone should come from user review of
+  the updated specs and acceptance criteria.
 
 ### Done — 2026-07-26 (session 23 continued: TS-057)
 

@@ -16,7 +16,7 @@ implementation without adding new product domains.
 | 1 | Missing module specs | TS-058 (findings), TS-059 (export), TS-060 (health), TS-061 (notifications) | done |
 | 2 | Public-interface alignment | TS-064 (ingestion), TS-065 (risk), TS-066 (drafting) | done |
 | 3 | Missing test coverage | TS-067 (export/health/notifications tests) | done |
-| 4 | Deeper feature gaps | TS-069 (assistant SSE/history) (TS-068, TS-070 done) | in_progress |
+| 4 | Deeper feature gaps | TS-068..TS-070 complete | done |
 
 ## Feature tracker
 
@@ -33,7 +33,7 @@ implementation without adding new product domains.
 | TS-066 | Align drafting public interface | `drafting` | P2 | done | Spec reflects `drafting.service_factory` and separate `export` module |
 | TS-067 | Tests for export/health/notifications | `export`, `health`, `notifications` | P2 | done | `tests/test_export.py`, `test_health.py`, `test_notifications.py` pass |
 | TS-068 | Ingestion doc_chunks + doc_text | `ingestion` | P2 | done | `doc_chunks` table + migration; `doc_text` capability published |
-| TS-069 | Assistant SSE + history | `assistant` | P2 | in_progress | SSE `/chat`; conversation/session persistence |
+| TS-069 | Assistant SSE + history | `assistant` | P2 | done | SSE `/chat`; conversation/session persistence |
 | TS-070 | Billing invoice list + record_usage | `billing` | P2 | done | Invoice list route; `billing.record_usage` capability published |
 
 ## Definition of done

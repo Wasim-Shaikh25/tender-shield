@@ -8,11 +8,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 from app.core.db import WORKSPACE_SCOPED_TABLES, rls_statements
-
 
 revision: str = 'e26e85245237'
 down_revision: str | None = None

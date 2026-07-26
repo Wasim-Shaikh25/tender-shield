@@ -22,11 +22,16 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   consumes it, matching the pluggable pattern.
 - **TS-064..TS-066** — Aligned `ingestion`, `risk`, and `drafting` public-interface
   specs with the capabilities and routes actually implemented.
+- **TS-067** — Added tests for `export`, `health`, and `notifications`:
+  - `test_export.py` covers review-gated XLSX export and bad-format handling.
+  - `test_health.py` covers the `/api/health` module/capability report.
+  - `test_notifications.py` covers deadline alert thresholds and `ConsoleSender`.
 
 ### Next
 
-- Sprint 3: add tests for `export`, `health`, and `notifications` (TS-067).
-- Sprint 4: implement deeper feature gaps (TS-068..TS-070) or split them into dedicated follow-up tasks after spec review.
+- Sprint 4: implement deeper feature gaps (TS-068 `doc_chunks`/`doc_text`,
+  TS-069 assistant SSE/history, TS-070 billing invoice list/`record_usage`)
+  or split them into dedicated follow-up tasks after spec review.
 
 ### Done — 2026-07-26 (session 23 continued: TS-057)
 

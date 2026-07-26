@@ -15,7 +15,7 @@ implementation without adding new product domains.
 | 0 | Quick spec/code alignment | TS-062 (service_factory publish), TS-063 (route wording) | done |
 | 1 | Missing module specs | TS-058 (findings), TS-059 (export), TS-060 (health), TS-061 (notifications) | done |
 | 2 | Public-interface alignment | TS-064 (ingestion), TS-065 (risk), TS-066 (drafting) | done |
-| 3 | Missing test coverage | TS-067 (export/health/notifications tests) | in_progress |
+| 3 | Missing test coverage | TS-067 (export/health/notifications tests) | done |
 | 4 | Deeper feature gaps | TS-068 (doc_chunks/doc_text), TS-069 (assistant SSE/history), TS-070 (billing invoice list/record_usage) | todo |
 
 ## Feature tracker
@@ -31,7 +31,7 @@ implementation without adding new product domains.
 | TS-064 | Align ingestion public interface | `ingestion` | P2 | done | Spec reflects actual capabilities; `doc_chunks`/`doc_text` documented as gap |
 | TS-065 | Align risk public interface | `risk` | P2 | done | Spec reflects actual `risk.classifier` / `risk.service_factory` shape |
 | TS-066 | Align drafting public interface | `drafting` | P2 | done | Spec reflects `drafting.service_factory` and separate `export` module |
-| TS-067 | Tests for export/health/notifications | `export`, `health`, `notifications` | P2 | in_progress | `tests/test_export.py`, `test_health.py`, `test_notifications.py` pass |
+| TS-067 | Tests for export/health/notifications | `export`, `health`, `notifications` | P2 | done | `tests/test_export.py`, `test_health.py`, `test_notifications.py` pass |
 | TS-068 | Ingestion doc_chunks + doc_text | `ingestion` | P2 | todo | `doc_chunks` table + migration; `doc_text` capability published |
 | TS-069 | Assistant SSE + history | `assistant` | P2 | todo | SSE `/chat`; conversation/session persistence |
 | TS-070 | Billing invoice list + record_usage | `billing` | P2 | todo | Invoice list route; `billing.record_usage` capability published |

@@ -32,10 +32,18 @@ class DraftingError(Exception):
 
 
 class DraftingService:
-    def __init__(self, session: Session, *, store_factory=None, loader=None):
+    def __init__(
+        self,
+        session: Session,
+        *,
+        store_factory=None,
+        loader=None,
+        standards_factory=None,
+    ):
         self.s = session
         self._store_factory = store_factory
         self._loader = loader
+        self._standards_factory = standards_factory
 
     def _accepted_findings(self, org_id, opportunity_id) -> list[dict]:
         if self._store_factory is None:
@@ -81,6 +89,30 @@ class DraftingService:
         rows = self._store_factory(self.s).list(org_id, opportunity_id)
         return all(r.review_status in _RESOLVED for r in rows)
 
+    def _extra_violations(self, org_id, opportunity_id, findings: list[dict]) -> list[dict]:
+        if self._standards_factory is None:
+            return []
+        svc = self._standards_factory(self.s)
+        if not hasattr(svc, "check_violations"):
+            return []
+        violations = svc.check_violations(org_id, findings)
+        return [
+            {
+                "kind": "standard_violation",
+                "title": f"Company standard violated: {v['policy_label']}",
+                "category": "standard_violation",
+                "severity": "high",
+                "detail": (
+                    f"Extracted value {v['value']} {v['operator']} threshold "
+                    f"{v['threshold']} for policy '{v['policy_label']}'."
+                ),
+                "source_quote": v["finding"].get("source_quote"),
+                "source_page": v["finding"].get("source_page"),
+                "suggested_action": f"Review against company policy {v['policy_key']}.",
+            }
+            for v in violations
+        ]
+
     def generate(self, org_id, opportunity_id, kind: str, opportunity_title: str = "") -> Artifact:
         if kind not in KINDS:
             raise DraftingError("bad_kind")
@@ -89,6 +121,9 @@ class DraftingService:
         findings = self._accepted_findings(org_id, opportunity_id)
         if not findings:
             raise DraftingError("no_accepted_findings")
+
+        if kind == "bid_decision":
+            findings = findings + self._extra_violations(org_id, opportunity_id, findings)
 
         weights = self._weights(org_id) if kind == "bid_decision" else None
         body = build_body(kind, opportunity_title or "this tender", findings, weights=weights)

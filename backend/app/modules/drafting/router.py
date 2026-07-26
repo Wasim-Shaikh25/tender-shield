@@ -23,6 +23,7 @@ def _service(request: Request, session: Session) -> DraftingService:
         session,
         store_factory=reg.get("findings.store_factory"),
         loader=reg.get("rulepacks.loader"),
+        standards_factory=reg.get("standards.commercial_service_factory"),
     )
 
 

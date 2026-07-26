@@ -45,6 +45,10 @@ class FactTable:
                 refs.add(m.group(0))
             if f.get("amount_exposure") is not None:
                 amounts.append(float(f["amount_exposure"]))
+            for m in _AMOUNT_RE.finditer(grounded):
+                value = float(m.group(1).replace(",", ""))
+                if value not in amounts:
+                    amounts.append(value)
         return cls(quotes=quotes, clause_refs=refs, amounts=amounts)
 
     def has_quote(self, q: str) -> bool:

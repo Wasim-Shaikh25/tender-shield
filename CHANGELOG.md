@@ -6,7 +6,7 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
-### Done — 2026-07-26 (session 23 continued: TS-048 + TS-049 + TS-052 + TS-054 + TS-055)
+### Done — 2026-07-26 (session 23 continued: TS-048 + TS-049 + TS-052 + TS-054 + TS-055 + TS-056)
 
 - **TS-052** — Tender Timeline:
   - New `timeline` module with `TimelineService` and routes
@@ -39,6 +39,19 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
     (`proceed` / `proceed_with_conditions` / `do_not_proceed`), and conditions.
   - Gated by review: no `proposed` or `needs_clarification` findings allowed.
   - Updated `specs/modules/drafting.md` and `tests/test_drafting.py`.
+
+- **TS-056** — Organization Standards Enforcement:
+  - Extended `standards` with `OrgCommercialStandard` (org-scoped, RLS) for
+    per-org policy thresholds.
+  - New routes:
+    `GET/PUT/DELETE /api/standards/commercial/{key}` and
+    `POST /api/standards/opportunities/{id}/check`.
+  - `check_violations` extracts numbers from accepted findings (percent, days,
+    amount) and returns violations; the endpoint persists `standard_violation`
+    findings through the shared findings store.
+  - `drafting` `bid_decision` consumes `standards.commercial_service_factory`
+    and includes standard violations in score/concerns.
+  - Updated `specs/modules/standards.md` and added `tests/test_standards.py`.
 
 - **TS-054** — Risk Explainability:
   - `Finding` contract and `findings` table now carry an `explanation` JSON field.

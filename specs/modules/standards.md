@@ -1,9 +1,9 @@
 # Standards (org-custom) — Spec
 
-**Status:** implemented
+**Status:** implemented (notice standard + commercial policy thresholds)
 **Requirement refs:** Doc §10 (Phase 2 "custom playbooks"), §0.1, §2 (rule-packs
-as data)
-**Task refs:** TS-047
+as data), Phase 1.5 doc §5
+**Task refs:** TS-047, TS-056
 
 ## Purpose
 
@@ -27,6 +27,12 @@ notice-rule register + gap detection.
     empty default when unset).
   - `PUT /notice` (admin) — set mode + categories (validated, deduped by key).
   - `DELETE /notice` (admin) — clear it.
+  - `GET /commercial` (viewer) — list org commercial-policy thresholds.
+  - `PUT /commercial/{key}` (admin) — set a policy (`operator`, `threshold`,
+    `unit`, `applies_to` keywords, `note`).
+  - `DELETE /commercial/{key}` (admin) — delete a policy.
+  - `POST /opportunities/{id}/check` (estimator) — run policies against the
+    opportunity's accepted findings and persist `standard_violation` findings.
 
 ## Data owned
 
@@ -34,6 +40,9 @@ notice-rule register + gap detection.
   (`prevail` | `side_by_side`), `categories` (JSON list of notice categories:
   `key, label, typical_days, expected, keywords, note`), `updated_by`,
   `updated_at`. `org_id` is unique (one active standard per org).
+- `org_commercial_standards` (org-scoped, RLS): one row per `org_id` + `key` —
+  `label`, `operator` (`gt` | `gte` | `lt` | `lte`), `threshold` (numeric),
+  `unit` (`percent` | `days` | `amount`), `applies_to` (keywords), `note`.
 
 ## Behavior
 
@@ -49,15 +58,28 @@ notice-rule register + gap detection.
   (firm-level configuration).
 - **B4 — Org isolation.** One row per org, filtered by `org_id` (RLS + explicit
   filter), like every module.
+- **B5 — Commercial policy thresholds.** A policy states a numeric `operator`/
+  `threshold`/`unit` (percent, days, amount) and an optional `applies_to`
+  keyword list. `check_violations(org_id, findings)` scans each accepted
+  finding's `source_quote` + `detail` for a number matching the unit and, when
+  `applies_to` is non-empty, only checks findings whose text contains one of
+  the keywords. Matches that breach the threshold are returned as violation
+  dicts.
+- **B6 — Standard violation findings.** `POST
+  /api/standards/opportunities/{id}/check` writes `standard_violation` findings
+  to the shared findings store (producer `standards`) when a policy is breached.
+  These flow into the `bid_decision` artifact once accepted.
 
 ## Acceptance criteria
 
 - A1: `GET` before any set returns `{mode: "prevail", categories: []}`.
 - A2: `PUT` a regime then `GET` reads it back; `DELETE` clears it.
 - A3: bad mode → 400; duplicate keys → 409.
-- A4 (via baseline): an org `expected` regime absent from a contract appears as a
-  gap tagged `origin="org"`; in `side_by_side` the contract's own window still
-  classifies against the rule-pack category.
+- A4: `PUT /commercial/{key}` stores a policy; `GET /commercial` lists it;
+  `DELETE` removes it.
+- A5: `POST /opportunities/{id}/check` returns a violation when an accepted
+  finding breaches a policy and persists a `standard_violation` finding.
+- A6: `bid_decision` includes accepted `standard_violation` findings as concerns.
 
 ## Out of scope
 

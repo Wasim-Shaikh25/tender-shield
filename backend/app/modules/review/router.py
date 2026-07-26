@@ -33,6 +33,7 @@ def queue(
         "findings": [
             {
                 "id": str(r.id),
+                "kind": r.kind,
                 "category": r.category,
                 "severity": r.severity,
                 "title": r.title,

@@ -16,6 +16,7 @@ from app.modules.auth import security as sec
 from app.modules.auth.apple import AppleClient
 from app.modules.auth.models import (
     Invitation,
+    PasswordReset,
     Project,
     ProjectMember,
     RefreshToken,
@@ -484,6 +485,43 @@ class AuthService:
         if not user or not user.mfa_totp_secret:
             raise AuthError("mfa_not_enrolled")
         return mfa.verify(user.mfa_totp_secret, code)
+
+    # ---- password reset ----------------------------------------------------
+
+    def forgot_password(self, email: str) -> dict:
+        email = email.strip().lower()
+        user = self.s.scalar(select(User).where(User.email == email))
+        if not user:
+            return {"ok": True}
+        raw, token_hash = rf.new_refresh()
+        expires_at = datetime.now(UTC) + timedelta(minutes=15)
+        self.s.add(PasswordReset(user_id=user.id, token_hash=token_hash, expires_at=expires_at))
+        self.s.commit()
+        # TODO: wire email delivery; return token for dev/test until delivery exists
+        return {"ok": True, "token": raw}
+
+    def reset_password(self, token: str, new_password: str) -> dict:
+        if len(new_password) < 8:
+            raise AuthError("password_too_short")
+        row = self.s.scalar(
+            select(PasswordReset).where(PasswordReset.token_hash == rf.hash_token(token))
+        )
+        if not row:
+            raise AuthError("invalid_reset_token")
+        if row.used_at:
+            raise AuthError("invalid_reset_token")
+        expires_at = row.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        if expires_at < datetime.now(UTC):
+            raise AuthError("invalid_reset_token")
+        user = self.s.get(User, row.user_id)
+        if not user:
+            raise AuthError("no_such_user")
+        user.password_hash = sec.hash_password(new_password)
+        row.used_at = datetime.now(UTC)
+        self.s.commit()
+        return {"ok": True}
 
     # ---- super-admin -------------------------------------------------------
     def list_users(self) -> list[dict]:

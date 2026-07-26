@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/api";
@@ -66,6 +67,13 @@ export default function LoginPage() {
         >
           {mode === "signup" ? "Already have an account? Sign in" : "New here? Create an account"}
         </button>
+
+        <Link
+          href="/forgot-password"
+          className="mt-2 block w-full text-center text-sm text-slate-500 hover:text-ink"
+        >
+          Forgot your password?
+        </Link>
       </div>
     </div>
   );

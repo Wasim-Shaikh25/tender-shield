@@ -241,3 +241,56 @@ def test_invitation_flow(client):
     )
     assert r.status_code == 200, r.text
     assert any(m["email"] == "invited@example.com" and m["role"] == "reviewer" for m in r.json())
+
+
+def test_forgot_password_and_reset(client):
+    _signup(client, "reset@example.com")
+
+    # unknown email still returns ok to avoid email enumeration
+    r = client.post("/api/auth/forgot-password", json={"email": "missing@example.com"})
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
+    assert "token" not in r.json()
+
+    r = client.post("/api/auth/forgot-password", json={"email": "reset@example.com"})
+    assert r.status_code == 200
+    token = r.json()["token"]
+
+    r = client.post(
+        "/api/auth/reset-password",
+        json={"token": token, "new_password": "newpass123"},
+    )
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
+
+    # old password no longer works
+    assert client.post(
+        "/api/auth/login", json={"email": "reset@example.com", "password": "hunter2hunter2"}
+    ).status_code == 401
+
+    # new password works
+    r = client.post(
+        "/api/auth/login", json={"email": "reset@example.com", "password": "newpass123"}
+    )
+    assert r.status_code == 200
+    assert r.json()["role"] == "owner"
+
+
+def test_reset_password_rejects_expired_or_reused_token(client):
+    _signup(client, "reset2@example.com")
+    r = client.post("/api/auth/forgot-password", json={"email": "reset2@example.com"})
+    token = r.json()["token"]
+
+    # first reset consumes token
+    assert client.post(
+        "/api/auth/reset-password",
+        json={"token": token, "new_password": "newpass123"},
+    ).status_code == 200
+
+    # reuse fails
+    r = client.post(
+        "/api/auth/reset-password",
+        json={"token": token, "new_password": "anotherpass123"},
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"] == "invalid_reset_token"

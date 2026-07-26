@@ -103,3 +103,39 @@ def test_rbac_viewer_cannot_add_member(client):
 def test_capabilities_published(client):
     caps = client.get("/api/health").json()["capabilities"]
     assert {"auth.keys", "auth.authenticate", "auth.check_role"} <= set(caps)
+
+
+def test_apple_callback_not_configured(client):
+    r = client.post("/api/auth/apple/callback", json={"id_token": "x"})
+    assert r.status_code == 503
+    assert r.json()["detail"] == "apple_not_configured"
+
+
+def test_apple_callback_creates_user_and_issues_tokens(client, monkeypatch):
+    from app.modules.auth import apple
+
+    client.app.state.ctx.settings.apple_services_id = "test.app"
+
+    def fake_init(self, settings):
+        self.settings = settings
+
+    def fake_is_configured(self):
+        return True
+
+    def fake_verify_id_token(self, id_token: str):
+        return {
+            "sub": "apple_001",
+            "email": "apple@example.com",
+            "email_verified": True,
+        }
+
+    monkeypatch.setattr(apple.AppleClient, "__init__", fake_init)
+    monkeypatch.setattr(apple.AppleClient, "is_configured", fake_is_configured)
+    monkeypatch.setattr(apple.AppleClient, "verify_id_token", fake_verify_id_token)
+
+    r = client.post(
+        "/api/auth/apple/callback",
+        json={"id_token": "x", "user": '{"name": {"firstName": "Test", "lastName": "User"}}'},
+    )
+    assert r.status_code == 200
+    assert r.json()["role"] == "owner"

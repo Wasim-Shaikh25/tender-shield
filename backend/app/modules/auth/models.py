@@ -35,6 +35,7 @@ class User(Base):
     phone: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     password_hash: Mapped[str | None] = mapped_column(String, nullable=True)
     google_sub: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
+    apple_id: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     mfa_totp_secret: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

@@ -3,6 +3,7 @@ session. This is the only place that touches auth tables."""
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -11,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.auth import refresh as rf
 from app.modules.auth import security as sec
+from app.modules.auth.apple import AppleClient
 from app.modules.auth.models import Org, OrgMember, RefreshToken, User
 from app.modules.auth.rbac import ROLES
 
@@ -23,12 +25,19 @@ class AuthError(Exception):
 
 class AuthService:
     def __init__(
-        self, session: Session, keys: sec.KeyPair, *, access_ttl_min=15, refresh_ttl_days=30
+        self,
+        session: Session,
+        keys: sec.KeyPair,
+        *,
+        access_ttl_min=15,
+        refresh_ttl_days=30,
+        apple_client: AppleClient | None = None,
     ):
         self.s = session
         self.keys = keys
         self.access_ttl = timedelta(minutes=access_ttl_min)
         self.refresh_ttl = timedelta(days=refresh_ttl_days)
+        self._apple = apple_client
 
     # ---- registration -----------------------------------------------------
     def signup(self, email: str, password: str, org_name: str, country: str = "IN") -> dict:
@@ -99,6 +108,68 @@ class AuthService:
         self.s.merge(OrgMember(org_id=org_id, user_id=user.id, role=role))
         self.s.commit()
         return {"org_id": str(org_id), "user_id": str(user.id), "role": role}
+
+    # ---- Sign in with Apple -----------------------------------------------
+    def apple_callback(self, id_token: str | None, code: str | None, user_json: str | None) -> dict:
+        if not self._apple or not self._apple.is_configured():
+            raise AuthError("apple_not_configured")
+
+        if code and not id_token:
+            token_resp = self._apple.exchange_code(code)
+            id_token = token_resp.get("id_token")
+        if not id_token:
+            raise AuthError("apple_token_invalid")
+
+        try:
+            claims = self._apple.verify_id_token(id_token)
+        except Exception as exc:
+            raise AuthError("apple_token_invalid") from exc
+
+        sub = claims.get("sub")
+        email = (claims.get("email") or "").strip().lower()
+        email_verified = claims.get("email_verified") in (True, "true", "1")
+        if not sub:
+            raise AuthError("apple_token_invalid")
+
+        # First look up by Apple subject; otherwise trust verified email.
+        user = self.s.scalar(select(User).where(User.apple_id == sub))
+        if not user and email and email_verified:
+            user = self.s.scalar(select(User).where(User.email == email))
+
+        if not user:
+            if not email:
+                raise AuthError("apple_email_missing")
+            user = User(email=email, email_verified=True, apple_id=sub)
+            org_name = self._apple_org_name(user_json)
+            org = Org(name=org_name, country="IN")
+            self.s.add_all([user, org])
+            self.s.flush()
+            self.s.add(OrgMember(org_id=org.id, user_id=user.id, role="owner"))
+        else:
+            if not user.apple_id:
+                user.apple_id = sub
+            if email and not user.email:
+                user.email = email
+            user.email_verified = True
+
+        self.s.commit()
+        member = self.s.scalar(select(OrgMember).where(OrgMember.user_id == user.id))
+        if not member:
+            raise AuthError("no_org")
+        return self._issue_tokens(user.id, member.org_id, member.role, new_family=True)
+
+    def _apple_org_name(self, user_json: str | None) -> str:
+        if not user_json:
+            return "Apple User"
+        try:
+            data = json.loads(user_json)
+            name = data.get("name", {})
+            first = name.get("firstName", "")
+            last = name.get("lastName", "")
+            full = f"{first} {last}".strip()
+            return full or "Apple User"
+        except json.JSONDecodeError:
+            return "Apple User"
 
     # ---- internals --------------------------------------------------------
     def _issue_tokens(self, user_id, org_id, role, *, new_family=False, family_id=None) -> dict:

@@ -120,9 +120,9 @@ staying inside the tender-review domain. Full requirements and tracker:
 | TS-061 | Spec: `notifications` module (digest sender abstraction, dev console adapter) | spec audit; Doc §11.6, §11.7 | `specs/modules/notifications.md` (new) | done |
 | TS-062 | Publish `analytics.service_factory` and `comparison.service_factory` from their `module.py` files | spec audit | `specs/modules/analytics.md`, `specs/modules/comparison.md` (update) | done |
 | TS-063 | Fix route wording in `specs/modules/timeline.md` and `specs/modules/crossref.md` to match implementation | spec audit | `specs/modules/timeline.md`, `specs/modules/crossref.md` (update) | done |
-| TS-064 | Align `ingestion` public interface with code: publish `ingestion.service_factory` shape, add `doc_chunks` and `doc_text` | spec audit; Doc §3.3, §6.1 | `specs/modules/ingestion.md` (update) | todo |
-| TS-065 | Align `risk` public interface with code: publish `risk.service_factory` / document consumed capabilities | spec audit; Doc §6.3 | `specs/modules/risk.md` (update) | todo |
-| TS-066 | Align `drafting` public interface with code: `drafting.service_factory` vs separate `export` module | spec audit; Doc §6.5 | `specs/modules/drafting.md` (update) | todo |
+| TS-064 | Align `ingestion` public interface with code: publish `ingestion.service_factory` shape, add `doc_chunks` and `doc_text` | spec audit; Doc §3.3, §6.1 | `specs/modules/ingestion.md` (update) | done |
+| TS-065 | Align `risk` public interface with code: publish `risk.service_factory` / document consumed capabilities | spec audit; Doc §6.3 | `specs/modules/risk.md` (update) | done |
+| TS-066 | Align `drafting` public interface with code: `drafting.service_factory` vs separate `export` module | spec audit; Doc §6.5 | `specs/modules/drafting.md` (update) | done |
 | TS-067 | Add tests for `export`, `health`, and `notifications` modules | spec audit | — | todo |
 | TS-068 | Implement `ingestion.doc_chunks` table and `ingestion.doc_text` capability | spec audit; Doc §3.3 | `specs/modules/ingestion.md` (update) | todo |
 | TS-069 | Implement assistant SSE `/chat` and conversation/session persistence | spec audit; Doc §8 | `specs/modules/assistant.md` (update) | todo |

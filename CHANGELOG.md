@@ -6,7 +6,7 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
-### Done — 2026-07-26 (spec audit follow-up: Sprint 0 + Sprint 1)
+### Done — 2026-07-26 (spec audit follow-up: Sprints 0–2)
 
 - **TS-058..TS-070** — Spec-audit follow-up task IDs and `tasks/spec_audit_tracker.md` created.
 - **TS-062** — `analytics` and `comparison` now publish `*.service_factory` capabilities
@@ -20,10 +20,11 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   - `specs/modules/notifications.md` (deadline-digest sender abstraction).
 - **TS-059 (code)** — `export` now publishes `export.service_factory` and the router
   consumes it, matching the pluggable pattern.
+- **TS-064..TS-066** — Aligned `ingestion`, `risk`, and `drafting` public-interface
+  specs with the capabilities and routes actually implemented.
 
 ### Next
 
-- Sprint 2: align public-interface declarations in `ingestion` (TS-064), `risk` (TS-065), and `drafting` (TS-066) specs with the current code.
 - Sprint 3: add tests for `export`, `health`, and `notifications` (TS-067).
 - Sprint 4: implement deeper feature gaps (TS-068..TS-070) or split them into dedicated follow-up tasks after spec review.
 

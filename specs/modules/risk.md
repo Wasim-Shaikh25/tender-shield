@@ -14,13 +14,19 @@ provenance and deterministic severity.
 
 ## Public interface
 
-- **Capabilities published:** `risk.findings` (query findings for an opportunity),
-  `risk.run` (trigger pattern run).
-- **Capabilities consumed (soft):** `rulepacks.loader`, `ingestion.clauses`,
-  `ingestion.doc_text`.
-- **Events emitted:** `finding.created`, `risk.run_completed`.
-- **Events consumed:** `clauses.segmented` (auto-start pattern runs).
-- **API routes:** `/api/opportunities/{id}/findings` (filter by kind/category/severity).
+- **Capabilities published:**
+  - `risk.classifier` → `Classifier` instance (Anthropic when `ANTHROPIC_API_KEY`
+    is set; `NullClassifier` otherwise so absence detection still runs
+    deterministically without an LLM key).
+- **Capabilities consumed (soft):**
+  - `rulepacks.loader` (patterns + playbook defaults).
+  - `ingestion.service_factory` (clauses + opportunity facts).
+  - `findings.store_factory` (persist/overwrite `risk` producer rows).
+- **Events emitted:** none at this phase.
+- **Events consumed:** none at this phase.
+- **API routes** (prefix `/api/risk`):
+  - `POST /opportunities/{id}/run` (estimator) — run all validated risk patterns
+    against the opportunity's clauses and return the generated findings.
 
 ## Data owned
 

@@ -1,0 +1,34 @@
+---
+description: Pluggable module architecture and product invariants
+alwaysApply: true
+---
+
+# Pluggable module architecture (non-negotiable)
+
+The backend is a modular monolith of self-contained, pluggable modules:
+
+- Modules live in `backend/app/modules/<name>/` and expose one entry point: a
+  `module` object (`ModuleSpec`) in `module.py` with `name`, `version`, `router`,
+  optional `soft_deps`, and `setup`/`shutdown` hooks.
+- **A module may import ONLY from `app.core.*` and its own package — never from
+  `app.modules.<other>`.** Cross-module interaction goes through:
+  - `app.core.registry` — capabilities published/consumed by string name, resolved
+    at runtime, absence handled gracefully; or
+  - `app.core.events` — publish/subscribe on named events.
+- `soft_deps` are advisory: a module degrades gracefully (feature off + warning)
+  when a dependency is disabled. Never crash at import or startup.
+- Modules are toggled via config (`TS_ENABLED_MODULES`); the app boots with any subset.
+- Shared contracts (Pydantic models/enums) live in `app/core/contracts/` only.
+- Each module owns its DB tables, migrations, and tests. Reference other modules'
+  data by ID + events, not foreign keys into their tables.
+
+# Product invariants (from docs/TenderShield_Full_Build_Doc.md)
+
+- Numbers never come from the LLM — BOQ math, date math, severity are deterministic code.
+- Every extracted fact carries `source_page` + verbatim `source_quote` and passes
+  quote verification.
+- Artifact validators: no invented quotes, no uncited clauses, no invented numbers.
+- Org isolation (RLS) on every org-scoped table.
+- Billing truth = verified webhooks only; client redirects activate nothing.
+- Tender/OCR text is untrusted input (prompt-injection defense).
+- Money in minor units (paise), never float.

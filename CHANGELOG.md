@@ -6,7 +6,16 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
-### Done — 2026-07-26 (session 23 continued: TS-054 + TS-055)
+### Done — 2026-07-26 (session 23 continued: TS-052 + TS-054 + TS-055)
+
+- **TS-052** — Tender Timeline:
+  - New `timeline` module with `TimelineService` and routes
+    `/api/timeline/opportunities/{id}/timeline` and `.ics` export.
+  - Expanded `ingestion.deadlines` keywords to extract tender publication,
+    technical/financial opening, EMD validity, BG submission, contract signing.
+  - Timeline normalizes raw kinds to a canonical milestone vocabulary, includes a
+    `tender_published` synthetic fallback, and sorts dated events.
+  - `specs/modules/timeline.md` and `tests/test_timeline.py` added.
 
 - **TS-054** — Risk Explainability:
   - `Finding` contract and `findings` table now carry an `explanation` JSON field.
@@ -29,7 +38,7 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Migration `0012_review_explain.py` adds `review_reason` and `explanation`
   columns to `findings`; Alembic up/down verified.
 - `specs/modules/risk.md` and `specs/modules/review.md` updated in the same change.
-- `tasks/backlog.md` / `tasks/phase15_tracker.md`: TS-054, TS-055 marked `done`.
+- `tasks/backlog.md` / `tasks/phase15_tracker.md`: TS-052, TS-054, TS-055 marked `done`.
 
 ### Done — 2026-07-26 (session 23: Phase 1.5 bid-decision extensions planning)
 

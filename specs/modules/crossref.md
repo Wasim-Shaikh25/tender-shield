@@ -50,7 +50,7 @@ None. Reads documents and clauses through `ingestion`.
 
 - A1: `GET /opportunities/{id}?q=payment` returns clauses containing "payment"
   ranked above unrelated clauses.
-- A2: Uploading a second version of a document and calling `POST /diff` reports
+- A2: Uploading a second version of a document and calling `POST /api/crossref/opportunities/{id}/diff` reports
   the added/removed/changed clauses.
 - A3: Passing `document_id` of a document with `supersedes` set compares that
   specific pair.

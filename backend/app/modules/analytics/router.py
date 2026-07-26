@@ -11,6 +11,9 @@ router = APIRouter()
 
 def _service(request: Request, session: Session) -> AnalyticsService:
     reg = request.app.state.ctx.registry
+    factory = reg.get("analytics.service_factory")
+    if factory:
+        return factory(session)
     return AnalyticsService(
         session,
         findings_factory=reg.get("findings.store_factory"),

@@ -45,6 +45,15 @@ class Settings(BaseSettings):
     # (password reset, invitations).
     app_url: str = "http://localhost:3000"
 
+    # Comma-separated peer IPs allowed to set X-Forwarded-For for rate-limit
+    # client identity (R-002 §C). Empty = trust the immediate peer's IP as-is;
+    # do NOT set this to "*" or a real client's own address, or a client can
+    # spoof a fresh identity on every request and bypass rate limiting.
+    trusted_proxies: str = ""
+
+    def trusted_proxies_list(self) -> list[str]:
+        return [p.strip() for p in self.trusted_proxies.split(",") if p.strip()]
+
     # Billing (Doc §7, §15). Webhook secret verifies the only billing truth.
     razorpay_webhook_secret: str = "dev-razorpay-secret"
 

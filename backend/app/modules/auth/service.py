@@ -112,15 +112,38 @@ class AuthService:
         return {"user_id": str(user.id), "workspace_id": str(workspace.id)}
 
     # ---- login ------------------------------------------------------------
+    _LOCKOUT_THRESHOLD = 10
+    _LOCKOUT_MAX_MINUTES = 60
+
     def login(self, email: str, password: str) -> dict:
         email = email.strip().lower()
         user = self.s.scalar(select(User).where(User.email == email))
+        now = datetime.now(UTC)
+        if user and user.locked_until:
+            locked_until = user.locked_until
+            if locked_until.tzinfo is None:
+                locked_until = locked_until.replace(tzinfo=UTC)
+            if locked_until > now:
+                raise AuthError("account_locked")
         if (
             not user
             or not user.password_hash
             or not sec.verify_password(password, user.password_hash)
         ):
+            if user:
+                # Capped, time-boxed backoff (R-002 §C.3) — never permanent,
+                # which would hand the attacker a denial-of-service for free.
+                user.failed_logins += 1
+                if user.failed_logins >= self._LOCKOUT_THRESHOLD:
+                    over = user.failed_logins - self._LOCKOUT_THRESHOLD
+                    minutes = min(2**over, self._LOCKOUT_MAX_MINUTES)
+                    user.locked_until = now + timedelta(minutes=minutes)
+                self.s.commit()
             raise AuthError("invalid_credentials")
+        if user.failed_logins or user.locked_until:
+            user.failed_logins = 0
+            user.locked_until = None
+            self.s.commit()
         # login is unauthenticated — no prior authenticate() call bound this
         # session to anything, so workspace_members' compound RLS policy
         # (R-001 §B.7) would hide the user's OWN membership row without this:

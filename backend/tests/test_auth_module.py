@@ -433,3 +433,77 @@ def test_last_owner_cannot_be_demoted(client):
     )
     assert r.status_code == 400
     assert r.json()["detail"] == "last_owner"
+
+
+# ---- R-002 §C: rate limiting + per-account lockout (TS-094) ---------------
+
+
+def test_login_rate_limited_per_ip(client):
+    # Different accounts each attempt, so this exercises the IP-wide limiter
+    # rather than the per-account lockout (LOGIN_LIMIT=20 > lockout threshold
+    # of 10, specifically so the two don't collide within one test client).
+    for i in range(20):
+        _signup(client, f"rl{i}@example.com")
+        r = client.post(
+            "/api/auth/login", json={"email": f"rl{i}@example.com", "password": "wrong"}
+        )
+        assert r.status_code == 401
+    r = client.post(
+        "/api/auth/login", json={"email": "rl0@example.com", "password": "wrong"}
+    )
+    assert r.status_code == 429
+    assert "Retry-After" in r.headers
+
+
+def test_signup_rate_limited(client):
+    for i in range(20):
+        client.post(
+            "/api/auth/signup",
+            json={"email": f"spam{i}@example.com", "password": "hunter2hunter2"},
+        )
+    r = client.post(
+        "/api/auth/signup",
+        json={"email": "onemore@example.com", "password": "hunter2hunter2"},
+    )
+    assert r.status_code == 429
+
+
+def test_account_locks_after_repeated_failures():
+    # Fresh, unshared limiter: this test alone makes 11 login calls against
+    # one account plus a successful one, comfortably under the 10/5min IP
+    # limit only if isolated from other tests' login traffic.
+    c = _make_client(dev_echo_tokens=True)
+    c.post(
+        "/api/auth/signup",
+        json={"email": "lockout@example.com", "password": "correct-horse-battery"},
+    )
+    for _ in range(10):
+        r = c.post(
+            "/api/auth/login",
+            json={"email": "lockout@example.com", "password": "wrong"},
+        )
+        assert r.status_code == 401
+
+    # 10 failures reached the lockout threshold — even the correct password
+    # is now rejected until the backoff window elapses.
+    r = c.post(
+        "/api/auth/login",
+        json={"email": "lockout@example.com", "password": "correct-horse-battery"},
+    )
+    assert r.status_code == 423
+    assert r.json()["detail"] == "account_locked"
+
+
+def test_successful_login_resets_failed_counter(client):
+    _signup(client, "resetcounter@example.com")
+    for _ in range(3):
+        r = client.post(
+            "/api/auth/login",
+            json={"email": "resetcounter@example.com", "password": "wrong"},
+        )
+        assert r.status_code == 401
+    r = client.post(
+        "/api/auth/login",
+        json={"email": "resetcounter@example.com", "password": "hunter2hunter2"},
+    )
+    assert r.status_code == 200

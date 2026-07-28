@@ -61,8 +61,17 @@ endpoints under `/api/auth/admin/*`.
   go through) binds `app.workspace_id` to the new workspace's own
   pre-generated id before inserting it, because there is no workspace to bind
   to until that insert creates one.
-- **B6:** rate limits — 5 failed logins/15 min → captcha; OTP 3 sends/10 min,
-  5 verify attempts; OTP hash-stored, 5-min TTL.
+- **B6 (rate limiting + lockout, R-002 §C, TS-094):** `/signup` (20/hour),
+  `/login` (20/5min), `/forgot-password` (3/hour), `/reset-password` (10/hour)
+  and `/mfa/verify` (5/5min) are rate-limited per client IP via
+  `app.core.ratelimit` (`429 rate_limited`, `Retry-After` header); best-effort
+  and never blocks the app when the capability is absent. Independently,
+  `login` applies a capped, time-boxed per-account lockout: 10 failed
+  attempts locks the account (`423 account_locked`) for an exponentially
+  increasing backoff, capped at 60 minutes — never permanent, which would
+  hand the attacker a free denial-of-service. A successful login clears both
+  the failure counter and any lock. OTP send/verify rate limits are deferred
+  with phone OTP itself (TS-036).
 - **B7:** Google OIDC verifies `iss/aud/email_verified`; links verified emails only.
   Apple OIDC verifies `id_token`, generates client secret from `TS_APPLE_*` keys.
 - **B8:** MFA optional: `totp`, `email`, or `sms`; a single TOTP secret is stored on
@@ -121,6 +130,11 @@ endpoints under `/api/auth/admin/*`.
 - A9: demoting the sole owner of a workspace returns `400 last_owner`.
 - A10: a refresh token minted before a password reset returns
   `401 invalid_refresh` afterward.
+- A11: exceeding a rate-limited endpoint's limit returns `429 rate_limited`
+  with a `Retry-After` header.
+- A12: 10 failed logins against one account locks it (`423 account_locked`),
+  even with the correct password, until the backoff window elapses.
+- A13: a successful login clears the failed-attempt counter and any lock.
 
 ## Out of scope
 

@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.deps import current_principal, get_session, require
+from app.core.ratelimit import Limit, rate_limit
 from app.modules.auth.apple import AppleClient
 from app.modules.auth.deps import (
     require_project_member,
@@ -17,6 +18,19 @@ from app.modules.auth.rbac import Principal
 from app.modules.auth.service import AuthError, AuthService
 
 router = APIRouter()
+
+# R-002 §C — per-IP fixed-window limits on unauthenticated auth endpoints.
+# Argon2id makes /login a CPU-exhaustion vector too: each guess costs the
+# server far more than the attacker, so this also caps abuse cost, not just
+# guess rate. LOGIN_LIMIT is deliberately looser than the per-account lockout
+# threshold (10 failures, AuthService._LOCKOUT_THRESHOLD) — lockout is the
+# precise defense against a single-account brute force; this IP limit's job
+# is blunting a spray attack across many different accounts from one IP.
+LOGIN_LIMIT = Limit(times=20, seconds=300)
+SIGNUP_LIMIT = Limit(times=20, seconds=3600)
+RESET_REQUEST_LIMIT = Limit(times=3, seconds=3600)
+RESET_CONFIRM_LIMIT = Limit(times=10, seconds=3600)
+MFA_VERIFY_LIMIT = Limit(times=5, seconds=300)
 
 
 def _project_workspace(session: Session, project_id: str) -> str:
@@ -118,6 +132,7 @@ class SetSuperadminBody(BaseModel):
 _STATUS = {
     "email_taken": 409,
     "invalid_credentials": 401,
+    "account_locked": 423,
     "invalid_refresh": 401,
     "reuse_detected": 401,
     "no_workspace": 401,
@@ -146,7 +161,7 @@ def _handle(fn):
         raise HTTPException(_STATUS.get(exc.code, 400), exc.code) from exc
 
 
-@router.post("/signup")
+@router.post("/signup", dependencies=[Depends(rate_limit("auth:signup", SIGNUP_LIMIT))])
 def signup(body: SignupBody, request: Request, session: Session = Depends(get_session)):
     return _handle(
         lambda: _service(request, session).signup(
@@ -155,7 +170,7 @@ def signup(body: SignupBody, request: Request, session: Session = Depends(get_se
     )
 
 
-@router.post("/login")
+@router.post("/login", dependencies=[Depends(rate_limit("auth:login", LOGIN_LIMIT))])
 def login(body: LoginBody, request: Request, session: Session = Depends(get_session)):
     return _handle(lambda: _service(request, session).login(body.email, body.password))
 
@@ -181,7 +196,10 @@ def me(principal: Principal = Depends(current_principal)):
     }
 
 
-@router.post("/forgot-password")
+@router.post(
+    "/forgot-password",
+    dependencies=[Depends(rate_limit("auth:reset-request", RESET_REQUEST_LIMIT))],
+)
 def forgot_password(
     body: ForgotPasswordBody,
     request: Request,
@@ -190,7 +208,10 @@ def forgot_password(
     return _handle(lambda: _service(request, session).forgot_password(body.email))
 
 
-@router.post("/reset-password")
+@router.post(
+    "/reset-password",
+    dependencies=[Depends(rate_limit("auth:reset-confirm", RESET_CONFIRM_LIMIT))],
+)
 def reset_password(
     body: ResetPasswordBody,
     request: Request,
@@ -348,7 +369,7 @@ def mfa_enroll(
     )
 
 
-@router.post("/mfa/verify")
+@router.post("/mfa/verify", dependencies=[Depends(rate_limit("auth:mfa-verify", MFA_VERIFY_LIMIT))])
 def mfa_verify(
     body: MfaVerifyBody,
     request: Request,

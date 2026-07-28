@@ -37,8 +37,18 @@ work that removes three cross-tenant leaks and an account-takeover path.
 | TS-085 | Gate the dev token echo (`forgot_password`, `create_invitation`) behind a dev-only setting; production startup refuses it | P0 | [R-002 §A](../specs/requirements/R-002-auth-hardening.md) | `auth`, `core` | **done** | A1–A3 in R-002 |
 | TS-086 | RLS hardening: `FORCE`, `WITH CHECK`, missing tables, post-commit rebinding, Postgres CI job | P0 | [R-001 §B](../specs/requirements/R-001-tenant-isolation.md) | `core`, migrations, CI | **done**² | A4–A6, A8 in R-001 |
 | TS-093 | Revoke all refresh-token families on password reset | P1 | [R-002 §B](../specs/requirements/R-002-auth-hardening.md) | `auth` | **done**¹ | A4 in R-002 |
-| TS-094 | Rate limiting on auth endpoints + capped per-account lockout | P1 | [R-002 §C](../specs/requirements/R-002-auth-hardening.md) | `core`, `auth` | todo | A5, A6 in R-002 |
+| TS-094 | Rate limiting on auth endpoints + capped per-account lockout | P1 | [R-002 §C](../specs/requirements/R-002-auth-hardening.md) | `core`, `auth` | **done**³ | A5, A6 in R-002 |
 | TS-095 | Stream uploads; enforce size cap before buffering; type allowlist; ZIP guards; storage quota | P1 | [R-003](../specs/requirements/R-003-upload-safety.md) | `ingestion` | todo | A1–A6 in R-003 |
+
+³ Shipped with wider limits than the R-002 §C draft (`/login` 20/5min not
+10/5min): the draft's 10/5min IP limit collides with the 10-failure per-account
+lockout threshold within a single test client, so both would never be
+independently observable in the same test run against one IP. The per-account
+lockout is the precise defense against a single-account brute force; the IP
+limit's job is blunting a spray attack across many accounts from one IP, which
+a 20/5min ceiling still does. `core.ratelimiter` is in-memory (correct for a
+single-process deployment) and best-effort — its absence never blocks a
+request, matching spec core B2 (the app must boot with any module subset).
 
 ¹ TS-093 ships the revoke-on-reset behavior (R-002 §B.2, acceptance A4). The
 session-list/logout-all endpoints (R-002 §B.3 — `GET /auth/sessions`,
@@ -60,7 +70,7 @@ isolation guarantee is actually exercised; wired into CI as the
 `backend-postgres` job.
 
 **Gate 1 exit:** all six done; the Postgres CI job is green; a cross-tenant read
-attempt is covered by an automated test. Remaining: TS-094, TS-095.
+attempt is covered by an automated test. Remaining: TS-095.
 
 ---
 
@@ -166,8 +176,8 @@ measured from production data.
 
 | Gate | Done | Total |
 |---|---|---|
-| 1 | 4 | 6 |
+| 1 | 5 | 6 |
 | 2 | 0 | 8 |
 | 3 | 0 | 7 |
 | 4 | 0 | 5 |
-| **Total** | **4** | **26** |
+| **Total** | **5** | **26** |

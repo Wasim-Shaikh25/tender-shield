@@ -8,7 +8,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Uuid, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base, WorkspaceScopedMixin
@@ -29,6 +29,11 @@ class User(Base):
     mfa_method: Mapped[str] = mapped_column(String, nullable=False, default="totp")
     mfa_phone: Mapped[str | None] = mapped_column(String, nullable=True)
     mfa_totp_secret: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Per-account lockout (R-002 §C.3, TS-094): capped, time-boxed backoff on
+    # repeated failed logins. Never permanent — permanent lockout turns a
+    # guessing attack into a denial-of-service handed to the attacker.
+    failed_logins: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

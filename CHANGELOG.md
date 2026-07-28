@@ -6,9 +6,9 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
-### Done — 2026-07-28 (Gate 1 security fixes: TS-084, TS-085, TS-086, TS-093)
+### Done — 2026-07-28 (Gate 1 security fixes: TS-084, TS-085, TS-086, TS-093, TS-094)
 
-Implementation of the first four Gate 1 tasks from `tasks/gap_remediation_tracker.md`,
+Implementation of five of Gate 1's six tasks from `tasks/gap_remediation_tracker.md`,
 validated against **real PostgreSQL** (not just SQLite) — a local Postgres 16
 server was provisioned specifically to exercise the RLS isolation guarantee,
 which had never been tested against a real database before this session.
@@ -77,14 +77,30 @@ which had never been tested against a real database before this session.
     the test file doesn't import models for).
 - Updated `specs/modules/auth.md` (B5, new B12–B15) and `specs/data-model.md`
   (B1, foundation section, acceptance criteria) to match.
-- 152 SQLite tests + 9 Postgres tests pass; `ruff check` clean; `alembic
+- **TS-094** — Rate limiting + per-account lockout. New `app/core/ratelimit.py`
+  (`InMemoryLimiter`, `rate_limit(bucket, limit)` FastAPI dependency; correct
+  for a single-process deployment, best-effort — its absence never blocks a
+  request). Applied to `/signup` (20/hour), `/login` (20/5min),
+  `/forgot-password` (3/hour), `/reset-password` (10/hour), `/mfa/verify`
+  (5/5min); exceeding a limit returns `429 rate_limited` with `Retry-After`.
+  Independently, `login` now applies a capped, exponential-backoff per-account
+  lockout: 10 failed attempts locks the account (`423 account_locked`) for up
+  to 60 minutes — never permanent, which would hand the attacker a free
+  denial-of-service. New `failed_logins`/`locked_until` columns on `users`
+  (migration `2cf9d68a748b`). Shipped the IP limit looser than the R-002 §C
+  draft (20/5min, not 10/5min) — the draft's number collides with the
+  lockout threshold within one test client, so the two defenses could never
+  be independently observed in the same test run; the lockout is the precise
+  defense against a single-account attack, the IP limit blunts a spray
+  attack across many accounts and 20/5min still does that.
+- 156 SQLite tests + 9 Postgres tests pass; `ruff check` clean; `alembic
   upgrade head`/`downgrade base` clean on both SQLite and Postgres.
 
 ### Next
 
-- **TS-094, TS-095** — the two remaining Gate 1 tasks: rate limiting/lockout on
-  auth endpoints, and streaming uploads with a real size cap (currently
-  buffered fully in memory before the check).
+- **TS-095** — the last Gate 1 task: stream uploads with a real size cap
+  (currently buffered fully in memory before the check), a type allowlist and
+  ZIP-bomb/path-traversal guards.
 - **Gate 2, starting with TS-087/TS-088** — enforce metering in the review
   path and apply the free-tier watermark; nothing else in billing has value
   until those two ship.

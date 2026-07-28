@@ -13,6 +13,7 @@ from app.core.db import install_rls_rebinding, make_engine, make_session_factory
 from app.core.events import EventBus
 from app.core.loader import LoadReport, load_modules
 from app.core.module import AppContext
+from app.core.ratelimit import InMemoryLimiter
 from app.core.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
     ctx = AppContext(settings=settings, registry=ServiceRegistry(), events=EventBus())
+    ctx.registry.provide("core.ratelimiter", InMemoryLimiter())  # R-002 §C
 
     # Shared DB: published as a capability so modules consume the session factory
     # via the registry rather than importing it (keeps them pluggable).

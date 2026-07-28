@@ -286,7 +286,16 @@ def test_paygo_payment_creates_invoice_and_list_returns_it(client):
     assert len(invoices) == 1
     assert invoices[0]["amount_minor"] == 750_000
     assert invoices[0]["status"] == "paid"
-    assert invoices[0]["invoice_number"].startswith("INV-")
+    assert invoices[0]["invoice_number"].startswith("TS/")
+    assert invoices[0]["igst_minor"] > 0 or invoices[0]["cgst_minor"] > 0
+    assert (
+        invoices[0]["base_minor"]
+        + invoices[0]["cgst_minor"]
+        + invoices[0]["sgst_minor"]
+        + invoices[0]["igst_minor"]
+        + invoices[0]["round_off_minor"]
+        == invoices[0]["amount_minor"]
+    )
 
 
 def test_subscription_halted_sets_grace_not_immediate_downgrade(client):

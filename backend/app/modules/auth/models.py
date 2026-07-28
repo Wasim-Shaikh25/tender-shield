@@ -8,7 +8,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Uuid, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base, WorkspaceScopedMixin
@@ -80,6 +80,13 @@ class Workspace(Base):
         DateTime(timezone=True), nullable=True
     )
     provider_subscription_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    # GST invoicing buyer identity (Doc §15.8, R-007 §B.1) — snapshotted onto
+    # each Invoice at issuance rather than joined at render time, so a later
+    # change here never rewrites an already-issued statutory record.
+    legal_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    gstin: Mapped[str | None] = mapped_column(String, nullable=True)
+    billing_address: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    place_of_supply: Mapped[str | None] = mapped_column(String, nullable=True)  # state code
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

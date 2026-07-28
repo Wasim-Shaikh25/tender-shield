@@ -62,6 +62,15 @@ class Settings(BaseSettings):
     razorpay_key_id: str = ""
     razorpay_key_secret: str = ""
 
+    # GST invoicing (Doc §15.8, R-007). Seller identity is configuration, not
+    # code — verify these with the company's CA before the first live invoice
+    # (same posture as the SAC-rate assumption in billing/gst.py).
+    seller_legal_name: str = "TenderShield Technologies Private Limited"
+    seller_gstin: str = ""  # e.g. 27AAAAA0000A1Z5
+    seller_state_code: str = "27"  # first 2 digits of seller_gstin
+    seller_address: str = ""
+    invoice_series_prefix: str = "TS"
+
     # Sign in with Apple (Doc §5). PEM private key may contain escaped newlines.
     apple_team_id: str = ""
     apple_services_id: str = ""

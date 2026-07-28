@@ -13,14 +13,22 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.db import bind_workspace_context
+from app.modules.billing.gst import (
+    compute_invoice_from_inclusive_total,
+    financial_year,
+    invoice_number,
+    validate_gstin,
+)
 from app.modules.billing.models import (
     UNATTRIBUTED_WORKSPACE,
     Invoice,
+    InvoiceSequence,
     PaymentIntent,
     PaymentLog,
     UsageEvent,
     WebhookEvent,
 )
+from app.modules.billing.pdf import render_invoice_pdf
 from app.modules.billing.plans import (
     CURRENCY_BY_COUNTRY,
     PAYGO_PRICE_INR_PAISE,
@@ -33,7 +41,9 @@ from app.modules.billing.providers.base import OrderRequest
 
 
 class BillingService:
-    def __init__(self, session: Session, *, workspace_factory=None, provider_factory=None):
+    def __init__(
+        self, session: Session, *, workspace_factory=None, provider_factory=None, settings=None
+    ):
         self.s = session
         self._workspace_factory = workspace_factory
         # Callable[[country: str], PaymentProvider | None] — resolved lazily
@@ -41,6 +51,8 @@ class BillingService:
         # picks Razorpay vs Stripe, R-005 §A) until it has already looked the
         # workspace up. Defaults to "no provider configured" everywhere.
         self._provider_factory = provider_factory or (lambda country: None)
+        # Seller GST identity (R-007 §B.1) — configuration, not code.
+        self._settings = settings
 
     def _workspaces(self):
         if self._workspace_factory is None:
@@ -192,6 +204,31 @@ class BillingService:
             "reviews_this_month": self._month_reviews(workspace_id),
         }
 
+    def set_billing_details(
+        self,
+        workspace_id,
+        *,
+        legal_name: str | None,
+        gstin: str | None,
+        billing_address: dict,
+        place_of_supply: str | None,
+    ) -> None:
+        """GSTIN format/checksum validation happens HERE, before delegating
+        to `auth.workspace_factory` — `auth` cannot import billing's `gst.py`
+        (CLAUDE.md §2), so the write-side capability trusts its caller the
+        same way `set_plan`'s caller is trusted (R-007 §A10: an invalid
+        GSTIN is rejected at save time, never persisted then discovered wrong
+        at invoice issuance)."""
+        if gstin and not validate_gstin(gstin):
+            raise PaywallError("invalid_gstin")
+        self._workspaces().set_billing_details(
+            workspace_id,
+            legal_name=legal_name,
+            gstin=gstin,
+            billing_address=billing_address,
+            place_of_supply=place_of_supply,
+        )
+
     # ---- checkout: real orders, server-side price/plan binding (R-005 §B) -
 
     def create_checkout(
@@ -212,11 +249,23 @@ class BillingService:
 
         currency = CURRENCY_BY_COUNTRY.get(workspace.country, "INR")
         list_amount = price_for(plan, currency)  # raises PaywallError("unknown_plan")
-        # Coupons (R-006) and GST (R-007) are not wired to checkout yet —
-        # discount/tax are computed but always zero until those tasks land.
+        # Coupons (R-006) are not wired to checkout yet — discount is always
+        # zero until that task lands.
         discount_minor = 0
+        amount_minor = list_amount - discount_minor
+        # PRICES_MINOR is GST-inclusive (R-007) — tax_minor is the informational
+        # breakdown of how much of `amount_minor` is tax, not an addend; the
+        # SAME split is used again at invoice issuance (`issue_invoice`) against
+        # this exact `amount_minor`, so the two can never diverge.
         tax_minor = 0
-        amount_minor = list_amount - discount_minor + tax_minor
+        if self._settings is not None:
+            gst_preview = compute_invoice_from_inclusive_total(
+                number="",
+                total_minor=amount_minor,
+                buyer_gstin=workspace.gstin,
+                seller_state_code=self._settings.seller_state_code,
+            )
+            tax_minor = amount_minor - gst_preview.base_minor
 
         idempotency_key = _checkout_idempotency_key(workspace_id, kind, plan, opportunity_id)
         existing = self.s.scalar(
@@ -283,34 +332,165 @@ class BillingService:
             )
         )
 
-    def create_invoice(
-        self,
-        workspace_id,
-        *,
-        amount_minor: int,
-        currency: str = "INR",
-        provider: str = "manual",
-        provider_invoice_id: str | None = None,
-        raw: dict | None = None,
-        status: str = "pending",
-    ) -> Invoice:
+    def get_invoice_pdf(self, workspace_id, invoice_id: int) -> bytes | None:
+        """Rendered on demand (see pdf.py's module docstring for why nothing
+        is pre-rendered/stored). `Invoice` carries RLS like every other
+        workspace-scoped table, but the explicit `workspace_id` filter here
+        matches this service's existing double-check convention (e.g.
+        `list_invoices`) rather than relying on RLS alone (R-007 §A9)."""
+        settings = self._seller_settings()
+        inv = self.s.scalar(
+            select(Invoice).where(
+                Invoice.id == invoice_id, Invoice.workspace_id == uuid.UUID(str(workspace_id))
+            )
+        )
+        if inv is None:
+            return None
+        return render_invoice_pdf(
+            inv,
+            seller_legal_name=settings.seller_legal_name,
+            seller_address=settings.seller_address,
+        )
+
+    def _next_seq(self, fy: str) -> int:
+        """Serializes issuance per FY so the sequence advances in the SAME
+        transaction as the invoice insert (R-007 §B.3) — a Postgres SEQUENCE
+        would leak numbers on a rolled-back transaction, which GST's
+        gap-free requirement does not tolerate. A deliberate bottleneck:
+        invoice issuance is low-volume and correctness beats throughput here.
+
+        An `pg_advisory_xact_lock` keyed on the FY comes FIRST because
+        `SELECT ... FOR UPDATE` alone cannot lock a row that doesn't exist
+        yet — the very first invoice of a new financial year has no
+        `InvoiceSequence` row to lock, so two concurrent first-issuances
+        would both try to INSERT it and one loses to a unique-constraint
+        violation (caught by
+        test_concurrent_invoice_issuance_produces_no_duplicate_sequence_numbers
+        against real Postgres). The advisory lock closes that gap the same
+        way `_lock` closes it for the free-review race.
+        """
+        if self.s.get_bind().dialect.name == "postgresql":
+            key = (
+                int.from_bytes(hashlib.sha256(f"invoice_seq:{fy}".encode()).digest()[:8], "big")
+                & 0x7FFFFFFFFFFFFFFF
+            )
+            self.s.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": key})
+        row = self.s.execute(
+            select(InvoiceSequence).where(InvoiceSequence.fy == fy).with_for_update()
+        ).scalar_one_or_none()
+        if row is None:
+            row = InvoiceSequence(fy=fy, last_seq=0)
+            self.s.add(row)
+            self.s.flush()
+        row.last_seq += 1
+        return row.last_seq
+
+    def _seller_settings(self):
+        if self._settings is None:
+            raise PaywallError("billing_settings_unavailable")
+        return self._settings
+
+    def issue_invoice(self, intent: PaymentIntent, event) -> Invoice:
+        """Issue a GST invoice on payment success (R-007 §B.4). Tax is
+        computed on `intent.amount_minor` — the amount actually charged,
+        already GST-inclusive (R-005/R-007: catalog prices include tax, no
+        "+ GST" surprise at checkout) — via the SAME
+        `compute_invoice_from_inclusive_total` split that produced
+        `intent.tax_minor` at checkout, so the invoice's tax lines and the
+        charged amount can never diverge (R-007 §B.6's reconciliation check
+        is true by construction rather than something to verify after the
+        fact).
+        """
+        settings = self._seller_settings()
+        workspace = self._workspaces().get(intent.workspace_id)
+        now = datetime.now(UTC)
+        fy = financial_year(now)
+        seq = self._next_seq(fy)
+        gst = compute_invoice_from_inclusive_total(
+            number=invoice_number(seq, prefix=settings.invoice_series_prefix, fy=fy),
+            total_minor=intent.amount_minor,
+            buyer_gstin=workspace.gstin if workspace else None,
+            seller_state_code=settings.seller_state_code,
+        )
+        lines = {line.name: line.amount_minor for line in gst.lines}
         inv = Invoice(
-            workspace_id=uuid.UUID(str(workspace_id)),
-            invoice_number=uuid.uuid4().hex,  # temporary; replaced with INV- id after flush
-            amount_minor=amount_minor,
-            currency=currency,
-            provider=provider,
-            provider_invoice_id=provider_invoice_id,
-            raw=raw or {},
-            status=status,
+            workspace_id=intent.workspace_id,
+            invoice_number=gst.number,
+            fy=fy,
+            seq=seq,
+            base_minor=gst.base_minor,
+            cgst_minor=lines.get("CGST", 0),
+            sgst_minor=lines.get("SGST", 0),
+            igst_minor=lines.get("IGST", 0),
+            round_off_minor=gst.round_off_minor,
+            total_minor=gst.total_minor,
+            currency=intent.currency,
+            sac_code=gst.sac,
+            seller_gstin=settings.seller_gstin or None,
+            buyer_gstin=workspace.gstin if workspace else None,
+            buyer_legal_name=(workspace.legal_name or workspace.name) if workspace else None,
+            place_of_supply=(
+                workspace.place_of_supply or (workspace.gstin[:2] if workspace.gstin else None)
+            )
+            if workspace
+            else None,
+            payment_intent_id=intent.id,
+            provider=event.provider,
+            provider_invoice_id=event.event_id,
+            status="paid",
+            paid_at=now,
         )
         self.s.add(inv)
-        self.s.flush()  # obtain id
-        inv.invoice_number = f"INV-{inv.id:06d}"
-        if status == "paid":
-            inv.paid_at = datetime.now(UTC)
-        self.s.commit()
+        self.s.flush()
         return inv
+
+    def issue_credit_note(self, original: Invoice, *, refund_minor: int, event) -> Invoice:
+        """A refund needs a credit note referencing the original invoice, in
+        the SAME series (R-007 §B.7) — never a deletion or edit of the paid
+        invoice, which is a statutory record. Tax is apportioned at the same
+        rate the original invoice charged (a partial refund produces a
+        partial credit note, not a full reversal)."""
+        settings = self._seller_settings()
+        now = datetime.now(UTC)
+        fy = financial_year(now)
+        seq = self._next_seq(fy)
+        # Apportion every line at the original invoice's own rate — refund_minor
+        # is itself GST-inclusive, exactly like the original charge.
+        gst = compute_invoice_from_inclusive_total(
+            number=invoice_number(seq, prefix=settings.invoice_series_prefix, fy=fy),
+            total_minor=refund_minor,
+            buyer_gstin=original.buyer_gstin,
+            seller_state_code=settings.seller_state_code,
+        )
+        lines = {line.name: line.amount_minor for line in gst.lines}
+        note = Invoice(
+            workspace_id=original.workspace_id,
+            invoice_number=gst.number,
+            fy=fy,
+            seq=seq,
+            doc_type="credit_note",
+            original_invoice_id=original.id,
+            base_minor=gst.base_minor,
+            cgst_minor=lines.get("CGST", 0),
+            sgst_minor=lines.get("SGST", 0),
+            igst_minor=lines.get("IGST", 0),
+            round_off_minor=gst.round_off_minor,
+            total_minor=gst.total_minor,
+            currency=original.currency,
+            sac_code=original.sac_code,
+            seller_gstin=original.seller_gstin,
+            buyer_gstin=original.buyer_gstin,
+            buyer_legal_name=original.buyer_legal_name,
+            place_of_supply=original.place_of_supply,
+            payment_intent_id=original.payment_intent_id,
+            provider=event.provider,
+            provider_invoice_id=event.event_id,
+            status="issued",
+            paid_at=None,
+        )
+        self.s.add(note)
+        self.s.flush()
+        return note
 
     # ---- webhook: the only billing truth (Doc §15.5, R-005 §C) ------------
     def process_webhook(self, raw_body: bytes, signature: str) -> dict:
@@ -424,15 +604,7 @@ class BillingService:
             )
         else:
             self.record_usage(intent.workspace_id, "review_paid", ref_id=intent.opportunity_id)
-        self.create_invoice(
-            intent.workspace_id,
-            amount_minor=intent.amount_minor,
-            currency=intent.currency,
-            provider=event.provider,
-            provider_invoice_id=event.event_id,
-            raw=event.raw,
-            status="paid",
-        )
+        self.issue_invoice(intent, event)
 
     def _on_payment_failed(self, intent: PaymentIntent, event) -> None:
         intent.status = "failed"
@@ -462,7 +634,16 @@ class BillingService:
             self._workspaces().set_plan_status(intent.workspace_id, "cancelled", grace_until=None)
         else:
             self.record_usage(intent.workspace_id, "review_refunded", ref_id=intent.opportunity_id)
-        # GST credit note issuance is R-007/TS-096 — not wired here yet.
+        original = self.s.scalar(
+            select(Invoice)
+            .where(Invoice.payment_intent_id == intent.id, Invoice.doc_type == "invoice")
+            .order_by(Invoice.id.desc())
+        )
+        if original is not None:
+            refund_minor = (
+                event.amount_minor if event.amount_minor is not None else intent.amount_minor
+            )
+            self.issue_credit_note(original, refund_minor=refund_minor, event=event)
 
     def _log(
         self,

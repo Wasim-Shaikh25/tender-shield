@@ -6,6 +6,91 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-28 (GST invoicing wired end to end: TS-096)
+
+`gst.py`'s tax-correct computation existed but was completely dead code —
+real invoices went through `create_invoice`, an untaxed placeholder
+(`INV-000042`, no tax columns at all). This wires it in.
+
+- **Tax-correct invoices.** `Invoice` gains `base_minor`/`cgst_minor`/
+  `sgst_minor`/`igst_minor`/`round_off_minor`/`total_minor` (replacing the
+  untaxed `amount_minor`), plus `fy`/`seq`/`doc_type`/`original_invoice_id`
+  and snapshotted buyer/seller GST identity. New `issue_invoice(intent,
+  event)` replaces `create_invoice`, called from `_on_payment_succeeded` on
+  every successful payment.
+- **Deliberate deviation from the draft spec:** catalog prices are treated as
+  GST-**inclusive** rather than tax-added-on-top, so nothing about what a
+  customer is charged changes — `gst.py`'s new
+  `compute_invoice_from_inclusive_total` backs the taxable base and tax
+  lines out of the amount actually charged, with any ±1 paise rounding
+  residue landing in an explicit `round_off_minor` so
+  `base + taxes + round_off == total` always holds exactly (verified with a
+  1,000-iteration property test). The same split runs once at checkout
+  (informational `tax_minor`) and again at issuance against the identical
+  `intent.amount_minor`, so the two can never diverge — the draft's
+  "reconciliation check" is true by construction instead of something to
+  verify after the fact.
+- **Gap-free per-FY numbering** (`TS/2026-27/000001`, ...) via a new
+  `invoice_sequences` table and `SELECT ... FOR UPDATE`. Proving this against
+  real, non-superuser PostgreSQL with two genuine threads caught a real bug:
+  `FOR UPDATE` can't lock a row that doesn't exist yet, so the very first
+  invoice of a new financial year let two concurrent issuers both try to
+  INSERT the sequence row, and one lost to a unique-constraint violation.
+  Fixed with a `pg_advisory_xact_lock` keyed on the FY (mirroring the
+  existing free-review lock pattern) — sanity-checked both directions:
+  fails reliably without the lock, passes reliably with it.
+- **Credit notes on refund** (`issue_credit_note`) — same series as the
+  original invoice, referencing it by id, apportioned at the same tax rate;
+  a partial refund produces a partial credit note.
+- **GSTIN capture and validation.** New `PUT /billing/details` (admin) sets
+  buyer `legal_name`/`gstin`/`billing_address`/`place_of_supply`; format +
+  checksum are validated before persisting (`gst.validate_gstin`) — invalid
+  GSTINs are rejected at save time, not discovered wrong at invoice
+  issuance. **Honesty note:** the checksum algorithm is self-consistent
+  (built and tested against its own check-digit function, catches a
+  typo'd/transposed GSTIN reliably) but has not been verified against a real
+  GSTN reference vector — this sandbox has no way to confirm the exact
+  published algorithm against an authoritative source. Flagged explicitly in
+  `gst.py`'s docstring and the spec for confirmation before this gates a
+  live paid checkout, the same posture already used for the SAC-rate
+  assumption.
+- **PDFs render on demand** (`GET /invoices/{id}/pdf`, workspace-scoped, via
+  `reportlab`) rather than being pre-rendered and stored through the
+  `Storage` protocol the draft suggested — `billing` cannot import
+  `ingestion.storage` (CLAUDE.md §2) and no cross-module storage capability
+  exists yet, and re-rendering from the invoice's own already-durable fields
+  can never drift from the statutory record.
+- **Real pre-existing CI gap found and fixed in passing:**
+  `test_billing_race_postgres.py` (written during the earlier TS-087 work)
+  was never actually wired into the `backend-postgres` CI job — it only ran
+  `test_rls_postgres.py`. The job now runs the full `-m postgres` suite
+  (verified locally against a fresh, isolated database matching CI's exact
+  setup).
+- New migration adds `invoice_sequences`, rewrites `invoices`' tax columns,
+  and adds GST buyer-identity columns to `workspaces`
+  (`legal_name`/`gstin`/`billing_address`/`place_of_supply`); backfills
+  existing rows so the new NOT NULL columns don't break on upgrade.
+- New `tests/test_gst_invoicing.py` (13 tests: inclusive-split correctness
+  both directions, the 1,000-iteration rounding property test, GSTIN
+  checksum self-consistency, checkout→webhook→invoice→PDF integration,
+  cross-workspace PDF isolation) and `tests/test_gst_invoicing_postgres.py`
+  (the gap-free-numbering concurrency test). Updated
+  `specs/modules/billing.md` (B5, A14-A19) and
+  `specs/requirements/R-007-gst-invoicing.md`.
+- Validated against real, non-superuser PostgreSQL with FORCE RLS live:
+  migration up/down clean on a fresh database, a dedicated e2e script walked
+  checkout(with GSTIN)→webhook→invoice→PDF end to end, and the full
+  `-m postgres` suite (11 tests: RLS isolation, free-review race-safety,
+  gap-free GST sequencing) passes together. 202 SQLite tests pass (1
+  skipped); `ruff check` clean.
+
+### Next
+
+- **TS-098** (entitlements: seats/top-ups/anniversary periods) and **TS-090**
+  (coupons/discounts/credits/referrals) are the remaining Gate-2 tasks; both
+  would let the billing UI's `MONTHLY_QUOTA`/coupon-field placeholders become
+  real API calls instead of client-side duplication.
+
 ### Done — 2026-07-28 (Billing UI — the first paid path end to end: TS-091)
 
 Before this, `frontend/lib/api.ts` had no billing calls at all — the complete
@@ -63,14 +148,6 @@ a thin but complete paid path: `/pricing` (public), `<Paywall/>`,
   opportunity paywall → checkout dialog with Playwright, screenshotting each
   step. 189 SQLite tests pass (1 skipped) + 10 Postgres tests (RLS +
   race-safety) after the backend fixes; `ruff check` clean.
-
-### Next
-
-- **TS-096** (wire GST into `create_invoice`), **TS-098** (entitlements:
-  seats/top-ups/anniversary periods, which would also let `/billing`'s usage
-  meter stop duplicating `PLAN_LIMITS` client-side), and **TS-090**
-  (coupons/discounts/credits/referrals, which the paywall's coupon field is
-  waiting on).
 
 ### Done — 2026-07-28 (Real payments + full webhook coverage: TS-089, TS-097)
 

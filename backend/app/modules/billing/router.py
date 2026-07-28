@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -19,6 +19,7 @@ def _service(request: Request, session: Session) -> BillingService:
         session,
         workspace_factory=reg.get("auth.workspace_factory"),
         provider_factory=lambda country: select_provider(settings, country),
+        settings=settings,
     )
 
 
@@ -26,6 +27,13 @@ class CheckoutBody(BaseModel):
     kind: str  # paygo | subscription
     plan: str | None = None
     opportunity_id: str | None = None
+
+
+class BillingDetailsBody(BaseModel):
+    legal_name: str | None = None
+    gstin: str | None = None
+    billing_address: dict = {}
+    place_of_supply: str | None = None
 
 
 @router.get("/status")
@@ -110,7 +118,13 @@ def list_invoices(
             {
                 "id": inv.id,
                 "invoice_number": inv.invoice_number,
-                "amount_minor": inv.amount_minor,
+                "doc_type": inv.doc_type,
+                "base_minor": inv.base_minor,
+                "cgst_minor": inv.cgst_minor,
+                "sgst_minor": inv.sgst_minor,
+                "igst_minor": inv.igst_minor,
+                "round_off_minor": inv.round_off_minor,
+                "amount_minor": inv.total_minor,
                 "currency": inv.currency,
                 "status": inv.status,
                 "provider": inv.provider,
@@ -120,6 +134,44 @@ def list_invoices(
             for inv in _service(request, session).list_invoices(principal.workspace_id)
         ]
     }
+
+
+@router.get("/invoices/{invoice_id}/pdf")
+def invoice_pdf(
+    invoice_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    """Served through an authorized, workspace-scoped route — never a public
+    URL (R-007 §B.8); a member of another workspace gets 404 (R-007 §A9)."""
+    pdf = _service(request, session).get_invoice_pdf(principal.workspace_id, invoice_id)
+    if pdf is None:
+        raise HTTPException(404, "invoice_not_found")
+    return Response(content=pdf, media_type="application/pdf")
+
+
+@router.put("/details")
+def set_billing_details(
+    body: BillingDetailsBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    """Buyer GST identity (R-007 §B.1) — must be set before a paid checkout
+    for an Indian workspace, since it cannot be added to an already-issued
+    invoice retroactively."""
+    try:
+        _service(request, session).set_billing_details(
+            principal.workspace_id,
+            legal_name=body.legal_name,
+            gstin=body.gstin,
+            billing_address=body.billing_address,
+            place_of_supply=body.place_of_supply,
+        )
+    except PaywallError as exc:
+        raise HTTPException(400, exc.code) from exc
+    return {"ok": True}
 
 
 @router.post("/webhooks/razorpay")

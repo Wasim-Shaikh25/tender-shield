@@ -38,12 +38,13 @@ jobs:
     #
     # Two databases, deliberately: tendershield_migrate verifies the full
     # alembic chain (every module's tables/FKs) up/down cleanly; tendershield_rls
-    # is owned entirely by test_rls_postgres.py, which builds its own minimal
-    # schema for just the tables it exercises. Sharing one database made the
-    # test's Base.metadata.drop_all fail — it only imports auth/ingestion
-    # models, so it doesn't know about the FKs other modules' tables (findings,
-    # artifacts, baselines, ...) hold against opportunities once the full
-    # migration has run.
+    # is shared by every `-m postgres` test file (RLS isolation, the
+    # free-review race, gap-free GST invoice sequencing under concurrency) —
+    # they build their own minimal schema via Base.metadata, which is a
+    # process-wide singleton, so running them together is safe. Sharing
+    # tendershield_rls with the full-migration database broke drop_all — the
+    # migrated schema has FKs (findings, artifacts, baselines, ...) these
+    # tests' models don't know about.
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -79,10 +80,10 @@ jobs:
         run: |
           alembic upgrade head
           alembic downgrade base
-      - name: RLS isolation tests
+      - name: Postgres-only tests (RLS isolation, race-safety, GST sequencing)
         env:
           TS_TEST_DATABASE_URL: postgresql+psycopg://tendershield:tendershield@localhost:5432/tendershield_rls
-        run: pytest -q -m postgres tests/test_rls_postgres.py
+        run: pytest -q -m postgres
 
   frontend:
     runs-on: ubuntu-latest

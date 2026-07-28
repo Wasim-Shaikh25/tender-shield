@@ -63,3 +63,25 @@ class WorkspaceAdmin:
             workspace.current_period_end = period_end
         if provider_subscription_id is not None:
             workspace.provider_subscription_id = provider_subscription_id
+
+    def set_billing_details(
+        self,
+        workspace_id,
+        *,
+        legal_name: str | None,
+        gstin: str | None,
+        billing_address: dict,
+        place_of_supply: str | None,
+    ) -> None:
+        """GST buyer identity (R-007 §B.1). GSTIN format/checksum validation
+        happens in the billing router BEFORE this is called — this module
+        never imports billing's `gst.py` (CLAUDE.md §2), so it trusts its
+        caller the same way it already trusts `set_plan`'s caller."""
+        workspace = self.get(workspace_id)
+        if not workspace:
+            return
+        workspace.legal_name = legal_name
+        workspace.gstin = gstin
+        workspace.billing_address = billing_address
+        workspace.place_of_supply = place_of_supply
+        self.s.commit()

@@ -98,7 +98,7 @@ and the free tier produces paid-grade output.
 | TS-089 | Real provider orders + `payment_intents` + server-side plan/amount binding | P0 | [R-005 §A–B](../specs/requirements/R-005-payments-checkout.md) | `billing` | **done**⁶ | A1–A4, A9 in R-005 |
 | TS-097 | Webhook coverage: refunds, failures, disputes, dunning/grace, dedupe without event id | P1 | [R-005 §C](../specs/requirements/R-005-payments-checkout.md) | `billing` | **done**⁶ | A5–A8, A10 in R-005 |
 | TS-090 | Coupons, discounts, credits, referrals, trials, pilot comps | P1 | [R-006](../specs/requirements/R-006-coupons-discounts.md) | `billing` | todo | A1–A12 in R-006 |
-| TS-096 | GST invoicing: wire `gst.py`, tax columns, gap-free FY series, PDF, credit notes | P1 | [R-007](../specs/requirements/R-007-gst-invoicing.md) | `billing` | todo | A1–A10 in R-007 |
+| TS-096 | GST invoicing: wire `gst.py`, tax columns, gap-free FY series, PDF, credit notes | P1 | [R-007](../specs/requirements/R-007-gst-invoicing.md) | `billing` | **done**⁸ | A14–A19 in billing.md |
 | TS-091 | Billing UI: pricing, paywall component, checkout, invoices, usage meters | P0 | [R-008](../specs/requirements/R-008-billing-ui.md) | frontend | **done**⁷ | A1–A2, A4–A9 in R-008 (A3 coupons deferred) |
 | TS-098 | Entitlement service: seats, top-ups, billing-anniversary periods, plan changes | P1 | [R-009](../specs/requirements/R-009-plan-entitlements.md) | `billing`, `auth` | todo | A1–A9 in R-009 |
 
@@ -168,8 +168,40 @@ tests in `test_paywall_enforcement.py`; full SQLite suite (189 passed, 1
 skipped) and the Postgres RLS + race-safety suites (10 tests) still pass
 after the fix.
 
+⁸ Wires `gst.py` into real invoices via `issue_invoice`/`issue_credit_note`:
+tax-correct `Invoice` rows (base/CGST/SGST/IGST/round_off/total columns,
+replacing the untaxed `amount_minor` placeholder), gap-free per-FY numbering
+(`invoice_sequences` + `SELECT ... FOR UPDATE`), buyer GSTIN capture with
+format/checksum validation (`PUT /billing/details`, rejected at save time),
+credit notes on refund, and an on-demand PDF route
+(`GET /invoices/{id}/pdf`). Deliberate deviation from the R-007 draft:
+catalog prices are treated as GST-**inclusive**, so checkout amounts don't
+change and the tax breakdown is derived from the exact amount charged —
+computed once at checkout (informational) and again at issuance against
+the SAME `intent.amount_minor`, so the "reconciliation check" the draft
+called for is true by construction. PDFs render on demand rather than via
+the `Storage` protocol the draft suggested, since `billing` can't import
+`ingestion.storage` (CLAUDE.md §2) and no cross-module storage capability
+exists yet. GSTIN checksum validation is self-consistent (built and tested
+against its own check-digit function) but **not verified against a real
+GSTN reference vector** — flagged explicitly in `gst.py` and the spec for
+confirmation before it gates a live paid checkout. Caught a real
+concurrency bug while proving gap-free numbering against real Postgres:
+`SELECT ... FOR UPDATE` can't lock a row that doesn't exist yet, so the
+very first invoice of a new FY raced two issuers into the same INSERT
+(unique-constraint violation) — fixed with a `pg_advisory_xact_lock` keyed
+on the FY, sanity-checked both ways (fails reliably without it, passes
+reliably with it). Also discovered and fixed a pre-existing CI gap while
+touching this area: `test_billing_race_postgres.py` (from the TS-087 work)
+was never wired into the `backend-postgres` CI job, which only ran
+`test_rls_postgres.py` — the job now runs the full `-m postgres` suite.
+202 SQLite tests pass (1 skipped) + 11 Postgres tests; a dedicated e2e
+script confirmed the full checkout(with GSTIN)→webhook→invoice→PDF flow
+against real Postgres with FORCE RLS live.
+
 **Suggested order:** ~~TS-087 → TS-088~~ (done) → ~~TS-089~~ (done) →
-~~TS-091~~ (done, thin path) → TS-096 → TS-098 → ~~TS-097~~ (done) → TS-090.
+~~TS-091~~ (done, thin path) → ~~TS-096~~ (done) → TS-098 → ~~TS-097~~ (done)
+→ TS-090.
 
 **Gate 2 exit:** a test customer can hit the paywall, pay, receive a GST invoice
 and export without a watermark — end to end, through the UI.
@@ -254,7 +286,7 @@ measured from production data.
 | Gate | Done | Total |
 |---|---|---|
 | 1 | 6 | 6 |
-| 2 | 5 | 8 |
+| 2 | 6 | 8 |
 | 3 | 0 | 7 |
 | 4 | 0 | 5 |
-| **Total** | **11** | **26** |
+| **Total** | **12** | **26** |

@@ -160,7 +160,7 @@ Analysis: `docs/GAP_ANALYSIS.md` · Requirements: `specs/requirements/R-0xx-*.md
 | TS-093 | Revoke refresh-token families on password reset | P1 | §1.6 | R-002 §B | done |
 | TS-094 | Rate limiting / lockout on login, signup, forgot-password, reset-password | P1 | §1.8 | R-002 §C | done |
 | TS-095 | Stream uploads to disk and enforce the size cap before buffering; magic-byte type validation; applied to both ingestion and boq upload routes | P1 | §1.9 | R-003 | done |
-| TS-096 | Wire `billing/gst.py` into `create_invoice`: tax columns, buyer GSTIN, statutory FY series, PDF invoice | P1 | §2.6 | R-007 | todo |
+| TS-096 | Wire `billing/gst.py` into `create_invoice`: tax columns, buyer GSTIN, statutory FY series, PDF invoice | P1 | §2.6 | R-007 | done |
 | TS-097 | Webhook coverage: refunds, failures, disputes, dunning/grace, proration; reject events without an id | P1 | §2.7–§2.8 | R-005 §C | done |
 | TS-098 | Enforce seat limits; wire top-up purchase/consumption; billing-anniversary quota periods | P1 | §2.9 | R-009 | todo |
 | TS-099 | Email verification on signup + delivery adapter; disposable-email blocklist (free-tier anti-abuse) | P1 | §3.1, §2.9 | R-015 | todo |

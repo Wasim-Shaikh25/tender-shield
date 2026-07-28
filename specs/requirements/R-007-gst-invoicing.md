@@ -1,6 +1,20 @@
 # R-007 — GST invoicing: wire the dead code, add tax columns, issue PDFs
 
-**Status:** draft
+**Status:** implemented — tax-correct invoices issued on payment success,
+gap-free per-FY numbering (verified under real Postgres concurrency),
+credit notes on refund, GSTIN capture + format/checksum validation, and an
+on-demand PDF route. Two deliberate deviations from this draft: (1) catalog
+prices are treated as GST-**inclusive** rather than tax-added-on-top, so the
+checkout amount never changes and the tax breakdown is derived from it
+(§B.4 below, superseding the draft's "issue_invoice recomputes and
+reconciles" design — the reconciliation is now true by construction); (2)
+PDFs render on demand rather than being pre-rendered and stored via the
+`Storage` protocol, since `billing` cannot import `ingestion.storage`
+(CLAUDE.md §2) and no cross-module storage capability exists yet. GSTIN
+checksum validation is self-consistent but unverified against a real GSTN
+reference (see `gst.py`'s docstring) — flagged for confirmation before it
+gates a live paid checkout, same posture as the SAC-rate assumption below.
+See `specs/modules/billing.md` B5 and A14-A19 for the full account.
 **Severity:** P1 — Indian B2B customers cannot claim input credit
 **Requirement refs:** Doc §15.8
 **Task refs:** TS-096

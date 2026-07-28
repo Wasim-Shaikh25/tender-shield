@@ -103,18 +103,54 @@ class PaymentIntent(Base):
 
 
 class Invoice(Base, WorkspaceScopedMixin):
-    """Customer-visible GST invoices generated from paid events."""
+    """Customer-visible GST invoices/credit notes issued from paid/refunded
+    events (R-007). Buyer/seller identity is snapshotted here at issuance —
+    never joined from `Workspace` at render time — because an invoice is a
+    statutory record of a moment; a later change to the workspace's GSTIN or
+    name must never rewrite an already-issued document."""
 
     _tablename_ = "invoices"
     id: Mapped[int] = mapped_column(_BigId, primary_key=True, autoincrement=True)
     invoice_number: Mapped[str] = mapped_column(String, nullable=False, unique=True)
-    amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    fy: Mapped[str] = mapped_column(String, nullable=False)  # "2026-27"
+    seq: Mapped[int] = mapped_column(Integer, nullable=False)  # gap-free, per FY
+
+    doc_type: Mapped[str] = mapped_column(String, nullable=False, default="invoice")
+    # invoice | credit_note
+    original_invoice_id: Mapped[int | None] = mapped_column(_BigId, nullable=True)
+
+    base_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)  # taxable value
+    cgst_minor: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    sgst_minor: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    igst_minor: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    round_off_minor: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    total_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     currency: Mapped[str] = mapped_column(String, nullable=False, default="INR")
-    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+
+    sac_code: Mapped[str] = mapped_column(String, nullable=False, default="998313")
+    seller_gstin: Mapped[str | None] = mapped_column(String, nullable=True)
+    buyer_gstin: Mapped[str | None] = mapped_column(String, nullable=True)
+    buyer_legal_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    place_of_supply: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    payment_intent_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True, index=True)
     provider: Mapped[str] = mapped_column(String, nullable=False)
     provider_invoice_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
     raw: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class InvoiceSequence(Base):
+    """One row per financial year. Gap-free numbering (R-007 §B.3) requires
+    the sequence to advance inside the SAME transaction that inserts the
+    invoice, serialized with `SELECT ... FOR UPDATE` — a Postgres SEQUENCE
+    would leak numbers on a rolled-back transaction, which GST's
+    consecutive-numbering requirement does not tolerate."""
+
+    __tablename__ = "invoice_sequences"
+    fy: Mapped[str] = mapped_column(String, primary_key=True)
+    last_seq: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

@@ -9,12 +9,17 @@ grant from a `payment_intents` row it looks up by opaque id, never from
 provider `notes` (R-005 §B.3); full webhook coverage — payment success
 (paygo/subscription-activation/renewal, one amount-checked handler for all
 three), failure, past-due/grace (dunning), cancellation, refund — and
-event-id-or-body-hash idempotency (R-005 §C, TS-097). GST invoice computation
-(CGST/SGST vs IGST + sequential numbering) exists but is not yet wired into
-`create_invoice` (R-007/TS-096, still open). Stripe (GCC/UK) is a second file
-behind `select_provider`, not yet written.
-**Requirement refs:** Doc §7, §15, §16.5; R-004, R-005
-**Task refs:** TS-022, TS-087, TS-088, TS-089, TS-097, TS-091
+event-id-or-body-hash idempotency (R-005 §C, TS-097). Billing UI shipped as a
+thin, complete paid path (R-008, TS-091), which also fixed two real backend
+bugs (paygo enforcement was computed but never checked; `workspace.plan`
+never actually became "paygo"). GST invoicing wired end to end (R-007,
+TS-096): tax-correct invoices issued on payment success with gap-free per-FY
+numbering, credit notes on refund, GSTIN capture + validation, and an
+on-demand PDF route. Stripe (GCC/UK) is a second file behind
+`select_provider`, not yet written; coupons/discounts (R-006/TS-090) and
+seat/top-up entitlements (R-009/TS-098) remain open.
+**Requirement refs:** Doc §7, §15, §15.8, §16.5; R-004, R-005, R-007, R-008
+**Task refs:** TS-022, TS-087, TS-088, TS-089, TS-097, TS-091, TS-096
 
 ## Purpose
 
@@ -27,9 +32,14 @@ rewriting `service.py`), GST invoicing, and the append-only `payment_log`.
 
 - **Capabilities published:**
   - `billing.service_factory` → `BillingService(session, workspace_factory,
-    provider_factory)` with `authorize_review`, `record_usage`,
+    provider_factory, settings)` with `authorize_review`, `record_usage`,
     `create_checkout`, `get_intent_status`, `process_webhook`,
-    `list_invoices`, `create_invoice`, `status`, and `export_entitlement`.
+    `list_invoices`, `issue_invoice`, `issue_credit_note`, `get_invoice_pdf`,
+    `set_billing_details`, `status`, and `export_entitlement`. `settings` is
+    new (R-007, TS-096) — GST issuance needs the seller's own GSTIN/state/
+    invoice-series config, so the factory now threads `ctx.settings` through
+    (only billing's own router does this; `deps.py`'s `meter()` and other
+    registry-resolved factories don't touch invoicing and pass no settings).
   - `billing.record_usage(session, workspace_id, event, ref_id=None)` — direct
     capability for modules that only need to log usage without pulling in the
     full service.
@@ -64,15 +74,23 @@ rewriting `service.py`), GST invoicing, and the append-only `payment_log`.
     code since `PaymentIntent` carries no RLS.
   - `POST /api/billing/authorize-review` (estimator)
   - `GET /api/billing/invoices` (viewer)
+  - `GET /api/billing/invoices/{id}/pdf` (viewer) — rendered on demand from
+    the `Invoice` row's own snapshotted fields; workspace-scoped, never a
+    public URL (R-007 §B.8).
+  - `PUT /api/billing/details` (admin) — sets buyer GST identity
+    (`legal_name`, `gstin`, `billing_address`, `place_of_supply`); GSTIN
+    format/checksum is validated before it's persisted (R-007 §B.1, §A10).
   - `POST /api/billing/webhooks/razorpay` (unauthenticated, HMAC-verified)
 
 ## Data owned
 
-`usage_events`, `payment_log` (append-only, from day one), `invoices`,
-`payment_intents` (checkout orders — see below), `webhook_events`
+`usage_events`, `payment_log` (append-only, from day one), `invoices`
+(now GST tax-correct — see B5), `invoice_sequences` (one row per FY, gap-free
+numbering), `payment_intents` (checkout orders — see below), `webhook_events`
 (dedup records), plan + billing-lifecycle state on `workspaces`
 (`plan`, `plan_status`, `grace_until`, `current_period_start`,
-`current_period_end`, `provider_subscription_id`).
+`current_period_end`, `provider_subscription_id`), and buyer GST identity on
+`workspaces` (`legal_name`, `gstin`, `billing_address`, `place_of_supply`).
 
 `PaymentIntent` is deliberately **not** `WorkspaceScopedMixin`/RLS-protected —
 same precedent as `RefreshToken`/`PasswordReset`. The webhook must look the
@@ -119,9 +137,44 @@ check themselves in application code.
   grants_nothing`, which caught a real bug where `subscription.activated`
   was a separate handler that skipped this check).
 - **B4 (money):** minor units only; never float.
-- **B5 (GST):** Indian payments auto-issue GST invoice (SAC 998313, CGST/SGST vs
-  IGST by buyer state, sequential gap-free numbering) — computation exists in
-  `plans.py` but is not yet called from `create_invoice` (R-007/TS-096, open).
+- **B5 (GST, R-007, TS-096):** every successful payment issues a real GST
+  invoice via `issue_invoice` — SAC 998313, CGST/SGST (buyer state == seller
+  state) vs IGST, gap-free per-FY numbering (`TS/2026-27/000001`, ...), buyer/
+  seller identity snapshotted onto the invoice at issuance (never joined from
+  `Workspace` at render time, so a later profile change never rewrites an
+  issued statutory record). `PRICES_MINOR` is treated as GST-**inclusive**
+  (an explicit deviation from the R-007 draft, which assumed tax added on top
+  of an exclusive price) — `gst.py`'s `compute_invoice_from_inclusive_total`
+  backs the taxable base and tax lines out of the amount actually charged,
+  with any ±1 paise rounding residue landing in an explicit `round_off_minor`
+  so `base + taxes + round_off == total` always holds exactly. The SAME split
+  is computed once at checkout (`create_checkout`'s `tax_minor`, informational
+  only — it does not change what's charged) and again at invoice issuance
+  against that exact `intent.amount_minor`, so the two can never diverge —
+  R-007's own "reconciliation check" is true by construction rather than
+  something to verify after the fact. A refund issues a credit note in the
+  same series referencing the original invoice, apportioned at the same rate
+  (`issue_credit_note`). GSTIN format + checksum is validated before it's
+  persisted (`gst.validate_gstin`) — an invalid GSTIN is rejected at save
+  time, never discovered wrong at invoice issuance; **the checksum algorithm's
+  exact form is unverified against a real GSTN reference vector** (documented
+  in `gst.py`'s own docstring — this sandbox has no way to confirm it against
+  an authoritative source), so it is self-consistent (catches a
+  typo'd/transposed GSTIN reliably) rather than proven correct against real
+  registrations — confirm before this gates a live paid checkout. Invoice
+  PDFs are rendered **on demand** from the `Invoice` row's own fields, not
+  pre-rendered and stored — a deliberate deviation from the R-007 draft's
+  `pdf_key`/`Storage` reference, since `billing` may not import
+  `ingestion.storage` (CLAUDE.md §2) and there is no cross-module storage
+  capability published yet; rendering fresh each request needs nothing new
+  and can never drift from the statutory record. Gap-free numbering under
+  concurrency needed a `pg_advisory_xact_lock` keyed on the FY *in addition
+  to* `SELECT ... FOR UPDATE` — a lock can't protect a row that doesn't exist
+  yet, so the very first invoice of a new FY raced two concurrent issuers
+  into the same INSERT (caught by
+  `test_concurrent_invoice_issuance_produces_no_duplicate_sequence_numbers`
+  against real Postgres, sanity-checked both ways: fails reliably without the
+  lock, passes reliably with it).
 - **B6 (paywall as conversion surface):** `PaywallError` carries `code`
   (`free_exhausted|quota_exhausted|paygo_payment_required`) + upsell payload;
   dismissals logged.
@@ -216,9 +269,31 @@ check themselves in application code.
 - A13 (R-008/TS-091 bugfix): a free-plan workspace that hits `free_exhausted`
   can pay per-tender for the exact blocked opportunity from the paywall in
   one checkout, which also elects the workspace into the paygo plan.
+- A14 (R-007): buyer GSTIN state `29`, seller state `27` -> IGST only,
+  CGST/SGST zero; matching state on both sides -> CGST+SGST split evenly,
+  IGST zero.
+- A15 (R-007): `base_minor + cgst_minor + sgst_minor + igst_minor +
+  round_off_minor == total_minor` for 1,000 randomly generated inclusive
+  totals across both intra- and inter-state buyers (property test,
+  `test_inclusive_split_reconstructs_exactly_property`).
+- A16 (R-007): invoice numbers within one financial year are consecutive
+  with no gaps, including under real concurrent issuance (Postgres,
+  two threads).
+- A17 (R-007): a refund issues a credit note whose `original_invoice_id`
+  points at the paid invoice and whose `total_minor` equals the refunded
+  amount.
+- A18 (R-007): `GET /invoices/{id}/pdf` for another workspace's invoice
+  returns 404; for the owning workspace it returns a `%PDF`-prefixed body.
+- A19 (R-007): `PUT /billing/details` with a GSTIN whose checksum doesn't
+  self-validate returns 400 `invalid_gstin` and persists nothing.
 
 ## Out of scope
 
 Stripe live wiring (P2/GCC), admin refund console (Doc §16, P1-admin scope),
-annual plans/proration polish, GST invoice wiring (R-007/TS-096, next),
-coupons/discounts/credits/referrals (R-006/TS-090, next).
+annual plans/proration polish, coupons/discounts/credits/referrals
+(R-006/TS-090, next), seat/top-up entitlements (R-009/TS-098, next),
+GSTR-1 filing exports, e-invoicing/IRN registration, TDS/TCS handling
+(R-007 explicitly defers these), and requiring a GSTIN-or-explicit-
+unregistered declaration before checkout (R-007 §B.9) — a B2C invoice with no
+GSTIN is already valid per the edge-case table, so this gate is a UX nicety
+deferred rather than a correctness gap.

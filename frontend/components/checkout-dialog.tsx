@@ -28,7 +28,7 @@ export function CheckoutDialog({
   onSuccess,
 }: {
   token: string;
-  kind: "paygo" | "subscription";
+  kind: "paygo" | "subscription" | "topup";
   plan?: Plan;
   opportunityId?: string;
   onClose: () => void;

@@ -1,6 +1,16 @@
 # R-009 — Plan entitlements: seats, top-ups, billing periods
 
-**Status:** draft
+**Status:** implemented — one `Entitlements` object, billing-anniversary
+periods (month-end-safe), seats actually enforced (`auth.seats_used` +
+`billing.entitlements`, 402 not 403), top-ups sellable (`authorize()`'s real
+signature), a downgrade-vs-seats guard on checkout, and a real
+previously-shipped bug fixed in passing: `past_due` outside its grace
+window kept full access forever until this task added the `grace_expired`
+check. Deferred: true deferred-effect downgrades/cancellations that don't
+immediately violate a limit (needs R-016/TS-105's job scheduler), and a
+seat-check TOCTOU race (lower severity than the free-review race, not
+locked). See `specs/modules/billing.md` B13-B18 and A20-A25, and
+`specs/modules/auth.md` B16/A14 for the full account.
 **Severity:** P1 — declared limits are unenforced; top-ups are unsellable
 **Requirement refs:** Doc §7
 **Task refs:** TS-098

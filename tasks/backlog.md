@@ -162,7 +162,7 @@ Analysis: `docs/GAP_ANALYSIS.md` · Requirements: `specs/requirements/R-0xx-*.md
 | TS-095 | Stream uploads to disk and enforce the size cap before buffering; magic-byte type validation; applied to both ingestion and boq upload routes | P1 | §1.9 | R-003 | done |
 | TS-096 | Wire `billing/gst.py` into `create_invoice`: tax columns, buyer GSTIN, statutory FY series, PDF invoice | P1 | §2.6 | R-007 | done |
 | TS-097 | Webhook coverage: refunds, failures, disputes, dunning/grace, proration; reject events without an id | P1 | §2.7–§2.8 | R-005 §C | done |
-| TS-098 | Enforce seat limits; wire top-up purchase/consumption; billing-anniversary quota periods | P1 | §2.9 | R-009 | todo |
+| TS-098 | Enforce seat limits; wire top-up purchase/consumption; billing-anniversary quota periods | P1 | §2.9 | R-009 | done |
 | TS-099 | Email verification on signup + delivery adapter; disposable-email blocklist (free-tier anti-abuse) | P1 | §3.1, §2.9 | R-015 | todo |
 | TS-100 | Workspace switching: `POST /auth/workspaces/{id}/switch` + UI switcher (multi-workspace users are stranded today) | P1 | §3.2 | R-011 | todo |
 | TS-101 | Enforce MFA at login with step-up tokens, re-auth on re-enroll, replay guard, recovery codes | P1 | §1.7 | R-002 §D | todo |

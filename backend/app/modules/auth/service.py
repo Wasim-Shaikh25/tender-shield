@@ -45,9 +45,14 @@ class _MailMessage:
 
 
 class AuthError(Exception):
-    def __init__(self, code: str):
+    def __init__(self, code: str, *, upsell: dict | None = None):
         super().__init__(code)
         self.code = code
+        # Set only for commercial-limit errors (e.g. seat_limit_reached,
+        # R-009 §B.3) so the router can send the same {"code", "upsell"}
+        # shape billing's PaywallError uses — the frontend's <Paywall/>
+        # renders both without caring which module raised it.
+        self.upsell = upsell
 
 
 class AuthService:
@@ -62,6 +67,7 @@ class AuthService:
         echo_tokens: bool = False,
         notifier=None,
         app_url: str = "",
+        entitlements=None,
     ):
         self.s = session
         self.keys = keys
@@ -71,6 +77,12 @@ class AuthService:
         # DEV/TEST ONLY — see core/config.py Settings.dev_echo_tokens (R-002 §A).
         self._echo_tokens = echo_tokens
         self._notifier = notifier
+        # Callable[[session, workspace_id, seats_used], Entitlements] — the
+        # `billing.entitlements` capability, resolved by name (CLAUDE.md §2:
+        # auth may not import billing). None when billing is disabled, in
+        # which case seats are unlimited (spec core B2 — the app still boots
+        # with any module subset).
+        self._entitlements = entitlements
         self._app_url = app_url.rstrip("/")
 
     def _notify(self, *, channel: str, to: str, subject: str, body: str) -> None:
@@ -78,6 +90,56 @@ class AuthService:
             logger.warning("no notifications sender available — %r to %s not sent", subject, to)
             return
         self._notifier.send(_MailMessage(channel=channel, to=to, subject=subject, body=body))
+
+    def seats_used(self, workspace_id, *, excluding_invitation_id=None) -> int:
+        """Accepted members plus LIVE pending invitations (R-009 §B.3) — an
+        invitation that can never be accepted because the seat was already
+        promised to someone else is a bad experience, so pending invites
+        count toward the total, not just accepted members.
+
+        `excluding_invitation_id` is for `accept_invitation`: that invitation
+        already reserved its own seat when it was CREATED, so re-checking
+        capacity at acceptance time must not double-count it — otherwise a
+        workspace sitting exactly at capacity could never accept the very
+        invitation that reservation was for.
+        """
+        workspace_id = uuid.UUID(str(workspace_id))
+        members = (
+            self.s.scalar(
+                select(func.count())
+                .select_from(WorkspaceMember)
+                .where(WorkspaceMember.workspace_id == workspace_id)
+            )
+            or 0
+        )
+        pending_query = select(func.count()).select_from(Invitation).where(
+            Invitation.workspace_id == workspace_id,
+            Invitation.used_at.is_(None),
+            Invitation.expires_at > func.now(),
+        )
+        if excluding_invitation_id is not None:
+            pending_query = pending_query.where(
+                Invitation.id != uuid.UUID(str(excluding_invitation_id))
+            )
+        pending = self.s.scalar(pending_query) or 0
+        return members + pending
+
+    def _check_seat_available(self, workspace_id, *, excluding_invitation_id=None) -> None:
+        """Raises AuthError("seat_limit_reached") — mapped to 402 with an
+        upsell payload by the router, not 403: this is a commercial limit
+        with an upgrade path, not an authorization failure (R-009 §B.3/B4).
+        With billing disabled, no capability is published and the limit is
+        simply absent (spec core B2 — the app still boots with any module
+        subset)."""
+        if self._entitlements is None:
+            return
+        seats_used = self.seats_used(workspace_id, excluding_invitation_id=excluding_invitation_id)
+        e = self._entitlements(self.s, workspace_id, seats_used)
+        if e.seats_remaining <= 0:
+            raise AuthError(
+                "seat_limit_reached",
+                upsell={"seats_included": e.seats_included, "seats_used": e.seats_used},
+            )
 
     def _create_workspace_and_owner(self, user_id, name: str, country: str) -> Workspace:
         """Insert a new Workspace + its owner WorkspaceMember row.
@@ -389,6 +451,9 @@ class AuthService:
         if existing:
             existing.role = role
         else:
+            # A role change for an existing member consumes no new seat —
+            # only check when this is a genuinely NEW member (R-009 §B.3).
+            self._check_seat_available(workspace_id)
             self.s.add(WorkspaceMember(workspace_id=workspace_id, user_id=user.id, role=role))
         self.s.commit()
         return {"workspace_id": str(workspace_id), "user_id": str(user.id), "role": role}
@@ -489,6 +554,10 @@ class AuthService:
         if role not in ROLES:
             raise AuthError("bad_role")
         workspace_id = uuid.UUID(str(workspace_id))
+        # A pending invitation counts toward the seat total (R-009 §B.3) —
+        # checked before creating it, not after, so an over-limit invite is
+        # never sent at all.
+        self._check_seat_available(workspace_id)
         project_uuid = uuid.UUID(str(project_id)) if project_id else None
         token = uuid.uuid4().hex
         expires_at = datetime.now(UTC) + timedelta(days=7)
@@ -538,6 +607,13 @@ class AuthService:
             )
         )
         if not existing:
+            # Re-checked at acceptance, not just at invite-creation time
+            # (R-009 §B.3) — seats may have filled up in between; excluding
+            # THIS invitation avoids double-counting the seat it already
+            # reserved when created.
+            self._check_seat_available(
+                invitation.workspace_id, excluding_invitation_id=invitation.id
+            )
             self.s.add(
                 WorkspaceMember(
                     workspace_id=invitation.workspace_id,

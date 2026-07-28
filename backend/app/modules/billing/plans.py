@@ -56,23 +56,52 @@ class Grant:
     meta: dict = field(default_factory=dict)
 
 
+_NEXT_PLAN = {"pro": "scale"}
+
+
 def authorize(
     *,
     plan: str,
+    plan_status: str = "active",
+    grace_expired: bool = False,
     free_review_used: bool,
-    reviews_this_month: int,
-    has_topups: bool = False,
+    reviews_used: int = 0,
+    reviews_topup: int = 0,
     opportunity_id=None,
 ) -> Grant:
-    """Decide whether a review may start (Doc §7). Pure: callers supply current
-    usage; this raises PaywallError or returns a Grant. Metering happens at
-    processing start, and re-processing addenda is free (caller's concern).
+    """Decide whether a review may start (Doc §7, R-009 §B.4). Pure: callers
+    supply current usage; this raises PaywallError or returns a Grant.
+    Metering happens at processing start, and re-processing addenda is free
+    (caller's concern).
+
+    `reviews_used`/`reviews_topup` are counted over the workspace's current
+    BILLING PERIOD (the anniversary when a subscription exists, calendar
+    month otherwise — resolved by the caller, `BillingService._period`),
+    not a hardcoded calendar month. `reviews_included` is looked up from
+    `PLAN_LIMITS` here rather than passed in, so there is one place that maps
+    a plan name to its quota.
 
     `opportunity_id` is carried into the free_exhausted upsell (when given)
     purely so the client can check out a paygo payment for THIS opportunity
     directly from the paywall, without a second round trip (R-008/TS-091);
     it plays no role in the authorization decision itself.
     """
+    if plan_status == "cancelled":
+        # Defensive: `_on_subscription_cancelled` already resets plan to
+        # "free" in the same webhook, so this should be unreachable in
+        # practice — kept as a belt-and-braces check against any state where
+        # plan_status lags plan (R-009 §B.5).
+        raise PaywallError("subscription_cancelled", {"plans": ["pro", "scale"]})
+
+    if plan_status == "past_due" and grace_expired:
+        # Inside grace, past_due keeps full access (never delete/restrict on
+        # non-payment, specs/modules/billing.md B8) — `grace_expired` is only
+        # true once the caller's clock has actually passed
+        # `workspace.grace_until` (R-009 §A7). Until this check existed, a
+        # past_due workspace ran reviews forever regardless of how long ago
+        # its grace window closed.
+        raise PaywallError("payment_overdue", {"plans": ["pro", "scale"]})
+
     if plan == "free":
         if free_review_used:
             raise PaywallError(
@@ -92,9 +121,13 @@ def authorize(
     limits = PLAN_LIMITS.get(plan)
     if not limits or "reviews_month" not in limits:
         raise PaywallError("unknown_plan")
-    if reviews_this_month >= limits["reviews_month"] and not has_topups:
+    included = limits["reviews_month"]
+    if reviews_used >= included + reviews_topup:
         raise PaywallError(
             "quota_exhausted",
-            {"topup_price_inr_paise": OVERAGE_PRICE_INR_PAISE.get(plan)},
+            {
+                "topup_price_inr_paise": OVERAGE_PRICE_INR_PAISE.get(plan),
+                "next_plan": _NEXT_PLAN.get(plan),
+            },
         )
     return Grant(kind="plan")

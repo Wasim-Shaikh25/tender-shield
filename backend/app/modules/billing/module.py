@@ -26,6 +26,15 @@ def setup(ctx: AppContext) -> None:
             session, workspace_factory=reg.get("auth.workspace_factory")
         ).export_entitlement(workspace_id),
     )
+    # Consumed by auth's seat check (R-009 §B.3) — seats_used is supplied by
+    # the CALLER (auth) because billing may not query auth's own
+    # workspace_members/invitations tables (CLAUDE.md §2).
+    reg.provide(
+        "billing.entitlements",
+        lambda session, workspace_id, seats_used=0: BillingService(
+            session, workspace_factory=reg.get("auth.workspace_factory")
+        ).entitlements(workspace_id, seats_used=seats_used),
+    )
 
 
 module = ModuleSpec(

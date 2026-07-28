@@ -5,11 +5,12 @@
 // today; export and storage quota once those raise the same shape) reuses one
 // component instead of a bespoke error toast per call site.
 //
-// Coupon field (R-006/TS-090) and a "seats"/"storage" variant of the upsell
-// copy (R-009/TS-098) are deferred — those backend capabilities don't exist
-// yet. This ships the three codes the backend can raise today: free_exhausted
-// and paygo_payment_required (plans.py `authorize`, both payable per-tender
-// from here) and quota_exhausted (no per-tender payment path yet — TS-098).
+// Coupon field (R-006/TS-090) is deferred — that backend capability doesn't
+// exist yet. This ships the four codes the backend can raise today:
+// free_exhausted and paygo_payment_required (both payable per-tender from
+// here), quota_exhausted (payable via a top-up, R-009/TS-098), and
+// payment_overdue (past_due outside its grace window — no self-serve fix,
+// just a path to plans).
 
 import { useState } from "react";
 import { formatMoney } from "@/lib/money";
@@ -22,6 +23,7 @@ export type PaywallDetail = {
     paygo_price_inr_paise?: number;
     topup_price_inr_paise?: number;
     plans?: string[];
+    next_plan?: string | null;
     opportunity_id?: string | null;
   };
 };
@@ -33,13 +35,18 @@ const COPY: Record<string, { title: string; body: string; cta: string }> = {
     cta: "See plans",
   },
   quota_exhausted: {
-    title: "You've used this month's reviews",
-    body: "Your plan's monthly review quota is used up. Move up a plan to continue.",
+    title: "You've used this period's reviews",
+    body: "Add a top-up to keep going now, or move up a plan for a higher monthly quota.",
     cta: "See plans",
   },
   paygo_payment_required: {
     title: "Pay to start this review",
     body: "Your plan is pay-as-you-go — each tender is paid for before its review runs.",
+    cta: "See plans",
+  },
+  payment_overdue: {
+    title: "Payment overdue",
+    body: "Your grace period has ended. Update your payment method or choose a plan to restore access.",
     cta: "See plans",
   },
 };
@@ -67,9 +74,13 @@ export function Paywall({
   const priceMinor =
     detail.code === "free_exhausted" || detail.code === "paygo_payment_required"
       ? detail.upsell?.paygo_price_inr_paise
-      : undefined;
+      : detail.code === "quota_exhausted"
+        ? detail.upsell?.topup_price_inr_paise
+        : undefined;
   const opportunityId = detail.upsell?.opportunity_id ?? undefined;
-  const payable = detail.code === "free_exhausted" || detail.code === "paygo_payment_required";
+  const payablePerTender =
+    (detail.code === "free_exhausted" || detail.code === "paygo_payment_required") && opportunityId;
+  const payableTopup = detail.code === "quota_exhausted" && detail.upsell?.topup_price_inr_paise;
 
   return (
     <div
@@ -88,12 +99,20 @@ export function Paywall({
         )}
 
         <div className="mt-5 flex flex-col gap-2">
-          {payable && opportunityId && (
+          {payablePerTender && (
             <button
               onClick={() => setShowCheckout(true)}
               className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:opacity-90"
             >
               Pay {priceMinor !== undefined ? formatMoney(priceMinor) : ""} for this tender
+            </button>
+          )}
+          {payableTopup && (
+            <button
+              onClick={() => setShowCheckout(true)}
+              className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            >
+              Buy a top-up — {priceMinor !== undefined ? formatMoney(priceMinor) : ""}
             </button>
           )}
           <a
@@ -108,11 +127,22 @@ export function Paywall({
         </div>
       </div>
 
-      {showCheckout && session && opportunityId && (
+      {showCheckout && session && payablePerTender && opportunityId && (
         <CheckoutDialog
           token={session.token}
           kind="paygo"
           opportunityId={opportunityId}
+          onClose={() => setShowCheckout(false)}
+          onSuccess={() => {
+            setShowCheckout(false);
+            (onPaid ?? onDismiss)();
+          }}
+        />
+      )}
+      {showCheckout && session && payableTopup && (
+        <CheckoutDialog
+          token={session.token}
+          kind="topup"
           onClose={() => setShowCheckout(false)}
           onSuccess={() => {
             setShowCheckout(false);

@@ -4,6 +4,7 @@ from app.core.module import AppContext, ModuleSpec
 from app.modules.auth import security as sec
 from app.modules.auth.deps import authenticate, check_role
 from app.modules.auth.router import router
+from app.modules.auth.service import AuthService
 from app.modules.auth.workspaces import WorkspaceAdmin
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,12 @@ def setup(ctx: AppContext) -> None:
     ctx.registry.provide("auth.authenticate", authenticate)
     ctx.registry.provide("auth.check_role", check_role)
     ctx.registry.provide("auth.workspace_factory", lambda session: WorkspaceAdmin(session))
+    # Consumed by billing's checkout (downgrade-vs-seats guard) and status
+    # endpoint (R-009 §B.5) — billing may not query auth's own tables.
+    ctx.registry.provide(
+        "auth.seats_used",
+        lambda session, workspace_id: AuthService(session, keys).seats_used(workspace_id),
+    )
 
 
 module = ModuleSpec(

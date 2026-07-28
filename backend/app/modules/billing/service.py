@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.db import bind_workspace_context
+from app.modules.billing.entitlements import add_month, as_aware_utc, resolve_entitlements
 from app.modules.billing.gst import (
     compute_invoice_from_inclusive_total,
     financial_year,
@@ -31,7 +32,9 @@ from app.modules.billing.models import (
 from app.modules.billing.pdf import render_invoice_pdf
 from app.modules.billing.plans import (
     CURRENCY_BY_COUNTRY,
+    OVERAGE_PRICE_INR_PAISE,
     PAYGO_PRICE_INR_PAISE,
+    PLAN_LIMITS,
     Grant,
     PaywallError,
     authorize,
@@ -59,17 +62,86 @@ class BillingService:
             raise PaywallError("workspace_unavailable")
         return self._workspace_factory(self.s)
 
-    def _month_reviews(self, workspace_id) -> int:
-        start = datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    def _period(self, workspace) -> tuple[datetime, datetime]:
+        """Quota resets on the billing anniversary when a subscription
+        exists, not the calendar month (R-009 §B.2) — a customer subscribing
+        on the 28th must not get a near-empty first period followed by a
+        full reset three days later. The provider's own period (set from the
+        subscription payload on activation) is authoritative; calendar month
+        is only a fallback for workspaces with no subscription (free/paygo),
+        where no anniversary exists.
+        """
+        if workspace.current_period_start and workspace.current_period_end:
+            return (
+                as_aware_utc(workspace.current_period_start),
+                as_aware_utc(workspace.current_period_end),
+            )
+        now = datetime.now(UTC)
+        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        return start, add_month(start)
+
+    def _period_reviews(self, workspace_id, start, end) -> int:
         return (
             self.s.scalar(
                 select(func.count(UsageEvent.id)).where(
                     UsageEvent.workspace_id == uuid.UUID(str(workspace_id)),
                     UsageEvent.event == "review_started",
                     UsageEvent.created_at >= start,
+                    UsageEvent.created_at < end,
                 )
             )
             or 0
+        )
+
+    def _topups_in_period(self, workspace_id, start, end) -> int:
+        """Unused top-ups expire with the period (R-009 §B.4/A4) — granted
+        minus refunded, scoped to THIS period only, never carried forward."""
+        granted = (
+            self.s.scalar(
+                select(func.coalesce(func.sum(UsageEvent.qty), 0)).where(
+                    UsageEvent.workspace_id == uuid.UUID(str(workspace_id)),
+                    UsageEvent.event == "review_topup_granted",
+                    UsageEvent.created_at >= start,
+                    UsageEvent.created_at < end,
+                )
+            )
+            or 0
+        )
+        refunded = (
+            self.s.scalar(
+                select(func.coalesce(func.sum(UsageEvent.qty), 0)).where(
+                    UsageEvent.workspace_id == uuid.UUID(str(workspace_id)),
+                    UsageEvent.event == "review_topup_refunded",
+                    UsageEvent.created_at >= start,
+                    UsageEvent.created_at < end,
+                )
+            )
+            or 0
+        )
+        return max(granted - refunded, 0)
+
+    def entitlements(self, workspace_id, *, seats_used: int = 0):
+        """The one object every consumer (auth's seat check, export's
+        watermark decision, this service's own metering) asks — a limit
+        cannot be enforced in one module and forgotten in another (R-009
+        §B.1). `seats_used` is supplied by the caller because billing may
+        not query auth's own `workspace_members`/`invitations` tables
+        (CLAUDE.md §2)."""
+        workspace = self._workspaces().get(workspace_id)
+        if workspace is None:
+            raise PaywallError("no_workspace")
+        start, end = self._period(workspace)
+        limits = PLAN_LIMITS.get(workspace.plan, {})
+        return resolve_entitlements(
+            plan=workspace.plan,
+            plan_status=workspace.plan_status,
+            seats_included=limits.get("seats", 0),
+            reviews_included=limits.get("reviews_month"),
+            reviews_used=self._period_reviews(workspace_id, start, end),
+            reviews_topup=self._topups_in_period(workspace_id, start, end),
+            seats_used=seats_used,
+            period_start=start,
+            period_end=end,
         )
 
     def record_usage(self, workspace_id, event: str, ref_id=None, *, commit: bool = True) -> None:
@@ -151,10 +223,19 @@ class BillingService:
         workspace = self._workspaces().get(workspace_id)
         if workspace is None:
             raise PaywallError("no_workspace")
+        start, end = self._period(workspace)
+        grace_expired = bool(
+            workspace.plan_status == "past_due"
+            and workspace.grace_until is not None
+            and datetime.now(UTC) > as_aware_utc(workspace.grace_until)
+        )
         grant = authorize(
             plan=workspace.plan,
+            plan_status=workspace.plan_status,
+            grace_expired=grace_expired,
             free_review_used=workspace.free_review_used,
-            reviews_this_month=self._month_reviews(workspace_id),
+            reviews_used=self._period_reviews(workspace_id, start, end),
+            reviews_topup=self._topups_in_period(workspace_id, start, end),
             opportunity_id=opportunity_id,
         )
         if grant.kind == "free_first_review":
@@ -192,16 +273,38 @@ class BillingService:
         workspace = self._workspaces().get(workspace_id)
         return {"watermark": bool(workspace and workspace.plan == "free")}
 
-    def status(self, workspace_id) -> dict:
+    def status(self, workspace_id, *, seats_used: int | None = None) -> dict:
         workspace = self._workspaces().get(workspace_id)
+        if workspace is None:
+            return {
+                "plan": None,
+                "plan_status": None,
+                "grace_until": None,
+                "free_review_used": None,
+                "reviews_this_month": 0,
+                "reviews_included": None,
+                "reviews_topup": 0,
+                "seats_included": None,
+                "seats_used": seats_used,
+                "period_end": None,
+            }
+        e = self.entitlements(workspace_id, seats_used=seats_used or 0)
         return {
-            "plan": workspace.plan if workspace else None,
-            "plan_status": workspace.plan_status if workspace else None,
-            "grace_until": workspace.grace_until.isoformat()
-            if workspace and workspace.grace_until
+            "plan": workspace.plan,
+            "plan_status": workspace.plan_status,
+            "grace_until": as_aware_utc(workspace.grace_until).isoformat()
+            if workspace.grace_until
             else None,
-            "free_review_used": workspace.free_review_used if workspace else None,
-            "reviews_this_month": self._month_reviews(workspace_id),
+            "free_review_used": workspace.free_review_used,
+            # Kept for existing clients — this is `e.reviews_used`, over the
+            # billing-anniversary period now, not a hardcoded calendar month
+            # (R-009 §B.2). "this_month" is a legacy field name.
+            "reviews_this_month": e.reviews_used,
+            "reviews_included": e.reviews_included,
+            "reviews_topup": e.reviews_topup,
+            "seats_included": e.seats_included,
+            "seats_used": seats_used,
+            "period_end": e.period_end.isoformat(),
         }
 
     def set_billing_details(
@@ -248,7 +351,16 @@ class BillingService:
             raise PaywallError("payment_provider_unavailable")
 
         currency = CURRENCY_BY_COUNTRY.get(workspace.country, "INR")
-        list_amount = price_for(plan, currency)  # raises PaywallError("unknown_plan")
+        if kind == "topup":
+            # A top-up's plan/price is the workspace's OWN current
+            # subscription — never client-selected (R-009 §B.4). Only pro/
+            # scale have an overage price; anything else can't buy a top-up.
+            plan = workspace.plan
+            list_amount = OVERAGE_PRICE_INR_PAISE.get(plan)
+            if list_amount is None:
+                raise PaywallError("topups_not_available_for_plan")
+        else:
+            list_amount = price_for(plan, currency)  # raises PaywallError("unknown_plan")
         # Coupons (R-006) are not wired to checkout yet — discount is always
         # zero until that task lands.
         discount_minor = 0
@@ -587,23 +699,32 @@ class BillingService:
             intent.status = "amount_mismatch"
             return
         intent.status = "paid"
-        # Choosing "pay as you go" is itself a plan election (PLAN_LIMITS
-        # models paygo as an ongoing tier, not a one-off top-up) — set here
-        # for both kinds, since intent.plan is already "paygo" for a paygo
-        # checkout and the chosen tier for a subscription checkout. Without
-        # this, workspace.plan never transitions to "paygo" at all, and
-        # authorize_review's per-opportunity payment check (requires
-        # workspace.plan == "paygo") is unreachable (R-008/TS-091).
-        self._workspaces().set_plan(intent.workspace_id, intent.plan)
-        if intent.kind == "subscription":
-            self._workspaces().set_plan_status(
-                intent.workspace_id,
-                "active",
-                grace_until=None,
-                provider_subscription_id=_subscription_id(event.raw),
-            )
+        if intent.kind == "topup":
+            # A top-up credits the CURRENT period's quota (R-009 §B.4) — it
+            # never touches workspace.plan; unlike paygo/subscription, this
+            # purchase doesn't elect the workspace into a different tier.
+            self.record_usage(intent.workspace_id, "review_topup_granted", ref_id=intent.id)
         else:
-            self.record_usage(intent.workspace_id, "review_paid", ref_id=intent.opportunity_id)
+            # Choosing "pay as you go" is itself a plan election (PLAN_LIMITS
+            # models paygo as an ongoing tier, not a one-off top-up) — set
+            # here for both kinds, since intent.plan is already "paygo" for a
+            # paygo checkout and the chosen tier for a subscription checkout.
+            # Without this, workspace.plan never transitions to "paygo" at
+            # all, and authorize_review's per-opportunity payment check
+            # (requires workspace.plan == "paygo") is unreachable (R-008/TS-091).
+            self._workspaces().set_plan(intent.workspace_id, intent.plan)
+            if intent.kind == "subscription":
+                period_start, period_end = _subscription_period(event.raw)
+                self._workspaces().set_plan_status(
+                    intent.workspace_id,
+                    "active",
+                    grace_until=None,
+                    period_start=period_start,
+                    period_end=period_end,
+                    provider_subscription_id=_subscription_id(event.raw),
+                )
+            else:
+                self.record_usage(intent.workspace_id, "review_paid", ref_id=intent.opportunity_id)
         self.issue_invoice(intent, event)
 
     def _on_payment_failed(self, intent: PaymentIntent, event) -> None:
@@ -632,6 +753,12 @@ class BillingService:
         if intent.kind == "subscription":
             self._workspaces().set_plan(intent.workspace_id, "free")
             self._workspaces().set_plan_status(intent.workspace_id, "cancelled", grace_until=None)
+        elif intent.kind == "topup":
+            # Reverses the SAME period's grant only — `_topups_in_period`
+            # nets granted-minus-refunded within the period bounds, so a
+            # refund can never claw back a top-up that already expired with
+            # a prior period.
+            self.record_usage(intent.workspace_id, "review_topup_refunded", ref_id=intent.id)
         else:
             self.record_usage(intent.workspace_id, "review_refunded", ref_id=intent.opportunity_id)
         original = self.s.scalar(
@@ -690,6 +817,20 @@ _HANDLERS = {
 
 def _subscription_id(raw_event: dict) -> str | None:
     return raw_event.get("payload", {}).get("subscription", {}).get("entity", {}).get("id")
+
+
+def _subscription_period(raw_event: dict) -> tuple[datetime | None, datetime | None]:
+    """The PROVIDER's period is authoritative, not our arithmetic (R-009
+    §B.2) — Razorpay's subscription entity carries `current_start`/
+    `current_end` as unix epoch seconds. Absent in a synthetic test payload
+    with no `subscription` entity — the workspace then falls back to the
+    calendar-month period (`BillingService._period`), same as free/paygo."""
+    entity = raw_event.get("payload", {}).get("subscription", {}).get("entity", {})
+    start = entity.get("current_start")
+    end = entity.get("current_end")
+    if start is None or end is None:
+        return None, None
+    return datetime.fromtimestamp(start, tz=UTC), datetime.fromtimestamp(end, tz=UTC)
 
 
 def _checkout_idempotency_key(workspace_id, kind: str, plan: str, opportunity_id) -> str:

@@ -62,6 +62,7 @@ def _service(request: Request, session: Session) -> AuthService:
         echo_tokens=settings.dev_echo_tokens,
         notifier=request.app.state.ctx.registry.get("notifications.sender"),
         app_url=settings.app_url,
+        entitlements=request.app.state.ctx.registry.get("billing.entitlements"),
     )
 
 
@@ -151,6 +152,7 @@ _STATUS = {
     "invalid_reset_token": 400,
     "password_too_short": 400,
     "last_owner": 400,
+    "seat_limit_reached": 402,  # commercial limit, not an authz failure (R-009 §B.4)
 }
 
 
@@ -158,7 +160,14 @@ def _handle(fn):
     try:
         return fn()
     except AuthError as exc:
-        raise HTTPException(_STATUS.get(exc.code, 400), exc.code) from exc
+        status_code = _STATUS.get(exc.code, 400)
+        # Commercial-limit errors carry an upsell payload — same
+        # {"code", "upsell"} shape as billing's PaywallError, so the
+        # frontend's <Paywall/> renders either without caring which module
+        # raised it. Every other AuthError keeps the plain string detail
+        # existing clients already parse.
+        detail = {"code": exc.code, "upsell": exc.upsell} if exc.upsell is not None else exc.code
+        raise HTTPException(status_code, detail) from exc
 
 
 @router.post("/signup", dependencies=[Depends(rate_limit("auth:signup", SIGNUP_LIMIT))])

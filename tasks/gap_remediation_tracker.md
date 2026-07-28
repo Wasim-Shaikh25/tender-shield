@@ -100,7 +100,7 @@ and the free tier produces paid-grade output.
 | TS-090 | Coupons, discounts, credits, referrals, trials, pilot comps | P1 | [R-006](../specs/requirements/R-006-coupons-discounts.md) | `billing` | todo | A1–A12 in R-006 |
 | TS-096 | GST invoicing: wire `gst.py`, tax columns, gap-free FY series, PDF, credit notes | P1 | [R-007](../specs/requirements/R-007-gst-invoicing.md) | `billing` | **done**⁸ | A14–A19 in billing.md |
 | TS-091 | Billing UI: pricing, paywall component, checkout, invoices, usage meters | P0 | [R-008](../specs/requirements/R-008-billing-ui.md) | frontend | **done**⁷ | A1–A2, A4–A9 in R-008 (A3 coupons deferred) |
-| TS-098 | Entitlement service: seats, top-ups, billing-anniversary periods, plan changes | P1 | [R-009](../specs/requirements/R-009-plan-entitlements.md) | `billing`, `auth` | todo | A1–A9 in R-009 |
+| TS-098 | Entitlement service: seats, top-ups, billing-anniversary periods, plan changes | P1 | [R-009](../specs/requirements/R-009-plan-entitlements.md) | `billing`, `auth` | **done**⁹ | A20–A25 in billing.md, A14 in auth.md |
 
 ⁵ Race-safety (R-004 §A.4) is verified against real, non-superuser PostgreSQL
 with two genuinely concurrent threads (`tests/test_billing_race_postgres.py`)
@@ -199,9 +199,45 @@ was never wired into the `backend-postgres` CI job, which only ran
 script confirmed the full checkout(with GSTIN)→webhook→invoice→PDF flow
 against real Postgres with FORCE RLS live.
 
+⁹ One `Entitlements` object (`billing/entitlements.py`, pure) resolves
+reviews/seats/plan-status/period for every consumer — `PLAN_LIMITS` declared
+`seats` per plan and nothing had ever read it before this. New
+`auth.seats_used`/`billing.entitlements` capability pair (billing can't
+query auth's own `workspace_members`/`invitations` tables, CLAUDE.md §2)
+enforces seat limits at `add_workspace_member`/`create_invitation`/
+`accept_invitation` — `402 seat_limit_reached`, not 403, matching the
+existing paywall shape so the frontend's `<Paywall/>` renders it unchanged.
+Top-ups are sellable now (`POST /checkout {"kind": "topup"}`, price resolved
+from the workspace's own plan) — `authorize()`'s `has_topups` parameter had
+no caller before this rewrite to a real `reviews_used`/`reviews_topup`
+signature. Billing-anniversary periods (month-end-safe `add_month`) replace
+the hardcoded calendar month, sourced from the Razorpay subscription
+entity's own `current_start`/`current_end` when present. A downgrade that
+would leave a workspace over its new plan's seat limit is rejected
+(`400 seats_exceed_new_plan`), never auto-removing members.
+
+Found and fixed two real bugs while building this: (1) a `past_due`
+workspace kept full access **forever**, regardless of how long its grace
+window had been closed — `authorize()` never compared "now" against
+`grace_until` at all; fixed with a `grace_expired` check. (2) That fix's own
+tests immediately hit a SECOND latent bug: SQLite returns naive datetimes
+even for `DateTime(timezone=True)` columns (Postgres preserves tzinfo),
+crashing the very first aware-vs-naive comparison — fixed with
+`entitlements.as_aware_utc`, which also corrected `status()`'s
+`grace_until`/`period_end` serialization (silently wrong since TS-097
+shipped it; no prior test compared the exact ISO string). Deferred, by
+design: true deferred-effect downgrades/cancellations (needs R-016/TS-105's
+job scheduler to have anything to act on later) and a seat-check TOCTOU race
+(lower severity than the free-review race already fixed under TS-087,
+left unlocked). Validated against real Postgres with FORCE RLS live
+(signup → status → add-member-at-capacity → 402, cross-module registry call
+chain exercised end to end). 218 SQLite tests pass (1 skipped) + 11 Postgres
+tests; `next build`/`tsc --noEmit` clean after wiring the frontend's
+`/billing` usage meters and the paywall's top-up button to the new fields.
+
 **Suggested order:** ~~TS-087 → TS-088~~ (done) → ~~TS-089~~ (done) →
-~~TS-091~~ (done, thin path) → ~~TS-096~~ (done) → TS-098 → ~~TS-097~~ (done)
-→ TS-090.
+~~TS-091~~ (done, thin path) → ~~TS-096~~ (done) → ~~TS-098~~ (done) →
+~~TS-097~~ (done) → TS-090.
 
 **Gate 2 exit:** a test customer can hit the paywall, pay, receive a GST invoice
 and export without a watermark — end to end, through the UI.
@@ -286,7 +322,7 @@ measured from production data.
 | Gate | Done | Total |
 |---|---|---|
 | 1 | 6 | 6 |
-| 2 | 6 | 8 |
+| 2 | 7 | 8 |
 | 3 | 0 | 7 |
 | 4 | 0 | 5 |
-| **Total** | **12** | **26** |
+| **Total** | **13** | **26** |

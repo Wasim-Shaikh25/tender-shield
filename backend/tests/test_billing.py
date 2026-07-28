@@ -31,22 +31,36 @@ from app.modules.billing.webhook import verify_signature
 
 
 def test_free_then_exhausted():
-    assert authorize(plan="free", free_review_used=False, reviews_this_month=0).watermark is True
+    assert authorize(plan="free", free_review_used=False, reviews_used=0).watermark is True
     with pytest.raises(PaywallError) as e:
-        authorize(plan="free", free_review_used=True, reviews_this_month=0)
+        authorize(plan="free", free_review_used=True, reviews_used=0)
     assert e.value.code == "free_exhausted"
 
 
 def test_paygo_requires_payment():
-    g = authorize(plan="paygo", free_review_used=True, reviews_this_month=99)
+    g = authorize(plan="paygo", free_review_used=True, reviews_used=99)
     assert g.requires_payment is True
 
 
 def test_pro_quota():
-    assert authorize(plan="pro", free_review_used=True, reviews_this_month=9).kind == "plan"
+    assert authorize(plan="pro", free_review_used=True, reviews_used=9).kind == "plan"
     with pytest.raises(PaywallError) as e:
-        authorize(plan="pro", free_review_used=True, reviews_this_month=10)
+        authorize(plan="pro", free_review_used=True, reviews_used=10)
     assert e.value.code == "quota_exhausted"
+
+
+def test_pro_quota_with_topup_extends_limit():
+    granted = authorize(plan="pro", free_review_used=True, reviews_used=10, reviews_topup=1)
+    assert granted.kind == "plan"
+    with pytest.raises(PaywallError) as e:
+        authorize(plan="pro", free_review_used=True, reviews_used=11, reviews_topup=1)
+    assert e.value.code == "quota_exhausted"
+
+
+def test_cancelled_subscription_blocks_regardless_of_plan():
+    with pytest.raises(PaywallError) as e:
+        authorize(plan="pro", plan_status="cancelled", free_review_used=True, reviews_used=0)
+    assert e.value.code == "subscription_cancelled"
 
 
 def test_webhook_signature():

@@ -56,27 +56,28 @@ one repo (`apps/web` later; starts as `frontend/`).
   baselines with their content hashes, shows the deterministic notice-rule
   register with page citations, the award-vs-tender delta when two baselines
   exist, and the commercial handover pack (sealed hash + key obligations).
-- **B11 (billing UI, R-008, TS-091):** `/pricing` is public and renders the
-  four plan cards with prices matching the server's `PRICES_MINOR` exactly
-  (`lib/money.ts`'s `formatMoney` is the only place minor units are divided by
-  100). `<Paywall/>` renders the 402 payload from any billable action —
-  driven entirely by `detail.code` (`free_exhausted`, `paygo_payment_required`,
-  `quota_exhausted` today) — so a review-run block, and any future
+- **B11 (billing UI, R-008/TS-091; entitlements wired R-009/TS-098):**
+  `/pricing` is public and renders the four plan cards with prices matching
+  the server's `PRICES_MINOR` exactly (`lib/money.ts`'s `formatMoney` is the
+  only place minor units are divided by 100). `<Paywall/>` renders the 402
+  payload from any billable action — driven entirely by `detail.code`
+  (`free_exhausted`, `paygo_payment_required`, `quota_exhausted`,
+  `payment_overdue` today) — so a review-run block, and any future
   export/storage block that raises the same shape, share one component
-  instead of a bespoke error toast per call site. `<CheckoutDialog/>` opens
-  Razorpay's hosted checkout for a real server-created order and polls
-  `GET /billing/intents/{id}` for confirmation; its `handler` callback runs on
-  the client and never marks anything paid — only the webhook does (Doc
-  §15.1). `/billing` (account home) shows current plan/status/grace, usage
-  for quota'd plans, and — admin/owner only — the invoice table; a
+  instead of a bespoke error toast per call site; `quota_exhausted` offers a
+  top-up purchase (`<CheckoutDialog kind="topup"/>`) alongside "See plans"
+  (R-009). `<CheckoutDialog/>` opens Razorpay's hosted checkout for a real
+  server-created order and polls `GET /billing/intents/{id}` for
+  confirmation; its `handler` callback runs on the client and never marks
+  anything paid — only the webhook does (Doc §15.1). `/billing` (account
+  home) shows current plan/status/grace, a reviews-this-period meter (now
+  `reviews_included + reviews_topup`, from the real `GET /billing/status`
+  response rather than a client-side `PLAN_LIMITS` duplicate — the
+  `MONTHLY_QUOTA` placeholder this page carried before R-009 landed is gone)
+  and a seats meter, and — admin/owner only — the invoice table; a
   viewer/estimator sees a read-only summary with no checkout entry point.
-  Coupons, credits, referral, and real entitlement fields (seats/storage/
-  reviews_included) from the R-008 draft are deferred to R-006/TS-090 and
-  R-009/TS-098, which don't have backend capabilities yet — shipping now
-  would mean stubbing endpoints that don't exist. `MONTHLY_QUOTA` in
-  `app/billing/page.tsx` duplicates `PLAN_LIMITS` from
-  `backend/app/modules/billing/plans.py` for *display only* pending a real
-  entitlements endpoint (R-009) — it never gates anything client-side.
+  Coupons/credits/referral from the R-008 draft are still deferred to
+  R-006/TS-090, which doesn't have a backend capability yet.
 - **B8:** the Help page (`/help`) is a static server component: an 8-step
   how-to-use walkthrough, the never-broken safety rules, a three-bucket
   QS-lifecycle coverage table (**Covered now** = Phase-1 pre-bid slice;

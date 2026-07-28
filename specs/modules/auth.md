@@ -5,7 +5,7 @@ TOTP/email/SMS MFA enroll/verify done; password reset via token; phone OTP + Goo
 with Apple backend callback implemented but requires Apple Developer credentials to
 enable)
 **Requirement refs:** Doc §5, §3.2, §16
-**Task refs:** TS-011, TS-012, TS-074..TS-078, TS-084, TS-085, TS-093
+**Task refs:** TS-011, TS-012, TS-074..TS-078, TS-084, TS-085, TS-093, TS-098
 
 ## Purpose
 
@@ -17,7 +17,15 @@ endpoints under `/api/auth/admin/*`.
 ## Public interface
 
 - **Capabilities published:** `auth.current_principal` (FastAPI dependency),
-  `auth.require(min_role)` guard factory, `auth.workspace_factory`.
+  `auth.require(min_role)` guard factory, `auth.workspace_factory`,
+  `auth.seats_used(session, workspace_id)` (R-009, TS-098) — consumed by
+  billing's checkout (the downgrade-vs-seats guard) and status endpoint;
+  billing may not query auth's own `workspace_members`/`invitations` tables
+  (CLAUDE.md §2), so this is the one place that count comes from.
+- **Capabilities consumed:** `billing.entitlements(session, workspace_id,
+  seats_used)` (R-009, TS-098), resolved by name in `AuthService`'s
+  constructor — never imported. Absent when billing is disabled, in which
+  case seat limits are simply not enforced (spec core B2).
 - **Events emitted:** `auth.user_registered`, `auth.workspace_created`,
   `auth.refresh_reuse_detected`.
 - **API routes:**
@@ -109,6 +117,20 @@ endpoints under `/api/auth/admin/*`.
   every refresh-token family belonging to the user in the same transaction as
   the password change, so a session held before the reset (attacker or
   otherwise) does not survive it.
+- **B16 (seat enforcement, R-009 §B.3, TS-098):** `add_workspace_member`
+  (only when genuinely adding a NEW member — a role change for an existing
+  member consumes no seat), `create_invitation`, and `accept_invitation` all
+  call `_check_seat_available`, which raises `seat_limit_reached` (mapped to
+  **402**, not 403 — a commercial limit with an upgrade path, not an
+  authorization failure) via `billing.entitlements`. Seats are consumed by
+  accepted members **and** live pending invitations — an invitation that can
+  never be accepted because its seat was already promised elsewhere is a bad
+  experience. `accept_invitation` excludes the invitation being accepted
+  from its own seat count (it already reserved that seat when created;
+  re-checking without the exclusion would make a workspace sitting exactly
+  at capacity unable to ever accept the very invitation the seat was held
+  for). With billing disabled, no capability is published and the limit is
+  simply absent (spec core B2).
 
 ## Acceptance criteria
 
@@ -135,6 +157,9 @@ endpoints under `/api/auth/admin/*`.
 - A12: 10 failed logins against one account locks it (`423 account_locked`),
   even with the correct password, until the backoff window elapses.
 - A13: a successful login clears the failed-attempt counter and any lock.
+- A14 (R-009): a 3rd member on a free-plan workspace (2 seats) returns `402
+  seat_limit_reached`; a live pending invitation counts toward the limit;
+  with billing disabled the same add succeeds unmetered.
 
 ## Out of scope
 

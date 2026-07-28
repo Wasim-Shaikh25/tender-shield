@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
-from app.modules.billing.plans import PaywallError
+from app.modules.billing.plans import PLAN_LIMITS, PaywallError
 from app.modules.billing.providers.select import select_provider
 from app.modules.billing.service import BillingService
 
@@ -24,7 +24,7 @@ def _service(request: Request, session: Session) -> BillingService:
 
 
 class CheckoutBody(BaseModel):
-    kind: str  # paygo | subscription
+    kind: str  # paygo | subscription | topup
     plan: str | None = None
     opportunity_id: str | None = None
 
@@ -42,7 +42,12 @@ def status(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    return _service(request, session).status(principal.workspace_id)
+    # billing publishes entitlements/plan state; auth owns the actual member
+    # count. Resolved by name (registry) so neither module imports the other
+    # (CLAUDE.md §2) — seats_used_fn is absent when auth is disabled.
+    seats_used_fn = request.app.state.ctx.registry.get("auth.seats_used")
+    seats_used = seats_used_fn(session, principal.workspace_id) if seats_used_fn else None
+    return _service(request, session).status(principal.workspace_id, seats_used=seats_used)
 
 
 @router.post("/checkout")
@@ -56,7 +61,7 @@ def checkout(
     R-005 §B). Activates NOTHING — only the verified webhook does. Plan and
     price are resolved server-side; client input selects which plan, never
     what it costs."""
-    if body.kind not in ("paygo", "subscription"):
+    if body.kind not in ("paygo", "subscription", "topup"):
         raise HTTPException(400, "bad_kind")
     if body.kind == "paygo" and not body.opportunity_id:
         # A paygo payment is scoped to the one opportunity it unlocks
@@ -64,9 +69,35 @@ def checkout(
         # opportunity_id there'd be nothing for authorize_review to match the
         # payment against.
         raise HTTPException(400, "opportunity_id_required")
-    plan = "paygo" if body.kind == "paygo" else (body.plan or "")
+    if body.kind == "paygo":
+        plan = "paygo"
+    elif body.kind == "topup":
+        # A top-up's price depends on the workspace's OWN current plan
+        # (OVERAGE_PRICE_INR_PAISE), resolved server-side — never a plan the
+        # client names (R-009 §B.4).
+        plan = ""
+    else:
+        plan = body.plan or ""
+
+    service = _service(request, session)
+    if body.kind == "subscription" and plan:
+        # A downgrade that would leave the workspace over the new plan's
+        # seat limit is blocked (R-009 §B.5/A5) — never auto-remove members.
+        seats_used_fn = request.app.state.ctx.registry.get("auth.seats_used")
+        if seats_used_fn is not None:
+            new_limit = PLAN_LIMITS.get(plan, {}).get("seats")
+            seats_used = seats_used_fn(session, principal.workspace_id)
+            if new_limit is not None and seats_used > new_limit:
+                raise HTTPException(
+                    400,
+                    {
+                        "code": "seats_exceed_new_plan",
+                        "seats_over": seats_used - new_limit,
+                        "current_seats": seats_used,
+                    },
+                )
     try:
-        return _service(request, session).create_checkout(
+        return service.create_checkout(
             principal.workspace_id,
             kind=body.kind,
             plan=plan,

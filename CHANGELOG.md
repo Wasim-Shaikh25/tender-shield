@@ -6,6 +6,84 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-28 (Plan entitlements — seats, top-ups, billing periods: TS-098)
+
+`PLAN_LIMITS` declared `seats` per plan and nothing ever read it — a
+workspace on any plan could add unlimited members. `authorize()`'s
+`has_topups` parameter had no caller, so top-ups were unsellable. Quota reset
+on a hardcoded calendar month regardless of when a subscription started.
+This is Gate 2's last P1 task: one `Entitlements` object, seats actually
+enforced, top-ups sellable, and billing-anniversary periods.
+
+- **One `Entitlements` object** (new `billing/entitlements.py`, pure) —
+  `reviews_remaining`, `seats_remaining`, `is_entitled` — so a limit can't be
+  enforced in one module and forgotten in another.
+- **Seats enforced.** New `auth.seats_used` capability (billing can't query
+  auth's own `workspace_members`/`invitations` tables) feeds a new
+  `billing.entitlements` capability; `AuthService._check_seat_available`
+  blocks `add_workspace_member`/`create_invitation`/`accept_invitation` at
+  capacity with `402 seat_limit_reached` — a commercial limit, not an authz
+  failure, so it's 402 not 403 and carries the same `{code, upsell}` shape
+  the frontend's `<Paywall/>` already renders for billing's own errors.
+  Pending invitations count toward the limit; `accept_invitation` excludes
+  the invitation being accepted from its own count (it already reserved that
+  seat when created).
+- **Top-ups sellable.** `POST /billing/checkout {"kind": "topup"}` resolves
+  price from the workspace's own current plan (never client-named); the
+  webhook credits `review_topup_granted` (never touching `workspace.plan` —
+  unlike paygo/subscription, a top-up isn't a plan election).
+  `authorize()`'s real signature (`reviews_used`/`reviews_topup`) replaces
+  `reviews_this_month`/`has_topups`. Unused top-ups expire with the period
+  they were bought in — `_topups_in_period` nets granted-minus-refunded
+  scoped to the current period's bounds only.
+- **Billing-anniversary periods.** `BillingService._period` uses the
+  Razorpay subscription entity's own `current_start`/`current_end` when
+  present (extracted by new `_subscription_period`), falling back to
+  calendar month only for free/paygo. New `add_month` is month-end-safe
+  (31 Jan → 28/29 Feb, never 3 Mar).
+- **Downgrade guard.** A `subscription` checkout to a plan with fewer seats
+  than the workspace currently uses returns `400 seats_exceed_new_plan`
+  naming how many seats are over — never auto-removing members.
+- **Two real bugs found and fixed while building this.** (1) A `past_due`
+  workspace kept full access **indefinitely** — `authorize()` never actually
+  compared the current time against `grace_until`, so the "grace window"
+  was cosmetic. Fixed with a `grace_expired` param, computed in
+  `authorize_review` and checked before granting. (2) Testing that fix
+  immediately hit a second, unrelated bug: SQLite returns **naive**
+  datetimes even for `DateTime(timezone=True)` columns (Postgres preserves
+  timezone), which crashed the very first aware-vs-naive comparison.
+  New `entitlements.as_aware_utc` fixes it — and also corrects `GET
+  /billing/status`'s `grace_until`/`period_end` ISO serialization, which had
+  carried the exact same latent bug since the TS-097 work shipped it (no
+  prior test compared the serialized string closely enough to notice).
+- **Frontend**: `/billing`'s usage meters now read `reviews_included`/
+  `reviews_topup`/`seats_included`/`seats_used` from the real
+  `GET /billing/status` response instead of a client-side `PLAN_LIMITS`
+  duplicate (a gap flagged in the TS-091 changelog entry). `<Paywall/>`
+  gained a `payment_overdue` code and a "Buy a top-up" button for
+  `quota_exhausted`.
+- New `tests/test_entitlements.py` (14 tests: month-end rollover, seat
+  enforcement including the pending-invitation and billing-disabled cases,
+  top-up purchase + period-expiry, the downgrade guard, past_due
+  inside/outside grace, provider-sourced billing periods). Updated
+  `specs/modules/billing.md` (B13-B18, A20-A25) and `specs/modules/auth.md`
+  (B16, A14).
+- No schema migration needed — `kind`/`event` are already free-form string
+  columns, so `"topup"`/`review_topup_granted`/`review_topup_refunded` are
+  new values, not new columns.
+- Validated against real Postgres with FORCE RLS live: a dedicated e2e
+  script drove signup → status (exercising the `auth.seats_used` →
+  `billing.entitlements` cross-module registry call chain) → add-member →
+  add-member-again → `402 seat_limit_reached`, all correct under FORCE RLS.
+  218 SQLite tests pass (1 skipped) + 11 Postgres tests; `ruff check`,
+  `next build`, and `tsc --noEmit` all clean.
+
+### Next
+
+- **TS-090** (coupons/discounts/credits/referrals) is Gate 2's one remaining
+  task — the paywall's coupon field and the pricing page's discount display
+  are both waiting on it.
+
 ### Done — 2026-07-28 (GST invoicing wired end to end: TS-096)
 
 `gst.py`'s tax-correct computation existed but was completely dead code —
@@ -83,13 +161,6 @@ real invoices went through `create_invoice`, an untaxed placeholder
   `-m postgres` suite (11 tests: RLS isolation, free-review race-safety,
   gap-free GST sequencing) passes together. 202 SQLite tests pass (1
   skipped); `ruff check` clean.
-
-### Next
-
-- **TS-098** (entitlements: seats/top-ups/anniversary periods) and **TS-090**
-  (coupons/discounts/credits/referrals) are the remaining Gate-2 tasks; both
-  would let the billing UI's `MONTHLY_QUOTA`/coupon-field placeholders become
-  real API calls instead of client-side duplication.
 
 ### Done — 2026-07-28 (Billing UI — the first paid path end to end: TS-091)
 

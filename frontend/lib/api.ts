@@ -195,6 +195,11 @@ export type BillingStatus = {
   grace_until: string | null;
   free_review_used: boolean;
   reviews_this_month: number;
+  reviews_included: number | null; // null = not metered by count (free/paygo)
+  reviews_topup: number;
+  seats_included: number | null;
+  seats_used: number | null; // null when auth's seat-count capability is absent
+  period_end: string | null;
 };
 
 export type CheckoutHandle = {
@@ -225,7 +230,7 @@ export const billing = {
 
   checkout: (
     token: string,
-    body: { kind: "paygo" | "subscription"; plan?: Plan; opportunity_id?: string }
+    body: { kind: "paygo" | "subscription" | "topup"; plan?: Plan; opportunity_id?: string }
   ) =>
     req<CheckoutHandle>(
       "/billing/checkout",

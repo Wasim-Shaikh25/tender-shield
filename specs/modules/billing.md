@@ -15,11 +15,18 @@ bugs (paygo enforcement was computed but never checked; `workspace.plan`
 never actually became "paygo"). GST invoicing wired end to end (R-007,
 TS-096): tax-correct invoices issued on payment success with gap-free per-FY
 numbering, credit notes on refund, GSTIN capture + validation, and an
-on-demand PDF route. Stripe (GCC/UK) is a second file behind
-`select_provider`, not yet written; coupons/discounts (R-006/TS-090) and
-seat/top-up entitlements (R-009/TS-098) remain open.
-**Requirement refs:** Doc §7, §15, §15.8, §16.5; R-004, R-005, R-007, R-008
-**Task refs:** TS-022, TS-087, TS-088, TS-089, TS-097, TS-091, TS-096
+on-demand PDF route. Entitlements wired end to end (R-009, TS-098): one
+`Entitlements` object resolves reviews/seats/plan-status for every consumer;
+seats are actually enforced (previously declared in `PLAN_LIMITS` and never
+read); billing-anniversary quota periods (month-end-safe) replace the
+hardcoded calendar month; top-ups are sellable (`authorize()`'s `has_topups`
+parameter had no caller before this); a `past_due` workspace outside its
+grace window is now actually blocked (previously kept full access
+indefinitely — found while testing this task). Stripe (GCC/UK) is a second
+file behind `select_provider`, not yet written; coupons/discounts
+(R-006/TS-090) remain open.
+**Requirement refs:** Doc §7, §15, §15.8, §16.5; R-004, R-005, R-007, R-008, R-009
+**Task refs:** TS-022, TS-087, TS-088, TS-089, TS-097, TS-091, TS-096, TS-098
 
 ## Purpose
 
@@ -46,6 +53,12 @@ rewriting `service.py`), GST invoicing, and the append-only `payment_log`.
   - `billing.export_entitlement(session, workspace_id) -> {"watermark": bool}`
     — consumed by `export` (TS-088) to decide the free-tier watermark
     server-side; export never imports billing.
+  - `billing.entitlements(session, workspace_id, seats_used=0) ->
+    Entitlements` (R-009, TS-098) — the one object every consumer asks. Reviews/
+    plan/period are billing's own data; `seats_used` is supplied by the
+    CALLER (`auth`) because billing may not query auth's own
+    `workspace_members`/`invitations` tables (CLAUDE.md §2). Consumed by
+    `AuthService._check_seat_available` for seat enforcement.
   - `app.core.deps.meter(event)` (not published by billing — lives in
     `app.core.deps` so any module can gate a billable action without importing
     billing) resolves `billing.service_factory` by name and is the actual
@@ -65,10 +78,19 @@ rewriting `service.py`), GST invoicing, and the append-only `payment_log`.
   are still not emitted — the webhook handlers apply the grant directly via
   `WorkspaceAdmin`; nothing else currently needs to react to them.
 - **API routes:**
-  - `GET /api/billing/status` (viewer)
-  - `POST /api/billing/checkout` (admin) — body `{kind: paygo|subscription,
-    plan?, opportunity_id?}`; price/plan resolved server-side, returns an
-    intent id + provider order handle, never activates anything.
+  - `GET /api/billing/status` (viewer) — resolves `auth.seats_used` (if auth
+    is enabled) and includes it in the response alongside
+    `reviews_included`/`reviews_topup`/`seats_included`/`period_end`
+    (R-009, TS-098) so the frontend stops duplicating `PLAN_LIMITS`.
+  - `POST /api/billing/checkout` (admin) — body `{kind: paygo|subscription|
+    topup, plan?, opportunity_id?}`; price/plan resolved server-side, returns
+    an intent id + provider order handle, never activates anything. `topup`
+    resolves its own price from the workspace's CURRENT plan
+    (`OVERAGE_PRICE_INR_PAISE`) — the client cannot name a plan for a
+    top-up. A `subscription` checkout that would leave the workspace over
+    the new plan's seat limit is rejected with `400 seats_exceed_new_plan`
+    (`{"seats_over", "current_seats"}`) — resolved via `auth.seats_used`,
+    never auto-removing members (R-009 §B.5/A5).
   - `GET /api/billing/intents/{intent_id}` (viewer) — polled by the client
     after opening the provider checkout; ownership-checked in application
     code since `PaymentIntent` carries no RLS.
@@ -226,6 +248,58 @@ check themselves in application code.
   paying elects the workspace into the paygo plan AND unlocks the paid-for
   opportunity in one webhook
   (`test_free_exhausted_workspace_can_pay_per_tender_from_the_paywall`).
+- **B13 (one entitlement object, R-009 §B.1, TS-098):** `Entitlements`
+  (`billing/entitlements.py`, pure) answers every "may they?" question —
+  `reviews_remaining`, `seats_remaining`, `is_entitled` — so a limit can't be
+  enforced in one module and forgotten in another, which is exactly what had
+  happened: `PLAN_LIMITS` declared `seats` for every plan and nothing ever
+  read it.
+- **B14 (billing-anniversary periods, R-009 §B.2):** `BillingService._period`
+  uses `workspace.current_period_start/end` (set from the Razorpay
+  subscription entity's `current_start`/`current_end` on
+  `subscription.activated`/renewal — the provider's period is authoritative,
+  never our arithmetic) when a subscription exists; calendar month is only a
+  fallback for free/paygo, where no anniversary exists. `entitlements.
+  add_month` is month-end-safe (31 Jan → 28/29 Feb, never 3 Mar).
+- **B15 (seats enforced, R-009 §B.3):** `auth.seats_used` (accepted members +
+  live pending invitations) feeds `billing.entitlements`; `AuthService.
+  _check_seat_available` blocks `add_workspace_member`/`create_invitation`/
+  `accept_invitation` at capacity with `402 seat_limit_reached`, never `403`
+  — a commercial limit with an upgrade path, not an authorization failure.
+- **B16 (top-ups, R-009 §B.4):** `POST /checkout {"kind": "topup"}` resolves
+  its price from the workspace's own current plan
+  (`OVERAGE_PRICE_INR_PAISE`), never a client-named plan. The webhook credits
+  a `review_topup_granted` usage event (never touching `workspace.plan` — a
+  top-up is not a plan election, unlike paygo/subscription); a refund credits
+  `review_topup_refunded`. `authorize()`'s real signature
+  (`reviews_used`/`reviews_topup`, replacing the old `reviews_this_month`/
+  `has_topups` — the latter had no caller before this) checks
+  `reviews_used >= reviews_included + reviews_topup`.
+  `BillingService._topups_in_period` nets granted-minus-refunded **within the
+  current period's bounds only** — a top-up bought in an earlier period is
+  never visible in a later one, so unused top-ups expire with the period
+  they were bought in.
+- **B17 (past_due outside grace is blocked, R-009 §B.8/A7, bugfix):**
+  `authorize()` gained a `grace_expired` param — before this, a `past_due`
+  workspace kept full access indefinitely regardless of how long ago its
+  `grace_until` had passed, because nothing ever compared "now" against it.
+  `BillingService.authorize_review` computes `grace_expired` and raises
+  `payment_overdue` when true. Caught a second, unrelated bug while adding
+  this: SQLite returns naive datetimes even for `DateTime(timezone=True)`
+  columns (Postgres preserves tzinfo), which crashed the very first
+  aware-vs-naive comparison (`entitlements.as_aware_utc` fixes this, and also
+  fixes `status()`'s `grace_until`/`period_end` ISO serialization, which had
+  the same latent bug since TS-097 shipped it — untested because no prior
+  test compared the exact serialized string).
+- **B18 (downgrade guard, R-009 §B.5/A5):** a `subscription` checkout to a
+  plan with fewer seats than the workspace currently uses is rejected
+  (`400 seats_exceed_new_plan`) rather than silently over-committing seats or
+  auto-removing members. True deferred effects for downgrades/cancellations
+  (R-009 §B.5's "takes effect at period end" for plans that DON'T immediately
+  violate a limit) are explicitly deferred — there is no scheduled-job system
+  yet (that's R-016/TS-105) to apply a delayed change, and building an inert
+  "pending plan change" field with nothing to ever act on it isn't worth
+  shipping.
 
 ## Acceptance criteria
 
@@ -286,14 +360,37 @@ check themselves in application code.
   returns 404; for the owning workspace it returns a `%PDF`-prefixed body.
 - A19 (R-007): `PUT /billing/details` with a GSTIN whose checksum doesn't
   self-validate returns 400 `invalid_gstin` and persists nothing.
+- A20 (R-009): an 11th... well, a 3rd member on a free workspace (2 seats)
+  returns `402 seat_limit_reached`; a live pending invitation counts toward
+  the total; billing disabled means no limit at all.
+- A21 (R-009): a `pro` workspace at 10/10 reviews is blocked
+  (`quota_exhausted`); buying a top-up (`kind: "topup"`) allows exactly one
+  more review in the SAME period, without changing `workspace.plan`.
+- A22 (R-009): a top-up granted in an earlier period does not count toward
+  the current period's `reviews_topup` (verified directly against
+  `UsageEvent.created_at` outside the period bounds).
+- A23 (R-009): a `subscription` checkout to a plan whose seat limit is below
+  the workspace's current member count returns `400 seats_exceed_new_plan`
+  naming how many seats are over; no member is removed.
+- A24 (R-009): a `past_due` workspace inside `grace_until` runs reviews
+  normally; the same workspace past `grace_until` gets `402
+  payment_overdue`.
+- A25 (R-009): a subscription's period bounds come from the provider's own
+  `current_start`/`current_end` when present (verified via a synthetic
+  payload with a 28 Jan → 28 Feb period), not a hardcoded calendar month.
 
 ## Out of scope
 
 Stripe live wiring (P2/GCC), admin refund console (Doc §16, P1-admin scope),
 annual plans/proration polish, coupons/discounts/credits/referrals
-(R-006/TS-090, next), seat/top-up entitlements (R-009/TS-098, next),
-GSTR-1 filing exports, e-invoicing/IRN registration, TDS/TCS handling
-(R-007 explicitly defers these), and requiring a GSTIN-or-explicit-
-unregistered declaration before checkout (R-007 §B.9) — a B2C invoice with no
-GSTIN is already valid per the edge-case table, so this gate is a UX nicety
-deferred rather than a correctness gap.
+(R-006/TS-090, next), GSTR-1 filing exports, e-invoicing/IRN registration,
+TDS/TCS handling (R-007 explicitly defers these), requiring a
+GSTIN-or-explicit-unregistered declaration before checkout (R-007 §B.9) — a
+B2C invoice with no GSTIN is already valid per the edge-case table, so this
+gate is a UX nicety deferred rather than a correctness gap — and true
+deferred-effect downgrades/cancellations that don't immediately violate a
+limit (R-009 §B.5; needs R-016/TS-105's job scheduler to have anything to
+act on the deferral). A theoretical TOCTOU race on seat checks (two
+concurrent `add_workspace_member` calls both passing the check) is not
+locked the way the free-review race is — lower severity than a double-spent
+free review or a broken invoice sequence, and not fixed in this pass.

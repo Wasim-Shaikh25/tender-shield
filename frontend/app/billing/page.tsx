@@ -1,21 +1,15 @@
 "use client";
 
-// Account billing home (R-008 §3, thin path — TS-091). Current plan, monthly
-// usage, invoice history, and a plan-change entry point. Seats/storage meters
-// and the credit/referral sections from the R-008 draft need entitlement and
-// coupon endpoints that don't exist yet (R-009/TS-098, R-006/TS-090) — this
-// ships what `billing.status`/`billing.invoices` actually return today.
+// Account billing home (R-008 §3, TS-091; entitlement fields wired to real
+// data in R-009/TS-098). Current plan, reviews/seats usage, invoice history,
+// and a plan-change entry point. Credit/referral sections from the R-008
+// draft still need R-006/TS-090's coupon endpoints, which don't exist yet.
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { billing, type BillingStatus, type Invoice, type Plan } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { formatMoney } from "@/lib/money";
-
-// Mirrors PLAN_LIMITS in backend/app/modules/billing/plans.py — there's no
-// entitlements endpoint yet to fetch this from (R-009/TS-098), so it's
-// duplicated here for display only; it never gates anything client-side.
-const MONTHLY_QUOTA: Partial<Record<Plan, number>> = { pro: 10, scale: 40 };
 
 const PLAN_LABEL: Record<Plan, string> = {
   free: "Free",
@@ -79,8 +73,6 @@ export default function BillingPage() {
 
   if (!status) return <p className="text-sm text-slate-500">Loading…</p>;
 
-  const quota = MONTHLY_QUOTA[status.plan];
-
   return (
     <div className="max-w-2xl space-y-6">
       <div>
@@ -106,14 +98,23 @@ export default function BillingPage() {
           </p>
         )}
 
-        <div className="mt-4">
+        <div className="mt-4 space-y-3">
           {status.plan === "free" && (
             <Row label="Free review" value={status.free_review_used ? "used" : "available"} />
           )}
           {status.plan === "paygo" && (
             <Row label="Reviews" value="pay per tender — no monthly cap" />
           )}
-          {quota !== undefined && <UsageMeter label="Reviews this month" used={status.reviews_this_month} included={quota} />}
+          {status.reviews_included !== null && (
+            <UsageMeter
+              label="Reviews this period"
+              used={status.reviews_this_month}
+              included={status.reviews_included + status.reviews_topup}
+            />
+          )}
+          {status.seats_included !== null && status.seats_used !== null && (
+            <UsageMeter label="Seats" used={status.seats_used} included={status.seats_included} />
+          )}
         </div>
 
         {isAdmin ? (

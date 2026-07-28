@@ -6,6 +6,54 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-28 (Product-discovery audit — capabilities never built: TS-126)
+
+`docs/GAP_ANALYSIS.md` (TS-083) audited what exists and found it defective, and
+Gates 1–4 fixed it. This audit asks the opposite question — **what was never
+built at all**: requirements never written, roles with no reachable workflow,
+journeys that dead-end, capabilities the domain expects that appear nowhere.
+
+- **The finding that reframes the previous four gates: a user cannot upload
+  their own tender.** `POST /ingestion/opportunities/{id}/upload` is fully
+  implemented and was hardened in TS-095 (streaming, size cap, magic-byte
+  validation) — and has **no user interface**. There is no `<input type="file">`,
+  no `FormData`, and no caller anywhere in `frontend/`. The only path a document
+  takes into the system is the "Upload sample tender" button, which posts a
+  hardcoded 12-line demo string. Everything downstream — risk review, BOQ checks,
+  deadline extraction, artifacts, export, and the paywall charging ₹7,500 per
+  review — currently operates exclusively on that fixture. Gates 1–4 made a
+  workspace billable, isolated and switchable; it is not yet usable.
+- **Other release-blocking discoveries.** `Opportunity.status` is a dead column
+  never written by any code path, so the product that produces "bid-decision
+  artifacts" has nowhere to record the decision (and its own Phase-1/kill-gate
+  metrics are unmeasurable). The app has **two DELETE routes in total**, both on
+  `standards` — nothing can be archived or deleted. `notifications/digest.py`
+  implements the deadline-alert thresholds exactly as specified and has **zero
+  callers**, so the product's primary promise is unrealised. A departed employee
+  **cannot be removed** from a workspace — there is no member-removal route.
+- **Seven implemented, tested, routable backend modules have no UI at all**:
+  timeline (including a finished `.ics` calendar feed), review queue, qualification,
+  comparison, crossref, rulepacks, plus the ops console. The `reviewer` role gates
+  only the review-queue endpoints, so it currently has no reachable workflow.
+- **Cross-cutting:** roles are enforced server-side but unmanageable and invisible
+  in the UI; `projects`/`project_members` is a fully-built sub-tenant layer with
+  zero product references; `audit_log` is written in exactly one place (review
+  decisions) so no auth, billing, membership or export action is auditable.
+- **New:** `docs/PRODUCT_DISCOVERY_GAPS.md` (16 gaps, each with the full
+  capability / roles / evidence / classification / consequences / proposed
+  behavior / changes / acceptance / priority / release-blocking / questions
+  treatment), requirement docs **R-017…R-023**, tracker **Gates 5–7**, and
+  backlog rows **TS-110…TS-126**. Findings are classified Confirmed Missing /
+  Strongly Implied / Domain-Expected / Clarification Required — nothing inferred
+  is recorded as confirmed.
+- **10 product decisions are still required** and are listed in both the audit
+  and the tracker. The most consequential: does DPDP apply at launch (decides
+  whether TS-115 blocks release), is this a design-partner cohort or GA, and who
+  receives deadline alerts by default — "the assignee" would require building
+  assignment, which does not exist.
+- No product-context brief was supplied, so the product context used for the
+  audit is inferred from the repository and labelled as assumptions throughout.
+
 ### Done — 2026-07-28 (Workspace switching: TS-100)
 
 Before this, a user who belonged to several workspaces landed in an
@@ -210,11 +258,18 @@ last task; **Gate 2 (make it possible to get paid) is now fully closed.**
 
 ### Next
 
-- **Gate 2 is done.** Gate 3 (make it usable) is 2/7: TS-092 and TS-100 done
-  (see above) — remaining: TS-099 (email verification + disposable-email
-  blocklist), TS-101 (MFA enforcement at login), TS-102 (portfolio
-  dashboard), TS-103 (account UI), TS-104 (design system + remaining
-  frontend test stack: a11y, Playwright, error copy table).
+- **Re-prioritise: Gate 5 (TS-110 upload) now outranks the rest of Gate 3.**
+  The discovery audit found that no customer can upload their own tender, which
+  makes most of Gates 3–4 unreachable with real data. Recommended order:
+  **TS-110 (upload) → TS-119 (review queue) → TS-111 (lifecycle) → TS-112
+  (archive) → TS-116 (member removal)**, then resume Gate 3.
+- Gate 3 remains 2/7 (TS-092, TS-100 done): TS-099 (email verification),
+  TS-101 (MFA enforcement), TS-102 (dashboard), TS-103 (account UI), TS-104
+  (design system + remaining test stack).
+- **Blocked on product decisions** (see `docs/PRODUCT_DISCOVERY_GAPS.md`
+  §Product Decisions Required): TS-115 needs the DPDP answer; TS-113's default
+  alert recipient needs the assignment decision; TS-110's scope needs the
+  max-pack-size / resumable / ZIP answers.
 
 ### Done — 2026-07-28 (Plan entitlements — seats, top-ups, billing periods: TS-098)
 

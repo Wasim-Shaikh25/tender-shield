@@ -175,6 +175,34 @@ Analysis: `docs/GAP_ANALYSIS.md` · Requirements: `specs/requirements/R-0xx-*.md
 | TS-108 | Instrument finding-acceptance rate from the review audit log — the Phase-1 kill gate is unmeasurable today | P1 | §6.1 | R-016 §D | todo |
 | TS-109 | Legal/commercial surface: ToS, privacy policy, refund policy (Razorpay requirement), DPA, DPDP data-principal request paths | P2 | §6.3 | R-016 + Doc §16 | todo |
 
+### Gaps raised by TS-126 (product discovery — capabilities never built)
+
+Audit: `docs/PRODUCT_DISCOVERY_GAPS.md` · Gates 5–7 and sequencing:
+`tasks/gap_remediation_tracker.md`. TS-083 asked "what exists and is broken";
+this one asks "what was never built". Classification column: **CM** = Confirmed
+Missing Requirement, **SI** = Strongly Implied, **DE** = Domain-Expected,
+**CR** = Clarification Required.
+
+| ID | Task | Severity | Gap ref | Requirement | Class | Status |
+|---|---|---|---|---|---|---|
+| TS-110 | Document upload journey — no file input exists anywhere; the hardened `/upload` endpoint is unreachable and the UI only posts a hardcoded sample string | P0 | §G-01 | R-017 | CM | todo |
+| TS-111 | Opportunity lifecycle + bid/no-bid decision record — `Opportunity.status` is never written by any code path | P0 | §G-02 | R-018 | CM | todo |
+| TS-112 | Archive/delete/restore for opportunities and documents — the app has 2 DELETE routes in total, both on `standards` | P0 | §G-03 | R-019 | SI | todo |
+| TS-113 | Deadline alerts actually delivered — `notifications/digest.py` is fully written with zero callers | P0 | §G-04 | R-020 | CM | todo |
+| TS-114 | Audit trail beyond review decisions (no auth/billing/membership/export audit at all); move `audit_log` to `core` | P1 | §G-05 | R-021 §A | SI | todo |
+| TS-115 | Workspace data export + account/workspace closure (DPDP); statutory invoice retention as a disclosed exception | P1 | §G-06 | R-021 §B | CR | todo |
+| TS-116 | Member removal with immediate session revocation + invitation list/revoke/resend — a departed employee cannot be removed today | P0 | §G-07 | R-022 §A | SI | todo |
+| TS-117 | Processing-failure visibility + retry; a failed run currently consumes the paid review silently | P1 | §G-08 | R-022 §B | SI | todo |
+| TS-118 | Timeline view + `.ics` calendar subscription (feed already written; needs a signed revocable token) | P1 | §G-09 | R-023 | CM | todo |
+| TS-119 | Review queue + audit viewer UI — gates the paid export path; `reviewer` has no reachable workflow without it | P0 | §G-10 | R-023 | CM | todo |
+| TS-120 | Bid qualification / eligibility UI — feeds the bid decision | P1 | §G-11 | R-023 | CM | todo |
+| TS-121 | Cross-tender comparison UI — build with TS-102's dashboard | P2 | §G-12 | R-023 | CM | todo |
+| TS-122 | Addendum cross-reference / diff UI | P1 | §G-13 | R-023 | CM | todo |
+| TS-123 | Rule-pack transparency UI (patterns, version, confidence) | P2 | §G-14 | R-023 | SI | todo |
+| TS-124 | Search across opportunities/clauses/findings + opportunity assignment | P1 | §G-15 | R-023 | SI | todo |
+| TS-125 | Support/ops investigation console (read-only by design; no impersonation) | P2 | §G-16 | R-023 | DE | todo |
+| TS-126 | Product-discovery audit: capabilities never built, missing roles/journeys, unexposed backends | P1 | — | `docs/PRODUCT_DISCOVERY_GAPS.md` | — | done |
+
 ## Notes
 
 - A task moves to `in-progress` when work starts and `done` in the commit that

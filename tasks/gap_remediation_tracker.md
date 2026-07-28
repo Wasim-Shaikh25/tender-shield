@@ -1,14 +1,23 @@
-# Gap Remediation Tracker (TS-084 … TS-109)
+# Gap Remediation Tracker (TS-084 … TS-126)
 
 Created from the whole-project gap analysis on 2026-07-28 (TS-083,
-`docs/GAP_ANALYSIS.md`). Requirement detail for every task lives in
-`specs/requirements/R-0xx-*.md`.
+`docs/GAP_ANALYSIS.md`) and extended the same day with the product-discovery
+audit (TS-126, `docs/PRODUCT_DISCOVERY_GAPS.md`). Requirement detail for every
+task lives in `specs/requirements/R-0xx-*.md`.
 
 ## Goal
 
-Close the gap between "the domain engine works" and "this is a product that can
-hold customer data and take money". The engine is not the problem — security,
-monetization and the frontend are.
+Close two different gaps.
+
+**Gates 1–4 (TS-083):** the gap between "the domain engine works" and "this is a
+product that can hold customer data and take money". The engine was never the
+problem — security, monetization and the frontend were.
+
+**Gates 5–7 (TS-126):** the gap between "the software is correct" and "a customer
+can actually use it". The discovery audit found capabilities that were never
+built at all — most starkly, **no user can upload their own tender**, so the
+product currently analyses only its own built-in sample. Correct, billable,
+isolated — and not yet usable.
 
 ## Gate map
 
@@ -23,6 +32,15 @@ their tender data between tenants.
 | **2** | Make it possible to get paid | TS-087…TS-091, TS-096…TS-098 | All revenue; Phase-1 exit gate | **done** |
 | **3** | Make it usable | TS-092, TS-099…TS-104 | Daily use, retention | in progress (2/7) |
 | **4** | Scale and prove | TS-105…TS-109 | NFRs, phase gates, ops | todo |
+| **5** | Make the core journey real | TS-110…TS-113, TS-119 | **Any real customer use** | todo |
+| **6** | Trust, recovery and compliance | TS-114…TS-117 | Enterprise/consultancy sale; incident response | todo |
+| **7** | Expose what is already built | TS-118, TS-120…TS-125 | Reachability of finished engines | todo |
+
+Gates 1–4 came from the TS-083 defect audit. **Gates 5–7 come from the TS-126
+product-discovery audit** (`docs/PRODUCT_DISCOVERY_GAPS.md`) and cover
+capabilities that were never built at all. Gate 5 outranks Gates 3 and 4 on
+merit: a user cannot currently upload their own tender, so nothing in Gates 3–4
+is reachable with real customer data.
 
 ---
 
@@ -391,6 +409,139 @@ of it into Gate 2 — it is a small change with disproportionate value.
 **Gate 4 exit:** the 25-minute p95 NFR is achievable, storage survives replica
 replacement, and the phase gates in `specs/000-product-overview.md` can be
 measured from production data.
+
+---
+
+# Product discovery gates (5–7) — added 2026-07-28 by TS-126
+
+Gates 1–4 came from `docs/GAP_ANALYSIS.md` (TS-083), which audited **what exists
+and is defective**. Gates 5–7 come from `docs/PRODUCT_DISCOVERY_GAPS.md`
+(TS-126), which asks the opposite question: **what was never built at all** —
+requirements never written, roles with no reachable workflow, journeys that
+dead-end, capabilities the domain expects that appear nowhere.
+
+**The finding that reframes the other four gates:** a user cannot upload their
+own tender. `POST /ingestion/opportunities/{id}/upload` is implemented and was
+hardened in TS-095, and has no user interface — no `<input type="file">`, no
+`FormData`, no caller anywhere in `frontend/`. The only path a document takes
+into the system is a button that posts a hardcoded 12-line demo string. Gates
+1–4 made a workspace billable, isolated and switchable. It is not yet usable.
+
+Classifications follow the discovery doc: **Confirmed Missing Requirement**
+(explicitly required, not implemented) · **Strongly Implied** (an existing role
+or workflow is incomplete without it) · **Domain-Expected** (standard for the
+category, not confirmed in scope) · **Clarification Required** (needs a product
+decision). Nothing inferred is recorded as confirmed.
+
+## Gate 5 — Make the core journey real
+
+| ID | Task | Sev | Req | Module(s) | Status | Class | Acceptance gate |
+|---|---|---|---|---|---|---|---|
+| TS-110 | Document upload journey: file picker/drag-drop, multipart client, per-file progress + failure, document list | P0 | [R-017](../specs/requirements/R-017-document-upload-journey.md) | frontend, `ingestion` | todo | Confirmed Missing | A1–A6 in R-017 |
+| TS-119 | Review queue + audit viewer UI — gates the paid export path; `reviewer` has no reachable workflow without it | P0 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | frontend, `review` | todo | Confirmed Missing | TS-119 §Acceptance in R-023 |
+| TS-111 | Opportunity lifecycle + bid/no-bid decision record (`status` is a dead column) | P0 | [R-018](../specs/requirements/R-018-opportunity-lifecycle.md) | `ingestion`, frontend | todo | Confirmed Missing | A1–A6 in R-018 |
+| TS-112 | Archive / delete / restore for opportunities and documents | P0 (archive) | [R-019](../specs/requirements/R-019-record-lifecycle.md) | `ingestion`, frontend | todo | Strongly Implied | A1–A6 in R-019 |
+| TS-113 | Deadline alerts actually delivered (`digest.py` has zero callers) | P0 | [R-020](../specs/requirements/R-020-deadline-alerting.md) | `notifications`, frontend | todo | Confirmed Missing | A1–A6 in R-020 |
+
+**Sequencing:** TS-110 → TS-119 → TS-111 → TS-112 → TS-113. That order is the
+shortest path to a product a design partner can use end to end on their own
+tender. **TS-113 depends on TS-105** (job scheduler) and shares delivery-adapter
+work with TS-099.
+
+**Gate 5 exit:** a design partner uploads their own tender pack, works the
+findings through a real review queue, records a bid decision, archives what they
+do not need, and is told about a deadline without opening the app.
+
+## Gate 6 — Trust, recovery and compliance
+
+| ID | Task | Sev | Req | Module(s) | Status | Class | Acceptance gate |
+|---|---|---|---|---|---|---|---|
+| TS-116 | Member removal (with immediate session revocation) + invitation list/revoke/resend | P0 | [R-022 §A](../specs/requirements/R-022-team-lifecycle-and-run-recovery.md) | `auth`, frontend | todo | Strongly Implied | A1–A6 in R-022 §A |
+| TS-114 | Audit trail beyond review decisions; move `audit_log` to `core` | P1 | [R-021 §A](../specs/requirements/R-021-audit-and-data-rights.md) | `core`, `auth`, `billing`, `export` | todo | Strongly Implied | A1–A5 in R-021 §A |
+| TS-117 | Processing-failure visibility + retry; metering correction for failed runs | P1 | [R-022 §B](../specs/requirements/R-022-team-lifecycle-and-run-recovery.md) | `risk`, `billing`, frontend | todo | Strongly Implied | B1–B5 in R-022 §B |
+| TS-115 | Workspace data export + account/workspace closure (DPDP) | P1 | [R-021 §B](../specs/requirements/R-021-audit-and-data-rights.md) | `auth`, all workspace-scoped modules | todo | Clarification Required | B1–B5 in R-021 §B |
+
+**TS-116 is release-blocking on its own merits.** "Cannot remove a departed
+employee's access" is not a shippable state for a product holding confidential
+commercial packs — especially for the P3 consultancy persona holding several
+clients' packs in one workspace. Note the subtlety: removal must revoke the
+member's refresh families, or "removed" silently means "removed in up to 15
+minutes" when their access token expires.
+
+**TS-115's release-blocking status is unresolved** and depends on the DPDP
+question in `Product decisions still required` below. It also depends on TS-105
+(jobs) and TS-106 (storage delete).
+
+**Gate 6 exit:** an incident can be investigated, a departing employee can be
+removed immediately, a failed run explains itself and does not silently consume
+a paid review, and a customer can take or erase their data.
+
+## Gate 7 — Expose what is already built
+
+Seven modules are implemented, tested and routable with **no user interface at
+all**. This is the cheapest value in the backlog — the engines are already paid
+for. (TS-119 is listed in Gate 5 rather than here because it gates the paid path.)
+
+| ID | Task | Sev | Req | Module(s) | Status | Class | Acceptance gate |
+|---|---|---|---|---|---|---|---|
+| TS-118 | Timeline view + `.ics` calendar subscription (needs a signed, revocable feed token) | P1 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | frontend, `timeline` | todo | Confirmed Missing | TS-118 §Acceptance in R-023 |
+| TS-120 | Bid qualification / eligibility UI — feeds the bid decision (TS-111) | P1 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | frontend, `qualification` | todo | Confirmed Missing | R-023 |
+| TS-124 | Search across opportunities, clauses and findings; opportunity assignment | P1 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | frontend, `ingestion`, `findings` | todo | Strongly Implied | R-023 |
+| TS-122 | Addendum cross-reference / diff UI | P1 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | frontend, `crossref` | todo | Confirmed Missing | R-023 |
+| TS-121 | Cross-tender comparison UI — build with TS-102's dashboard, not separately | P2 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | frontend, `comparison` | todo | Confirmed Missing | R-023 |
+| TS-123 | Rule-pack transparency UI (which patterns ran, at what version/confidence) | P2 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | frontend, `rulepacks` | todo | Strongly Implied | R-023 |
+| TS-125 | Support/ops investigation console (read-only; no impersonation by design) | P2 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | frontend, `auth` | todo | Domain-Expected | R-023 |
+
+**TS-118 is the best value-to-effort item in the whole backlog.** The `.ics` feed
+is already written. Calendar subscription puts the product inside the tool the
+customer already lives in, which is exactly the daily-use retention R-012 argues
+the business depends on. The only real work is a signed, revocable feed token —
+a calendar client cannot send a bearer token.
+
+**Gate 7 exit:** no implemented, tested backend capability is unreachable from
+the UI, and every role has at least one workflow it can actually perform.
+
+## Cross-cutting findings (not tasks)
+
+- **Roles are enforced but unmanageable and invisible.** All five roles gate real
+  endpoints (`viewer` 36×, `estimator` 13×, `admin` 11×, `reviewer` 3×), but the
+  UI has no member management, shows identical navigation to every role, and
+  never displays the caller's own role. `reviewer` is thinnest: two of its three
+  endpoints are the review queue/audit (no UI until TS-119), the third is
+  `baseline/freeze` (reachable) — so the workflow the role is named for is
+  precisely the one it cannot perform.
+- **`projects` / `project_members` is a fully-built sub-tenant layer with no UI
+  and no stated product purpose** — four endpoints, two tables, RLS coverage,
+  membership guards, zero product references. Either a deliberate future
+  capability or dead weight carrying real complexity and attack surface.
+  **Clarification Required.**
+- **No spec describes an end-to-end user journey.** The per-module specs are
+  strong contracts; nothing states what a commercial head does on Tuesday
+  morning. Every gap above clusters in the seams between modules — which is
+  exactly what that missing document would have caught.
+
+## Product decisions still required
+
+These change scope, sequencing and release-blocking status. No product-context
+brief was supplied for this audit, so each is genuinely open — the full list with
+reasoning is in `docs/PRODUCT_DISCOVERY_GAPS.md` §Product Decisions Required.
+
+1. **Does DPDP apply at launch?** Decides whether TS-115 blocks release.
+2. **Design-partner cohort or general availability?** A design-partner launch can
+   defer most of Gates 6–7; GA cannot.
+3. **Upload envelope** — max pack size, resumable required?, ZIP in scope? (TS-110)
+4. **Authoritative tender status list**, and whether no-bid reasons are a
+   controlled vocabulary (that list is the most commercially valuable dataset the
+   product could collect). (TS-111)
+5. **Can customers permanently delete, or archive only?** Restore window? Do
+   sealed baselines resist deletion? (TS-112)
+6. **WhatsApp at launch?** And who is alerted by default — everyone, or an
+   assignee? "Assignee" requires building assignment first. (TS-113, TS-124)
+7. **On member removal, are records retained with attribution or reassigned?** (TS-116)
+8. **Does a failed run auto-refund the metered entitlement?** (TS-117)
+9. **Keep or remove the `projects` layer?**
+10. **Does the AI assistant stay unsurfaced?** Six endpoints and two tables are
+    currently dark by an explicit decision in `specs/frontend.md` — confirm it holds.
 
 ---
 

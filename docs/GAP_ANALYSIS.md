@@ -8,6 +8,16 @@ multi-tenancy & security, architecture, frontend/UI/UX, code quality, ops.
 This document records gaps found by reading the code, not by reading the specs.
 Where the code and the spec/README disagree, the code is treated as the truth.
 
+> **Companion audit (2026-07-28, TS-126):** this document asks *"what exists and
+> is defective?"* — it audits implemented behavior. `docs/PRODUCT_DISCOVERY_GAPS.md`
+> asks the opposite question: *"what was never built at all?"* — missing
+> requirements, roles with no reachable workflow, journeys that dead-end, and
+> finished backends with no user interface. It found, among other things, that
+> **no user can upload their own tender** (the hardened `/upload` endpoint has no
+> UI; the app only analyses a hardcoded sample), which reframes the priority of
+> everything in this document. Its findings are tracked as Gates 5–7 and tasks
+> TS-110…TS-125.
+
 ---
 
 ## 0. Verdict in one paragraph

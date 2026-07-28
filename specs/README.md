@@ -30,6 +30,18 @@ change (`CLAUDE.md` §1.2).
 | `modules/health.md` | Health / module discovery / capabilities endpoint | §11.1 |
 | `modules/notifications.md` | Deadline-digest notification sender abstraction | §11.6, §11.7 |
 
+## Requirements (`specs/requirements/`)
+
+Implementation-ready requirement documents (`R-001`…`R-016`) derived from the
+gap analysis (`docs/GAP_ANALYSIS.md`, TS-083). They sit between the build doc
+and the module specs: each cites the code it replaces, gives a reference
+implementation, and carries acceptance criteria that become tests. Index and
+conventions: `specs/requirements/README.md`. Sprint plan:
+`tasks/gap_remediation_tracker.md`.
+
+A requirement doc names the module specs it changes; those specs must be updated
+in the same commit as the implementation (`CLAUDE.md` §1.2).
+
 ## Template (use for every new spec)
 
 ```markdown

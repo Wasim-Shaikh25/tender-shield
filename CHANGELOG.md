@@ -38,16 +38,56 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   four gates: stop the leaks → make it possible to get paid → make it usable → scale
   and prove.
 
+### Done — 2026-07-28 (requirement suite for the gap remediation: TS-083 cont.)
+
+- Second pass over the repo to ground every gap in the actual code, then wrote
+  **`specs/requirements/R-001…R-016`** — implementation-ready requirement documents,
+  one per change, each with: the current code quoted at `file:line`, a reference
+  implementation, the data-model delta, the API contract, numbered behaviours (B1…)
+  and acceptance criteria (A1…) written to become tests.
+  - **Gate 1** R-001 tenant isolation · R-002 auth hardening · R-003 upload safety
+  - **Gate 2** R-004 paywall + watermark · R-005 payments/checkout · R-006 coupons ·
+    R-007 GST invoicing · R-008 billing UI · R-009 plan entitlements
+  - **Gate 3** R-010 frontend session · R-011 workspace switching · R-012 dashboard ·
+    R-013 account UI · R-014 design system · R-015 email verification
+  - **Gate 4** R-016 async pipeline, S3 storage, observability, product metrics
+- Added **`tasks/gap_remediation_tracker.md`** — the four-gate sprint plan for
+  TS-084…TS-109 with per-task acceptance gates, suggested ordering, cross-cutting
+  rules (module boundaries, minor units, fail-closed) and a definition of done.
+- Cross-linked `tasks/backlog.md` (new Requirement column) and `specs/README.md`.
+- Additional findings from the second pass, folded into the requirement docs:
+  - `WorkspaceMember` and `ProjectMember` are plain `Base` subclasses, so they are
+    absent from `WORKSPACE_SCOPED_TABLES` and **no RLS policy is generated for them
+    at all** — the member-list leak has no database backstop (R-001 §B.3).
+  - `SET LOCAL` dies with its transaction and services commit mid-request, so a
+    single bind at `authenticate()` does not survive the request (R-001 §B.5).
+  - `billing/module.py` already publishes `billing.service_factory` with the comment
+    "consumed by risk/ingestion before starting a review" — the intended wiring was
+    designed and never connected (R-004 §A.1).
+  - `authorize_review(workspace_id)` has no opportunity id, so it cannot implement
+    the doc's own "addendum re-processing is free" rule (R-004 §A.3).
+  - `specs/modules/billing.md` declares three events (`plan_activated`,
+    `payment_applied`, `paywall_hit`) and a per-org advisory lock that do not exist
+    in the code (R-004 §A.4–A.5).
+  - `User.phone` and `User.google_sub` columns already exist and are unused —
+    the anti-abuse work in R-015 §C.2 needs no migration for them.
+  - `session.tsx` has no three-state loading status, so a signed-in user renders as
+    signed-out on every reload (R-010 §B.7).
+
 ### Next
 
-- **TS-084, TS-085, TS-086, TS-093, TS-094, TS-095** — Gate 1 (security): close the
-  cross-tenant leaks, remove the token echo, harden RLS with a Postgres CI job, revoke
+- **Gate 1 — TS-084, TS-085, TS-086, TS-093, TS-094, TS-095.** Close the three
+  cross-tenant leaks, remove the reset-token echo, harden RLS (FORCE + WITH CHECK +
+  missing tables + post-commit rebinding) behind a new Postgres CI job, revoke
   sessions on password reset, rate-limit auth, stream uploads.
-- **TS-087, TS-088, TS-089, TS-091** — Gate 2 (revenue): enforce metering in the review
-  path, apply the watermark, create real Razorpay orders, ship the billing UI.
-- **TS-090, TS-096** — coupons/discounts and GST-correct invoicing.
-- **TS-092, TS-100** — refresh-token handling and workspace switching (both block basic
-  day-to-day use).
+  Exit: a cross-tenant read attempt is covered by an automated test.
+- **Gate 2 — TS-087, TS-088 first.** Nothing else in billing has value until the
+  paywall is enforced in the review path and the free tier stops emitting clean
+  paid-grade exports. Then TS-089/TS-091 for a thin but complete paid path.
+- **Consider pulling forward:** the acceptance-rate half of TS-108 (the Phase-1 kill
+  gate is unmeasurable today despite the data already being recorded), and the
+  frontend test stack from TS-104 (TS-092 is the task most in need of tests and
+  there is currently no way to write one).
 
 ### Done — 2026-07-26 (real web validation + invitation fix: TS-080..TS-081)
 

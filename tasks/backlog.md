@@ -139,6 +139,38 @@ staying inside the tender-review domain. Full requirements and tracker:
 | TS-080 | Real web automation validation of signup -> workspace -> project -> invite flow | testing; Doc §11.1 | — | done |
 | TS-081 | Fix `accept_invitation` naive/aware datetime comparison and add invitation flow test | bugfix; Doc §11.1 | `tests/test_auth_module.py` (update) | done |
 | TS-082 | Forgot-password and reset-password flow (token via email, dev mode returns token) | product; Doc §5 | `specs/modules/auth.md` (update) | done |
+| TS-083 | Whole-project gap analysis (business, monetization/coupons, auth, security/multi-tenancy, architecture, frontend/UI) | user request; Doc §0–§19 | `docs/GAP_ANALYSIS.md` (new) | done |
+
+### Gaps raised by TS-083 (see `docs/GAP_ANALYSIS.md` for detail)
+
+| ID | Task | Severity | Gap ref | Status |
+|---|---|---|---|---|
+| TS-084 | Membership checks on `GET/POST /workspaces/{id}/members` and `GET /projects/{id}/members` — currently any authenticated user can read/escalate cross-workspace | P0 | §1.1–§1.3 | todo |
+| TS-085 | Gate the dev token echo in `forgot_password` / `create_invitation` behind a dev-only setting; fail startup if on in production | P0 | §1.5 | todo |
+| TS-086 | RLS hardening: `FORCE ROW LEVEL SECURITY`, `WITH CHECK`, add `workspaces`/`workspace_members`/`project_members` to `WORKSPACE_SCOPED_TABLES`, Postgres CI job with a cross-tenant test | P0 | §1.4 | todo |
+| TS-087 | Enforce billing metering inside the review path (registry capability), not only in `POST /billing/authorize-review` | P0 | §2.1 | todo |
+| TS-088 | Apply the free-tier watermark in the export renderer | P0 | §2.2 | todo |
+| TS-089 | Real Razorpay order/subscription creation; resolve plan+amount server-side, never from webhook `notes` | P0 | §2.3–§2.4 | todo |
+| TS-090 | Coupons/discounts: `coupons` + `coupon_redemptions` tables, checkout validation, referral credits | P1 | §2.5 | todo |
+| TS-091 | Billing UI: pricing page, checkout, paywall interstitial, invoice list, usage-vs-quota meter | P0 | §4.1 | todo |
+| TS-092 | Persist the refresh token in the frontend session + 401-refresh interceptor (sessions currently die after 15 min) | P0 | §4.2 | todo |
+| TS-093 | Revoke refresh-token families on password reset | P1 | §1.6 | todo |
+| TS-094 | Rate limiting / lockout on login, signup, forgot-password, reset-password | P1 | §1.8 | todo |
+| TS-095 | Stream uploads to disk and enforce the size cap before buffering (2 GB is read into RAM today) | P1 | §1.9 | todo |
+| TS-096 | Wire `billing/gst.py` into `create_invoice`: tax columns, buyer GSTIN, statutory FY series, PDF invoice | P1 | §2.6 | todo |
+| TS-097 | Webhook coverage: refunds, failures, disputes, dunning/grace, proration; reject events without an id | P1 | §2.7–§2.8 | todo |
+| TS-098 | Enforce seat limits; wire top-up purchase/consumption; billing-anniversary quota periods | P1 | §2.9 | todo |
+| TS-099 | Email verification on signup + delivery adapter; disposable-email blocklist (free-tier anti-abuse) | P1 | §3.1, §2.9 | todo |
+| TS-100 | Workspace switching: `POST /auth/workspaces/{id}/switch` + UI switcher (multi-workspace users are stranded today) | P1 | §3.2 | todo |
+| TS-101 | Enforce MFA at login with step-up tokens, re-auth on re-enroll, replay guard, recovery codes | P1 | §1.7 | todo |
+| TS-102 | Portfolio dashboard: cross-tender deadline wall, open critical findings, pipeline, quota (consumes the unused `analytics` module) | P1 | §4.4 | todo |
+| TS-103 | UI for invitation accept, member management, MFA enrollment, workspace CRUD, super-admin console | P1 | §4.5 | todo |
+| TS-104 | Frontend foundations: component primitives, design tokens, `/signup` route, error-code→copy map, error/loading boundaries, a11y pass, frontend tests | P2 | §4.6 | todo |
+| TS-105 | Async job pipeline with progress streaming (25-min p95 NFR cannot be met in-request) | P1 | §5.1 | todo |
+| TS-106 | S3 storage adapter behind the existing `Storage` protocol (local disk breaks multi-replica + residency NFR) | P1 | §5.2 | todo |
+| TS-107 | Observability: structured logs with request ids, metrics, tracing, DB check in `/api/health` | P2 | §5.3 | todo |
+| TS-108 | Instrument finding-acceptance rate from the review audit log — the Phase-1 kill gate is unmeasurable today | P1 | §6.1 | todo |
+| TS-109 | Legal/commercial surface: ToS, privacy policy, refund policy (Razorpay requirement), DPA, DPDP data-principal request paths | P2 | §6.3 | todo |
 
 ## Notes
 

@@ -6,6 +6,49 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-28 (whole-project gap analysis: TS-083)
+
+- **TS-083** — Read-only audit of the entire project (business model, monetization,
+  auth/registration, security & multi-tenancy, architecture, frontend/UI) against the
+  code rather than the specs. Written up in `docs/GAP_ANALYSIS.md` with file:line
+  references, severity ratings and a four-gate remediation order.
+- Headline findings (no code changed in this session):
+  - **P0 cross-tenant leaks** — `GET /auth/workspaces/{id}/members`,
+    `GET /auth/projects/{id}/members` and `POST /auth/workspaces/{id}/members` trust the
+    path workspace/project id with no membership check. `WorkspaceMember` and
+    `ProjectMember` are not `WorkspaceScopedMixin` subclasses, so no RLS policy covers
+    them either.
+  - **P0 RLS is inert as configured** — no `FORCE ROW LEVEL SECURITY` (owner bypass),
+    no `WITH CHECK`, key tables outside `WORKSPACE_SCOPED_TABLES`, and CI runs on SQLite
+    only, so isolation is never exercised.
+  - **P0 account takeover** — `forgot_password` returns the raw reset token in the HTTP
+    response to an unauthenticated caller.
+  - **P0 paywall is unenforced** — `authorize_review` is called only by its own endpoint;
+    the risk/BOQ/export paths never meter, and the frontend never calls billing at all.
+  - **P0 free-tier watermark is never applied** — `Grant.watermark` has no consumer in
+    the export renderer, so free reviews produce clean paid-grade output.
+  - **P0 no payment path** — `/billing/checkout` creates no provider order, and there is
+    no billing UI anywhere in the frontend.
+  - **Coupons/discounts/referral credits/trials do not exist** anywhere in the repo.
+  - **GST invoicing is dead code** — `billing/gst.py` is imported only by tests; invoices
+    carry no tax breakdown and use a non-statutory number series.
+  - **Frontend drops the refresh token**, so every session dies 15 minutes after login —
+    shorter than the product's own 25-minute p95 processing target.
+- Filed **TS-084..TS-109** in `tasks/backlog.md` covering the remediation, ordered as
+  four gates: stop the leaks → make it possible to get paid → make it usable → scale
+  and prove.
+
+### Next
+
+- **TS-084, TS-085, TS-086, TS-093, TS-094, TS-095** — Gate 1 (security): close the
+  cross-tenant leaks, remove the token echo, harden RLS with a Postgres CI job, revoke
+  sessions on password reset, rate-limit auth, stream uploads.
+- **TS-087, TS-088, TS-089, TS-091** — Gate 2 (revenue): enforce metering in the review
+  path, apply the watermark, create real Razorpay orders, ship the billing UI.
+- **TS-090, TS-096** — coupons/discounts and GST-correct invoicing.
+- **TS-092, TS-100** — refresh-token handling and workspace switching (both block basic
+  day-to-day use).
+
 ### Done — 2026-07-26 (real web validation + invitation fix: TS-080..TS-081)
 
 - **TS-080** — Ran end-to-end browser validation against the local frontend + backend:

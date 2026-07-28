@@ -8,7 +8,7 @@ import json
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.modules.billing.models import Invoice, PaymentLog, UsageEvent, WebhookEvent
@@ -39,7 +39,7 @@ class BillingService:
             or 0
         )
 
-    def record_usage(self, workspace_id, event: str, ref_id=None) -> None:
+    def record_usage(self, workspace_id, event: str, ref_id=None, *, commit: bool = True) -> None:
         self.s.add(
             UsageEvent(
                 workspace_id=uuid.UUID(str(workspace_id)),
@@ -47,11 +47,53 @@ class BillingService:
                 ref_id=uuid.UUID(str(ref_id)) if ref_id else None,
             )
         )
-        self.s.commit()
+        if commit:
+            self.s.commit()
 
-    def authorize_review(self, workspace_id) -> Grant:
+    def _already_metered(self, workspace_id, opportunity_id) -> bool:
+        """Doc §7 B1: a review is metered at processing start; re-processing
+        an already-metered opportunity (e.g. after an addendum) is free — an
+        addendum must never cost a second review, or customers stop uploading
+        addenda, which is the exact failure the product exists to prevent."""
+        return (
+            self.s.scalar(
+                select(UsageEvent.id)
+                .where(
+                    UsageEvent.workspace_id == uuid.UUID(str(workspace_id)),
+                    UsageEvent.event == "review_started",
+                    UsageEvent.ref_id == uuid.UUID(str(opportunity_id)),
+                )
+                .limit(1)
+            )
+            is not None
+        )
+
+    def _lock(self, workspace_id) -> None:
+        """Serialise metering per workspace (Doc §7 B2, R-004 §A.4) so two
+        concurrent review starts cannot both observe free_review_used=False
+        and both spend the single free review. pg_advisory_xact_lock releases
+        automatically at the end of the current transaction — a no-op on
+        SQLite, where tests are effectively single-threaded against one
+        connection anyway.
+        """
+        if self.s.get_bind().dialect.name != "postgresql":
+            return
+        key = int(uuid.UUID(str(workspace_id)).int & 0x7FFFFFFFFFFFFFFF)
+        self.s.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": key})
+
+    def authorize_review(self, workspace_id, opportunity_id=None) -> Grant:
         """Meter a review at processing start (Doc §7). Raises PaywallError with
-        an upsell payload when blocked."""
+        an upsell payload when blocked.
+
+        The lock, the free-review write, and the usage-event write all happen
+        in ONE transaction (single commit at the end) — splitting them across
+        separate commits would release the advisory lock before the write it
+        exists to protect, which is exactly the bug this replaces (R-004 §A.4).
+        """
+        if opportunity_id is not None and self._already_metered(workspace_id, opportunity_id):
+            return Grant(kind="already_metered")
+
+        self._lock(workspace_id)
         workspace = self._workspaces().get(workspace_id)
         if workspace is None:
             raise PaywallError("no_workspace")
@@ -62,11 +104,23 @@ class BillingService:
         )
         if grant.kind == "free_first_review":
             self._workspaces().mark_free_review_used(workspace_id)
-            self.record_usage(workspace_id, "review_started")
+            self.record_usage(workspace_id, "review_started", ref_id=opportunity_id, commit=False)
         elif grant.kind == "plan":
-            self.record_usage(workspace_id, "review_started")
+            self.record_usage(workspace_id, "review_started", ref_id=opportunity_id, commit=False)
         # paygo: nothing recorded until the webhook confirms payment
+        self.s.commit()
         return grant
+
+    def export_entitlement(self, workspace_id) -> dict:
+        """Whether this workspace's exports carry the free-tier watermark
+        (Doc §7, R-004 §B). Free plan → watermarked, always, including
+        re-exports of the one free review — the watermark is the ONLY thing
+        distinguishing free output from paid output (the free review is
+        deliberately a complete review, Doc §706), so it can never be a
+        client-controlled choice. Any paid plan → clean.
+        """
+        workspace = self._workspaces().get(workspace_id)
+        return {"watermark": bool(workspace and workspace.plan == "free")}
 
     def status(self, workspace_id) -> dict:
         workspace = self._workspaces().get(workspace_id)

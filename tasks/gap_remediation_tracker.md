@@ -19,8 +19,8 @@ their tender data between tenants.
 
 | Gate | Theme | Tasks | Blocks | Status |
 |---|---|---|---|---|
-| **1** | Stop the leaks | TS-084…TS-086, TS-093…TS-095 | Any real customer data | todo |
-| **2** | Make it possible to get paid | TS-087…TS-091, TS-096…TS-098 | All revenue; Phase-1 exit gate | todo |
+| **1** | Stop the leaks | TS-084…TS-086, TS-093…TS-095 | Any real customer data | **done** |
+| **2** | Make it possible to get paid | TS-087…TS-091, TS-096…TS-098 | All revenue; Phase-1 exit gate | in progress |
 | **3** | Make it usable | TS-092, TS-099…TS-104 | Daily use, retention | todo |
 | **4** | Scale and prove | TS-105…TS-109 | NFRs, phase gates, ops | todo |
 
@@ -93,8 +93,8 @@ and the free tier produces paid-grade output.
 
 | ID | Task | Sev | Req | Module(s) | Status | Acceptance gate |
 |---|---|---|---|---|---|---|
-| TS-087 | Enforce metering inside the review path via a `meter()` capability guard | P0 | [R-004 §A](../specs/requirements/R-004-paywall-enforcement.md) | `core`, `risk`, `billing` | todo | A1–A5 in R-004 |
-| TS-088 | Apply the free-tier watermark in all three export renderers | P0 | [R-004 §B](../specs/requirements/R-004-paywall-enforcement.md) | `export`, `billing` | todo | A6, A7 in R-004 |
+| TS-087 | Enforce metering inside the review path via a `meter()` capability guard | P0 | [R-004 §A](../specs/requirements/R-004-paywall-enforcement.md) | `core`, `risk`, `billing` | **done**⁵ | A1–A5 in R-004 |
+| TS-088 | Apply the free-tier watermark in all three export renderers | P0 | [R-004 §B](../specs/requirements/R-004-paywall-enforcement.md) | `export`, `billing` | **done** | A6, A7 in R-004 |
 | TS-089 | Real provider orders + `payment_intents` + server-side plan/amount binding | P0 | [R-005 §A–B](../specs/requirements/R-005-payments-checkout.md) | `billing` | todo | A1–A4, A9 in R-005 |
 | TS-097 | Webhook coverage: refunds, failures, disputes, dunning/grace, dedupe without event id | P1 | [R-005 §C](../specs/requirements/R-005-payments-checkout.md) | `billing` | todo | A5–A8, A10 in R-005 |
 | TS-090 | Coupons, discounts, credits, referrals, trials, pilot comps | P1 | [R-006](../specs/requirements/R-006-coupons-discounts.md) | `billing` | todo | A1–A12 in R-006 |
@@ -102,8 +102,19 @@ and the free tier produces paid-grade output.
 | TS-091 | Billing UI: pricing, paywall component, checkout, invoices, usage meters | P0 | [R-008](../specs/requirements/R-008-billing-ui.md) | frontend | todo | A1–A9 in R-008 |
 | TS-098 | Entitlement service: seats, top-ups, billing-anniversary periods, plan changes | P1 | [R-009](../specs/requirements/R-009-plan-entitlements.md) | `billing`, `auth` | todo | A1–A9 in R-009 |
 
-**Suggested order:** TS-087 → TS-088 → TS-089 → TS-091 (a thin but complete
-paid path) → TS-096 → TS-098 → TS-097 → TS-090.
+⁵ Race-safety (R-004 §A.4) is verified against real, non-superuser PostgreSQL
+with two genuinely concurrent threads (`tests/test_billing_race_postgres.py`)
+— sanity-checked both ways: the test fails reliably (5/5 runs) with the
+`pg_advisory_xact_lock` call removed, and passes reliably (5/5) with it
+restored, so it's confirmed to actually catch the race rather than pass
+vacuously. `WorkspaceAdmin.mark_free_review_used`/`set_plan` no longer commit
+internally — the lock, the free-review write, and the usage-event write now
+share one transaction/one commit in `authorize_review`, matching the R-004
+design (splitting them across commits would release the lock before the write
+it protects).
+
+**Suggested order:** ~~TS-087 → TS-088~~ (done) → TS-089 → TS-091 (a thin but
+complete paid path) → TS-096 → TS-098 → TS-097 → TS-090.
 
 **Gate 2 exit:** a test customer can hit the paywall, pay, receive a GST invoice
 and export without a watermark — end to end, through the UI.
@@ -188,7 +199,7 @@ measured from production data.
 | Gate | Done | Total |
 |---|---|---|
 | 1 | 6 | 6 |
-| 2 | 0 | 8 |
+| 2 | 2 | 8 |
 | 3 | 0 | 7 |
 | 4 | 0 | 5 |
-| **Total** | **6** | **26** |
+| **Total** | **8** | **26** |

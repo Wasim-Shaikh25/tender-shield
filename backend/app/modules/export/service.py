@@ -30,6 +30,7 @@ class ExportService:
         findings_factory=None,
         drafting_factory=None,
         ingestion_factory=None,
+        billing_entitlement=None,
         pack_version="in-works",
     ):
         self.s = session
@@ -37,6 +38,7 @@ class ExportService:
         self._findings_factory = findings_factory
         self._drafting_factory = drafting_factory
         self._ingestion_factory = ingestion_factory
+        self._billing_entitlement = billing_entitlement
         self._pack_version = pack_version
 
     def _gate_ok(self, workspace_id, opportunity_id) -> bool:
@@ -74,6 +76,15 @@ class ExportService:
         opp = self._ingestion_factory(self.s).get_opportunity(workspace_id, opportunity_id)
         return opp.title if opp else "this tender"
 
+    def _watermark(self, workspace_id) -> bool:
+        """Server-decided, never client input (R-004 §B.2) — a free-plan
+        workspace's export is watermarked no matter what format or caller
+        asks for. Degrades to no watermark only if billing itself is
+        disabled, matching spec core B2 (app boots with any module subset)."""
+        if self._billing_entitlement is None:
+            return False
+        return bool(self._billing_entitlement(self.s, workspace_id).get("watermark"))
+
     def export(self, workspace_id, opportunity_id, fmt: str) -> tuple[str, str, bytes]:
         if fmt not in FORMATS:
             raise ExportError("bad_format")
@@ -82,7 +93,11 @@ class ExportService:
 
         title = self._title(workspace_id, opportunity_id)
         findings = self._findings(workspace_id, opportunity_id)
-        meta = {"date": date.today().isoformat(), "pack": self._pack_version}
+        meta = {
+            "date": date.today().isoformat(),
+            "pack": self._pack_version,
+            "watermark": self._watermark(workspace_id),
+        }
         media_type, ext = FORMATS[fmt]
 
         if fmt == "xlsx":

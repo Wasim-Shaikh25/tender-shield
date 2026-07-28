@@ -22,6 +22,7 @@ def _service(request: Request, session: Session) -> ExportService:
         findings_factory=reg.get("findings.store_factory"),
         drafting_factory=reg.get("drafting.service_factory"),
         ingestion_factory=reg.get("ingestion.service_factory"),
+        billing_entitlement=reg.get("billing.export_entitlement"),
         pack_version=pack_version,
     )
 

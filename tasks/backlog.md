@@ -151,8 +151,8 @@ Analysis: `docs/GAP_ANALYSIS.md` · Requirements: `specs/requirements/R-0xx-*.md
 | TS-084 | Membership checks on `GET/POST /workspaces/{id}/members` and `GET /projects/{id}/members` — currently any authenticated user can read/escalate cross-workspace | P0 | §1.1–§1.3 | R-001 §A | done |
 | TS-085 | Gate the dev token echo in `forgot_password` / `create_invitation` behind a dev-only setting; fail startup if on in production | P0 | §1.5 | R-002 §A | done |
 | TS-086 | RLS hardening: `FORCE ROW LEVEL SECURITY`, `WITH CHECK`, `workspaces`/`workspace_members`/`project_members` RLS coverage (compound policy for the first two), Postgres CI job with a cross-tenant test | P0 | §1.4 | R-001 §B | done |
-| TS-087 | Enforce billing metering inside the review path (registry capability), not only in `POST /billing/authorize-review` | P0 | §2.1 | R-004 §A | todo |
-| TS-088 | Apply the free-tier watermark in the export renderer | P0 | §2.2 | R-004 §B | todo |
+| TS-087 | Enforce billing metering inside the review path (registry capability), not only in `POST /billing/authorize-review` | P0 | §2.1 | R-004 §A | done |
+| TS-088 | Apply the free-tier watermark in the export renderer | P0 | §2.2 | R-004 §B | done |
 | TS-089 | Real Razorpay order/subscription creation; resolve plan+amount server-side, never from webhook `notes` | P0 | §2.3–§2.4 | R-005 §A–B | todo |
 | TS-090 | Coupons/discounts: `coupons` + `coupon_redemptions` tables, checkout validation, referral credits | P1 | §2.5 | R-006 | todo |
 | TS-091 | Billing UI: pricing page, checkout, paywall interstitial, invoice list, usage-vs-quota meter | P0 | §4.1 | R-008 | todo |

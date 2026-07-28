@@ -6,6 +6,54 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-28 (Gate 2 started — paywall enforced, watermark applied: TS-087, TS-088)
+
+The two highest-leverage tasks in the whole backlog: before this, the paywall
+was unenforced (any client could run unlimited reviews without ever calling
+the billing endpoint) and the free tier produced clean, paid-grade exports.
+
+- **TS-087** — Metering moved into the review path itself. New
+  `app.core.deps.meter(event)` FastAPI dependency resolves
+  `billing.service_factory` by name (risk never imports billing) and gates
+  `POST /risk/opportunities/{id}/run`; a blocked workspace gets `402` with the
+  upsell payload before any pattern runs, and `billing.paywall_hit` fires on
+  the event bus. Degrades gracefully — proceeds unmetered in dev when billing
+  is disabled, refuses with `503` in production.
+  - `authorize_review(workspace_id, opportunity_id=None)`: re-processing an
+    already-metered opportunity (e.g. after an addendum) is now free,
+    permanently — tracked via a `review_started` usage event carrying the
+    opportunity's id as `ref_id`.
+  - **Race-safety, actually verified:** `WorkspaceAdmin.mark_free_review_used`/
+    `set_plan` no longer commit internally (that was silently breaking the
+    lock — a `pg_advisory_xact_lock` released by an early commit protects
+    nothing). The lock, the free-review write, and the usage-event write now
+    share one transaction. Proven with real concurrency: new
+    `tests/test_billing_race_postgres.py` runs two genuine threads against a
+    real, non-superuser PostgreSQL server racing for the same workspace's free
+    review — confirmed to actually catch the bug by sanity-checking both
+    directions (fails 5/5 with the lock removed, passes 5/5 with it restored).
+- **TS-088** — Free-tier watermark applied in all three export formats,
+  decided server-side by a new `billing.export_entitlement` capability from
+  `Workspace.plan`, never from client input. XLSX gets a tinted title cell
+  plus the mark repeated in the printed header/footer (survives a
+  copy-paste into a new sheet); DOCX gets it in the page header (every page);
+  PDF gets a diagonal grey page stamp via a reportlab page callback (every
+  page). Marks the *document* only — a test
+  (`test_free_and_paid_exports_have_identical_findings`) confirms free and
+  paid exports of the same opportunity carry byte-for-byte identical findings.
+- Updated `specs/modules/billing.md`, `risk.md`, `export.md` to match — several
+  claims in those specs (race-safety, the watermark, `paywall_hit`) were
+  previously aspirational/not-yet-implemented and are now actually true.
+- 175 SQLite tests + 10 Postgres tests pass (19 new tests total, including the
+  concurrency test); `ruff check` clean; `alembic upgrade head`/`downgrade
+  base` clean on both dialects (no schema change this task).
+
+### Next
+
+- **TS-089** — real Razorpay order/subscription creation with server-side
+  plan+amount binding (currently `/billing/checkout` returns no real order),
+  then **TS-091** (billing UI) for a thin but complete paid path end to end.
+
 ### Done — 2026-07-28 (Gate 1 complete: TS-084, TS-085, TS-086, TS-093, TS-094, TS-095)
 
 Implementation of five of Gate 1's six tasks from `tasks/gap_remediation_tracker.md`,

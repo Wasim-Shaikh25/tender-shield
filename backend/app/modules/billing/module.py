@@ -18,6 +18,14 @@ def setup(ctx: AppContext) -> None:
             session, workspace_factory=reg.get("auth.workspace_factory")
         ).record_usage(workspace_id, event, ref_id),
     )
+    # Consumed by export to decide the free-tier watermark (Doc §7, R-004 §B) —
+    # export must not import billing (CLAUDE.md §2).
+    reg.provide(
+        "billing.export_entitlement",
+        lambda session, workspace_id: BillingService(
+            session, workspace_factory=reg.get("auth.workspace_factory")
+        ).export_entitlement(workspace_id),
+    )
 
 
 module = ModuleSpec(

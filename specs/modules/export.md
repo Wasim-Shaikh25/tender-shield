@@ -2,7 +2,7 @@
 
 **Status:** implemented
 **Requirement refs:** Doc §1.1(8), §6.5, §11.4
-**Task refs:** TS-023, TS-030, TS-045
+**Task refs:** TS-023, TS-030, TS-045, TS-088
 
 ## Purpose
 
@@ -22,6 +22,9 @@ reviewer marks the opportunity as reviewed.
   - `drafting.service_factory`
   - `ingestion.service_factory`
   - `rulepacks.loader` (pack version for stamp)
+  - `billing.export_entitlement` (TS-088) — decides the free-tier watermark
+    server-side; absent → no watermark (matches spec core B2, degrades
+    gracefully when billing is disabled).
 - **Events emitted:** none.
 - **Events consumed:** none.
 - **API routes** (prefix `/api/export`):
@@ -45,9 +48,17 @@ ingestion, and rulepack capabilities.
 - **B3 — Formats:** `xlsx` (risk register spreadsheet), `docx` (narrative report
   with artifacts), `pdf` (same narrative rendered with reportlab). Any other
   format returns `ExportError("bad_format")` (HTTP 400).
-- **B4 — Watermark:** Free-tier exports include a "DRAFT — TenderShield"
-  watermark / disclaimer. (Currently implemented in the stamp line for all
-  exports; billing-driven tiered watermarking is a P2 refinement.)
+- **B4 — Watermark (TS-088):** `ExportService._watermark` asks
+  `billing.export_entitlement` whether the workspace is on the free plan and
+  sets `meta["watermark"]` accordingly — never from client input (a `?format=`
+  query string or any other caller-supplied value cannot turn it off). Applied
+  per format, not just the stamp line: XLSX gets a tinted title cell plus the
+  mark repeated in the printed header/footer (`ws.oddHeader`/`oddFooter`, so it
+  survives a copy-paste into a new sheet); DOCX gets it in the page header
+  (every page); PDF gets a diagonal grey page stamp via a reportlab `onPage`
+  callback (every page). The watermark marks the *document*, never the
+  content — findings, quotes, page citations and severities are identical
+  between a free and a paid export of the same opportunity.
 - **B5 — No numbers from the LLM:** All pack content comes from accepted
   findings and generated artifacts that have already passed the validators.
 
@@ -58,6 +69,11 @@ ingestion, and rulepack capabilities.
   title and the findings register.
 - A3: Export in `pdf` returns a valid PDF byte stream including accepted findings
   and artifact sections.
+- A4: a free-plan workspace's `xlsx` export carries the watermark text in its
+  printed header/footer; a paid-plan workspace's export of the same
+  opportunity does not.
+- A5: the findings content of a free-plan export and a paid-plan export of the
+  same opportunity are identical — only the watermark differs.
 
 ## Out of scope
 

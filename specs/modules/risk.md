@@ -4,7 +4,7 @@
 absence detection, explainability (TS-017, TS-054). LLM classifier is injected
 (NullClassifier without a key; AnthropicClassifier with one).
 **Requirement refs:** Doc §6.3, Phase 1.5 doc §5
-**Task refs:** TS-017, TS-054
+**Task refs:** TS-017, TS-054, TS-087
 
 ## Purpose
 
@@ -26,7 +26,12 @@ provenance and deterministic severity.
 - **Events consumed:** none at this phase.
 - **API routes** (prefix `/api/risk`):
   - `POST /opportunities/{id}/run` (estimator) — run all validated risk patterns
-    against the opportunity's clauses and return the generated findings.
+    against the opportunity's clauses and return the generated findings. This
+    is the billing paywall's enforcement point (Doc §7, R-004 §A, TS-087): the
+    route depends on `app.core.deps.meter("review_started")`, which resolves
+    `billing.service_factory` by name (risk never imports billing) and returns
+    `402` with an upsell payload before any pattern runs when the workspace is
+    blocked. The response includes `watermark: bool` from the grant.
 
 ## Data owned
 

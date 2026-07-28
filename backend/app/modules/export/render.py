@@ -1,22 +1,37 @@
 """Pure renderers for the Bid Review Pack (Doc §1.1(8), §11.4). No DB — take
-plain data, return file bytes. Every export carries the review/date/pack stamp."""
+plain data, return file bytes. Every export carries the review/date/pack stamp.
+
+Free-tier watermark (Doc §7, R-004 §B): meta["watermark"] is decided
+server-side by ExportService from the workspace's plan — never by the client
+— and marks the DOCUMENT, never the content. Findings, quotes, page citations
+and severities are identical between a free and a paid export; degrading them
+would violate the quote-verification invariant and undercut the product's own
+"crippled trials die in contractor WhatsApp groups" GTM (Doc §706) — the free
+review is deliberately complete, so the watermark is the only thing that
+distinguishes it from paid output.
+"""
 
 from __future__ import annotations
 
 import io
 
 from docx import Document
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import RGBColor
 from openpyxl import Workbook
+from openpyxl.styles import Font
 
 _SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+WATERMARK_TEXT = "FREE REVIEW — TenderShield — not for external issue"
 
 
 def stamp_line(meta: dict) -> str:
-    return (
+    base = (
         f"Prepared with TenderShield · reviewed and approved on {meta.get('date', '')} "
         f"· pack {meta.get('pack', 'in-works')} · This is document-intelligence "
         f"software, not legal/QS advice — review with a qualified professional."
     )
+    return f"{WATERMARK_TEXT} · {base}" if meta.get("watermark") else base
 
 
 def render_xlsx(opportunity_title: str, findings: list[dict], meta: dict) -> bytes:
@@ -38,15 +53,35 @@ def render_xlsx(opportunity_title: str, findings: list[dict], meta: dict) -> byt
                 f.get("source_quote"),
             ]
         )
+    if meta.get("watermark"):
+        # Repeated on every printed page (header/footer), not just row 1,
+        # which a copy-paste into a new sheet would otherwise strip.
+        ws.oddHeader.center.text = WATERMARK_TEXT
+        ws.oddFooter.center.text = WATERMARK_TEXT
+        ws["A1"].font = Font(bold=True, color="FFB91C1C")
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()
+
+
+def _add_docx_watermark_header(doc: Document) -> None:
+    """Repeats the watermark in the page header (every page), not just a
+    top-of-document paragraph that a later page could be split away from."""
+    header = doc.sections[0].header
+    p = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
+    p.text = WATERMARK_TEXT
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.runs[0] if p.runs else p.add_run(WATERMARK_TEXT)
+    run.bold = True
+    run.font.color.rgb = RGBColor(0xB9, 0x1C, 0x1C)
 
 
 def render_docx(
     opportunity_title: str, artifacts: list[dict], findings: list[dict], meta: dict
 ) -> bytes:
     doc = Document()
+    if meta.get("watermark"):
+        _add_docx_watermark_header(doc)
     doc.add_heading(f"Bid Review Pack — {opportunity_title}", level=0)
     doc.add_paragraph(stamp_line(meta)).italic = True
 
@@ -129,5 +164,23 @@ def render_pdf(
             else:
                 cat, txt = item.get("category"), item.get("assumption", "")
                 flow.append(Paragraph(f"{item.get('n')}. [{cat}] {txt}", normal))
-    doc.build(flow)
+
+    if meta.get("watermark"):
+        doc.build(flow, onFirstPage=_stamp_pdf_page, onLaterPages=_stamp_pdf_page)
+    else:
+        doc.build(flow)
     return buf.getvalue()
+
+
+def _stamp_pdf_page(canvas, doc) -> None:
+    """Diagonal watermark drawn on every page (reportlab onPage callback) —
+    a header/footer line alone is too easy to crop out of a PDF."""
+    from reportlab.lib.pagesizes import A4
+
+    canvas.saveState()
+    canvas.setFont("Helvetica-Bold", 40)
+    canvas.setFillGray(0.85)
+    canvas.translate(A4[0] / 2, A4[1] / 2)
+    canvas.rotate(45)
+    canvas.drawCentredString(0, 0, "FREE REVIEW")
+    canvas.restoreState()

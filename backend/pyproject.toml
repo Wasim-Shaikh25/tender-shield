@@ -59,6 +59,7 @@ extend-immutable-calls = [
     "fastapi.Header",
     "fastapi.File",
     "app.core.deps.require",
+    "app.core.deps.meter",
     "app.modules.auth.deps.require_workspace_member",
     "app.modules.auth.deps.require_project_member",
 ]

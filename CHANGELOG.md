@@ -6,6 +6,87 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-28 (Real payments + full webhook coverage: TS-089, TS-097)
+
+`/billing/checkout` previously returned a handle with no real order behind
+it, and the webhook trusted `notes.workspace_id`/`notes.plan` sent back by
+the provider redirect — a client could edit those before the redirect and
+receive whatever plan it asked for regardless of what it paid. Both are
+fixed.
+
+- **TS-089** — New `PaymentProvider` Protocol
+  (`app/modules/billing/providers/base.py`: `create_order`, `verify_webhook`,
+  `parse_event`) with a real `RazorpayProvider` implementation against the
+  Razorpay Orders API, and `select_provider(settings, country)` choosing it
+  for `country == "IN"` when keys are configured (adding Stripe for GCC/UK
+  later is a new file, not a rewrite). `create_checkout` now creates a
+  `PaymentIntent` row *before* contacting the provider, resolves price
+  server-side from a new `PRICES_MINOR` table by `(plan, currency)` — the
+  client selects which plan, never what it costs — and round-trips only an
+  opaque `intent_id` in the order's `notes`. A workspace with no configured
+  provider gets `503 payment_provider_unavailable` instead of a fake order;
+  an unknown plan gets `400 unknown_plan`. Checkout retries within a 30-minute
+  window reopen the same intent/order instead of creating a duplicate. New
+  `GET /billing/intents/{id}` lets the client poll confirmation; ownership is
+  checked in application code because `PaymentIntent` is deliberately **not**
+  RLS-protected (same reasoning as `RefreshToken`/`PasswordReset`: the webhook
+  must look the row up by opaque id before it knows the workspace, and RLS
+  would block that exact lookup).
+- **TS-097** — The webhook now resolves every grant by looking up the
+  `PaymentIntent` the event references — never from `notes` fields directly.
+  One amount-checked handler (`_on_payment_succeeded`) covers a paygo
+  payment, a subscription's first activation, and a renewal charge alike;
+  a mismatch between the event's amount and the intent's amount grants
+  nothing and logs `amount_mismatch`. This caught a real bug during
+  development: an earlier draft treated `subscription.activated` as a
+  separate handler that skipped the amount check entirely, so an underpaid
+  subscription activation still granted the plan — caught by the new test
+  `test_webhook_amount_mismatch_grants_nothing`, fixed by routing
+  `subscription.activated` through the same checked handler. Added coverage
+  for refunds (`refund.processed` — downgrades a subscription or records
+  `review_refunded` for paygo), failures (`payment.failed`), dunning
+  (`subscription.halted` → `plan_status=past_due` + 7-day grace, plan itself
+  untouched so paid access continues during grace — contractors often pay by
+  NEFT off-cycle), and cancellation (`subscription.cancelled` → downgrade to
+  free). Idempotency is now a unique-constraint insert on `event_id` (or a
+  `sha256(raw_body)` fallback when the provider sends no event id), caught
+  via `IntegrityError` — not check-then-act.
+- **Real bug found and fixed in passing:** the webhook route is
+  unauthenticated (no caller to run `authenticate()`), so it had never bound
+  `app.workspace_id` for RLS — silently broken since the TS-086 RLS
+  hardening shipped, since nothing had exercised the webhook against FORCE
+  RLS until this task's Postgres validation. Fixed by binding
+  `bind_workspace_context` explicitly in `process_webhook`, using a fixed
+  `UNATTRIBUTED_WORKSPACE` sentinel for events that don't resolve to a known
+  intent (e.g. a bad signature).
+- New migration `e18ffec0675e`: `payment_intents` table; `workspaces` gains
+  `plan_status`, `grace_until`, `current_period_start`,
+  `current_period_end`, `provider_subscription_id`.
+- Updated `specs/modules/billing.md` — provider abstraction, `PaymentIntent`
+  data model and its deliberate RLS exclusion, webhook behavior (B3, B8-B10),
+  and new acceptance criteria A7-A11 documented to match what's now actually
+  implemented.
+- Rewrote `tests/test_billing.py` (21 tests) and updated
+  `tests/test_paywall_enforcement.py`'s webhook helper to go through a real
+  checkout → webhook round trip instead of hand-crafting `notes` (the old
+  shape is the exact vulnerability this task closes, so the old tests
+  couldn't be kept as-is).
+- Validated against real, non-superuser PostgreSQL with FORCE RLS live:
+  migration up/down clean on a fresh database, the existing RLS (10 tests)
+  and race-safety Postgres suites still pass with no regression, and a
+  dedicated ad-hoc script walked the full
+  checkout → webhook → status → invoice → replay-dedup → intent-status flow
+  end to end. 187 SQLite tests pass (1 skipped, 10 postgres-marked
+  deselected); `ruff check` clean; SQLite and Postgres migrations clean both
+  directions.
+
+### Next
+
+- **TS-091** — billing UI (pricing, checkout, invoices, usage meters) for a
+  thin but complete paid path end to end, then **TS-096** (wire GST into
+  `create_invoice`), **TS-098** (entitlements: seats/top-ups/anniversary
+  periods), and **TS-090** (coupons/discounts/credits/referrals).
+
 ### Done — 2026-07-28 (Gate 2 started — paywall enforced, watermark applied: TS-087, TS-088)
 
 The two highest-leverage tasks in the whole backlog: before this, the paywall
@@ -47,12 +128,6 @@ the billing endpoint) and the free tier produced clean, paid-grade exports.
 - 175 SQLite tests + 10 Postgres tests pass (19 new tests total, including the
   concurrency test); `ruff check` clean; `alembic upgrade head`/`downgrade
   base` clean on both dialects (no schema change this task).
-
-### Next
-
-- **TS-089** — real Razorpay order/subscription creation with server-side
-  plan+amount binding (currently `/billing/checkout` returns no real order),
-  then **TS-091** (billing UI) for a thin but complete paid path end to end.
 
 ### Done — 2026-07-28 (Gate 1 complete: TS-084, TS-085, TS-086, TS-093, TS-094, TS-095)
 

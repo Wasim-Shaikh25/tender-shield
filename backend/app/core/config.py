@@ -56,6 +56,11 @@ class Settings(BaseSettings):
 
     # Billing (Doc §7, §15). Webhook secret verifies the only billing truth.
     razorpay_webhook_secret: str = "dev-razorpay-secret"
+    # Live order-creation keys (R-005, TS-089). Empty = no live provider —
+    # checkout returns 503 payment_provider_unavailable rather than faking a
+    # successful order, same posture as Apple/OCR/the LLM classifier below.
+    razorpay_key_id: str = ""
+    razorpay_key_secret: str = ""
 
     # Sign in with Apple (Doc §5). PEM private key may contain escaped newlines.
     apple_team_id: str = ""

@@ -95,8 +95,8 @@ and the free tier produces paid-grade output.
 |---|---|---|---|---|---|---|
 | TS-087 | Enforce metering inside the review path via a `meter()` capability guard | P0 | [R-004 §A](../specs/requirements/R-004-paywall-enforcement.md) | `core`, `risk`, `billing` | **done**⁵ | A1–A5 in R-004 |
 | TS-088 | Apply the free-tier watermark in all three export renderers | P0 | [R-004 §B](../specs/requirements/R-004-paywall-enforcement.md) | `export`, `billing` | **done** | A6, A7 in R-004 |
-| TS-089 | Real provider orders + `payment_intents` + server-side plan/amount binding | P0 | [R-005 §A–B](../specs/requirements/R-005-payments-checkout.md) | `billing` | todo | A1–A4, A9 in R-005 |
-| TS-097 | Webhook coverage: refunds, failures, disputes, dunning/grace, dedupe without event id | P1 | [R-005 §C](../specs/requirements/R-005-payments-checkout.md) | `billing` | todo | A5–A8, A10 in R-005 |
+| TS-089 | Real provider orders + `payment_intents` + server-side plan/amount binding | P0 | [R-005 §A–B](../specs/requirements/R-005-payments-checkout.md) | `billing` | **done**⁶ | A1–A4, A9 in R-005 |
+| TS-097 | Webhook coverage: refunds, failures, disputes, dunning/grace, dedupe without event id | P1 | [R-005 §C](../specs/requirements/R-005-payments-checkout.md) | `billing` | **done**⁶ | A5–A8, A10 in R-005 |
 | TS-090 | Coupons, discounts, credits, referrals, trials, pilot comps | P1 | [R-006](../specs/requirements/R-006-coupons-discounts.md) | `billing` | todo | A1–A12 in R-006 |
 | TS-096 | GST invoicing: wire `gst.py`, tax columns, gap-free FY series, PDF, credit notes | P1 | [R-007](../specs/requirements/R-007-gst-invoicing.md) | `billing` | todo | A1–A10 in R-007 |
 | TS-091 | Billing UI: pricing, paywall component, checkout, invoices, usage meters | P0 | [R-008](../specs/requirements/R-008-billing-ui.md) | frontend | todo | A1–A9 in R-008 |
@@ -113,8 +113,42 @@ share one transaction/one commit in `authorize_review`, matching the R-004
 design (splitting them across commits would release the lock before the write
 it protects).
 
-**Suggested order:** ~~TS-087 → TS-088~~ (done) → TS-089 → TS-091 (a thin but
-complete paid path) → TS-096 → TS-098 → TS-097 → TS-090.
+⁶ Real `PaymentProvider` abstraction (`billing/providers/{base,razorpay,
+select}.py`) — `create_checkout` now creates a genuine Razorpay order via a
+`payment_intents` row, resolving price server-side from `PRICES_MINOR` by
+`(plan, currency)`; a workspace with no configured provider gets 503
+`payment_provider_unavailable` rather than a fake order. The webhook resolves
+every grant by looking up the `PaymentIntent` the event's opaque `intent_id`
+(carried in provider `notes`) points to — never from `notes.plan`/
+`notes.workspace_id` directly, which is the exact vulnerability this closes
+(a client could edit `notes` before the provider redirect and receive
+whatever plan it asked for). One amount-checked handler
+(`_on_payment_succeeded`) now covers `order.paid`, `subscription.charged`,
+*and* `subscription.activated` — an early draft treated
+`subscription.activated` as a separate, unchecked path, and the new test
+`test_webhook_amount_mismatch_grants_nothing` caught it granting `pro` on an
+underpaid activation before the fix. Full webhook coverage added: refunds
+(`refund.processed`), failures (`payment.failed`), dunning
+(`subscription.halted` → 7-day grace, plan untouched), cancellation
+(`subscription.cancelled` → downgrade to free), and idempotency via a
+unique-constraint insert on `event_id` or a `sha256(raw_body)` fallback when
+no event id is present (catch `IntegrityError`, not check-then-act).
+`PaymentIntent` is deliberately not RLS-protected (same precedent as
+`RefreshToken`/`PasswordReset` — the webhook must find the row before it
+knows the workspace); `get_intent_status` does its own ownership check in
+application code. Validated against real, non-superuser PostgreSQL with FORCE
+RLS live: migration up/down, the full checkout→webhook→status→invoice→
+replay-dedup→intent-status flow via an ad-hoc e2e script, and the existing
+RLS (10 tests) + race-safety Postgres suites still green — this also
+surfaced and fixed a real pre-existing bug where the webhook route (being
+unauthenticated) never bound `app.workspace_id`, silently broken since the
+TS-086 RLS hardening shipped. `tests/test_billing.py` rewritten (21 tests);
+`tests/test_paywall_enforcement.py`'s webhook helper now does a real
+checkout → webhook round trip instead of hand-crafting `notes`.
+
+**Suggested order:** ~~TS-087 → TS-088~~ (done) → ~~TS-089~~ (done) →
+TS-091 (a thin but complete paid path) → TS-096 → TS-098 → ~~TS-097~~ (done)
+→ TS-090.
 
 **Gate 2 exit:** a test customer can hit the paywall, pay, receive a GST invoice
 and export without a watermark — end to end, through the UI.
@@ -199,7 +233,7 @@ measured from production data.
 | Gate | Done | Total |
 |---|---|---|
 | 1 | 6 | 6 |
-| 2 | 2 | 8 |
+| 2 | 4 | 8 |
 | 3 | 0 | 7 |
 | 4 | 0 | 5 |
-| **Total** | **8** | **26** |
+| **Total** | **10** | **26** |

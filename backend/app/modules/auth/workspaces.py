@@ -6,6 +6,7 @@ manage plan state without importing auth's models."""
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -38,3 +39,27 @@ class WorkspaceAdmin:
         workspace = self.get(workspace_id)
         if workspace:
             workspace.plan = plan
+
+    def set_plan_status(
+        self,
+        workspace_id,
+        status: str,
+        *,
+        grace_until: datetime | None = None,
+        period_start: datetime | None = None,
+        period_end: datetime | None = None,
+        provider_subscription_id: str | None = None,
+    ) -> None:
+        """Billing lifecycle transitions (R-005 §C.4). No commit — see
+        mark_free_review_used."""
+        workspace = self.get(workspace_id)
+        if not workspace:
+            return
+        workspace.plan_status = status
+        workspace.grace_until = grace_until
+        if period_start is not None:
+            workspace.current_period_start = period_start
+        if period_end is not None:
+            workspace.current_period_end = period_end
+        if provider_subscription_id is not None:
+            workspace.provider_subscription_id = provider_subscription_id

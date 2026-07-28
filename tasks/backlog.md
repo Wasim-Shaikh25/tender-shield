@@ -153,7 +153,7 @@ Analysis: `docs/GAP_ANALYSIS.md` · Requirements: `specs/requirements/R-0xx-*.md
 | TS-086 | RLS hardening: `FORCE ROW LEVEL SECURITY`, `WITH CHECK`, `workspaces`/`workspace_members`/`project_members` RLS coverage (compound policy for the first two), Postgres CI job with a cross-tenant test | P0 | §1.4 | R-001 §B | done |
 | TS-087 | Enforce billing metering inside the review path (registry capability), not only in `POST /billing/authorize-review` | P0 | §2.1 | R-004 §A | done |
 | TS-088 | Apply the free-tier watermark in the export renderer | P0 | §2.2 | R-004 §B | done |
-| TS-089 | Real Razorpay order/subscription creation; resolve plan+amount server-side, never from webhook `notes` | P0 | §2.3–§2.4 | R-005 §A–B | todo |
+| TS-089 | Real Razorpay order/subscription creation; resolve plan+amount server-side, never from webhook `notes` | P0 | §2.3–§2.4 | R-005 §A–B | done |
 | TS-090 | Coupons/discounts: `coupons` + `coupon_redemptions` tables, checkout validation, referral credits | P1 | §2.5 | R-006 | todo |
 | TS-091 | Billing UI: pricing page, checkout, paywall interstitial, invoice list, usage-vs-quota meter | P0 | §4.1 | R-008 | todo |
 | TS-092 | Persist the refresh token in the frontend session + 401-refresh interceptor (sessions currently die after 15 min) | P0 | §4.2 | R-010 | todo |
@@ -161,7 +161,7 @@ Analysis: `docs/GAP_ANALYSIS.md` · Requirements: `specs/requirements/R-0xx-*.md
 | TS-094 | Rate limiting / lockout on login, signup, forgot-password, reset-password | P1 | §1.8 | R-002 §C | done |
 | TS-095 | Stream uploads to disk and enforce the size cap before buffering; magic-byte type validation; applied to both ingestion and boq upload routes | P1 | §1.9 | R-003 | done |
 | TS-096 | Wire `billing/gst.py` into `create_invoice`: tax columns, buyer GSTIN, statutory FY series, PDF invoice | P1 | §2.6 | R-007 | todo |
-| TS-097 | Webhook coverage: refunds, failures, disputes, dunning/grace, proration; reject events without an id | P1 | §2.7–§2.8 | R-005 §C | todo |
+| TS-097 | Webhook coverage: refunds, failures, disputes, dunning/grace, proration; reject events without an id | P1 | §2.7–§2.8 | R-005 §C | done |
 | TS-098 | Enforce seat limits; wire top-up purchase/consumption; billing-anniversary quota periods | P1 | §2.9 | R-009 | todo |
 | TS-099 | Email verification on signup + delivery adapter; disposable-email blocklist (free-tier anti-abuse) | P1 | §3.1, §2.9 | R-015 | todo |
 | TS-100 | Workspace switching: `POST /auth/workspaces/{id}/switch` + UI switcher (multi-workspace users are stranded today) | P1 | §3.2 | R-011 | todo |

@@ -17,6 +17,29 @@ PLAN_LIMITS: dict[str, dict] = {
 PAYGO_PRICE_INR_PAISE = 750_000  # ₹7,500
 OVERAGE_PRICE_INR_PAISE = {"pro": 499_900, "scale": 349_900}
 
+# Server-side price table (R-005 §B.2) — the ONLY source of what a plan costs.
+# Checkout resolves plan+price from here; client input selects WHICH plan,
+# never what it costs. A signed webhook's amount is checked against
+# payment_intents.amount_minor (itself derived from this table), never
+# trusted from provider `notes`.
+PRICES_MINOR: dict[tuple[str, str], int] = {
+    ("paygo", "INR"): PAYGO_PRICE_INR_PAISE,
+    ("pro", "INR"): 2_499_900,  # ₹24,999 / month
+    ("scale", "INR"): 7_499_900,  # ₹74,999 / month
+}
+
+BILLABLE_PLANS = frozenset({"paygo", "pro", "scale"})
+
+# assumption: IN -> INR only until Stripe (GCC/UK) lands, TS-037/R-005 out of scope.
+CURRENCY_BY_COUNTRY: dict[str, str] = {"IN": "INR"}
+
+
+def price_for(plan: str, currency: str = "INR") -> int:
+    try:
+        return PRICES_MINOR[(plan, currency)]
+    except KeyError:
+        raise PaywallError("unknown_plan") from None
+
 
 class PaywallError(Exception):
     def __init__(self, code: str, upsell: dict | None = None):

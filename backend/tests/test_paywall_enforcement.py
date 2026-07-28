@@ -24,6 +24,8 @@ import app.modules.review.models  # noqa: F401
 from app.core.config import Settings
 from app.core.db import Base
 from app.main import create_app
+from app.modules.billing.providers.base import OrderHandle
+from app.modules.billing.providers.razorpay import RazorpayProvider
 
 SECRET = "dev-razorpay-secret"
 
@@ -37,6 +39,9 @@ def _make_client(**settings_kwargs) -> TestClient:
         Settings(
             enabled_modules=settings_kwargs.pop("enabled_modules", _FULL_MODULES),
             database_url="sqlite:///:memory:",
+            razorpay_key_id="rzp_test_fake",
+            razorpay_key_secret="fake_secret",
+            razorpay_webhook_secret=SECRET,
             **settings_kwargs,
         )
     )
@@ -45,7 +50,17 @@ def _make_client(**settings_kwargs) -> TestClient:
 
 
 @pytest.fixture
-def client() -> TestClient:
+def client(monkeypatch) -> TestClient:
+    def fake_create_order(self, req):
+        return OrderHandle(
+            provider="razorpay",
+            order_id=f"order_{req.idempotency_key[:16]}",
+            amount_minor=req.amount_minor,
+            currency=req.currency,
+            checkout_payload={"key": self._key_id, "amount": req.amount_minor},
+        )
+
+    monkeypatch.setattr(RazorpayProvider, "create_order", fake_create_order)
     return _make_client()
 
 
@@ -70,12 +85,28 @@ def _sign(body: dict):
     return raw, sig
 
 
-def _set_plan_via_webhook(client, workspace_id, plan="pro"):
+def _set_plan_via_webhook(client, headers, workspace_id, plan="pro"):
+    """Real checkout -> real webhook, resolving the grant from the intent
+    (R-005) rather than the pre-R-005 shape that trusted notes.workspace_id/
+    notes.plan directly."""
+    checkout = client.post(
+        "/api/billing/checkout",
+        json={"kind": "subscription", "plan": plan},
+        headers=headers,
+    )
+    assert checkout.status_code == 200, checkout.text
+    intent = checkout.json()
+
     body = {
         "id": f"evt_activate_{workspace_id}",
         "event": "subscription.activated",
         "payload": {
-            "subscription": {"entity": {"notes": {"workspace_id": workspace_id, "plan": plan}}}
+            "payment": {
+                "entity": {
+                    "amount": intent["amount_minor"],
+                    "notes": {"intent_id": intent["intent_id"]},
+                }
+            }
         },
     }
     raw, sig = _sign(body)
@@ -111,7 +142,7 @@ def test_second_review_on_free_workspace_is_paywalled(client):
 
 def test_pro_workspace_quota_exhausted(client):
     headers, workspace_id = _auth(client, "proquota@x.com")
-    _set_plan_via_webhook(client, workspace_id, "pro")
+    _set_plan_via_webhook(client, headers, workspace_id, "pro")
 
     for i in range(10):
         opp = _create_opportunity(client, headers, f"Opp {i}")
@@ -248,7 +279,7 @@ def test_free_workspace_export_is_watermarked(client):
 
 def test_paid_workspace_export_is_not_watermarked(client):
     headers, workspace_id = _auth(client, "paidexport@x.com")
-    _set_plan_via_webhook(client, workspace_id, "pro")
+    _set_plan_via_webhook(client, headers, workspace_id, "pro")
     opp = _create_opportunity(client, headers)
     _prepare_reviewed_opportunity(client, headers, opp)
     r = client.get(f"/api/export/opportunities/{opp}?format=xlsx", headers=headers)
@@ -263,7 +294,7 @@ def test_free_and_paid_exports_have_identical_findings(client):
     findings_free = _prepare_reviewed_opportunity(client, free_headers, opp_free)
 
     paid_headers, paid_ws = _auth(client, "contentpaid@x.com")
-    _set_plan_via_webhook(client, paid_ws, "pro")
+    _set_plan_via_webhook(client, paid_headers, paid_ws, "pro")
     opp_paid = _create_opportunity(client, paid_headers, "Same Tender")
     findings_paid = _prepare_reviewed_opportunity(client, paid_headers, opp_paid)
 

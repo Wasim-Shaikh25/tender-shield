@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
 from app.modules.billing.plans import PaywallError
+from app.modules.billing.providers.select import select_provider
 from app.modules.billing.service import BillingService
 
 router = APIRouter()
@@ -13,7 +14,12 @@ router = APIRouter()
 
 def _service(request: Request, session: Session) -> BillingService:
     reg = request.app.state.ctx.registry
-    return BillingService(session, workspace_factory=reg.get("auth.workspace_factory"))
+    settings = request.app.state.ctx.settings
+    return BillingService(
+        session,
+        workspace_factory=reg.get("auth.workspace_factory"),
+        provider_factory=lambda country: select_provider(settings, country),
+    )
 
 
 class CheckoutBody(BaseModel):
@@ -38,21 +44,36 @@ def checkout(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("admin")),
 ):
-    """Creates a provider order/subscription handle for the client SDK.
-    Activates NOTHING — only the verified webhook does (Doc §15.1)."""
-    # Live Razorpay order creation requires provider keys; without them we return
-    # a deterministic handle carrying the notes the webhook will echo back.
-    notes = {"workspace_id": str(principal.workspace_id), "kind": body.kind}
-    if body.opportunity_id:
-        notes["opportunity_id"] = body.opportunity_id
-    if body.plan:
-        notes["plan"] = body.plan
-    return {
-        "provider": "razorpay",
-        "kind": body.kind,
-        "notes": notes,
-        "note": "activation happens via the signed webhook, never this response",
-    }
+    """Creates a real payment_intents row + provider order (Doc §15.1,
+    R-005 §B). Activates NOTHING — only the verified webhook does. Plan and
+    price are resolved server-side; client input selects which plan, never
+    what it costs."""
+    if body.kind not in ("paygo", "subscription"):
+        raise HTTPException(400, "bad_kind")
+    plan = "paygo" if body.kind == "paygo" else (body.plan or "")
+    try:
+        return _service(request, session).create_checkout(
+            principal.workspace_id,
+            kind=body.kind,
+            plan=plan,
+            opportunity_id=body.opportunity_id,
+        )
+    except PaywallError as exc:
+        status_code = 503 if exc.code == "payment_provider_unavailable" else 400
+        raise HTTPException(status_code, exc.code) from exc
+
+
+@router.get("/intents/{intent_id}")
+def intent_status(
+    intent_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    """Polled by the client after opening the provider checkout (R-008 §4) —
+    the client-side handler activates nothing; this just reports what the
+    webhook has (or hasn't) confirmed yet."""
+    return _service(request, session).get_intent_status(principal.workspace_id, intent_id)
 
 
 @router.post("/authorize-review")
@@ -99,8 +120,7 @@ def list_invoices(
 async def razorpay_webhook(request: Request, session: Session = Depends(get_session)):
     raw = await request.body()
     sig = request.headers.get("X-Razorpay-Signature", "")
-    secret = request.app.state.ctx.settings.razorpay_webhook_secret
-    result = _service(request, session).process_razorpay_webhook(raw, sig, secret)
+    result = _service(request, session).process_webhook(raw, sig)
     if not result.get("ok"):
         raise HTTPException(400, result.get("reason", "webhook_failed"))
     return result

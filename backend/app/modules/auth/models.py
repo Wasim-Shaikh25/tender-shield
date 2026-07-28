@@ -67,6 +67,19 @@ class Workspace(Base):
     plan: Mapped[str] = mapped_column(String, nullable=False, default="free")
     free_review_used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     billing_provider: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Billing lifecycle (R-005 §C.4, TS-097). plan_status is independent of
+    # plan: a past_due workspace keeps its paid `plan` and full entitlements
+    # through grace_until — never delete data on non-payment.
+    plan_status: Mapped[str] = mapped_column(String, nullable=False, default="active")
+    # active | past_due | cancelled
+    grace_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    current_period_start: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    current_period_end: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    provider_subscription_id: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

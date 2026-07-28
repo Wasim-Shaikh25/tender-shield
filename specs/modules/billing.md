@@ -1,27 +1,35 @@
 # Billing & Metering — Spec
 
-**Status:** implemented — free-tier metering + paywall now enforced in the
-review path itself (not just billing's own status endpoint), race-safe under
-real concurrency (Postgres advisory lock, TS-087), free-tier export watermark
-applied (TS-088); Razorpay webhook (HMAC-verified, idempotent, payment_log
-ledger), plan activation via webhook only; checkout returns a handle (live
-keys wire in later); GST invoice computation (CGST/SGST vs IGST + sequential
-numbering) computed but not yet wired into real invoices (R-007/TS-096);
-Stripe + on-payment invoice issuance are follow-ups
-**Requirement refs:** Doc §7, §15, §16.5
-**Task refs:** TS-022, TS-087, TS-088
+**Status:** implemented — free-tier metering + paywall enforced in the review
+path itself (not just billing's own status endpoint), race-safe under real
+concurrency (Postgres advisory lock, TS-087), free-tier export watermark
+applied (TS-088); real Razorpay orders behind a `PaymentProvider` abstraction
+with server-side price/plan binding (R-005 §B, TS-089); webhook resolves the
+grant from a `payment_intents` row it looks up by opaque id, never from
+provider `notes` (R-005 §B.3); full webhook coverage — payment success
+(paygo/subscription-activation/renewal, one amount-checked handler for all
+three), failure, past-due/grace (dunning), cancellation, refund — and
+event-id-or-body-hash idempotency (R-005 §C, TS-097). GST invoice computation
+(CGST/SGST vs IGST + sequential numbering) exists but is not yet wired into
+`create_invoice` (R-007/TS-096, still open). Stripe (GCC/UK) is a second file
+behind `select_provider`, not yet written.
+**Requirement refs:** Doc §7, §15, §16.5; R-004, R-005
+**Task refs:** TS-022, TS-087, TS-088, TS-089, TS-097
 
 ## Purpose
 
 Freemium metering (one free full review per org), race-safe plan enforcement,
-Razorpay (India) behind a provider abstraction (Stripe joins for GCC/UK), GST
-invoicing, and the append-only `payment_log`.
+real payment orders + webhook-only activation via a provider abstraction
+(Razorpay live for India; Stripe joins for GCC/UK by adding a file, not
+rewriting `service.py`), GST invoicing, and the append-only `payment_log`.
 
 ## Public interface
 
 - **Capabilities published:**
-  - `billing.service_factory` → `BillingService(session)` with `authorize_review`,
-    `record_usage`, `list_invoices`, `create_invoice`, and `export_entitlement`.
+  - `billing.service_factory` → `BillingService(session, workspace_factory,
+    provider_factory)` with `authorize_review`, `record_usage`,
+    `create_checkout`, `get_intent_status`, `process_webhook`,
+    `list_invoices`, `create_invoice`, `status`, and `export_entitlement`.
   - `billing.record_usage(session, workspace_id, event, ref_id=None)` — direct
     capability for modules that only need to log usage without pulling in the
     full service.
@@ -34,20 +42,44 @@ invoicing, and the append-only `payment_log`.
     enforcement point: `risk`'s `POST /opportunities/{id}/run` consumes it
     (TS-087). Before TS-087, `authorize_review`'s only caller was billing's own
     `/authorize-review` endpoint — nothing forced a client to call it.
+- **Provider abstraction (R-005 §A, TS-089):** `app/modules/billing/providers/`
+  — `base.py` defines the `PaymentProvider` Protocol (`create_order`,
+  `verify_webhook`, `parse_event`) plus `OrderRequest`/`OrderHandle`/
+  `ProviderEvent` dataclasses; `razorpay.py` implements it against the real
+  Razorpay Orders API; `select.py`'s `select_provider(settings, country)`
+  returns a `RazorpayProvider` for `country == "IN"` when keys are configured,
+  else `None` (checkout then returns 503 `payment_provider_unavailable`
+  instead of silently issuing a fake order).
 - **Events emitted:** `billing.paywall_hit` (published from `meter()` on every
-  402, TS-087). `billing.plan_activated`, `billing.payment_applied` are
-  specified but not yet emitted — R-005/TS-089.
+  402, TS-087). `billing.plan_activated`/`billing.payment_applied` as events
+  are still not emitted — the webhook handlers apply the grant directly via
+  `WorkspaceAdmin`; nothing else currently needs to react to them.
 - **API routes:**
   - `GET /api/billing/status` (viewer)
-  - `POST /api/billing/checkout` (admin)
+  - `POST /api/billing/checkout` (admin) — body `{kind: paygo|subscription,
+    plan?, opportunity_id?}`; price/plan resolved server-side, returns an
+    intent id + provider order handle, never activates anything.
+  - `GET /api/billing/intents/{intent_id}` (viewer) — polled by the client
+    after opening the provider checkout; ownership-checked in application
+    code since `PaymentIntent` carries no RLS.
   - `POST /api/billing/authorize-review` (estimator)
   - `GET /api/billing/invoices` (viewer)
   - `POST /api/billing/webhooks/razorpay` (unauthenticated, HMAC-verified)
 
 ## Data owned
 
-`usage_events`, `payment_log` (append-only, from day one), `invoices`, payment
-intents, webhook-dedup records, plan state on `orgs`.
+`usage_events`, `payment_log` (append-only, from day one), `invoices`,
+`payment_intents` (checkout orders — see below), `webhook_events`
+(dedup records), plan + billing-lifecycle state on `workspaces`
+(`plan`, `plan_status`, `grace_until`, `current_period_start`,
+`current_period_end`, `provider_subscription_id`).
+
+`PaymentIntent` is deliberately **not** `WorkspaceScopedMixin`/RLS-protected —
+same precedent as `RefreshToken`/`PasswordReset`. The webhook must look the
+row up by the opaque `intent_id` in provider `notes` *before* it knows which
+workspace it belongs to; RLS would block that exact lookup. Authenticated
+routes that read a `PaymentIntent` (`get_intent_status`) do the ownership
+check themselves in application code.
 
 ## Behavior
 
@@ -65,12 +97,31 @@ intents, webhook-dedup records, plan state on `orgs`.
   PostgreSQL with two genuinely concurrent threads
   (`tests/test_billing_race_postgres.py`) — confirmed to actually catch the
   race (fails reliably with the lock removed, passes reliably with it).
-- **B3 (webhook = only truth):** client redirects/success handlers activate
-  nothing; webhooks are HMAC-verified, idempotent by event id, logged to
-  `payment_log` (`received` → `verified` → `applied|failed`) *before* acting.
+- **B3 (webhook = only truth, R-005 §B/§C):** client redirects/success
+  handlers activate nothing; `create_checkout` creates a `PaymentIntent` row
+  and a real provider order but changes no entitlement. `process_webhook`
+  verifies the signature, logs to `payment_log` *before* trusting anything
+  (`_log` commits internally, binding RLS context to the intent's own
+  workspace, or a fixed `UNATTRIBUTED_WORKSPACE` sentinel when the intent
+  can't be resolved — an unauthenticated route has no `app.workspace_id`
+  bound yet). Idempotency is a unique-constraint insert on
+  `event_id or sha256(raw_body)` caught via `IntegrityError`, not
+  check-then-act, so a replayed event with no id can't loop forever either.
+  The grant is always resolved by looking up the `PaymentIntent` referenced
+  by the event, never by trusting amount/plan/workspace fields carried in
+  provider `notes` directly — `notes` carries only the opaque `intent_id`
+  (R-005 §B.3, the core fix: a client could previously edit `notes.plan`
+  client-side before the provider redirect and receive whatever plan they
+  asked for). `_on_payment_succeeded` is the single handler for a paygo
+  payment, a subscription's first activation, and a renewal charge — all
+  three carry an amount to verify against `intent.amount_minor`; a mismatch
+  logs `amount_mismatch` and grants nothing (`test_webhook_amount_mismatch_
+  grants_nothing`, which caught a real bug where `subscription.activated`
+  was a separate handler that skipped this check).
 - **B4 (money):** minor units only; never float.
 - **B5 (GST):** Indian payments auto-issue GST invoice (SAC 998313, CGST/SGST vs
-  IGST by buyer state, sequential gap-free numbering).
+  IGST by buyer state, sequential gap-free numbering) — computation exists in
+  `plans.py` but is not yet called from `create_invoice` (R-007/TS-096, open).
 - **B6 (paywall as conversion surface):** `PaywallError` carries `code`
   (`free_exhausted|quota_exhausted|paygo_payment_required`) + upsell payload;
   dismissals logged.
@@ -82,8 +133,22 @@ intents, webhook-dedup records, plan state on `orgs`.
   between a free and a paid export of the same opportunity (`render.py`'s
   `stamp_line`/`WATERMARK_TEXT`). One free workspace per verified phone;
   disposable-email blocklist are still todo (R-015/TS-099).
-- **B8 (dunning):** past_due → banner + retries + grace; never delete data on
-  non-payment.
+- **B8 (dunning, R-005 §C.4, TS-097):** `subscription.halted` → `plan_status =
+  "past_due"` + `grace_until = now + 7 days`; plan itself is untouched during
+  grace, so the workspace keeps full paid access — contractors often pay by
+  NEFT on their own cycle, and an instant downgrade would lose accounts that
+  would have paid a few days late. `subscription.cancelled` → plan reset to
+  `free`, `plan_status = "cancelled"`. Never delete data on non-payment.
+- **B9 (checkout idempotency, R-005 §A.9):** `create_checkout` computes a
+  deterministic idempotency key (`workspace:kind:plan:opportunity:30-min-
+  bucket`); a retry within the same 30-minute window reopens the existing
+  `PaymentIntent`/provider order instead of creating a duplicate charge
+  attempt, while a genuinely later purchase gets a fresh key and a fresh
+  order.
+- **B10 (refunds, R-005 §C.3):** `refund.processed` marks the intent
+  `refunded`; a subscription refund downgrades to free/cancelled, a paygo
+  refund records a `review_refunded` usage event. GST credit-note issuance on
+  refund is not wired yet (follows R-007/TS-096).
 
 ## Acceptance criteria
 
@@ -101,8 +166,29 @@ intents, webhook-dedup records, plan state on `orgs`.
   (XLSX header/footer, DOCX page header, PDF page stamp); a paid-plan export
   of the same opportunity does not, and its findings are identical.
 - A6: `billing.paywall_hit` fires exactly once per `402`.
+- A7 (R-005): `POST /checkout` never accepts a client-supplied price — price is
+  always looked up server-side from `PRICES_MINOR` by `(plan, currency)`; an
+  unknown plan raises `PaywallError("unknown_plan")` (400), a workspace with
+  no configured provider for its country raises
+  `PaywallError("payment_provider_unavailable")` (503).
+- A8 (R-005): a webhook event whose amount doesn't match its intent's
+  `amount_minor` grants nothing and marks the intent `amount_mismatch`, for
+  every payment-success event type (`order.paid`, `subscription.charged`,
+  `subscription.activated`) — not just the ones an earlier draft happened to
+  check.
+- A9 (R-005): a duplicate webhook (same `event_id`, or same raw body when no
+  `event_id` is present) is a no-op the second time, verified against real,
+  non-superuser PostgreSQL with FORCE RLS live (webhook RLS binding via
+  `bind_workspace_context` before any query, since this is an unauthenticated
+  route that never calls `authenticate()`).
+- A10 (R-005): a checkout retry within the 30-minute idempotency window
+  returns the same `PaymentIntent`/order, not a new one.
+- A11 (R-005): `GET /intents/{id}` returns `{"status": "not_found"}` for an
+  intent belonging to a different workspace, even though `PaymentIntent` has
+  no RLS to enforce that automatically.
 
 ## Out of scope
 
 Stripe live wiring (P2/GCC), admin refund console (Doc §16, P1-admin scope),
-annual plans/proration polish.
+annual plans/proration polish, GST invoice wiring (R-007/TS-096, next),
+coupons/discounts/credits/referrals (R-006/TS-090, next).

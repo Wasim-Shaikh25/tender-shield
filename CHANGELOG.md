@@ -6,6 +6,72 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-28 (Billing UI — the first paid path end to end: TS-091)
+
+Before this, `frontend/lib/api.ts` had no billing calls at all — the complete
+monetization journey was "paywall blocks a review → 402 → nothing." This ships
+a thin but complete paid path: `/pricing` (public), `<Paywall/>`,
+`<CheckoutDialog/>`, and `/billing` (account home).
+
+- **`/pricing`** — four plan cards (free/paygo/pro/scale) with prices that
+  match `PRICES_MINOR` server-side exactly; signed-out users get "Sign up",
+  signed-in users get a real checkout button per paid plan.
+- **`<Paywall/>`** (`components/paywall.tsx`) — renders the 402 payload from
+  any billable action, driven entirely by `detail.code`. Covers the three
+  codes the backend can raise today: `free_exhausted`, `paygo_payment_
+  required` (both payable per-tender directly from the paywall), and
+  `quota_exhausted`. Wired into the opportunity page's "Run risk review"
+  action via a new `ApiError` class in `lib/api.ts` that carries the
+  structured `detail` payload instead of only a stringified message.
+- **`<CheckoutDialog/>`** — opens Razorpay's hosted checkout for a real
+  server-created order (`billing.checkout`), then polls
+  `GET /billing/intents/{id}` for confirmation. The `handler` callback runs
+  entirely on the client and never marks anything paid — only the webhook
+  does (Doc §15.1). If the payment provider's script fails to load (offline,
+  blocked network — this is exactly what happened testing in this sandbox,
+  which has no route to `checkout.razorpay.com`), it now shows a retryable
+  error instead of hanging forever on "Preparing checkout…".
+- **`/billing`** — current plan + status + grace banner, a usage meter for
+  quota'd plans, and — admin/owner only — the invoice table; viewer/estimator
+  see a read-only summary with no checkout entry point.
+- **Two real backend bugs found and fixed while wiring this UI** (the kind of
+  thing that only surfaces when you actually build the client that has to
+  call these endpoints):
+  1. **A paygo-plan workspace could run unlimited unpaid reviews.**
+     `plans.authorize()`'s paygo branch computed `Grant(requires_payment=True)`
+     but nothing ever checked it — `meter()`/`authorize_review` just returned
+     the grant and let the review through. Fixed by checking for an
+     unconsumed `review_paid` usage event (already written by the webhook,
+     no new table) before granting; `POST /checkout` now requires
+     `opportunity_id` for `kind="paygo"` since payment is scoped to the one
+     opportunity it unlocks.
+  2. **`workspace.plan` never actually became `"paygo"`,** which made bug
+     (1)'s fix unreachable in practice — `_on_payment_succeeded` only called
+     `set_plan` for subscription payments. Fixed by calling it for every
+     successful payment kind. The `free_exhausted` upsell now also carries
+     the blocked opportunity's id so the paywall can pay for that exact
+     tender directly, which elects the workspace into the paygo plan and
+     unlocks the paid-for opportunity in one webhook.
+  Both covered by new regression tests in `test_paywall_enforcement.py`
+  (`test_paygo_workspace_blocked_until_its_own_opportunity_is_paid`,
+  `test_free_exhausted_workspace_can_pay_per_tender_from_the_paywall`).
+- Updated `specs/frontend.md` (B11, A3-A6), `specs/requirements/R-008-billing-ui.md`,
+  and `specs/modules/billing.md` (B11, B12, A12, A13) to match.
+- Validated against a **live backend** (not just a build check): ran
+  `next build`/`tsc --noEmit` clean, then started the real FastAPI backend
+  and Next.js dev server together and drove signup → free review → second-
+  opportunity paywall → checkout dialog with Playwright, screenshotting each
+  step. 189 SQLite tests pass (1 skipped) + 10 Postgres tests (RLS +
+  race-safety) after the backend fixes; `ruff check` clean.
+
+### Next
+
+- **TS-096** (wire GST into `create_invoice`), **TS-098** (entitlements:
+  seats/top-ups/anniversary periods, which would also let `/billing`'s usage
+  meter stop duplicating `PLAN_LIMITS` client-side), and **TS-090**
+  (coupons/discounts/credits/referrals, which the paywall's coupon field is
+  waiting on).
+
 ### Done — 2026-07-28 (Real payments + full webhook coverage: TS-089, TS-097)
 
 `/billing/checkout` previously returned a handle with no real order behind
@@ -79,13 +145,6 @@ fixed.
   end to end. 187 SQLite tests pass (1 skipped, 10 postgres-marked
   deselected); `ruff check` clean; SQLite and Postgres migrations clean both
   directions.
-
-### Next
-
-- **TS-091** — billing UI (pricing, checkout, invoices, usage meters) for a
-  thin but complete paid path end to end, then **TS-096** (wire GST into
-  `create_invoice`), **TS-098** (entitlements: seats/top-ups/anniversary
-  periods), and **TS-090** (coupons/discounts/credits/referrals).
 
 ### Done — 2026-07-28 (Gate 2 started — paywall enforced, watermark applied: TS-087, TS-088)
 

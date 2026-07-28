@@ -155,7 +155,7 @@ Analysis: `docs/GAP_ANALYSIS.md` · Requirements: `specs/requirements/R-0xx-*.md
 | TS-088 | Apply the free-tier watermark in the export renderer | P0 | §2.2 | R-004 §B | done |
 | TS-089 | Real Razorpay order/subscription creation; resolve plan+amount server-side, never from webhook `notes` | P0 | §2.3–§2.4 | R-005 §A–B | done |
 | TS-090 | Coupons/discounts: `coupons` + `coupon_redemptions` tables, checkout validation, referral credits | P1 | §2.5 | R-006 | todo |
-| TS-091 | Billing UI: pricing page, checkout, paywall interstitial, invoice list, usage-vs-quota meter | P0 | §4.1 | R-008 | todo |
+| TS-091 | Billing UI: pricing page, checkout, paywall interstitial, invoice list, usage-vs-quota meter | P0 | §4.1 | R-008 | done |
 | TS-092 | Persist the refresh token in the frontend session + 401-refresh interceptor (sessions currently die after 15 min) | P0 | §4.2 | R-010 | todo |
 | TS-093 | Revoke refresh-token families on password reset | P1 | §1.6 | R-002 §B | done |
 | TS-094 | Rate limiting / lockout on login, signup, forgot-password, reset-password | P1 | §1.8 | R-002 §C | done |

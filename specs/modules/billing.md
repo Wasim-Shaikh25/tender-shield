@@ -14,7 +14,7 @@ event-id-or-body-hash idempotency (R-005 §C, TS-097). GST invoice computation
 `create_invoice` (R-007/TS-096, still open). Stripe (GCC/UK) is a second file
 behind `select_provider`, not yet written.
 **Requirement refs:** Doc §7, §15, §16.5; R-004, R-005
-**Task refs:** TS-022, TS-087, TS-088, TS-089, TS-097
+**Task refs:** TS-022, TS-087, TS-088, TS-089, TS-097, TS-091
 
 ## Purpose
 
@@ -149,6 +149,30 @@ check themselves in application code.
   `refunded`; a subscription refund downgrades to free/cancelled, a paygo
   refund records a `review_refunded` usage event. GST credit-note issuance on
   refund is not wired yet (follows R-007/TS-096).
+- **B11 (paygo enforcement, R-008/TS-091 bugfix):** `authorize_review`
+  actually enforces `Grant(requires_payment=True)` now. Until this fix,
+  `plans.authorize()`'s paygo branch computed that flag but nothing ever
+  read it — found while wiring the checkout UI, a paygo-plan workspace ran
+  unlimited unpaid reviews (`test_paygo_workspace_blocked_until_its_own_
+  opportunity_is_paid`, `backend/tests/test_paywall_enforcement.py`). The fix
+  reuses the existing `review_paid` usage event the webhook already writes
+  on payment success (keyed by `ref_id=opportunity_id`) — no new table:
+  `BillingService._has_paid_review(workspace_id, opportunity_id)` checks for
+  one before granting, and `POST /checkout` now requires `opportunity_id`
+  for `kind="paygo"` (400 `opportunity_id_required` otherwise) since payment
+  is scoped to the one opportunity it unlocks and can't be spent on another.
+- **B12 (paygo is a plan election, R-008/TS-091 bugfix):** nothing ever set
+  `workspace.plan = "paygo"`, which made B11's enforcement branch
+  unreachable in practice — `_on_payment_succeeded` only called `set_plan`
+  for `kind == "subscription"`. Fixed by calling `set_plan(intent.plan)` for
+  every successful payment, not only subscriptions (`intent.plan` is already
+  `"paygo"` for a paygo checkout, so this is a one-line unification, not a
+  new branch). The free_exhausted upsell now also carries the blocked
+  opportunity's id (`plans.authorize()`'s new `opportunity_id` param) so the
+  paywall can check out that exact opportunity's paygo payment directly —
+  paying elects the workspace into the paygo plan AND unlocks the paid-for
+  opportunity in one webhook
+  (`test_free_exhausted_workspace_can_pay_per_tender_from_the_paywall`).
 
 ## Acceptance criteria
 
@@ -186,6 +210,12 @@ check themselves in application code.
 - A11 (R-005): `GET /intents/{id}` returns `{"status": "not_found"}` for an
   intent belonging to a different workspace, even though `PaymentIntent` has
   no RLS to enforce that automatically.
+- A12 (R-008/TS-091 bugfix): a paygo-plan workspace is blocked with
+  `paygo_payment_required` on an unpaid opportunity's review-run, and paying
+  for one opportunity does not unlock a different one.
+- A13 (R-008/TS-091 bugfix): a free-plan workspace that hits `free_exhausted`
+  can pay per-tender for the exact blocked opportunity from the paywall in
+  one checkout, which also elects the workspace into the paygo plan.
 
 ## Out of scope
 

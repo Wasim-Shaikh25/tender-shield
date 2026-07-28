@@ -23,6 +23,7 @@ from app.modules.billing.models import (
 )
 from app.modules.billing.plans import (
     CURRENCY_BY_COUNTRY,
+    PAYGO_PRICE_INR_PAISE,
     Grant,
     PaywallError,
     authorize,
@@ -101,6 +102,27 @@ class BillingService:
         key = int(uuid.UUID(str(workspace_id)).int & 0x7FFFFFFFFFFFFFFF)
         self.s.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": key})
 
+    def _has_paid_review(self, workspace_id, opportunity_id) -> bool:
+        """Whether THIS opportunity's paygo review has already been paid for
+        (the webhook's `_on_payment_succeeded` records a `review_paid` usage
+        event with ref_id=opportunity_id on success). Payment is scoped to the
+        opportunity it was checked out for — it can't be spent on a different
+        one."""
+        if opportunity_id is None:
+            return False
+        return (
+            self.s.scalar(
+                select(UsageEvent.id)
+                .where(
+                    UsageEvent.workspace_id == uuid.UUID(str(workspace_id)),
+                    UsageEvent.event == "review_paid",
+                    UsageEvent.ref_id == uuid.UUID(str(opportunity_id)),
+                )
+                .limit(1)
+            )
+            is not None
+        )
+
     def authorize_review(self, workspace_id, opportunity_id=None) -> Grant:
         """Meter a review at processing start (Doc §7). Raises PaywallError with
         an upsell payload when blocked.
@@ -121,13 +143,29 @@ class BillingService:
             plan=workspace.plan,
             free_review_used=workspace.free_review_used,
             reviews_this_month=self._month_reviews(workspace_id),
+            opportunity_id=opportunity_id,
         )
         if grant.kind == "free_first_review":
             self._workspaces().mark_free_review_used(workspace_id)
             self.record_usage(workspace_id, "review_started", ref_id=opportunity_id, commit=False)
         elif grant.kind == "plan":
             self.record_usage(workspace_id, "review_started", ref_id=opportunity_id, commit=False)
-        # paygo: nothing recorded until the webhook confirms payment
+        elif grant.requires_payment:
+            # `authorize()`'s Grant(requires_payment=True) was, until this fix,
+            # advisory only — nothing checked it, so a paygo workspace ran
+            # unlimited unpaid reviews (found while wiring the checkout UI,
+            # R-008/TS-091). Enforced here against the SAME `review_paid`
+            # usage event the webhook already writes on payment success —
+            # no new table, no new webhook logic.
+            if not self._has_paid_review(workspace_id, opportunity_id):
+                raise PaywallError(
+                    "paygo_payment_required",
+                    {
+                        "paygo_price_inr_paise": PAYGO_PRICE_INR_PAISE,
+                        "opportunity_id": str(opportunity_id) if opportunity_id else None,
+                    },
+                )
+            self.record_usage(workspace_id, "review_started", ref_id=opportunity_id, commit=False)
         self.s.commit()
         return grant
 
@@ -369,8 +407,15 @@ class BillingService:
             intent.status = "amount_mismatch"
             return
         intent.status = "paid"
+        # Choosing "pay as you go" is itself a plan election (PLAN_LIMITS
+        # models paygo as an ongoing tier, not a one-off top-up) — set here
+        # for both kinds, since intent.plan is already "paygo" for a paygo
+        # checkout and the chosen tier for a subscription checkout. Without
+        # this, workspace.plan never transitions to "paygo" at all, and
+        # authorize_review's per-opportunity payment check (requires
+        # workspace.plan == "paygo") is unreachable (R-008/TS-091).
+        self._workspaces().set_plan(intent.workspace_id, intent.plan)
         if intent.kind == "subscription":
-            self._workspaces().set_plan(intent.workspace_id, intent.plan)
             self._workspaces().set_plan_status(
                 intent.workspace_id,
                 "active",

@@ -99,7 +99,7 @@ and the free tier produces paid-grade output.
 | TS-097 | Webhook coverage: refunds, failures, disputes, dunning/grace, dedupe without event id | P1 | [R-005 §C](../specs/requirements/R-005-payments-checkout.md) | `billing` | **done**⁶ | A5–A8, A10 in R-005 |
 | TS-090 | Coupons, discounts, credits, referrals, trials, pilot comps | P1 | [R-006](../specs/requirements/R-006-coupons-discounts.md) | `billing` | todo | A1–A12 in R-006 |
 | TS-096 | GST invoicing: wire `gst.py`, tax columns, gap-free FY series, PDF, credit notes | P1 | [R-007](../specs/requirements/R-007-gst-invoicing.md) | `billing` | todo | A1–A10 in R-007 |
-| TS-091 | Billing UI: pricing, paywall component, checkout, invoices, usage meters | P0 | [R-008](../specs/requirements/R-008-billing-ui.md) | frontend | todo | A1–A9 in R-008 |
+| TS-091 | Billing UI: pricing, paywall component, checkout, invoices, usage meters | P0 | [R-008](../specs/requirements/R-008-billing-ui.md) | frontend | **done**⁷ | A1–A2, A4–A9 in R-008 (A3 coupons deferred) |
 | TS-098 | Entitlement service: seats, top-ups, billing-anniversary periods, plan changes | P1 | [R-009](../specs/requirements/R-009-plan-entitlements.md) | `billing`, `auth` | todo | A1–A9 in R-009 |
 
 ⁵ Race-safety (R-004 §A.4) is verified against real, non-superuser PostgreSQL
@@ -146,9 +146,30 @@ TS-086 RLS hardening shipped. `tests/test_billing.py` rewritten (21 tests);
 `tests/test_paywall_enforcement.py`'s webhook helper now does a real
 checkout → webhook round trip instead of hand-crafting `notes`.
 
+⁷ Ships `/pricing` (public, prices mirror server-side `PRICES_MINOR`),
+`<Paywall/>` (driven by `detail.code`; covers `free_exhausted`,
+`paygo_payment_required`, `quota_exhausted`), `<CheckoutDialog/>` (real
+Razorpay hosted checkout + intent polling — the client handler never marks
+anything paid, only the webhook does), and `/billing` (plan/status/grace,
+usage meter, admin-only invoice table; read-only for viewer/estimator).
+Coupon field (R-006/TS-090) and real seats/storage/entitlement fields
+(R-009/TS-098) deferred — no backend capability to call yet. Validated with
+a live backend + Playwright: signup → free review → second-opportunity
+paywall → checkout dialog, screenshotted at each step; `next build` and
+`tsc --noEmit` clean.
+
+Wiring this UI surfaced and fixed two real backend bugs (see
+`specs/modules/billing.md` B11/B12): (1) a paygo-plan workspace could run
+unlimited unpaid reviews — `Grant(requires_payment=True)` was computed but
+never checked; and (2) `workspace.plan` never actually transitioned to
+`"paygo"` on payment (only subscriptions called `set_plan`), which made
+fix (1)'s enforcement branch unreachable. Both fixed with new regression
+tests in `test_paywall_enforcement.py`; full SQLite suite (189 passed, 1
+skipped) and the Postgres RLS + race-safety suites (10 tests) still pass
+after the fix.
+
 **Suggested order:** ~~TS-087 → TS-088~~ (done) → ~~TS-089~~ (done) →
-TS-091 (a thin but complete paid path) → TS-096 → TS-098 → ~~TS-097~~ (done)
-→ TS-090.
+~~TS-091~~ (done, thin path) → TS-096 → TS-098 → ~~TS-097~~ (done) → TS-090.
 
 **Gate 2 exit:** a test customer can hit the paywall, pay, receive a GST invoice
 and export without a watermark — end to end, through the UI.
@@ -233,7 +254,7 @@ measured from production data.
 | Gate | Done | Total |
 |---|---|---|
 | 1 | 6 | 6 |
-| 2 | 4 | 8 |
+| 2 | 5 | 8 |
 | 3 | 0 | 7 |
 | 4 | 0 | 5 |
-| **Total** | **10** | **26** |
+| **Total** | **11** | **26** |

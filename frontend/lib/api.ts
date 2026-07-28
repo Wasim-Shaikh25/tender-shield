@@ -30,6 +30,19 @@ export type Finding = {
   review_status?: string;
 };
 
+// Thrown for non-2xx responses so callers (the paywall in particular) can
+// read the structured `detail` payload (`{code, upsell}` on a 402) instead of
+// only a stringified message.
+export class ApiError extends Error {
+  status: number;
+  detail: unknown;
+  constructor(status: number, detail: unknown, message: string) {
+    super(message);
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
 async function req<T>(path: string, opts: RequestInit = {}, token?: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...opts,
@@ -41,7 +54,11 @@ async function req<T>(path: string, opts: RequestInit = {}, token?: string): Pro
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail ?? `${res.status} ${res.statusText}`);
+    throw new ApiError(
+      res.status,
+      body.detail,
+      typeof body.detail === "string" ? body.detail : `${res.status} ${res.statusText}`
+    );
   }
   return res.json() as Promise<T>;
 }
@@ -159,6 +176,67 @@ export const api = {
     req<OrgStandard>(`/standards/notice`, { method: "PUT", body: JSON.stringify(body) }, token),
   clearOrgStandard: (token: string) =>
     req<{ cleared: boolean }>(`/standards/notice`, { method: "DELETE" }, token),
+};
+
+// ---- Billing (R-008, TS-091) -------------------------------------------
+//
+// Thin client matching what the backend actually implements today (TS-089/
+// TS-097): status, real checkout, intent polling, invoice list. Coupons
+// (R-006/TS-090) and entitlement fields like seats/storage/reviews_included
+// (R-009/TS-098) don't exist server-side yet — this client and the pages
+// built on it add those calls when those tasks land, rather than stubbing
+// endpoints that don't exist.
+
+export type Plan = "free" | "paygo" | "pro" | "scale";
+
+export type BillingStatus = {
+  plan: Plan;
+  plan_status: "active" | "past_due" | "cancelled" | "trialing";
+  grace_until: string | null;
+  free_review_used: boolean;
+  reviews_this_month: number;
+};
+
+export type CheckoutHandle = {
+  intent_id: string;
+  provider: string;
+  order_id: string | null;
+  amount_minor: number;
+  currency: string;
+  breakdown: { list: number; discount: number; tax: number; total: number };
+  checkout: Record<string, unknown>;
+};
+
+export type IntentStatus = { status: string; amount_minor?: number };
+
+export type Invoice = {
+  id: number;
+  invoice_number: string;
+  amount_minor: number;
+  currency: string;
+  status: string;
+  provider: string;
+  paid_at: string | null;
+  created_at: string;
+};
+
+export const billing = {
+  status: (token: string) => req<BillingStatus>("/billing/status", {}, token),
+
+  checkout: (
+    token: string,
+    body: { kind: "paygo" | "subscription"; plan?: Plan; opportunity_id?: string }
+  ) =>
+    req<CheckoutHandle>(
+      "/billing/checkout",
+      { method: "POST", body: JSON.stringify(body) },
+      token
+    ),
+
+  intent: (token: string, id: string) =>
+    req<IntentStatus>(`/billing/intents/${id}`, {}, token),
+
+  invoices: (token: string) => req<{ invoices: Invoice[] }>("/billing/invoices", {}, token),
 };
 
 export type OrgStandardCategory = {

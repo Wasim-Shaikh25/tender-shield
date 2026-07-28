@@ -50,6 +50,12 @@ def checkout(
     what it costs."""
     if body.kind not in ("paygo", "subscription"):
         raise HTTPException(400, "bad_kind")
+    if body.kind == "paygo" and not body.opportunity_id:
+        # A paygo payment is scoped to the one opportunity it unlocks
+        # (BillingService._has_paid_review checks it by ref_id) — without an
+        # opportunity_id there'd be nothing for authorize_review to match the
+        # payment against.
+        raise HTTPException(400, "opportunity_id_required")
     plan = "paygo" if body.kind == "paygo" else (body.plan or "")
     try:
         return _service(request, session).create_checkout(

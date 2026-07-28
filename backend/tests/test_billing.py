@@ -12,6 +12,7 @@ amount-mismatch, dunning/grace, refunds — all runs for real.
 import hashlib
 import hmac
 import json
+import uuid
 
 import pytest
 from fastapi.testclient import TestClient
@@ -270,7 +271,7 @@ def test_tampered_signature_rejected(client):
 
 def test_paygo_payment_creates_invoice_and_list_returns_it(client):
     headers, _ = _auth(client, "paygo@x.com")
-    checkout = _checkout(client, headers, kind="paygo")
+    checkout = _checkout(client, headers, kind="paygo", opportunity_id=str(uuid.uuid4()))
 
     r = _webhook_for_intent(
         client,
@@ -325,7 +326,7 @@ def test_refund_downgrades_subscription(client):
 
 def test_intent_status_endpoint_reports_paid(client):
     headers, _ = _auth(client, "intentstatus@x.com")
-    checkout = _checkout(client, headers, kind="paygo")
+    checkout = _checkout(client, headers, kind="paygo", opportunity_id=str(uuid.uuid4()))
     _webhook_for_intent(
         client, event_type="order.paid", intent_id=checkout["intent_id"],
         amount_minor=checkout["amount_minor"], event_id="evt_intentcheck",
@@ -336,7 +337,7 @@ def test_intent_status_endpoint_reports_paid(client):
 
 def test_intent_status_hides_other_workspaces_intent(client):
     headers_a, _ = _auth(client, "ownera@x.com")
-    checkout = _checkout(client, headers_a, kind="paygo")
+    checkout = _checkout(client, headers_a, kind="paygo", opportunity_id=str(uuid.uuid4()))
 
     headers_b, _ = _auth(client, "ownerb@x.com")
     r = client.get(f"/api/billing/intents/{checkout['intent_id']}", headers=headers_b)
@@ -345,7 +346,7 @@ def test_intent_status_hides_other_workspaces_intent(client):
 
 def test_webhook_with_no_event_id_is_deduped_by_body_hash(client):
     headers, _ = _auth(client, "noeventid@x.com")
-    checkout = _checkout(client, headers, kind="paygo")
+    checkout = _checkout(client, headers, kind="paygo", opportunity_id=str(uuid.uuid4()))
     body = {
         "event": "order.paid",
         "payload": {

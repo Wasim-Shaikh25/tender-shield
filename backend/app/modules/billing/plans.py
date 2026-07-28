@@ -62,15 +62,26 @@ def authorize(
     free_review_used: bool,
     reviews_this_month: int,
     has_topups: bool = False,
+    opportunity_id=None,
 ) -> Grant:
     """Decide whether a review may start (Doc §7). Pure: callers supply current
     usage; this raises PaywallError or returns a Grant. Metering happens at
-    processing start, and re-processing addenda is free (caller's concern)."""
+    processing start, and re-processing addenda is free (caller's concern).
+
+    `opportunity_id` is carried into the free_exhausted upsell (when given)
+    purely so the client can check out a paygo payment for THIS opportunity
+    directly from the paywall, without a second round trip (R-008/TS-091);
+    it plays no role in the authorization decision itself.
+    """
     if plan == "free":
         if free_review_used:
             raise PaywallError(
                 "free_exhausted",
-                {"paygo_price_inr_paise": PAYGO_PRICE_INR_PAISE, "plans": ["pro"]},
+                {
+                    "paygo_price_inr_paise": PAYGO_PRICE_INR_PAISE,
+                    "plans": ["pro"],
+                    "opportunity_id": str(opportunity_id) if opportunity_id else None,
+                },
             )
         return Grant(kind="free_first_review", watermark=True)
 

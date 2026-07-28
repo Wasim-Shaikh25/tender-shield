@@ -1,11 +1,18 @@
 # R-008 — Billing UI: pricing, checkout, paywall, invoices, usage
 
-**Status:** draft
+**Status:** implemented (thin path) — `/pricing`, `<Paywall/>`,
+`<CheckoutDialog/>`, `/billing` account page shipped and validated end to
+end against a live backend (Playwright screenshots). Coupons/credits/
+referral (needs R-006/TS-090) and real seats/storage/entitlement fields
+(needs R-009/TS-098) are deferred — those backend capabilities don't exist
+yet; see `specs/frontend.md` B11 for what shipped vs. what's deferred.
+Fixed two real backend bugs found while wiring this UI — see
+`specs/modules/billing.md` B9/B10.
 **Severity:** P0 — a user cannot give this product money through its own interface
 **Requirement refs:** Doc §7, §9, §15
 **Task refs:** TS-091
 **Gap refs:** `docs/GAP_ANALYSIS.md` §4.1
-**Specs to update:** `specs/frontend.md`
+**Specs to update:** `specs/frontend.md`, `specs/modules/billing.md`
 
 ## Purpose
 

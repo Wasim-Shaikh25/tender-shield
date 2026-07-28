@@ -156,6 +156,123 @@ def test_pro_workspace_quota_exhausted(client):
     assert r.json()["detail"]["code"] == "quota_exhausted"
 
 
+# ---- paygo: requires_payment was computed but never enforced (R-008/TS-091) -
+
+
+def _set_plan_direct(client, workspace_id, plan):
+    """Test-only seed, bypassing checkout/webhook — mirrors the same
+    WorkspaceAdmin capability the webhook itself calls on payment success."""
+    reg = client.app.state.ctx.registry
+    factory = reg.require("db.sessionmaker")
+    workspace_factory = reg.require("auth.workspace_factory")
+    with factory() as s:
+        workspace_factory(s).set_plan(workspace_id, plan)
+        s.commit()
+
+
+def test_paygo_workspace_blocked_until_its_own_opportunity_is_paid(client):
+    """Regression test: plans.authorize()'s Grant(requires_payment=True) for
+    a paygo workspace was, until this fix, advisory only — nothing checked
+    it, so a paygo workspace could run unlimited unpaid reviews. Found while
+    wiring the checkout UI (R-008/TS-091)."""
+    headers, workspace_id = _auth(client, "paygoenforce@x.com")
+    _set_plan_direct(client, workspace_id, "paygo")
+
+    opp = _create_opportunity(client, headers, "Unpaid")
+    r = client.post(f"/api/risk/opportunities/{opp}/run", headers=headers)
+    assert r.status_code == 402
+    assert r.json()["detail"]["code"] == "paygo_payment_required"
+    assert r.json()["detail"]["upsell"]["paygo_price_inr_paise"] == 750_000
+
+    # nothing was processed for the blocked opportunity
+    findings = client.get(f"/api/findings/opportunities/{opp}", headers=headers).json()
+    assert findings["findings"] == []
+
+    checkout = client.post(
+        "/api/billing/checkout",
+        json={"kind": "paygo", "opportunity_id": opp},
+        headers=headers,
+    )
+    assert checkout.status_code == 200, checkout.text
+    intent = checkout.json()
+    body = {
+        "id": f"evt_paygo_{opp}",
+        "event": "order.paid",
+        "payload": {
+            "payment": {
+                "entity": {
+                    "amount": intent["amount_minor"],
+                    "notes": {"intent_id": intent["intent_id"]},
+                }
+            }
+        },
+    }
+    raw, sig = _sign(body)
+    wh = client.post(
+        "/api/billing/webhooks/razorpay", content=raw, headers={"X-Razorpay-Signature": sig}
+    )
+    assert wh.status_code == 200, wh.text
+
+    r2 = client.post(f"/api/risk/opportunities/{opp}/run", headers=headers)
+    assert r2.status_code == 200, r2.text
+    assert r2.json()["watermark"] is False
+
+    # paying for THIS opportunity does not unlock a DIFFERENT one
+    opp_other = _create_opportunity(client, headers, "Still unpaid")
+    r3 = client.post(f"/api/risk/opportunities/{opp_other}/run", headers=headers)
+    assert r3.status_code == 402
+    assert r3.json()["detail"]["code"] == "paygo_payment_required"
+
+
+def test_free_exhausted_workspace_can_pay_per_tender_from_the_paywall(client):
+    """The free_exhausted upsell carries the blocked opportunity's id
+    (plans.authorize()'s opportunity_id param, R-008/TS-091) so the paywall
+    can check out a paygo payment for THAT tender directly. Paying elects
+    the workspace into the paygo plan (service.py's `_on_payment_succeeded`
+    sets plan=intent.plan for every kind, not just subscriptions) and
+    unlocks exactly the paid-for opportunity."""
+    headers, _ = _auth(client, "freetopaygo@x.com")
+    opp1 = _create_opportunity(client, headers, "Free one")
+    assert client.post(f"/api/risk/opportunities/{opp1}/run", headers=headers).status_code == 200
+    opp = _create_opportunity(client, headers, "Blocked")
+    blocked = client.post(f"/api/risk/opportunities/{opp}/run", headers=headers)
+    assert blocked.status_code == 402
+    assert blocked.json()["detail"]["code"] == "free_exhausted"
+    assert blocked.json()["detail"]["upsell"]["opportunity_id"] == opp
+
+    checkout = client.post(
+        "/api/billing/checkout",
+        json={"kind": "paygo", "opportunity_id": opp},
+        headers=headers,
+    )
+    assert checkout.status_code == 200, checkout.text
+    intent = checkout.json()
+    body = {
+        "id": f"evt_free_to_paygo_{opp}",
+        "event": "order.paid",
+        "payload": {
+            "payment": {
+                "entity": {
+                    "amount": intent["amount_minor"],
+                    "notes": {"intent_id": intent["intent_id"]},
+                }
+            }
+        },
+    }
+    raw, sig = _sign(body)
+    wh = client.post(
+        "/api/billing/webhooks/razorpay", content=raw, headers={"X-Razorpay-Signature": sig}
+    )
+    assert wh.status_code == 200, wh.text
+
+    r = client.post(f"/api/risk/opportunities/{opp}/run", headers=headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["watermark"] is False
+
+    status = client.get("/api/billing/status", headers=headers).json()
+    assert status["plan"] == "paygo"
+
+
 # ---- A3: re-processing an already-metered opportunity is free --------------
 
 

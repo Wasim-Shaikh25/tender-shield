@@ -4,6 +4,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import {
   api,
   API_BASE,
+  ApiError,
   type Artifact,
   type Baseline,
   type BaselineCompare,
@@ -18,6 +19,7 @@ import {
 import { useSession } from "@/components/session";
 import { SeverityBadge, SourceBadge } from "@/components/badges";
 import { artifactLabel, categoryLabel, deadlineLabel, statusLabel } from "@/lib/labels";
+import { Paywall, type PaywallDetail } from "@/components/paywall";
 
 const SAMPLE = `[p1]
 NOTICE INVITING TENDER (NIT No. TS/DEMO/2026/001)
@@ -64,6 +66,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
   const [compareData, setCompareData] = useState<BaselineCompare | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [paywall, setPaywall] = useState<PaywallDetail | null>(null);
 
   const refresh = useCallback(async () => {
     if (!session) return;
@@ -110,6 +113,12 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
       await api.runRisk(session!.token, id);
       await refresh();
       setTab("risks");
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 402 && e.detail && typeof e.detail === "object") {
+        setPaywall(e.detail as PaywallDetail);
+      } else {
+        setNote(e instanceof Error ? e.message : "Review failed");
+      }
     } finally {
       setBusy(false);
     }
@@ -210,6 +219,17 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
       </div>
 
       {note && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{note}</p>}
+
+      {paywall && (
+        <Paywall
+          detail={paywall}
+          onDismiss={() => setPaywall(null)}
+          onPaid={() => {
+            setPaywall(null);
+            runRisk();
+          }}
+        />
+      )}
 
       <div className="flex gap-1 border-b border-slate-200">
         {(["overview", "risks", "boq", "artifacts", "handover"] as const).map((t) => (

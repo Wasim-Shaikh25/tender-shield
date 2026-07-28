@@ -159,7 +159,7 @@ Analysis: `docs/GAP_ANALYSIS.md` · Requirements: `specs/requirements/R-0xx-*.md
 | TS-092 | Persist the refresh token in the frontend session + 401-refresh interceptor (sessions currently die after 15 min) | P0 | §4.2 | R-010 | todo |
 | TS-093 | Revoke refresh-token families on password reset | P1 | §1.6 | R-002 §B | done |
 | TS-094 | Rate limiting / lockout on login, signup, forgot-password, reset-password | P1 | §1.8 | R-002 §C | done |
-| TS-095 | Stream uploads to disk and enforce the size cap before buffering (2 GB is read into RAM today) | P1 | §1.9 | R-003 | todo |
+| TS-095 | Stream uploads to disk and enforce the size cap before buffering; magic-byte type validation; applied to both ingestion and boq upload routes | P1 | §1.9 | R-003 | done |
 | TS-096 | Wire `billing/gst.py` into `create_invoice`: tax columns, buyer GSTIN, statutory FY series, PDF invoice | P1 | §2.6 | R-007 | todo |
 | TS-097 | Webhook coverage: refunds, failures, disputes, dunning/grace, proration; reject events without an id | P1 | §2.7–§2.8 | R-005 §C | todo |
 | TS-098 | Enforce seat limits; wire top-up purchase/consumption; billing-anniversary quota periods | P1 | §2.9 | R-009 | todo |

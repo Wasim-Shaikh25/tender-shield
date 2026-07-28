@@ -43,6 +43,8 @@ class Document(Base, WorkspaceScopedMixin):
     sha256: Mapped[str] = mapped_column(String, nullable=False, default="")
     pages: Mapped[int | None] = mapped_column(Integer, nullable=True)
     ocr_status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    content_type: Mapped[str | None] = mapped_column(String, nullable=True)
     supersedes: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("documents.id"), nullable=True
     )

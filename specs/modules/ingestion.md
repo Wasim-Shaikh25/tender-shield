@@ -6,7 +6,7 @@ and deterministic deadline extraction + deadline wall + confirm chips (TS-015).
 Real multipart upload + text extraction (PDF via pypdf, XLSX via openpyxl, CSV) feeds the pipeline (TS-026); LocalStorage dev backend, S3 in prod. OCR (TS-038): pluggable OcrProvider — RapidOCR (offline, ONNX) reads scanned PDFs when TS_OCR_ENABLED, else docs are flagged needs_ocr (honest degradation, Doc §12.4); pdfplumber extracts BOQ tables from digital PDFs (no cloud). Textract for hard scanned-table BOQs + tus resumable are TS-033. Relative-date formula resolution and LLM-assisted extraction for messy scans are
 follow-ups. API mounted under `/api/ingestion/opportunities`.
 **Requirement refs:** Doc §3.3, §6.1, §6.2
-**Task refs:** TS-014, TS-015, TS-016
+**Task refs:** TS-014, TS-015, TS-016, TS-095
 
 ## Purpose
 
@@ -69,14 +69,30 @@ document is re-registered or re-uploaded.
   deadline wall lands < 3 min p95.
 - **B6 (untrusted input):** all document text is wrapped in data-only delimiters
   in every prompt (prompt-injection defense, Doc §11.3).
-- **B7 (uploads):** tus resumable, ZIP-aware, virus-scanned, magic-byte MIME
-  sniffing, 2GB cap; S3 per-org prefixes, SSE-KMS.
+- **B7 (uploads, R-003 §B.1–B.2, TS-095):** streamed to a size-capped temp file
+  via `app.core.uploads.spool_upload` — the size limit (512 MB/file) is
+  enforced mid-transfer, never after buffering the whole body, and shared with
+  the `boq` module's upload endpoint (which had no limit at all before this).
+  Extension allowlist (`.pdf/.docx/.doc/.xlsx/.xls/.csv/.txt`) plus magic-byte
+  validation rejects a body whose signature disagrees with its declared
+  extension (`415 unsupported_file_type`). Empty uploads are rejected
+  (`400 empty_file`). `Document.size_bytes`/`content_type` are recorded.
+  **Still todo:** tus resumable upload (TS-033), ZIP ingestion (no ZIP upload
+  path exists yet — R-003 §B.4 is forward guidance for when one is added, not
+  yet built), malware scanning (interface only, R-003 §B.5), per-workspace
+  storage quota (needs `billing.entitlements`, R-009/TS-098), S3 storage with
+  per-workspace prefix + SSE-KMS (R-016 §B/TS-106 — `LocalStorage` is the only
+  backend today).
 
 ## Acceptance criteria
 
 - A1: anchor classifier labels fixture NIT/GCC/SCC/BOQ correctly, no LLM call.
 - A2: deadline rows without a verifiable quote are flagged low-confidence.
 - A3: missing-doc checklist flags an absent SCC referenced by the NIT fixture.
+- A4: an upload exceeding the size cap is rejected mid-stream
+  (`413 file_too_large`) without buffering the full body.
+- A5: a disallowed extension or a magic-byte/extension mismatch (e.g. an
+  executable renamed to `.pdf`) is rejected (`415 unsupported_file_type`).
 
 ## Out of scope
 

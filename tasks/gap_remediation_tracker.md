@@ -38,7 +38,18 @@ work that removes three cross-tenant leaks and an account-takeover path.
 | TS-086 | RLS hardening: `FORCE`, `WITH CHECK`, missing tables, post-commit rebinding, Postgres CI job | P0 | [R-001 §B](../specs/requirements/R-001-tenant-isolation.md) | `core`, migrations, CI | **done**² | A4–A6, A8 in R-001 |
 | TS-093 | Revoke all refresh-token families on password reset | P1 | [R-002 §B](../specs/requirements/R-002-auth-hardening.md) | `auth` | **done**¹ | A4 in R-002 |
 | TS-094 | Rate limiting on auth endpoints + capped per-account lockout | P1 | [R-002 §C](../specs/requirements/R-002-auth-hardening.md) | `core`, `auth` | **done**³ | A5, A6 in R-002 |
-| TS-095 | Stream uploads; enforce size cap before buffering; type allowlist; ZIP guards; storage quota | P1 | [R-003](../specs/requirements/R-003-upload-safety.md) | `ingestion` | todo | A1–A6 in R-003 |
+| TS-095 | Stream uploads; enforce size cap before buffering; type allowlist; ZIP guards; storage quota | P1 | [R-003](../specs/requirements/R-003-upload-safety.md) | `core`, `ingestion`, `boq` | **done**⁴ | A1–A6 in R-003 |
+
+⁴ Shipped: streaming with a mid-transfer size cap, extension allowlist +
+magic-byte validation, applied to **both** upload endpoints — `boq`'s had no
+size limit at all before this, which R-003's draft (scoped to `ingestion`
+only) didn't call out. New shared `app/core/uploads.py` so neither module
+imports the other. **Deferred, not done:** storage quota (§B.3, needs
+`billing.entitlements` — doesn't exist until R-009/TS-098), ZIP-bomb/path-
+traversal guards (§B.4 — no ZIP upload path exists anywhere in the codebase
+yet, so there's nothing to harden; the R-003 section is forward guidance for
+when one is added), malware scanning (§B.5, interface only — no scanner to
+plug in). tus resumable upload stays TS-033.
 
 ³ Shipped with wider limits than the R-002 §C draft (`/login` 20/5min not
 10/5min): the draft's 10/5min IP limit collides with the 10-failure per-account
@@ -69,8 +80,8 @@ file `tests/test_rls_postgres.py` (9 tests) is the only place in the repo the
 isolation guarantee is actually exercised; wired into CI as the
 `backend-postgres` job.
 
-**Gate 1 exit:** all six done; the Postgres CI job is green; a cross-tenant read
-attempt is covered by an automated test. Remaining: TS-095.
+**Gate 1 exit: reached.** All six done; the Postgres CI job is green; a
+cross-tenant read attempt is covered by an automated test.
 
 ---
 
@@ -176,8 +187,8 @@ measured from production data.
 
 | Gate | Done | Total |
 |---|---|---|
-| 1 | 5 | 6 |
+| 1 | 6 | 6 |
 | 2 | 0 | 8 |
 | 3 | 0 | 7 |
 | 4 | 0 | 5 |
-| **Total** | **5** | **26** |
+| **Total** | **6** | **26** |

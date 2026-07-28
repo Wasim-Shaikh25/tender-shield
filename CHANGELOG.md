@@ -6,7 +6,7 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
-### Done — 2026-07-28 (Gate 1 security fixes: TS-084, TS-085, TS-086, TS-093, TS-094)
+### Done — 2026-07-28 (Gate 1 complete: TS-084, TS-085, TS-086, TS-093, TS-094, TS-095)
 
 Implementation of five of Gate 1's six tasks from `tasks/gap_remediation_tracker.md`,
 validated against **real PostgreSQL** (not just SQLite) — a local Postgres 16
@@ -95,15 +95,35 @@ which had never been tested against a real database before this session.
   attack across many accounts and 20/5min still does that.
 - 156 SQLite tests + 9 Postgres tests pass; `ruff check` clean; `alembic
   upgrade head`/`downgrade base` clean on both SQLite and Postgres.
+- **TS-095** — Upload safety, closing Gate 1. New shared `app/core/uploads.py`
+  (`spool_upload`) — streams a multipart body to a size-capped temp file with
+  the cap enforced mid-transfer, never after buffering the whole thing, then
+  validates extension against an allowlist and magic bytes against the
+  declared extension (rejects e.g. an executable renamed to `.pdf`) before
+  anything is persisted or extracted. Applied to **both** file-upload
+  endpoints: `ingestion`'s (previously buffered up to 2 GB in memory before
+  checking) and `boq`'s (previously had **no size limit at all** — a gap the
+  original R-003 draft, scoped only to `ingestion`, didn't call out). Core
+  infrastructure rather than living in either module, so `boq` doesn't have to
+  import `ingestion` to reuse it (`CLAUDE.md` §2). New
+  `Document.size_bytes`/`content_type` columns (migration `c9ed90a8524f`).
+  Deliberately **not** shipped in this task, and why: per-workspace storage
+  quota (needs `billing.entitlements`, which doesn't exist until R-009/TS-098),
+  ZIP-bomb/path-traversal guards (no ZIP upload path exists anywhere in the
+  codebase to harden — R-003 §B.4 is forward guidance for when one is built,
+  not a gap in something shipped), and malware scanning (interface-only,
+  nothing to plug in yet). 10 new tests (`tests/test_upload_safety.py`),
+  including a regression test for the boq gap specifically.
+- **Gate 1 is now complete** (6/6). 166 SQLite tests + 9 Postgres tests pass;
+  `ruff check` clean; `alembic upgrade head`/`downgrade base` clean on SQLite
+  and Postgres.
 
 ### Next
 
-- **TS-095** — the last Gate 1 task: stream uploads with a real size cap
-  (currently buffered fully in memory before the check), a type allowlist and
-  ZIP-bomb/path-traversal guards.
 - **Gate 2, starting with TS-087/TS-088** — enforce metering in the review
   path and apply the free-tier watermark; nothing else in billing has value
-  until those two ship.
+  until those two ship. Then TS-089 (real Razorpay orders) and TS-091 (billing
+  UI) for a thin but complete paid path.
 
 ### Done — 2026-07-28 (whole-project gap analysis: TS-083)
 

@@ -5,11 +5,15 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
+from app.core.uploads import spool_upload
 from app.modules.ingestion.extract import extract_upload
 from app.modules.ingestion.service import IngestionService
 from app.modules.ingestion.storage import LocalStorage
 
-MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024  # 2 GB cap (Doc §11.2)
+# Per-file cap (Doc §11.2), streamed and enforced mid-transfer rather than
+# after buffering the whole body (R-003 §B.1, TS-095) — the previous 2 GB
+# figure was a pack-level limit read into memory in full before the check.
+MAX_UPLOAD_BYTES = 512 * 1024 * 1024
 
 router = APIRouter()
 
@@ -116,13 +120,16 @@ async def upload_document(
     principal: Any = Depends(require("estimator")),
 ):
     """Real multipart upload → store file → extract text (PDF/XLSX/CSV) → run the
-    classify/segment/deadline pipeline."""
+    classify/segment/deadline pipeline.
+
+    The upload is streamed to a size-capped temp file and validated by magic
+    bytes before anything is persisted or extracted (R-003 §B.1–B.2, TS-095) —
+    the body is never buffered in full before the size check runs.
+    """
     svc = _service(request, session)
     if not svc.get_opportunity(principal.workspace_id, opportunity_id):
         raise HTTPException(404, "not_found")
-    data = await file.read()
-    if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(413, "file_too_large")
+    data, sha, _suffix = await spool_upload(file, max_bytes=MAX_UPLOAD_BYTES)
     storage = LocalStorage(request.app.state.ctx.settings.storage_dir)
     key, sha = storage.put(str(principal.workspace_id), file.filename, data)
     ocr = request.app.state.ctx.registry.get("ingestion.ocr")
@@ -135,6 +142,8 @@ async def upload_document(
         s3_key=key,
         sha256=sha,
         ocr_status=ocr_status,
+        size_bytes=len(data),
+        content_type=file.content_type,
         uploaded_by=_to_uuid(principal.user_id),
     )
     return {

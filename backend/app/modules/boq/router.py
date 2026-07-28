@@ -5,9 +5,15 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
+from app.core.uploads import spool_upload
 from app.modules.boq.service import BoqRunner
 
 router = APIRouter()
+
+# Same per-file cap as ingestion uploads (R-003, TS-095) — this endpoint had
+# NO size limit at all before: `await file.read()` buffered an unbounded body
+# in full before any validation ran.
+MAX_UPLOAD_BYTES = 512 * 1024 * 1024
 
 
 @router.get("")
@@ -62,12 +68,17 @@ async def upload_boq(
     principal: Any = Depends(require("estimator")),
 ):
     """Upload a BOQ as PDF / XLSX / CSV; tables are read out (pdfplumber for PDF)
-    and the deterministic checks run — no AWS."""
+    and the deterministic checks run — no AWS.
+
+    Streamed to a size-capped temp file and magic-byte validated before
+    anything is parsed (R-003 §B.1–B.2, TS-095) — this endpoint previously had
+    no size limit at all.
+    """
     reg = request.app.state.ctx.registry
     to_csv = reg.get("ingestion.file_to_boq_csv")
     if to_csv is None:
         raise HTTPException(503, "ingestion_unavailable")
-    data = await file.read()
+    data, _sha, _suffix = await spool_upload(file, max_bytes=MAX_UPLOAD_BYTES)
     csv_text = to_csv(file.filename, data)
     # Digital tables failed on a PDF → fall back to offline scanned-table OCR
     # (rapid-table) if enabled. Still no cloud.

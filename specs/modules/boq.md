@@ -2,7 +2,7 @@
 
 **Status:** implemented — engine core + scope gaps + write-through (BoqRunner parses an uploaded workbook, runs checks, persists defects via findings.store, producer='boq')
 **Requirement refs:** Doc §6.4, §2.1
-**Task refs:** TS-018, TS-019
+**Task refs:** TS-018, TS-019, TS-095
 
 ## Purpose
 
@@ -20,6 +20,10 @@ trade checklists for scope gaps.
   `boq.run_completed`.
 - **Events consumed:** `document.classified` (kind=`boq` → start normalization).
 - **API routes:** `/api/opportunities/{id}/boq/items`, `/defects`, `/scope-gaps`.
+  Also `POST /api/boq/opportunities/{id}/upload` (estimator) — PDF/XLSX/CSV BOQ
+  upload; streamed to a size-capped temp file and magic-byte validated via
+  `app.core.uploads.spool_upload` (R-003, TS-095) — this route had no size
+  limit at all before that task.
 
 ## Data owned
 

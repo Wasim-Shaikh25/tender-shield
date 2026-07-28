@@ -68,6 +68,8 @@ class AuthService:
         notifier=None,
         app_url: str = "",
         entitlements=None,
+        record_referral_signup=None,
+        resolve_referral_code=None,
     ):
         self.s = session
         self.keys = keys
@@ -83,6 +85,20 @@ class AuthService:
         # which case seats are unlimited (spec core B2 — the app still boots
         # with any module subset).
         self._entitlements = entitlements
+        # Callable[[session, referrer_workspace_id, referred_workspace_id,
+        # code]] — the `billing.record_referral_signup` capability (R-006
+        # §B.7). Absent when billing is disabled: a referral code still
+        # works for signup, it just never earns a reward.
+        self._record_referral_signup = record_referral_signup
+        # Callable[[session, code], dict | None] — the `billing.
+        # resolve_referral_code` capability. Resolves through billing's own
+        # non-RLS `referral_codes` pointer table, NOT a `Workspace` query:
+        # the signing-up caller is not yet a member of any workspace, so
+        # RLS's compound predicate would hide the referrer's `workspaces` row
+        # (found via an e2e run against real Postgres with FORCE RLS live —
+        # a prior version of this used WorkspaceAdmin.find_by_referral_code,
+        # which silently resolved nothing for every cross-tenant signup).
+        self._resolve_referral_code = resolve_referral_code
         self._app_url = app_url.rstrip("/")
 
     def _notify(self, *, channel: str, to: str, subject: str, body: str) -> None:
@@ -161,7 +177,12 @@ class AuthService:
 
     # ---- registration -----------------------------------------------------
     def signup(
-        self, email: str, password: str, workspace_name: str | None = None, country: str = "IN"
+        self,
+        email: str,
+        password: str,
+        workspace_name: str | None = None,
+        country: str = "IN",
+        referral_code: str | None = None,
     ) -> dict:
         email = email.strip().lower()
         if self.s.scalar(select(User).where(User.email == email)):
@@ -170,8 +191,42 @@ class AuthService:
         self.s.add(user)
         self.s.flush()
         workspace = self._create_workspace_and_owner(user.id, workspace_name or "Personal", country)
+        self._apply_referral(
+            referral_code, referred_workspace_id=workspace.id, referred_email=email
+        )
         self.s.commit()
         return {"user_id": str(user.id), "workspace_id": str(workspace.id)}
+
+    def _apply_referral(self, referral_code, *, referred_workspace_id, referred_email) -> None:
+        """Records a referral relationship at signup (R-006 §B.7) — the
+        REWARD is credited later, on the referred workspace's first paid
+        purchase (billing's own code, since Credit is billing-owned). Blocked
+        silently (signup still succeeds) rather than erroring, for two
+        reasons: an invalid/unknown code shouldn't block someone from signing
+        up, and self-referral shouldn't tip the referrer off that their
+        attempt was detected.
+        """
+        if (
+            not referral_code
+            or self._record_referral_signup is None
+            or self._resolve_referral_code is None
+        ):
+            return
+        # Resolved via billing's non-RLS `referral_codes` table, not a
+        # `Workspace` query — the referred user isn't a member of the
+        # referrer's workspace (or any workspace) yet, so RLS would hide it.
+        referrer = self._resolve_referral_code(self.s, referral_code)
+        if referrer is None or str(referrer["workspace_id"]) == str(referred_workspace_id):
+            return
+        referrer_domain = referrer.get("owner_email_domain")
+        referred_domain = (
+            referred_email.rsplit("@", 1)[1].lower() if "@" in referred_email else None
+        )
+        if referrer_domain and referred_domain and referrer_domain == referred_domain:
+            return  # self-referral (R-006 §A9): same employer domain on both sides
+        self._record_referral_signup(
+            self.s, referrer["workspace_id"], referred_workspace_id, referral_code.upper()
+        )
 
     # ---- login ------------------------------------------------------------
     _LOCKOUT_THRESHOLD = 10

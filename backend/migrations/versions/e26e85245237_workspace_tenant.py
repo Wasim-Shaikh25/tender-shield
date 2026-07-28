@@ -375,9 +375,18 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('workspace_id', 'user_id')
     )
 
-    # Enable RLS on every workspace-scoped table (PostgreSQL only).
+    # Enable RLS on every workspace-scoped table that EXISTS BY THIS POINT in
+    # the chain (PostgreSQL only). WORKSPACE_SCOPED_TABLES is a process-wide
+    # set populated by importing model classes, not by which tables this
+    # migration has actually created — a table added by a LATER migration
+    # (e.g. coupon_redemptions/credits, migration 21095f7b4b70) is already in
+    # this set the moment its model module is imported, so a from-scratch
+    # `alembic upgrade head` would otherwise crash here with UndefinedTable.
     if op.get_bind().dialect.name == "postgresql":
+        existing = set(sa.inspect(op.get_bind()).get_table_names())
         for table in WORKSPACE_SCOPED_TABLES:
+            if table not in existing:
+                continue
             for stmt in rls_statements(table):
                 op.execute(stmt)
     # ### end Alembic commands ###

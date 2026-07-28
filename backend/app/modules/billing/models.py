@@ -7,7 +7,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, BigInteger, DateTime, Integer, String, Uuid, func
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Integer, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base, WorkspaceScopedMixin
@@ -86,6 +86,10 @@ class PaymentIntent(Base):
     opportunity_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     list_amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     discount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    # Reserved (not yet consumed) at checkout time; the consuming Credit
+    # ledger entry is written only on payment success (R-006 §B.2/B.3) — an
+    # abandoned checkout must never burn a balance the customer never spent.
+    credit_applied_minor: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     tax_minor: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)  # what we charge
     currency: Mapped[str] = mapped_column(String, nullable=False, default="INR")
@@ -154,3 +158,125 @@ class InvoiceSequence(Base):
     __tablename__ = "invoice_sequences"
     fy: Mapped[str] = mapped_column(String, primary_key=True)
     last_seq: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class Coupon(Base):
+    """Discount definitions (R-006). NOT workspace-scoped — a coupon is a
+    global object many workspaces may redeem; restrictions live in the
+    columns below, not in RLS."""
+
+    __tablename__ = "coupons"
+    id: Mapped[int] = mapped_column(_BigId, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
+    # Stored uppercase; lookups uppercase the input so codes are case-insensitive.
+
+    kind: Mapped[str] = mapped_column(String, nullable=False)
+    # percent | fixed | free_months | free_reviews
+    value: Mapped[int] = mapped_column(Integer, nullable=False)
+    # percent: 1..100 · fixed: minor units · free_months/free_reviews: a count
+    currency: Mapped[str | None] = mapped_column(String, nullable=True)
+    # required for kind="fixed" — a fixed rupee discount can't apply to a GBP order
+
+    applies_to: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    # {"plans": [...], "kinds": [...], "first_purchase_only": true}
+
+    max_redemptions: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_per_workspace: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    redeemed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    valid_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    campaign: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class CouponRedemption(Base, WorkspaceScopedMixin):
+    """Append-only redemption ledger — one row per successful application,
+    written only when a payment SUCCEEDS, never at quote time, so an
+    abandoned checkout never burns a redemption (R-006 §B.2/B.4).
+    `payment_intent_id` is unique: a duplicate webhook delivery for the same
+    intent hits a unique-constraint violation here (caught, not re-raised)
+    instead of double-redeeming, the same idempotency idiom as
+    `WebhookEvent` (R-006 §A5)."""
+
+    _tablename_ = "coupon_redemptions"
+    id: Mapped[int] = mapped_column(_BigId, primary_key=True, autoincrement=True)
+    coupon_id: Mapped[int] = mapped_column(_BigId, nullable=False, index=True)
+    payment_intent_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True, unique=True)
+    discount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    redeemed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class Credit(Base, WorkspaceScopedMixin):
+    """Prepaid balance ledger: referral rewards, goodwill, refund-to-credit
+    (R-006). Consumed before charging a card. The balance is the sum of this
+    ledger, never a mutable column — same discipline as `payment_log`/
+    `usage_events`: a running total can drift from its history; a ledger
+    can't."""
+
+    _tablename_ = "credits"
+    id: Mapped[int] = mapped_column(_BigId, primary_key=True, autoincrement=True)
+    amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)  # +granted / -consumed
+    currency: Mapped[str] = mapped_column(String, nullable=False, default="INR")
+    reason: Mapped[str] = mapped_column(String, nullable=False)
+    # referral | goodwill | refund | promo | pilot | consumed
+    ref_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class Referral(Base):
+    """One row per referral RELATIONSHIP (referrer -> referred), created when
+    a referred workspace signs up using the referrer's code (R-006 §B.7).
+    Deliberately not WorkspaceScopedMixin: a single row is jointly relevant to
+    TWO workspaces (referrer and referred), so no single `workspace_id`
+    column could be the RLS-scoping key without arbitrarily picking a side —
+    both `GET /billing/referral` (referrer's own stats) and the reward
+    crediting in `_on_payment_succeeded` (billing's own code, not
+    request-scoped) query this directly by workspace id in application code
+    instead."""
+
+    __tablename__ = "referrals"
+    id: Mapped[int] = mapped_column(_BigId, primary_key=True, autoincrement=True)
+    referrer_workspace_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
+    referred_workspace_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, unique=True)
+    code: Mapped[str] = mapped_column(String, nullable=False)  # the code used, for audit
+    status: Mapped[str] = mapped_column(String, nullable=False, default="signed_up")
+    # signed_up | rewarded
+    reward_minor: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ReferralCode(Base):
+    """Cross-tenant-resolvable pointer from a referral code to its owning
+    workspace (R-006 §B.7).
+
+    Deliberately NOT WorkspaceScopedMixin / RLS-protected — same precedent as
+    `PaymentIntent`/`RefreshToken`/`PasswordReset`: a person signing up who is
+    not yet a member of ANY workspace must be able to resolve someone else's
+    referral code. `Workspace.referral_code` (RLS-protected, same value,
+    written alongside this row) remains the referrer's own same-tenant read
+    path (`GET /billing/referral`); this table exists only so a stranger's
+    signup can look the code up without RLS's compound predicate hiding the
+    referrer's `workspaces` row. `owner_email_domain` is snapshotted here too
+    so the self-referral check (R-006 §A9) never needs a second cross-tenant
+    `Workspace`/`User` read."""
+
+    __tablename__ = "referral_codes"
+    code: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, unique=True)
+    owner_email_domain: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

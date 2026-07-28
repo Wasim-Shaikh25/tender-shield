@@ -1,10 +1,12 @@
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_session, require
+from app.core.deps import current_principal, get_session, require
+from app.modules.billing.coupons import CouponError
 from app.modules.billing.plans import PLAN_LIMITS, PaywallError
 from app.modules.billing.providers.select import select_provider
 from app.modules.billing.service import BillingService
@@ -23,10 +25,20 @@ def _service(request: Request, session: Session) -> BillingService:
     )
 
 
+def _require_superadmin(principal: Any = Depends(current_principal)) -> Any:
+    """Billing's own superadmin guard — `auth.deps.require_superadmin` is not
+    importable here (CLAUDE.md §2); `current_principal` (app.core, not auth)
+    already returns a Principal-like object carrying `is_superadmin`."""
+    if not getattr(principal, "is_superadmin", False):
+        raise HTTPException(403, "superadmin_required")
+    return principal
+
+
 class CheckoutBody(BaseModel):
     kind: str  # paygo | subscription | topup
     plan: str | None = None
     opportunity_id: str | None = None
+    coupon_code: str | None = None
 
 
 class BillingDetailsBody(BaseModel):
@@ -34,6 +46,47 @@ class BillingDetailsBody(BaseModel):
     gstin: str | None = None
     billing_address: dict = {}
     place_of_supply: str | None = None
+
+
+class CouponValidateBody(BaseModel):
+    code: str
+    plan: str
+    kind: str = "subscription"
+
+
+class CouponCreateBody(BaseModel):
+    code: str
+    kind: str
+    value: int
+    currency: str | None = None
+    applies_to: dict = {}
+    max_redemptions: int | None = None
+    max_per_workspace: int = 1
+    valid_from: datetime | None = None
+    valid_until: datetime | None = None
+    campaign: str | None = None
+
+
+class CouponUpdateBody(BaseModel):
+    active: bool | None = None
+    max_redemptions: int | None = None
+
+
+class GrantCreditBody(BaseModel):
+    workspace_id: str
+    amount_minor: int
+    currency: str = "INR"
+    reason: str = "goodwill"
+
+
+class CompBody(BaseModel):
+    workspace_id: str
+    plan: str
+    expires_at: datetime | None = None
+
+
+class TrialStartBody(BaseModel):
+    days: int = 14
 
 
 @router.get("/status")
@@ -102,10 +155,13 @@ def checkout(
             kind=body.kind,
             plan=plan,
             opportunity_id=body.opportunity_id,
+            coupon_code=body.coupon_code,
         )
     except PaywallError as exc:
         status_code = 503 if exc.code == "payment_provider_unavailable" else 400
         raise HTTPException(status_code, exc.code) from exc
+    except CouponError as exc:
+        raise HTTPException(400, exc.code) from exc
 
 
 @router.get("/intents/{intent_id}")
@@ -202,6 +258,175 @@ def set_billing_details(
         )
     except PaywallError as exc:
         raise HTTPException(400, exc.code) from exc
+    return {"ok": True}
+
+
+@router.post("/coupons/validate")
+def validate_coupon(
+    body: CouponValidateBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    """A quote, writes nothing (R-006 §B.2). Invalid codes return 200
+    `{"valid": false, "code_reason": ...}` rather than 4xx — a validation
+    endpoint that errors on the expected path makes the UI awkward and turns
+    the endpoint into an enumeration oracle by status code."""
+    try:
+        return _service(request, session).validate_coupon(
+            principal.workspace_id, body.code, plan=body.plan, kind=body.kind
+        )
+    except PaywallError as exc:
+        return {"valid": False, "code_reason": exc.code}
+
+
+@router.get("/credits")
+def credits(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    service = _service(request, session)
+    balance = service.credit_balance(principal.workspace_id)
+    return {
+        "balance_minor": balance,
+        "currency": "INR",
+        "entries": [
+            {
+                "id": c.id,
+                "amount_minor": c.amount_minor,
+                "currency": c.currency,
+                "reason": c.reason,
+                "created_at": c.created_at.isoformat(),
+                "expires_at": c.expires_at.isoformat() if c.expires_at else None,
+            }
+            for c in service.list_credits(principal.workspace_id)
+        ],
+    }
+
+
+@router.get("/referral")
+def referral(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    settings = request.app.state.ctx.settings
+    result = _service(request, session).get_referral(principal.workspace_id)
+    result["url"] = f"{settings.app_url}/login?ref={result['code']}"
+    return result
+
+
+@router.post("/trial/start")
+def start_trial(
+    body: TrialStartBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    """`assumption:` R-006's own API list doesn't specify a self-serve
+    trial-start route (only describes the BEHAVIOR, §B.8) — added here as a
+    low-friction, admin-self-serve entry point, since a trial that only a
+    superadmin could grant would contradict the point of a trial (a
+    workspace trying the product before paying)."""
+    try:
+        ends_at = _service(request, session).start_trial(principal.workspace_id, days=body.days)
+    except Exception as exc:
+        code = getattr(exc, "code", None)
+        if code is None:
+            raise
+        raise HTTPException(400, code) from exc
+    return {"trial_ends_at": ends_at.isoformat()}
+
+
+@router.post("/admin/coupons")
+def create_coupon(
+    body: CouponCreateBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(_require_superadmin),
+):
+    coupon = _service(request, session).create_coupon(
+        code=body.code,
+        kind=body.kind,
+        value=body.value,
+        currency=body.currency,
+        applies_to=body.applies_to,
+        max_redemptions=body.max_redemptions,
+        max_per_workspace=body.max_per_workspace,
+        valid_from=body.valid_from,
+        valid_until=body.valid_until,
+        campaign=body.campaign,
+        created_by=principal.user_id,
+    )
+    return {"code": coupon.code, "id": coupon.id}
+
+
+@router.get("/admin/coupons")
+def list_coupons(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(_require_superadmin),
+):
+    return {
+        "coupons": [
+            {
+                "code": c.code,
+                "kind": c.kind,
+                "value": c.value,
+                "active": c.active,
+                "redeemed_count": c.redeemed_count,
+                "max_redemptions": c.max_redemptions,
+                "campaign": c.campaign,
+            }
+            for c in _service(request, session).list_coupons()
+        ]
+    }
+
+
+@router.patch("/admin/coupons/{code}")
+def update_coupon(
+    code: str,
+    body: CouponUpdateBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(_require_superadmin),
+):
+    try:
+        coupon = _service(request, session).update_coupon(
+            code, active=body.active, max_redemptions=body.max_redemptions
+        )
+    except PaywallError as exc:
+        raise HTTPException(404, exc.code) from exc
+    return {"code": coupon.code, "active": coupon.active, "max_redemptions": coupon.max_redemptions}
+
+
+@router.post("/admin/credits")
+def admin_grant_credit(
+    body: GrantCreditBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(_require_superadmin),
+):
+    credit = _service(request, session).grant_credit(
+        body.workspace_id,
+        amount_minor=body.amount_minor,
+        currency=body.currency,
+        reason=body.reason,
+    )
+    return {"id": credit.id, "amount_minor": credit.amount_minor}
+
+
+@router.post("/admin/comp")
+def admin_comp(
+    body: CompBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(_require_superadmin),
+):
+    _service(request, session).comp_workspace(
+        body.workspace_id, plan=body.plan, expires_at=body.expires_at
+    )
     return {"ok": True}
 
 

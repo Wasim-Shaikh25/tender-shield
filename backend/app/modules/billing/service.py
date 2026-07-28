@@ -13,6 +13,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.db import bind_workspace_context
+from app.modules.billing.coupons import CouponError, CouponView
+from app.modules.billing.coupons import discount_for as coupon_discount_for
+from app.modules.billing.coupons import validate as validate_coupon_rules
 from app.modules.billing.entitlements import add_month, as_aware_utc, resolve_entitlements
 from app.modules.billing.gst import (
     compute_invoice_from_inclusive_total,
@@ -22,10 +25,15 @@ from app.modules.billing.gst import (
 )
 from app.modules.billing.models import (
     UNATTRIBUTED_WORKSPACE,
+    Coupon,
+    CouponRedemption,
+    Credit,
     Invoice,
     InvoiceSequence,
     PaymentIntent,
     PaymentLog,
+    Referral,
+    ReferralCode,
     UsageEvent,
     WebhookEvent,
 )
@@ -41,6 +49,8 @@ from app.modules.billing.plans import (
     price_for,
 )
 from app.modules.billing.providers.base import OrderRequest
+
+_REFERRAL_REWARD_MINOR = 250_000  # ₹2,500 each side — R-006 §B.7, pricing placeholder
 
 
 class BillingService:
@@ -61,6 +71,31 @@ class BillingService:
         if self._workspace_factory is None:
             raise PaywallError("workspace_unavailable")
         return self._workspace_factory(self.s)
+
+    def _effective_plan_and_status(self, workspace) -> tuple[str, str]:
+        """A trial or comp grant is an OVERLAY on the workspace's real
+        `plan`/`plan_status`, computed fresh on every read rather than
+        mutating stored state — so there is no scheduled job needed to end
+        one (R-006 §B.8/B.9). Comp lapsing reverts to the workspace's actual
+        stored plan (which the superadmin `set_comp` call itself set — a
+        comp doesn't touch `plan` after expiry, it just stops being honored
+        here); a trial NEVER touches `plan` at all, it only grants Pro-level
+        access on top of "free" while active.
+        """
+        now = datetime.now(UTC)
+        if (
+            workspace.billing_provider == "comp"
+            and workspace.comp_expires_at is not None
+            and now > as_aware_utc(workspace.comp_expires_at)
+        ):
+            return "free", "active"
+        if (
+            workspace.plan == "free"
+            and workspace.trial_ends_at is not None
+            and now < as_aware_utc(workspace.trial_ends_at)
+        ):
+            return "pro", "trialing"
+        return workspace.plan, workspace.plan_status
 
     def _period(self, workspace) -> tuple[datetime, datetime]:
         """Quota resets on the billing anniversary when a subscription
@@ -130,11 +165,12 @@ class BillingService:
         workspace = self._workspaces().get(workspace_id)
         if workspace is None:
             raise PaywallError("no_workspace")
+        effective_plan, effective_status = self._effective_plan_and_status(workspace)
         start, end = self._period(workspace)
-        limits = PLAN_LIMITS.get(workspace.plan, {})
+        limits = PLAN_LIMITS.get(effective_plan, {})
         return resolve_entitlements(
-            plan=workspace.plan,
-            plan_status=workspace.plan_status,
+            plan=effective_plan,
+            plan_status=effective_status,
             seats_included=limits.get("seats", 0),
             reviews_included=limits.get("reviews_month"),
             reviews_used=self._period_reviews(workspace_id, start, end),
@@ -223,15 +259,16 @@ class BillingService:
         workspace = self._workspaces().get(workspace_id)
         if workspace is None:
             raise PaywallError("no_workspace")
+        effective_plan, effective_status = self._effective_plan_and_status(workspace)
         start, end = self._period(workspace)
         grace_expired = bool(
-            workspace.plan_status == "past_due"
+            effective_status == "past_due"
             and workspace.grace_until is not None
             and datetime.now(UTC) > as_aware_utc(workspace.grace_until)
         )
         grant = authorize(
-            plan=workspace.plan,
-            plan_status=workspace.plan_status,
+            plan=effective_plan,
+            plan_status=effective_status,
             grace_expired=grace_expired,
             free_review_used=workspace.free_review_used,
             reviews_used=self._period_reviews(workspace_id, start, end),
@@ -268,10 +305,14 @@ class BillingService:
         re-exports of the one free review — the watermark is the ONLY thing
         distinguishing free output from paid output (the free review is
         deliberately a complete review, Doc §706), so it can never be a
-        client-controlled choice. Any paid plan → clean.
+        client-controlled choice. Any paid plan → clean. A trialing workspace
+        (R-006 §B.8) gets Pro-equivalent entitlements, including no watermark.
         """
         workspace = self._workspaces().get(workspace_id)
-        return {"watermark": bool(workspace and workspace.plan == "free")}
+        if workspace is None:
+            return {"watermark": False}
+        effective_plan, _ = self._effective_plan_and_status(workspace)
+        return {"watermark": effective_plan == "free"}
 
     def status(self, workspace_id, *, seats_used: int | None = None) -> dict:
         workspace = self._workspaces().get(workspace_id)
@@ -290,8 +331,10 @@ class BillingService:
             }
         e = self.entitlements(workspace_id, seats_used=seats_used or 0)
         return {
-            "plan": workspace.plan,
-            "plan_status": workspace.plan_status,
+            # e.plan/e.plan_status are the EFFECTIVE values (trial/comp
+            # overlay applied, R-006 §B.8/B.9) — not the raw stored columns.
+            "plan": e.plan,
+            "plan_status": e.plan_status,
             "grace_until": as_aware_utc(workspace.grace_until).isoformat()
             if workspace.grace_until
             else None,
@@ -334,6 +377,286 @@ class BillingService:
 
     # ---- checkout: real orders, server-side price/plan binding (R-005 §B) -
 
+    def _coupon_view(self, coupon: Coupon) -> CouponView:
+        return CouponView(
+            code=coupon.code,
+            kind=coupon.kind,
+            value=coupon.value,
+            currency=coupon.currency,
+            applies_to=coupon.applies_to,
+            max_redemptions=coupon.max_redemptions,
+            max_per_workspace=coupon.max_per_workspace,
+            redeemed_count=coupon.redeemed_count,
+            valid_from=as_aware_utc(coupon.valid_from) if coupon.valid_from else None,
+            valid_until=as_aware_utc(coupon.valid_until) if coupon.valid_until else None,
+            active=coupon.active,
+        )
+
+    def _workspace_redemption_count(self, coupon_id, workspace_id) -> int:
+        return (
+            self.s.scalar(
+                select(func.count(CouponRedemption.id)).where(
+                    CouponRedemption.coupon_id == coupon_id,
+                    CouponRedemption.workspace_id == uuid.UUID(str(workspace_id)),
+                )
+            )
+            or 0
+        )
+
+    def _is_first_purchase(self, workspace_id) -> bool:
+        return (
+            self.s.scalar(
+                select(Invoice.id).where(
+                    Invoice.workspace_id == uuid.UUID(str(workspace_id)),
+                    Invoice.doc_type == "invoice",
+                    Invoice.status == "paid",
+                )
+            )
+            is None
+        )
+
+    def _resolve_coupon(
+        self, workspace_id, code: str, *, plan: str, kind: str, currency: str
+    ) -> tuple[Coupon, int]:
+        """Shared by the quote endpoint and checkout so validation can never
+        drift between "what we quoted" and "what we charged" (R-006 §B.1/B.2).
+        Returns the Coupon row and its discount in minor units."""
+        coupon = self.s.scalar(select(Coupon).where(Coupon.code == code.upper()))
+        if coupon is None:
+            raise CouponError("coupon_not_found")
+        validate_coupon_rules(
+            self._coupon_view(coupon),
+            plan=plan,
+            kind=kind,
+            currency=currency,
+            now=datetime.now(UTC),
+            workspace_redemptions=self._workspace_redemption_count(coupon.id, workspace_id),
+            is_first_purchase=self._is_first_purchase(workspace_id),
+        )
+        list_amount = price_for(plan, currency)
+        return coupon, coupon_discount_for(self._coupon_view(coupon), list_amount)
+
+    def validate_coupon(self, workspace_id, code: str, *, plan: str, kind: str) -> dict:
+        """`POST /coupons/validate` — a QUOTE, writes nothing (R-006 §B.2).
+        Invalid codes return a `{"valid": false, "code_reason": ...}` shape
+        rather than raising, so a validation endpoint that 400s on the
+        expected path doesn't turn into an enumeration oracle by status code.
+        """
+        workspace = self._workspaces().get(workspace_id)
+        if workspace is None:
+            raise PaywallError("no_workspace")
+        currency = CURRENCY_BY_COUNTRY.get(workspace.country, "INR")
+        try:
+            list_amount = price_for(plan, currency)
+            coupon, discount_minor = self._resolve_coupon(
+                workspace_id, code, plan=plan, kind=kind, currency=currency
+            )
+        except (CouponError, PaywallError) as exc:
+            return {"valid": False, "code_reason": exc.code}
+        gst = compute_invoice_from_inclusive_total(
+            number="",
+            total_minor=list_amount - discount_minor,
+            buyer_gstin=workspace.gstin,
+            seller_state_code=self._settings.seller_state_code if self._settings else "27",
+        )
+        return {
+            "valid": True,
+            "code": coupon.code,
+            "kind": coupon.kind,
+            "value": coupon.value,
+            "list_amount_minor": list_amount,
+            "discount_minor": discount_minor,
+            "credit_applied_minor": 0,  # informational preview only — see create_checkout
+            "tax_minor": (list_amount - discount_minor) - gst.base_minor,
+            "total_minor": list_amount - discount_minor,
+            "currency": currency,
+        }
+
+    def credit_balance(self, workspace_id, currency: str = "INR") -> int:
+        """Sum of the ledger, never a mutable column (R-006, same discipline
+        as `payment_log`/`usage_events`). `int(...)`: Postgres's SUM() over a
+        BigInteger column returns NUMERIC, which psycopg maps to
+        `Decimal` — SQLite's SUM returns a plain int, so this silently
+        returned a Decimal only under real Postgres, poisoning
+        `credit_applied_minor`/`amount_minor` arithmetic downstream with a
+        type that `json.dumps` (the order's checkout_payload) can't
+        serialize. Found via an e2e run against real Postgres."""
+        from sqlalchemy import or_
+
+        return int(
+            self.s.scalar(
+                select(func.coalesce(func.sum(Credit.amount_minor), 0)).where(
+                    Credit.workspace_id == uuid.UUID(str(workspace_id)),
+                    Credit.currency == currency,
+                    or_(Credit.expires_at.is_(None), Credit.expires_at > func.now()),
+                )
+            )
+            or 0
+        )
+
+    def list_credits(self, workspace_id) -> list[Credit]:
+        return list(
+            self.s.scalars(
+                select(Credit)
+                .where(Credit.workspace_id == uuid.UUID(str(workspace_id)))
+                .order_by(Credit.created_at.desc())
+            )
+        )
+
+    # ---- referrals (R-006 §B.7) --------------------------------------------
+
+    def record_referral_signup(
+        self, referrer_workspace_id, referred_workspace_id, code: str
+    ) -> None:
+        """Called from `auth.signup` via the `billing.record_referral_signup`
+        capability — the self-referral domain check already happened in auth
+        (which owns the User/Workspace data needed for it). `referred_
+        workspace_id` is unique on `Referral`, so a workspace can only ever
+        be referred once; caught, not re-raised, matching this codebase's
+        idempotent-insert idiom."""
+        try:
+            self.s.add(
+                Referral(
+                    referrer_workspace_id=uuid.UUID(str(referrer_workspace_id)),
+                    referred_workspace_id=uuid.UUID(str(referred_workspace_id)),
+                    code=code,
+                    status="signed_up",
+                )
+            )
+            self.s.commit()
+        except IntegrityError:
+            self.s.rollback()
+
+    def get_referral(self, workspace_id) -> dict:
+        code = self._workspaces().get_or_create_referral_code(workspace_id)
+        self._register_referral_code_pointer(workspace_id, code)
+        rows = list(
+            self.s.scalars(
+                select(Referral).where(
+                    Referral.referrer_workspace_id == uuid.UUID(str(workspace_id))
+                )
+            )
+        )
+        return {
+            "code": code,
+            "stats": {
+                "signed_up": len(rows),
+                "rewarded": sum(1 for r in rows if r.status == "rewarded"),
+            },
+        }
+
+    def _register_referral_code_pointer(self, workspace_id, code: str) -> None:
+        """Mirrors the code onto billing's own non-RLS `referral_codes` table
+        so a stranger's signup can resolve it (R-006 §B.7 — see the table's
+        docstring and this migration's note for why `Workspace.referral_code`
+        alone can't serve that lookup). Idempotent: `workspace_id` is unique,
+        so a second call for the same workspace (the code never changes once
+        generated) is a no-op via the unique-constraint/IntegrityError idiom
+        used elsewhere in this module."""
+        existing = self.s.scalar(
+            select(ReferralCode).where(ReferralCode.workspace_id == uuid.UUID(str(workspace_id)))
+        )
+        if existing is not None:
+            return
+        try:
+            self.s.add(
+                ReferralCode(
+                    code=code,
+                    workspace_id=uuid.UUID(str(workspace_id)),
+                    owner_email_domain=self._workspaces().owner_email_domain(workspace_id),
+                )
+            )
+            self.s.commit()
+        except IntegrityError:
+            self.s.rollback()
+
+    def resolve_referral_code(self, code: str) -> dict | None:
+        """The `billing.resolve_referral_code` capability consumed by auth's
+        signup flow — resolves through the non-RLS `referral_codes` table
+        precisely because the caller (a person signing up, not yet a member
+        of any workspace) cannot see the referrer's RLS-protected `workspaces`
+        row (R-006 §B.7)."""
+        row = self.s.scalar(select(ReferralCode).where(ReferralCode.code == code.upper()))
+        if row is None:
+            return None
+        return {"workspace_id": row.workspace_id, "owner_email_domain": row.owner_email_domain}
+
+    # ---- superadmin: coupons, credits, comp (R-006 §API) -------------------
+
+    def create_coupon(
+        self,
+        *,
+        code: str,
+        kind: str,
+        value: int,
+        currency: str | None = None,
+        applies_to: dict | None = None,
+        max_redemptions: int | None = None,
+        max_per_workspace: int = 1,
+        valid_from=None,
+        valid_until=None,
+        campaign: str | None = None,
+        created_by=None,
+    ) -> Coupon:
+        coupon = Coupon(
+            code=code.upper(),
+            kind=kind,
+            value=value,
+            currency=currency,
+            applies_to=applies_to or {},
+            max_redemptions=max_redemptions,
+            max_per_workspace=max_per_workspace,
+            valid_from=valid_from,
+            valid_until=valid_until,
+            campaign=campaign,
+            created_by=uuid.UUID(str(created_by)) if created_by else None,
+        )
+        self.s.add(coupon)
+        self.s.commit()
+        return coupon
+
+    def list_coupons(self) -> list[Coupon]:
+        return list(self.s.scalars(select(Coupon).order_by(Coupon.created_at.desc())))
+
+    def update_coupon(
+        self, code: str, *, active: bool | None = None, max_redemptions: int | None = None
+    ) -> Coupon:
+        coupon = self.s.scalar(select(Coupon).where(Coupon.code == code.upper()))
+        if coupon is None:
+            raise PaywallError("coupon_not_found")
+        if active is not None:
+            coupon.active = active
+        if max_redemptions is not None:
+            coupon.max_redemptions = max_redemptions
+        self.s.commit()
+        return coupon
+
+    def grant_credit(
+        self,
+        workspace_id,
+        *,
+        amount_minor: int,
+        currency: str = "INR",
+        reason: str,
+        expires_at=None,
+    ) -> Credit:
+        credit = Credit(
+            workspace_id=uuid.UUID(str(workspace_id)),
+            amount_minor=amount_minor,
+            currency=currency,
+            reason=reason,
+            expires_at=expires_at,
+        )
+        self.s.add(credit)
+        self.s.commit()
+        return credit
+
+    def comp_workspace(self, workspace_id, *, plan: str, expires_at=None) -> None:
+        self._workspaces().set_comp(workspace_id, plan=plan, expires_at=expires_at)
+
+    def start_trial(self, workspace_id, *, days: int = 14):
+        return self._workspaces().start_trial(workspace_id, days=days)
+
     def create_checkout(
         self, workspace_id, *, kind: str, plan: str, opportunity_id=None, coupon_code=None
     ) -> dict:
@@ -361,16 +684,31 @@ class BillingService:
                 raise PaywallError("topups_not_available_for_plan")
         else:
             list_amount = price_for(plan, currency)  # raises PaywallError("unknown_plan")
-        # Coupons (R-006) are not wired to checkout yet — discount is always
-        # zero until that task lands.
+
+        # Order of operations (R-006 §B.3): list -> discount -> credits -> tax.
+        # Discount applies to the base; GST is computed on the discounted
+        # amount, which is the legally correct order (tax follows
+        # consideration). free_months/free_reviews coupons never reduce
+        # price (§B.5) — discount_for() already returns 0 for those kinds.
         discount_minor = 0
-        amount_minor = list_amount - discount_minor
+        if coupon_code and kind != "topup":  # a top-up isn't a coupon-eligible purchase kind
+            _coupon, discount_minor = self._resolve_coupon(
+                workspace_id, coupon_code, plan=plan, kind=kind, currency=currency
+            )
+        after_discount = list_amount - discount_minor
+        # Credit is a PREVIEW here (informational + reduces what's charged);
+        # the consuming ledger entry is only written on payment SUCCESS
+        # (_on_payment_succeeded), matching "quote != redeem" (§B.2) applied
+        # to credit consumption too — an abandoned checkout must not burn a
+        # balance the customer never actually spent.
+        credit_applied_minor = min(self.credit_balance(workspace_id, currency), after_discount)
+        amount_minor = after_discount - credit_applied_minor
         # PRICES_MINOR is GST-inclusive (R-007) — tax_minor is the informational
         # breakdown of how much of `amount_minor` is tax, not an addend; the
         # SAME split is used again at invoice issuance (`issue_invoice`) against
         # this exact `amount_minor`, so the two can never diverge.
         tax_minor = 0
-        if self._settings is not None:
+        if self._settings is not None and amount_minor > 0:
             gst_preview = compute_invoice_from_inclusive_total(
                 number="",
                 total_minor=amount_minor,
@@ -395,10 +733,11 @@ class BillingService:
             opportunity_id=uuid.UUID(str(opportunity_id)) if opportunity_id else None,
             list_amount_minor=list_amount,
             discount_minor=discount_minor,
+            credit_applied_minor=credit_applied_minor,
             tax_minor=tax_minor,
             amount_minor=amount_minor,
             currency=currency,
-            coupon_code=coupon_code,
+            coupon_code=coupon_code.upper() if coupon_code else None,
             provider=provider.name,
             idempotency_key=idempotency_key,
             expires_at=datetime.now(UTC) + timedelta(minutes=30),
@@ -726,6 +1065,119 @@ class BillingService:
             else:
                 self.record_usage(intent.workspace_id, "review_paid", ref_id=intent.opportunity_id)
         self.issue_invoice(intent, event)
+        self._redeem_coupon_if_any(intent)
+        self._consume_credit_if_any(intent)
+        self._reward_referral_if_qualifying(intent)
+
+    def _redeem_coupon_if_any(self, intent: PaymentIntent) -> None:
+        """Written only on payment SUCCESS (R-006 §B.2/B.4). `payment_intent_id`
+        is unique on `CouponRedemption`, so a duplicate webhook delivery for
+        the same intent hits a unique-constraint violation here — caught, not
+        re-raised, the same idempotency idiom as `WebhookEvent` (R-006 §A5).
+        Redemption limits are re-checked at this point too (not just at
+        quote time), closing the race a concurrent double-checkout could
+        otherwise exploit against a `max_redemptions=1` coupon (R-006 §A6).
+        """
+        if not intent.coupon_code or intent.discount_minor <= 0:
+            return
+        coupon = self.s.scalar(select(Coupon).where(Coupon.code == intent.coupon_code))
+        if coupon is None:
+            return
+        if coupon.max_redemptions is not None and coupon.redeemed_count >= coupon.max_redemptions:
+            return  # exhausted between checkout and payment — charge stands, no redemption recorded
+        try:
+            self.s.add(
+                CouponRedemption(
+                    workspace_id=intent.workspace_id,
+                    coupon_id=coupon.id,
+                    payment_intent_id=intent.id,
+                    discount_minor=intent.discount_minor,
+                )
+            )
+            self.s.flush()
+        except IntegrityError:
+            self.s.rollback()
+            return
+        coupon.redeemed_count += 1
+
+    def _consume_credit_if_any(self, intent: PaymentIntent) -> None:
+        """The debit is written only on payment SUCCESS — an abandoned
+        checkout must never burn a balance the customer never spent (R-006
+        §B.2/B.3, mirroring the coupon idempotency posture: `ref_id` set to
+        the intent id makes a re-run of this handler for the same intent
+        detectable, though double-application would additionally require
+        the outer webhook/event dedup to have failed first)."""
+        if intent.credit_applied_minor <= 0:
+            return
+        already_consumed = self.s.scalar(
+            select(Credit.id).where(
+                Credit.workspace_id == intent.workspace_id,
+                Credit.reason == "consumed",
+                Credit.ref_id == intent.id,
+            )
+        )
+        if already_consumed is not None:
+            return
+        self.s.add(
+            Credit(
+                workspace_id=intent.workspace_id,
+                amount_minor=-intent.credit_applied_minor,
+                currency=intent.currency,
+                reason="consumed",
+                ref_id=intent.id,
+            )
+        )
+
+    def _reward_referral_if_qualifying(self, intent: PaymentIntent) -> None:
+        """A referred workspace's FIRST paid purchase rewards both sides
+        (R-006 §B.7). `status` only ever transitions signed_up -> rewarded
+        once, so a second purchase (status already "rewarded") credits
+        nobody — the status check IS the idempotency guard, no separate
+        dedup key needed."""
+        referral = self.s.scalar(
+            select(Referral).where(
+                Referral.referred_workspace_id == intent.workspace_id,
+                Referral.status == "signed_up",
+            )
+        )
+        if referral is None:
+            return
+        referral.status = "rewarded"
+        referral.reward_minor = _REFERRAL_REWARD_MINOR
+        # `credits` is WorkspaceScopedMixin/RLS-protected (WITH CHECK), and the
+        # session is currently bound to the REFERRED workspace (process_webhook
+        # bound it to intent.workspace_id). Writing the referred side's own
+        # Credit is fine under that binding; writing the referrer's Credit is
+        # a genuine cross-tenant write and needs its own binding, or WITH CHECK
+        # rejects it (found via an e2e run against real Postgres with FORCE
+        # RLS live — SQLite's RLS no-op let this pass silently in tests).
+        self.s.add(
+            Credit(
+                workspace_id=referral.referred_workspace_id,
+                amount_minor=_REFERRAL_REWARD_MINOR,
+                currency="INR",
+                reason="referral",
+                # Referral.id is an int PK, Credit.ref_id is a UUID column
+                # (matches PaymentIntent/Invoice's id type elsewhere) — no
+                # type-compatible id to store here; reason="referral" +
+                # workspace_id + created_at is enough to correlate the two
+                # for the stats query in get_referral_stats.
+                ref_id=None,
+            )
+        )
+        self.s.flush()
+        bind_workspace_context(self.s, referral.referrer_workspace_id)
+        self.s.add(
+            Credit(
+                workspace_id=referral.referrer_workspace_id,
+                amount_minor=_REFERRAL_REWARD_MINOR,
+                currency="INR",
+                reason="referral",
+                ref_id=None,
+            )
+        )
+        self.s.flush()
+        bind_workspace_context(self.s, referral.referred_workspace_id)
 
     def _on_payment_failed(self, intent: PaymentIntent, event) -> None:
         intent.status = "failed"
@@ -852,6 +1304,7 @@ def _checkout_response(intent: PaymentIntent) -> dict:
         "breakdown": {
             "list": intent.list_amount_minor,
             "discount": intent.discount_minor,
+            "credit_applied": intent.credit_applied_minor,
             "tax": intent.tax_minor,
             "total": intent.amount_minor,
         },

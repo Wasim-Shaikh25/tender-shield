@@ -5,13 +5,20 @@ manage plan state without importing auth's models."""
 
 from __future__ import annotations
 
+import secrets
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.modules.auth.models import Workspace
+
+
+class WorkspaceAdminError(Exception):
+    def __init__(self, code: str):
+        super().__init__(code)
+        self.code = code
 
 
 class WorkspaceAdmin:
@@ -84,4 +91,72 @@ class WorkspaceAdmin:
         workspace.gstin = gstin
         workspace.billing_address = billing_address
         workspace.place_of_supply = place_of_supply
+        self.s.commit()
+
+    def get_or_create_referral_code(self, workspace_id) -> str:
+        """Generated lazily on first request rather than at signup — most
+        workspaces will never look at `GET /billing/referral` (R-006 §B.7),
+        so there is no reason to burn a code (and the uniqueness-retry loop
+        below) on every signup."""
+        workspace = self.get(workspace_id)
+        if workspace is None:
+            raise WorkspaceAdminError("no_workspace")
+        if workspace.referral_code:
+            return workspace.referral_code
+        for _ in range(5):  # collision is astronomically unlikely; bounded retry, not forever
+            code = secrets.token_hex(4).upper()
+            if not self.s.scalar(select(Workspace).where(Workspace.referral_code == code)):
+                workspace.referral_code = code
+                self.s.commit()
+                return code
+        raise WorkspaceAdminError("referral_code_generation_failed")
+
+    def owner_email_domain(self, workspace_id) -> str | None:
+        """Snapshotted into billing's `referral_codes` pointer table when a
+        code is generated (R-006 §B.7/A9), so the self-referral domain check
+        never needs a second cross-tenant lookup at redemption time. Only
+        safe to call here for the CALLER'S OWN workspace_id — `self.get()`
+        reads the RLS-protected `workspaces` table, so a different
+        workspace_id than the one currently bound would silently return None
+        under RLS, the same trap `find_by_referral_code` fell into (removed;
+        see billing's `referral_codes` table and its migration note)."""
+        from app.modules.auth.models import User
+
+        workspace = self.get(workspace_id)
+        if workspace is None:
+            return None
+        owner = self.s.get(User, workspace.owner_id)
+        if owner is None or "@" not in owner.email:
+            return None
+        return owner.email.rsplit("@", 1)[1].lower()
+
+    def start_trial(self, workspace_id, *, days: int) -> datetime:
+        """A workspace may hold one trial, ever (R-006 §B.8) — `had_trial`
+        is set the moment a trial starts, not when it ends, so it can never
+        be restarted by any path (including a later downgrade back to
+        free)."""
+        workspace = self.get(workspace_id)
+        if workspace is None:
+            raise WorkspaceAdminError("no_workspace")
+        if workspace.had_trial:
+            raise WorkspaceAdminError("trial_already_used")
+        ends_at = datetime.now(UTC) + timedelta(days=days)
+        workspace.trial_ends_at = ends_at
+        workspace.had_trial = True
+        self.s.commit()
+        return ends_at
+
+    def set_comp(self, workspace_id, *, plan: str, expires_at: datetime | None) -> None:
+        """Superadmin pilot/goodwill grant (R-006 §B.9) — a paid plan with no
+        real payment behind it, auto-reverting once `expires_at` passes
+        (`BillingService._effective_plan_and_status` checks this lazily; no
+        scheduled job needed). `billing_provider="comp"` marks the workspace
+        so a future revenue-metrics system can exclude it (R-006 §B.11) —
+        no such system exists yet to actually do the excluding."""
+        workspace = self.get(workspace_id)
+        if workspace is None:
+            raise WorkspaceAdminError("no_workspace")
+        workspace.plan = plan
+        workspace.billing_provider = "comp"
+        workspace.comp_expires_at = expires_at
         self.s.commit()

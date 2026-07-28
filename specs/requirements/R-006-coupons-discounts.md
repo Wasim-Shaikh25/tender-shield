@@ -1,6 +1,10 @@
 # R-006 — Coupons, discounts, referral credits and trials
 
-**Status:** draft
+**Status:** implemented (TS-090) — see `specs/modules/billing.md` §B19-B24 for
+behavior and A26-A33 for acceptance criteria. Coupons/discounts, a prepaid
+credit ledger, referral tracking + rewards, trials, and superadmin pilot comps
+are all wired end to end. One assumption beyond this doc: the referral reward
+amount (₹2,500/side) is a pricing placeholder, not specified here.
 **Severity:** P1 — no discounting mechanism exists; blocks pilot conversions
 **Requirement refs:** Doc §0.4, §7, §12.6, §706 (GTM)
 **Task refs:** TS-090
@@ -24,6 +28,21 @@ requirement docs make it load-bearing:
   referral motion with no incentive.
 
 ## Data owned
+
+**Implementation note:** the model sketch below is this requirement doc's
+original draft; the shipped schema differs in a few particulars (documented
+in full in `specs/modules/billing.md`). Most notably, referral-code
+resolution needed a THIRD table beyond `Coupon`/`Credit`/`Referral` —
+`ReferralCode(code, workspace_id, owner_email_domain)`, deliberately not
+RLS-protected — because a signing-up referred user isn't a member of any
+workspace yet, so the RLS-protected `workspaces` table's compound predicate
+hides the referrer's row from a plain `Workspace.referral_code` lookup. This
+was found by testing against real Postgres with FORCE RLS live, not SQLite
+(where RLS is a no-op): an earlier version of this feature silently created
+zero `Referral` rows and granted zero credits for every cross-tenant signup.
+`Referral.status` also ships as `signed_up | rewarded` (two states), not this
+draft's `pending | signed_up | qualified | rewarded` (four) — "qualifying"
+purchase and "rewarded" collapse into one transition in the implementation.
 
 ```python
 # backend/app/modules/billing/models.py

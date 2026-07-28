@@ -63,6 +63,8 @@ def _service(request: Request, session: Session) -> AuthService:
         notifier=request.app.state.ctx.registry.get("notifications.sender"),
         app_url=settings.app_url,
         entitlements=request.app.state.ctx.registry.get("billing.entitlements"),
+        record_referral_signup=request.app.state.ctx.registry.get("billing.record_referral_signup"),
+        resolve_referral_code=request.app.state.ctx.registry.get("billing.resolve_referral_code"),
     )
 
 
@@ -71,6 +73,7 @@ class SignupBody(BaseModel):
     password: str = Field(min_length=8)
     workspace_name: str | None = Field(default="Personal", min_length=1)
     country: str = "IN"
+    referral_code: str | None = None
 
 
 class LoginBody(BaseModel):
@@ -174,7 +177,7 @@ def _handle(fn):
 def signup(body: SignupBody, request: Request, session: Session = Depends(get_session)):
     return _handle(
         lambda: _service(request, session).signup(
-            body.email, body.password, body.workspace_name, body.country
+            body.email, body.password, body.workspace_name, body.country, body.referral_code
         )
     )
 

@@ -6,6 +6,94 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-28 (Coupons, discounts, credits, referrals, trials, pilot comps: TS-090)
+
+Before this, `grep -rni "coupon|discount|promo|referral|trial"` across the
+product returned zero hits — there was no way to give anyone a discount, run
+a promotion, credit a referral, or comp a pilot account. This is Gate 2's
+last task; **Gate 2 (make it possible to get paid) is now fully closed.**
+
+- **Coupons/discounts.** New `coupons.py` (pure): percent/fixed/free_months/
+  free_reviews discounts, validated against currency, exhaustion
+  (`max_redemptions`), per-workspace reuse (`max_per_workspace`), applicable
+  plan/kind, and expiry. `POST /billing/coupons/validate` previews a
+  discount without redeeming it. Redemption (`CouponRedemption`, append-only,
+  workspace-scoped) is written only on payment SUCCESS, never at quote time,
+  via the same idempotent-insert idiom as `WebhookEvent`
+  (`payment_intent_id` unique, `IntegrityError` caught not re-raised) — a
+  duplicate webhook can't double-redeem a `max_redemptions=1` coupon.
+- **Prepaid credit ledger.** New `Credit` (append-only, workspace-scoped);
+  `credit_balance()` sums it. Reserved at checkout (`credit_applied_minor`
+  on the intent), consumed only on payment success — an abandoned checkout
+  never spends a balance never paid with.
+- **Referrals.** Each workspace gets a lazily-generated referral code
+  (`GET /billing/referral`). A referred workspace's first paid purchase
+  rewards both sides (₹2,500 each — `assumption:` a pricing placeholder, not
+  specified in R-006). Self-referral (same owner email domain on both
+  sides) is blocked silently at signup.
+- **Trials & pilot comps.** One trial per workspace, ever
+  (`POST /billing/trial/start`); superadmin-only pilot comps
+  (`POST /billing/admin/comp`) grant a paid plan with no real payment
+  behind it, auto-reverting on `comp_expires_at` (computed lazily on every
+  read, same no-scheduled-job pattern as `past_due` grace expiry).
+- **Two real bugs found and fixed while validating this against real
+  Postgres with FORCE RLS live** (both passed vacuously on SQLite, where RLS
+  is a documented no-op):
+  1. **Cross-tenant RLS violation in the referral flow (major).** A referred
+     workspace's signup transaction is bound to *its own* new workspace,
+     never the referrer's — resolving the referral code via a plain
+     `Workspace.referral_code` query silently found nothing (RLS's compound
+     predicate hid the referrer's row), so zero `Referral` rows were ever
+     created and zero credits ever granted. A second, related violation:
+     crediting the referrer's workspace from inside the referred
+     workspace's webhook-processing RLS binding is a genuine cross-tenant
+     write that `credits`' `WITH CHECK` correctly rejected. Fixed with a
+     new, deliberately non-RLS `referral_codes` pointer table (same
+     precedent as `payment_intents`/`refresh_tokens`/`password_resets`,
+     consumed via new `billing.resolve_referral_code`/
+     `billing.record_referral_signup` capabilities) and by explicitly
+     rebinding RLS context (`bind_workspace_context`) around the
+     referrer-side credit insert. Both fixes sanity-checked by temporarily
+     reverting each and confirming the new
+     `tests/test_referrals_postgres.py` fails the way the bug actually
+     failed (silent 0-row/0-balance for the read side; a Postgres
+     `ProgrammingError` from the RLS engine itself for the write side).
+  2. **`credit_balance()` returned a `Decimal` under real Postgres, an
+     `int` under SQLite.** `SUM()` over a `BigInteger` column returns
+     `NUMERIC` in Postgres (psycopg maps that to `Decimal`); SQLite's
+     `SUM()` returns a plain int. Every test passed on SQLite; under
+     Postgres, the first checkout for a workspace with a nonzero credit
+     balance poisoned `credit_applied_minor`/`amount_minor` with a
+     `Decimal`, crashing `json.dumps` on the order's `checkout_payload`.
+     Fixed with an explicit `int(...)` cast.
+- **Migration bugfix (found in passing).** Two historical migrations
+  (`ae76edba3a7a`, `e26e85245237`) crash on a from-scratch Postgres build:
+  `WORKSPACE_SCOPED_TABLES` is a live, process-wide set populated at
+  model-import time, not a per-migration snapshot, so they tried to enable
+  RLS on `coupon_redemptions`/`credits` before this task's own migration had
+  created those tables. Fixed with an existence guard
+  (`sa.inspect(...).get_table_names()`); verified with a full `alembic
+  upgrade head` → `downgrade base` → `upgrade head` cycle on a fresh
+  database, and `pg_class.relrowsecurity`/`relforcerowsecurity` confirms
+  `coupon_redemptions`/`credits` carry RLS while `referral_codes` (like
+  `payment_intents`/`coupons`/`referrals`) correctly does not.
+- New `tests/test_coupons_referrals.py` (22 tests) and
+  `tests/test_referrals_postgres.py` (2 tests, real Postgres/FORCE RLS).
+  Updated `specs/modules/billing.md` (B19-B24, A26-A33),
+  `specs/modules/auth.md` (B17, A15-A16), and
+  `specs/requirements/R-006-coupons-discounts.md` (status: implemented).
+  240 SQLite tests pass (1 skipped) + 13 Postgres tests; `ruff check .`
+  clean.
+
+### Next
+
+- **Gate 2 is done.** Gate 3 (make it usable) is next: TS-092 (frontend
+  session/refresh-token handling — sessions currently die after 15 min),
+  TS-099 (email verification + disposable-email blocklist), TS-100
+  (workspace switching), TS-101 (MFA enforcement at login), TS-102
+  (portfolio dashboard), TS-103 (account UI), TS-104 (design system +
+  frontend test stack).
+
 ### Done — 2026-07-28 (Plan entitlements — seats, top-ups, billing periods: TS-098)
 
 `PLAN_LIMITS` declared `seats` per plan and nothing ever read it — a
@@ -77,12 +165,6 @@ enforced, top-ups sellable, and billing-anniversary periods.
   add-member-again → `402 seat_limit_reached`, all correct under FORCE RLS.
   218 SQLite tests pass (1 skipped) + 11 Postgres tests; `ruff check`,
   `next build`, and `tsc --noEmit` all clean.
-
-### Next
-
-- **TS-090** (coupons/discounts/credits/referrals) is Gate 2's one remaining
-  task — the paywall's coupon field and the pricing page's discount display
-  are both waiting on it.
 
 ### Done — 2026-07-28 (GST invoicing wired end to end: TS-096)
 

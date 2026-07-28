@@ -35,6 +35,25 @@ def setup(ctx: AppContext) -> None:
             session, workspace_factory=reg.get("auth.workspace_factory")
         ).entitlements(workspace_id, seats_used=seats_used),
     )
+    # Consumed by auth.signup (R-006 §B.7) — auth does the self-referral
+    # domain check itself (it owns User/Workspace) and only calls this to
+    # record the relationship; billing owns the Referral/Credit tables.
+    reg.provide(
+        "billing.record_referral_signup",
+        lambda session, referrer_workspace_id, referred_workspace_id, code: BillingService(
+            session, workspace_factory=reg.get("auth.workspace_factory")
+        ).record_referral_signup(referrer_workspace_id, referred_workspace_id, code),
+    )
+    # Consumed by auth.signup (R-006 §B.7) — resolves a referral code through
+    # billing's own non-RLS `referral_codes` table, since the referred user
+    # isn't a member of any workspace yet and RLS would hide a `workspaces`
+    # query for the referrer (see referral_codes' docstring in models.py).
+    reg.provide(
+        "billing.resolve_referral_code",
+        lambda session, code: BillingService(
+            session, workspace_factory=reg.get("auth.workspace_factory")
+        ).resolve_referral_code(code),
+    )
 
 
 module = ModuleSpec(

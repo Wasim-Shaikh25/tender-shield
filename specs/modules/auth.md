@@ -5,7 +5,7 @@ TOTP/email/SMS MFA enroll/verify done; password reset via token; phone OTP + Goo
 with Apple backend callback implemented but requires Apple Developer credentials to
 enable)
 **Requirement refs:** Doc §5, §3.2, §16
-**Task refs:** TS-011, TS-012, TS-074..TS-078, TS-084, TS-085, TS-093, TS-098
+**Task refs:** TS-011, TS-012, TS-074..TS-078, TS-084, TS-085, TS-093, TS-098, TS-090
 
 ## Purpose
 
@@ -26,6 +26,14 @@ endpoints under `/api/auth/admin/*`.
   seats_used)` (R-009, TS-098), resolved by name in `AuthService`'s
   constructor — never imported. Absent when billing is disabled, in which
   case seat limits are simply not enforced (spec core B2).
+  `billing.resolve_referral_code(session, code)` and
+  `billing.record_referral_signup(session, referrer_workspace_id,
+  referred_workspace_id, code)` (R-006, TS-090) — `signup`'s referral flow.
+  Auth does the self-referral email-domain comparison itself (it owns
+  `User`/`Workspace`); billing only resolves the code and records the
+  relationship (owns `Referral`/`Credit`). Absent when billing is disabled:
+  a referral code still doesn't block signup, it just never earns anyone a
+  reward.
 - **Events emitted:** `auth.user_registered`, `auth.workspace_created`,
   `auth.refresh_reuse_detected`.
 - **API routes:**
@@ -131,6 +139,20 @@ endpoints under `/api/auth/admin/*`.
   at capacity unable to ever accept the very invitation the seat was held
   for). With billing disabled, no capability is published and the limit is
   simply absent (spec core B2).
+- **B17 (referral signup, R-006 §B.7, TS-090):** `signup(..., referral_code=)`
+  calls `_apply_referral`, which resolves the code via the
+  `billing.resolve_referral_code` capability — **never** a direct
+  `Workspace.referral_code` query. This distinction is load-bearing, not
+  stylistic: the referred user's signup transaction is bound (RLS) to
+  their own brand-new workspace, never the referrer's, so a plain
+  `Workspace` query is exactly the cross-tenant read RLS's compound
+  predicate is designed to block (confirmed the hard way against real
+  Postgres with FORCE RLS live — see `specs/modules/billing.md` §B21 for
+  the full incident). An invalid/unknown code, or a self-referral (same
+  owner email domain on both sides, comparing `referrer.owner_email_domain`
+  snapshotted alongside the code against the referred signup's own email
+  domain), is swallowed silently — signup still succeeds either way, and a
+  self-referral attempt is never tipped off that it was detected.
 
 ## Acceptance criteria
 
@@ -160,6 +182,12 @@ endpoints under `/api/auth/admin/*`.
 - A14 (R-009): a 3rd member on a free-plan workspace (2 seats) returns `402
   seat_limit_reached`; a live pending invitation counts toward the limit;
   with billing disabled the same add succeeds unmetered.
+- A15 (R-006): signing up with a valid referral code creates a `Referral`
+  row and, under real Postgres with FORCE RLS live, resolves the referrer
+  correctly (`tests/test_referrals_postgres.py`) — not just on SQLite,
+  where the bug this guards against passed vacuously.
+- A16 (R-006): signing up with a self-referral code (same owner email
+  domain as the referrer) creates no `Referral` row; signup still succeeds.
 
 ## Out of scope
 

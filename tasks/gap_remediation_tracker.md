@@ -20,7 +20,7 @@ their tender data between tenants.
 | Gate | Theme | Tasks | Blocks | Status |
 |---|---|---|---|---|
 | **1** | Stop the leaks | TS-084…TS-086, TS-093…TS-095 | Any real customer data | **done** |
-| **2** | Make it possible to get paid | TS-087…TS-091, TS-096…TS-098 | All revenue; Phase-1 exit gate | in progress |
+| **2** | Make it possible to get paid | TS-087…TS-091, TS-096…TS-098 | All revenue; Phase-1 exit gate | **done** |
 | **3** | Make it usable | TS-092, TS-099…TS-104 | Daily use, retention | todo |
 | **4** | Scale and prove | TS-105…TS-109 | NFRs, phase gates, ops | todo |
 
@@ -97,7 +97,7 @@ and the free tier produces paid-grade output.
 | TS-088 | Apply the free-tier watermark in all three export renderers | P0 | [R-004 §B](../specs/requirements/R-004-paywall-enforcement.md) | `export`, `billing` | **done** | A6, A7 in R-004 |
 | TS-089 | Real provider orders + `payment_intents` + server-side plan/amount binding | P0 | [R-005 §A–B](../specs/requirements/R-005-payments-checkout.md) | `billing` | **done**⁶ | A1–A4, A9 in R-005 |
 | TS-097 | Webhook coverage: refunds, failures, disputes, dunning/grace, dedupe without event id | P1 | [R-005 §C](../specs/requirements/R-005-payments-checkout.md) | `billing` | **done**⁶ | A5–A8, A10 in R-005 |
-| TS-090 | Coupons, discounts, credits, referrals, trials, pilot comps | P1 | [R-006](../specs/requirements/R-006-coupons-discounts.md) | `billing` | todo | A1–A12 in R-006 |
+| TS-090 | Coupons, discounts, credits, referrals, trials, pilot comps | P1 | [R-006](../specs/requirements/R-006-coupons-discounts.md) | `billing`, `auth` | **done**¹⁰ | A26–A33 in billing.md, A15–A16 in auth.md |
 | TS-096 | GST invoicing: wire `gst.py`, tax columns, gap-free FY series, PDF, credit notes | P1 | [R-007](../specs/requirements/R-007-gst-invoicing.md) | `billing` | **done**⁸ | A14–A19 in billing.md |
 | TS-091 | Billing UI: pricing, paywall component, checkout, invoices, usage meters | P0 | [R-008](../specs/requirements/R-008-billing-ui.md) | frontend | **done**⁷ | A1–A2, A4–A9 in R-008 (A3 coupons deferred) |
 | TS-098 | Entitlement service: seats, top-ups, billing-anniversary periods, plan changes | P1 | [R-009](../specs/requirements/R-009-plan-entitlements.md) | `billing`, `auth` | **done**⁹ | A20–A25 in billing.md, A14 in auth.md |
@@ -237,10 +237,65 @@ tests; `next build`/`tsc --noEmit` clean after wiring the frontend's
 
 **Suggested order:** ~~TS-087 → TS-088~~ (done) → ~~TS-089~~ (done) →
 ~~TS-091~~ (done, thin path) → ~~TS-096~~ (done) → ~~TS-098~~ (done) →
-~~TS-097~~ (done) → TS-090.
+~~TS-097~~ (done) → ~~TS-090~~ (done).
 
-**Gate 2 exit:** a test customer can hit the paywall, pay, receive a GST invoice
-and export without a watermark — end to end, through the UI.
+**Gate 2 exit: reached.** A test customer can hit the paywall, pay, receive a
+GST invoice and export without a watermark — end to end, through the UI. All
+eight tasks in this gate are done.
+
+¹⁰ Coupons (`coupons.py`, pure discount math: percent/fixed/free_months/
+free_reviews, exhaustion/per-workspace/currency/plan/expiry validation),
+an append-only `Credit` ledger, referral tracking + reward, one-time trials,
+and superadmin pilot comps — all written only on payment SUCCESS via the
+same idempotent-insert idiom used everywhere else in this module
+(`CouponRedemption.payment_intent_id` unique, `IntegrityError` caught not
+re-raised).
+
+Found and fixed two real bugs while validating this against real Postgres
+with FORCE RLS live (not just SQLite, where both passed vacuously):
+
+1. **Cross-tenant RLS violation in the referral flow (major).** A referred
+   workspace's signup transaction is bound to *its own* new workspace, never
+   the referrer's. Resolving the referral code via a plain
+   `Workspace.referral_code` query silently found nothing — RLS's compound
+   predicate hid the referrer's row — so zero `Referral` rows were ever
+   created and zero credits ever granted, confirmed via a direct
+   `select count(*) from referrals` = 0 and both workspaces showing a 0
+   balance after a real paid purchase. A second, related violation: crediting
+   the referrer's workspace from inside the referred workspace's
+   webhook-processing RLS binding is a genuine cross-tenant write that
+   `credits`' `WITH CHECK` correctly rejects. Fixed by resolving through a
+   new, deliberately non-RLS `referral_codes` pointer table (same precedent
+   as `payment_intents`/`refresh_tokens`/`password_resets`) and by explicitly
+   rebinding RLS context around the referrer-side credit insert. Both fixes
+   sanity-checked by temporarily reverting each and confirming
+   `tests/test_referrals_postgres.py` fails the way the bug actually failed
+   (silent 0-row/0-balance for #1; a Postgres `ProgrammingError` from the RLS
+   engine itself for #2). See `specs/modules/billing.md` §B21 for the full
+   incident writeup.
+2. **`credit_balance()` returned a `Decimal` under real Postgres, an `int`
+   under SQLite.** `SUM()` over a `BigInteger` column returns `NUMERIC` in
+   Postgres (psycopg maps that to `Decimal`); SQLite's `SUM()` returns a
+   plain int. Every coupon/credit test passed on SQLite; under Postgres, the
+   first checkout for a workspace with a nonzero credit balance poisoned
+   `credit_applied_minor`/`amount_minor` with a `Decimal`, which crashed
+   `json.dumps` on the order's `checkout_payload`. Fixed with an explicit
+   `int(...)` cast. See `specs/modules/billing.md` §B20.
+
+Also migrated two historical migrations that only fail on a from-scratch
+Postgres build: `WORKSPACE_SCOPED_TABLES` is populated at model-import time
+(a live process-wide set), not a per-migration snapshot, so
+`ae76edba3a7a`/`e26e85245237` tried to enable RLS on `coupon_redemptions`/
+`credits` before this task's own migration had created those tables. Fixed
+with an existence guard (`sa.inspect(...).get_table_names()`); verified with
+a full `alembic upgrade head` → `downgrade base` → `upgrade head` cycle on a
+fresh database, and `pg_class.relrowsecurity`/`relforcerowsecurity`
+confirms `coupon_redemptions`/`credits` carry RLS while the new
+`referral_codes` table (like `payment_intents`/`coupons`/`referrals`)
+correctly does not.
+
+240 SQLite tests pass (1 skipped) + 13 Postgres tests (2 new, in
+`tests/test_referrals_postgres.py`); `ruff check .` clean.
 
 ---
 

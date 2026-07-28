@@ -87,6 +87,14 @@ class Workspace(Base):
     gstin: Mapped[str | None] = mapped_column(String, nullable=True)
     billing_address: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     place_of_supply: Mapped[str | None] = mapped_column(String, nullable=True)  # state code
+    # Coupons/credits/referrals/trials/comps (R-006, TS-090).
+    referral_code: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
+    trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    had_trial: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # billing_provider == "comp" + comp_expires_at is a superadmin-granted
+    # pilot/goodwill plan (R-006 §B.9) — lazily reverted to free once expired
+    # (BillingService._effective_plan_and_status), no scheduled job needed.
+    comp_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

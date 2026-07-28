@@ -22,11 +22,16 @@ read); billing-anniversary quota periods (month-end-safe) replace the
 hardcoded calendar month; top-ups are sellable (`authorize()`'s `has_topups`
 parameter had no caller before this); a `past_due` workspace outside its
 grace window is now actually blocked (previously kept full access
-indefinitely — found while testing this task). Stripe (GCC/UK) is a second
-file behind `select_provider`, not yet written; coupons/discounts
-(R-006/TS-090) remain open.
-**Requirement refs:** Doc §7, §15, §15.8, §16.5; R-004, R-005, R-007, R-008, R-009
-**Task refs:** TS-022, TS-087, TS-088, TS-089, TS-097, TS-091, TS-096, TS-098
+indefinitely — found while testing this task). Coupons, discounts, a
+prepaid credit ledger, referrals, trials, and superadmin pilot comps are
+wired end to end (R-006, TS-090) — this found and fixed a genuine
+cross-tenant RLS violation in the referral flow (see B21) and a second,
+unrelated `Decimal`-vs-`int` type bug in `credit_balance` that only
+manifested under real Postgres (see B20). Stripe (GCC/UK) is a second
+file behind `select_provider`, not yet written.
+**Requirement refs:** Doc §7, §15, §15.8, §16.5; R-004, R-005, R-006, R-007,
+R-008, R-009
+**Task refs:** TS-022, TS-087, TS-088, TS-089, TS-097, TS-091, TS-096, TS-098, TS-090
 
 ## Purpose
 
@@ -65,6 +70,17 @@ rewriting `service.py`), GST invoicing, and the append-only `payment_log`.
     enforcement point: `risk`'s `POST /opportunities/{id}/run` consumes it
     (TS-087). Before TS-087, `authorize_review`'s only caller was billing's own
     `/authorize-review` endpoint — nothing forced a client to call it.
+  - `billing.record_referral_signup(session, referrer_workspace_id,
+    referred_workspace_id, code)` (R-006, TS-090) — consumed by
+    `AuthService.signup`. Auth does the self-referral domain check itself
+    (it owns `User`/`Workspace`) and calls this only to record the
+    relationship; billing owns `Referral`/`Credit`.
+  - `billing.resolve_referral_code(session, code) -> {"workspace_id",
+    "owner_email_domain"} | None` (R-006, TS-090) — consumed by
+    `AuthService._apply_referral` to resolve a referral code at signup.
+    Resolves through billing's own non-RLS `referral_codes` pointer table,
+    **never** a `Workspace.referral_code` query — see B21 for why that
+    distinction is load-bearing, not stylistic.
 - **Provider abstraction (R-005 §A, TS-089):** `app/modules/billing/providers/`
   — `base.py` defines the `PaymentProvider` Protocol (`create_order`,
   `verify_webhook`, `parse_event`) plus `OrderRequest`/`OrderHandle`/
@@ -103,6 +119,23 @@ rewriting `service.py`), GST invoicing, and the append-only `payment_log`.
     (`legal_name`, `gstin`, `billing_address`, `place_of_supply`); GSTIN
     format/checksum is validated before it's persisted (R-007 §B.1, §A10).
   - `POST /api/billing/webhooks/razorpay` (unauthenticated, HMAC-verified)
+  - `POST /api/billing/coupons/validate` (admin) — body `{code, plan, kind,
+    opportunity_id?}`; returns the discount a coupon would apply without
+    redeeming it (R-006 §B.2/A6).
+  - `GET /api/billing/credits` (viewer) — `{balance_minor, currency, entries}`
+    (R-006).
+  - `GET /api/billing/referral` (viewer) — `{code, stats: {signed_up,
+    rewarded}}`; generates the workspace's code lazily on first call
+    (R-006 §B.7).
+  - `POST /api/billing/trial/start` (admin) — starts a time-boxed trial;
+    `assumption:` this self-serve route isn't named in R-006's own API list,
+    added because a trial with no start endpoint is unreachable.
+  - `POST /api/billing/admin/coupons`, `GET /api/billing/admin/coupons`,
+    `PATCH /api/billing/admin/coupons/{code}` (superadmin) — coupon CRUD.
+  - `POST /api/billing/admin/credits` (superadmin) — goodwill/promo credit
+    grant.
+  - `POST /api/billing/admin/comp` (superadmin) — pilot/goodwill plan comp,
+    optionally time-boxed.
 
 ## Data owned
 
@@ -113,6 +146,12 @@ numbering), `payment_intents` (checkout orders — see below), `webhook_events`
 (`plan`, `plan_status`, `grace_until`, `current_period_start`,
 `current_period_end`, `provider_subscription_id`), and buyer GST identity on
 `workspaces` (`legal_name`, `gstin`, `billing_address`, `place_of_supply`).
+`coupons` (global, not workspace-scoped), `coupon_redemptions` (append-only,
+`WorkspaceScopedMixin`/RLS), `credits` (append-only ledger,
+`WorkspaceScopedMixin`/RLS), `referrals` (one row per referrer→referred
+relationship, spans two workspaces — see below), `referral_codes` (see
+below), and trial/comp state on `workspaces` (`referral_code`,
+`trial_ends_at`, `had_trial`, `comp_expires_at`) (R-006, TS-090).
 
 `PaymentIntent` is deliberately **not** `WorkspaceScopedMixin`/RLS-protected —
 same precedent as `RefreshToken`/`PasswordReset`. The webhook must look the
@@ -120,6 +159,23 @@ row up by the opaque `intent_id` in provider `notes` *before* it knows which
 workspace it belongs to; RLS would block that exact lookup. Authenticated
 routes that read a `PaymentIntent` (`get_intent_status`) do the ownership
 check themselves in application code.
+
+`Referral` is deliberately **not** `WorkspaceScopedMixin`: a single row is
+jointly relevant to TWO workspaces (referrer and referred), so no single
+`workspace_id` could be the RLS-scoping key without arbitrarily picking a
+side. Both `GET /billing/referral` and the reward-crediting in
+`_on_payment_succeeded` query it directly by workspace id in application
+code instead.
+
+`ReferralCode` (`code` PK, `workspace_id` unique, `owner_email_domain`) is
+deliberately **not** `WorkspaceScopedMixin`/RLS-protected — same precedent as
+`PaymentIntent`. A person signing up is not yet a member of ANY workspace, so
+they must be able to resolve someone else's referral code; RLS's compound
+predicate on `workspaces` would hide the referrer's row from that exact
+lookup (see B21). `Workspace.referral_code` (RLS-protected, same value)
+remains the referrer's own same-tenant read path for `GET /billing/referral`
+— `ReferralCode` exists purely so a stranger can resolve the code
+cross-tenant, which `Workspace.referral_code` structurally cannot serve.
 
 ## Behavior
 
@@ -300,6 +356,86 @@ check themselves in application code.
   yet (that's R-016/TS-105) to apply a delayed change, and building an inert
   "pending plan change" field with nothing to ever act on it isn't worth
   shipping.
+- **B19 (coupons/discounts, R-006 §B.1-B.6, TS-090):** `coupons.py` (pure) is
+  the discount math — `validate()` raises `CouponError` for currency
+  mismatch, exhaustion (`max_redemptions`), per-workspace reuse
+  (`max_per_workspace`), wrong plan/kind (`applies_to`), and expiry;
+  `discount_for()` computes percent/fixed/free_months/free_reviews discounts,
+  never exceeding the list price. `CouponRedemption` is written only on
+  payment SUCCESS (`_redeem_coupon_if_any`), never at quote time — an
+  abandoned checkout must never burn a redemption — and its
+  `payment_intent_id` uniqueness (idempotent-insert idiom, `IntegrityError`
+  caught not re-raised) closes the double-redeem race a duplicate webhook
+  delivery could otherwise exploit against a `max_redemptions=1` coupon.
+  Redemption limits are re-checked again at this point, not just at quote
+  time, for the same reason.
+- **B20 (credit ledger, R-006 §B.3/B.4, TS-090 bugfix):** `Credit` is an
+  append-only ledger (`credit_balance()` sums it, never a mutable balance
+  column — same discipline as `payment_log`/`usage_events`). Credit is
+  reserved at checkout time (`credit_applied_minor` on the `PaymentIntent`)
+  but only actually consumed — a negative `Credit` row written — on payment
+  SUCCESS (`_consume_credit_if_any`), so an abandoned checkout never spends a
+  balance the customer never paid with. **Bugfix found via this task's own
+  Postgres validation:** `credit_balance()` returned
+  `select(func.coalesce(func.sum(Credit.amount_minor), 0))` unconverted —
+  Postgres's `SUM()` over a `BigInteger` (`bigint`) column returns `NUMERIC`,
+  which psycopg maps to Python `Decimal`, while SQLite's `SUM()` returns a
+  plain `int`. Every test passed on SQLite; under real Postgres, the first
+  checkout for a workspace with a nonzero credit balance poisoned
+  `credit_applied_minor`/`amount_minor` with a `Decimal`, which
+  `json.dumps` (the provider order's `checkout_payload`) can't serialize,
+  crashing checkout entirely. Fixed with an explicit `int(...)` cast.
+- **B21 (referrals — cross-tenant RLS, R-006 §B.7, TS-090 major bugfix):**
+  a referred workspace's signup transaction is bound to **its own** new
+  workspace's RLS context, never the referrer's — there is no point in the
+  flow where the caller is authenticated as, or a member of, the referrer's
+  workspace. An initial version of this feature resolved a referral code via
+  a plain `Workspace.referral_code` query
+  (`WorkspaceAdmin.find_by_referral_code`): under real Postgres with FORCE
+  RLS live, `workspaces`' compound predicate (visible only if it's the bound
+  workspace OR the caller's own membership) made the referrer's row
+  invisible, so the lookup silently returned `None` and no `Referral` row
+  was ever created — confirmed via `select count(*) from referrals` = 0 and
+  both workspaces showing a 0 credit balance after a real paid purchase.
+  **SQLite's tests passed the whole time**, because `bind_workspace_context`
+  is a documented no-op there — the third time in this codebase's history
+  that "SQLite green, Postgres red" caught a real cross-tenant bug (see
+  R-001's migration-ordering bug and the free-review race for the other
+  two). Fixed by resolving through a new, deliberately non-RLS
+  `ReferralCode` pointer table (`billing.resolve_referral_code`) instead —
+  same precedent as `PaymentIntent`. A second, related violation:
+  `_reward_referral_if_qualifying` wrote a `Credit` row for the referrer's
+  workspace while RLS was still bound to the referred workspace's context
+  (the only binding `process_webhook` ever sets) — a genuine cross-tenant
+  write that `credits`' `WITH CHECK` correctly rejects. Fixed by explicitly
+  calling `bind_workspace_context(self.s, referral.referrer_workspace_id)`
+  before that specific insert, then rebinding back afterward — mirroring how
+  `process_webhook` already binds to `log_workspace` for its own purposes.
+  Both bugs are covered by `tests/test_referrals_postgres.py` (real
+  Postgres, FORCE RLS live, full app + `TestClient`), sanity-checked by
+  temporarily reverting each fix in turn and confirming the test fails the
+  way the bug actually failed (bug #1: silent 0-row/0-balance; bug #2: a
+  `ProgrammingError` from Postgres's RLS engine itself).
+- **B22 (referral reward, R-006 §B.7):** a referred workspace's FIRST paid
+  purchase rewards both sides (₹2,500/side —
+  `assumption:` a pricing placeholder, not specified in R-006). `Referral.
+  status` transitions `signed_up -> rewarded` exactly once; the status check
+  IS the idempotency guard for a second purchase, no separate dedup key
+  needed. Self-referral (same owner email domain on both sides, since the
+  same person can sign up with a different address at the same employer) is
+  blocked silently at signup — no `Referral` row is ever created — rather
+  than erroring, so an invalid/unknown code never blocks signup and a
+  self-referral attempt is never tipped off that it was detected.
+- **B23 (trials, R-006 §B.8):** a workspace may hold one trial, ever —
+  `Workspace.had_trial` is set the moment a trial STARTS, not when it ends,
+  so it can never be restarted via a later downgrade back to free.
+- **B24 (pilot comps, R-006 §B.9):** superadmin-only `set_comp` grants a paid
+  plan with no real payment behind it (`billing_provider="comp"`, so a future
+  revenue-metrics system — none exists yet — can exclude it), auto-reverting
+  once `comp_expires_at` passes. Computed lazily on every read
+  (`_effective_plan_and_status`), the same no-scheduled-job pattern as
+  `past_due` grace expiry (B17) — the workspace's real stored `plan` is never
+  mutated by expiry, only the computed "effective" view.
 
 ## Acceptance criteria
 
@@ -378,13 +514,45 @@ check themselves in application code.
 - A25 (R-009): a subscription's period bounds come from the provider's own
   `current_start`/`current_end` when present (verified via a synthetic
   payload with a 28 Jan → 28 Feb period), not a hardcoded calendar month.
+- A26 (R-006): a coupon at `max_redemptions` or a workspace's own
+  `max_per_workspace` limit is rejected (`coupon_exhausted` /
+  `coupon_already_used`); a currency-mismatched fixed coupon is rejected
+  (`coupon_currency_mismatch`); an abandoned checkout (never paid) burns no
+  redemption.
+- A27 (R-006): two different webhook deliveries for the same
+  `PaymentIntent` (distinct `event_id`s, so the outer `WebhookEvent` dedup
+  doesn't shortcut the test) redeem a coupon at most once, proven by
+  temporarily removing `CouponRedemption.payment_intent_id`'s unique
+  constraint and confirming the test then fails.
+- A28 (R-006): `credit_balance` reflects the ledger sum exactly and returns a
+  plain Python `int` under real Postgres, not `Decimal` (regression test for
+  B20 — a checkout with a nonzero credit balance must not crash on
+  `json.dumps`).
+- A29 (R-006): a referred workspace's signup — under real Postgres with
+  FORCE RLS live, not SQLite — creates exactly one `Referral` row and
+  registers a `referral_codes` pointer row; a referral code re-fetched via
+  `GET /billing/referral` is stable (same code both times).
+- A30 (R-006): the referred workspace's first paid purchase credits BOTH
+  workspaces ₹2,500 each — verified against real Postgres with FORCE RLS
+  live (`tests/test_referrals_postgres.py`), which fails with the exact
+  RLS-rejection or silent-zero-row symptom described in B21 when either fix
+  is reverted. A second purchase does not reward again.
+- A31 (R-006): self-referral (same owner email domain, e.g. a referred
+  signup using a work email at the same company as the referrer) creates no
+  `Referral` row and signup still succeeds.
+- A32 (R-006): a workspace can start exactly one trial, ever;
+  `start_trial` on a workspace with `had_trial=true` (even after the trial
+  itself has since expired) raises `trial_already_used`.
+- A33 (R-006): a superadmin-only comp grant is rejected for a non-superadmin
+  caller (`403`); a comp's `expires_at` passing reverts the workspace's
+  *effective* plan/status on the next read without ever mutating the stored
+  `workspace.plan` column.
 
 ## Out of scope
 
 Stripe live wiring (P2/GCC), admin refund console (Doc §16, P1-admin scope),
-annual plans/proration polish, coupons/discounts/credits/referrals
-(R-006/TS-090, next), GSTR-1 filing exports, e-invoicing/IRN registration,
-TDS/TCS handling (R-007 explicitly defers these), requiring a
+annual plans/proration polish, GSTR-1 filing exports, e-invoicing/IRN
+registration, TDS/TCS handling (R-007 explicitly defers these), requiring a
 GSTIN-or-explicit-unregistered declaration before checkout (R-007 §B.9) — a
 B2C invoice with no GSTIN is already valid per the edge-case table, so this
 gate is a UX nicety deferred rather than a correctness gap — and true
@@ -394,3 +562,7 @@ act on the deferral). A theoretical TOCTOU race on seat checks (two
 concurrent `add_workspace_member` calls both passing the check) is not
 locked the way the free-review race is — lower severity than a double-spent
 free review or a broken invoice sequence, and not fixed in this pass.
+Affiliate/partner commission tracking (R-006 explicitly scopes referrals to
+customer-to-customer only), fraud/velocity limits on referral signups beyond
+the same-employer-domain check, and coupon-usage analytics/reporting are all
+deferred past this pass (R-006, TS-090).

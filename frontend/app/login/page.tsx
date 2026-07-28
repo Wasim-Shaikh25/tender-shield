@@ -1,14 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { api } from "@/lib/api";
 import { useSession } from "@/components/session";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const { signIn } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [mode, setMode] = useState<"login" | "signup">("signup");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,7 +33,9 @@ export default function LoginPage() {
       if (mode === "signup") await api.signup(email, password, workspaceName || "My Firm");
       const tokens = await api.login(email, password);
       signIn(tokens);
-      router.push("/opportunities");
+      // R-010 §A9: return to the page that redirected here, if any.
+      const next = searchParams.get("next");
+      router.push(next && next.startsWith("/") ? next : "/opportunities");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {

@@ -6,6 +6,74 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-28 (Frontend session: refresh tokens, 401 recovery, route guards: TS-092)
+
+Before this, the frontend discarded the refresh token it was handed at
+login — the access token (15-minute TTL) was the ONLY credential kept, so
+every session died 15 minutes after sign-in with no recovery path, and there
+was no 401 interceptor to even detect it. This is Gate 3's first task (make
+it usable); Gate 2 closed with the previous entry.
+
+- **Token custody rewritten (Phase 1 of R-010 — Phase 2 moves the refresh
+  token to an httpOnly cookie, tracked under R-016).** Access token is now
+  memory-only React state, never persisted; the refresh token is persisted
+  and rotated on every use. New `lib/auth-client.ts` is framework-free (no
+  React import) so both `components/session.tsx` (the React state owner)
+  and `lib/api.ts` (a plain function, no hooks) can share one refresh
+  implementation without a dependency cycle between them.
+- **Single-flight refresh.** The backend revokes the WHOLE refresh-token
+  family when a refresh token is replayed (`auth/refresh.py`'s reuse
+  detection) — two concurrent refreshes against the same stored token would
+  look exactly like a replay and log the user out for being fast. A
+  module-level `inflight` promise collapses concurrent callers into one
+  request, including across browser tabs (they share the same
+  localStorage-held token).
+- **Proactive + reactive refresh.** `components/session.tsx` schedules a
+  refresh 60 seconds before the access token's own `exp` claim (decoded
+  client-side — display/scheduling only, never a trust boundary).
+  `lib/api.ts`'s `req()` additionally retries exactly once on a 401 with a
+  freshly refreshed token; every OTHER call site's `api.xxx(token, ...)`
+  signature is unchanged, so this didn't require touching every page that
+  calls the API.
+- **Typed errors.** New `lib/errors.ts`: `ApiError`/`SessionExpired`/
+  `PaywallError`, replacing `throw new Error(body.detail)` — the reason a
+  402's object payload used to render as the literal string
+  `"[object Object]"` in the UI. `PaywallError.upsell` is now always a real
+  object.
+- **Route protection.** New `components/require-auth.tsx`: gates on a real
+  three-state `status` (`loading | authenticated | unauthenticated`), not
+  `session` (which is legitimately `null` in both the loading and the
+  truly-signed-out case — the exact reason a signed-in user's reload used to
+  flash "signed out" for a frame). An unauthenticated visit to a protected
+  route now redirects to `/login?next=<path>` and returns there after
+  sign-in, instead of rendering whatever the page's own `if (!session)`
+  branch happened to show. Wraps `/opportunities`, `/opportunities/[id]`,
+  `/billing`, `/standards`.
+- **Multi-tab coordination.** A `BroadcastChannel`-based channel propagates
+  a refresh or sign-out from one tab to every other open tab.
+- **New test infrastructure.** Vitest + Testing Library (this project's
+  FIRST frontend test framework — R-010's own spec calls for this as "a
+  natural first consumer," ahead of R-014/TS-104's broader test-stack task).
+  `lib/auth-client.test.ts` (7 tests) and `lib/api.test.ts` (2 tests),
+  including a test proving single-flight collapses 3 concurrent refresh
+  calls into exactly 1 network request — sanity-checked by temporarily
+  removing the `if (inflight) return inflight;` guard and confirming both
+  tests then fail (3 calls observed, not 1) before restoring it.
+- **Validated live**, not just via `next build`: signed up + logged in
+  against a real running backend with a real Chromium browser
+  (Playwright, used ad hoc for this validation only — not added as a
+  project dependency). Confirmed: unauthenticated `/opportunities` and
+  `/billing` redirect to `/login?next=...`; sign-in returns to that exact
+  path; `localStorage` after login contains only `ts_refresh`/`ts_hint`, no
+  access token; a full reload while signed in never flashes signed-out;
+  revoking the refresh token server-side (simulating expiry or a
+  sign-out-elsewhere) and reloading redirects to `/login` exactly once, with
+  no loop, and clears `ts_refresh`.
+- Updated `specs/frontend.md` (B12, A7-A15), `specs/requirements/
+  R-010-frontend-session.md` (status: implemented), `tasks/
+  gap_remediation_tracker.md` (TS-092 done, Gate 3 now 1/7), `tasks/
+  backlog.md`. `next build`/`tsc --noEmit`/`npm test` (9 tests) all clean.
+
 ### Done — 2026-07-28 (Coupons, discounts, credits, referrals, trials, pilot comps: TS-090)
 
 Before this, `grep -rni "coupon|discount|promo|referral|trial"` across the
@@ -87,12 +155,12 @@ last task; **Gate 2 (make it possible to get paid) is now fully closed.**
 
 ### Next
 
-- **Gate 2 is done.** Gate 3 (make it usable) is next: TS-092 (frontend
-  session/refresh-token handling — sessions currently die after 15 min),
-  TS-099 (email verification + disposable-email blocklist), TS-100
-  (workspace switching), TS-101 (MFA enforcement at login), TS-102
-  (portfolio dashboard), TS-103 (account UI), TS-104 (design system +
-  frontend test stack).
+- **Gate 2 is done.** Gate 3 (make it usable) is next; TS-092 is done (see
+  above) — remaining: TS-099 (email verification + disposable-email
+  blocklist), TS-100 (workspace switching), TS-101 (MFA enforcement at
+  login), TS-102 (portfolio dashboard), TS-103 (account UI), TS-104 (design
+  system + remaining frontend test stack: a11y, Playwright, error copy
+  table).
 
 ### Done — 2026-07-28 (Plan entitlements — seats, top-ups, billing periods: TS-098)
 

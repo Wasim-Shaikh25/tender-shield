@@ -1,6 +1,8 @@
 # R-010 — Frontend session: refresh tokens, 401 recovery, token custody
 
-**Status:** draft
+**Status:** implemented (TS-092), Phase 1 (see `specs/frontend.md` B12 for
+behavior/acceptance criteria; Phase 2's httpOnly-cookie move is tracked
+separately under R-016).
 **Severity:** P0 — every session dies 15 minutes after login
 **Requirement refs:** Doc §5, §9
 **Task refs:** TS-092

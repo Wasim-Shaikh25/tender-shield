@@ -21,7 +21,7 @@ their tender data between tenants.
 |---|---|---|---|---|
 | **1** | Stop the leaks | TS-084…TS-086, TS-093…TS-095 | Any real customer data | **done** |
 | **2** | Make it possible to get paid | TS-087…TS-091, TS-096…TS-098 | All revenue; Phase-1 exit gate | **done** |
-| **3** | Make it usable | TS-092, TS-099…TS-104 | Daily use, retention | todo |
+| **3** | Make it usable | TS-092, TS-099…TS-104 | Daily use, retention | in progress (1/7) |
 | **4** | Scale and prove | TS-105…TS-109 | NFRs, phase gates, ops | todo |
 
 ---
@@ -303,7 +303,7 @@ correctly does not.
 
 | ID | Task | Sev | Req | Module(s) | Status | Acceptance gate |
 |---|---|---|---|---|---|---|
-| TS-092 | Persist + rotate refresh tokens; single-flight refresh; 401 retry; typed errors; route guards | P0 | [R-010](../specs/requirements/R-010-frontend-session.md) | frontend | todo | A1–A10 in R-010 |
+| TS-092 | Persist + rotate refresh tokens; single-flight refresh; 401 retry; typed errors; route guards | P0 | [R-010](../specs/requirements/R-010-frontend-session.md) | frontend | **done**¹¹ | A7–A15 in frontend.md |
 | TS-100 | Workspace switching: deterministic default, switch endpoint, UI switcher | P1 | [R-011](../specs/requirements/R-011-workspace-switching.md) | `auth`, frontend | todo | A1–A8 in R-011 |
 | TS-102 | Portfolio dashboard: cross-tender deadline wall, attention, pipeline, usage | P1 | [R-012](../specs/requirements/R-012-dashboard.md) | `analytics`, `ingestion`, frontend | todo | A1–A9 in R-012 |
 | TS-103 | Account UI: invitation accept, members, MFA, workspace/profile settings, admin console, audit viewer, session list + logout-all (deferred from TS-093) | P1 | [R-013](../specs/requirements/R-013-account-ui.md) | `auth`, frontend | todo | A1–A11 in R-013 |
@@ -311,10 +311,34 @@ correctly does not.
 | TS-101 | Enforce MFA at login: challenge tokens, replay guard, re-auth on re-enroll, recovery codes | P1 | [R-002 §D](../specs/requirements/R-002-auth-hardening.md) | `auth` | todo | A7–A11 in R-002 |
 | TS-104 | Design system, error copy table, `/signup` route, a11y pass, frontend test stack | P2 | [R-014](../specs/requirements/R-014-design-system.md) | frontend | todo | A1–A10 in R-014 |
 
-**Note on ordering:** TS-104 lands the frontend test stack (Vitest, Testing
-Library, Playwright). Pulling its testing section forward — before TS-092 — is
-worth considering, since TS-092 is the task most in need of tests and there is
-currently no way to write one.
+**Note on ordering:** TS-104 lands the REST of the frontend test stack
+(Testing Library conventions beyond what TS-092 needed, a11y tooling,
+Playwright for e2e). TS-092 already seeded Vitest + Testing Library itself
+(R-010's own spec calls for this — "a natural first consumer"), so that part
+of TS-104 is done; TS-104 still owns the design system, error-copy table,
+`/signup` route, and a11y pass.
+
+¹¹ Rewrote session handling from a skeleton (access token mirrored into
+`localStorage`, no refresh-token client, `throw new Error(body.detail)`
+turning the 402 paywall payload into a literal `"[object Object]"` string)
+into the real thing: access token memory-only, refresh token persisted and
+rotated, single-flight refresh (`lib/auth-client.ts`, framework-free so both
+`components/session.tsx` and `lib/api.ts` can use it without a dependency
+cycle) collapsing concurrent refreshes AND concurrent tabs (the backend
+revokes the whole refresh-token family on a replayed refresh — two
+uncoordinated refreshes look exactly like a replay), proactive refresh
+scheduled from the JWT's own `exp` claim, reactive one-shot 401 retry in
+`lib/api.ts`'s `req()` with every other call site's signature unchanged,
+typed `ApiError`/`SessionExpired`/`PaywallError`, a `RequireAuth` route guard
+gated on a real three-state `status` (not `session`, which is legitimately
+null both while loading and once truly signed out), and `BroadcastChannel`
+multi-tab sign-out/token sync. Validated two ways: a new Vitest suite (9
+tests, including a single-flight test sanity-checked by temporarily removing
+the `if (inflight) return inflight;` guard and confirming it fails 3-calls-
+not-1), and a live Chromium/Playwright run against a real backend covering
+the redirect-with-`next=`, no-flash-on-reload, and revoked-token-clean-
+redirect-no-loop behaviors that a unit test can't prove on its own. `next
+build`/`tsc --noEmit` clean.
 
 **Gate 3 exit:** a new customer can sign up, verify, invite a colleague, switch
 workspaces, work for an hour without being logged out, and see their portfolio

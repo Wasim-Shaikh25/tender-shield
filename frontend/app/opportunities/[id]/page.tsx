@@ -17,6 +17,7 @@ import {
   type NoticeRule,
 } from "@/lib/api";
 import { useSession } from "@/components/session";
+import { RequireAuth } from "@/components/require-auth";
 import { SeverityBadge, SourceBadge } from "@/components/badges";
 import { artifactLabel, categoryLabel, deadlineLabel, statusLabel } from "@/lib/labels";
 import { Paywall, type PaywallDetail } from "@/components/paywall";
@@ -46,7 +47,15 @@ BOQ,8,6.1,Supplying and fixing MS railing,Rmt,500,0,0
 BOQ,9,7.1,Waterproofing treatment to foundation raft,Sqm,800,950,760000
 `;
 
-export default function OpportunityDetail({ params }: { params: Promise<{ id: string }> }) {
+export default function OpportunityDetail(props: { params: Promise<{ id: string }> }) {
+  return (
+    <RequireAuth>
+      <OpportunityDetailInner {...props} />
+    </RequireAuth>
+  );
+}
+
+function OpportunityDetailInner({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { session } = useSession();
   const [tab, setTab] = useState<"overview" | "risks" | "boq" | "artifacts" | "handover">(

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type OrgStandard, type OrgStandardCategory } from "@/lib/api";
 import { useSession } from "@/components/session";
+import { RequireAuth } from "@/components/require-auth";
 
 const BLANK: OrgStandardCategory = {
   key: "",
@@ -14,6 +15,14 @@ const BLANK: OrgStandardCategory = {
 };
 
 export default function StandardsPage() {
+  return (
+    <RequireAuth minRole="admin">
+      <StandardsPageInner />
+    </RequireAuth>
+  );
+}
+
+function StandardsPageInner() {
   const { session } = useSession();
   const [mode, setMode] = useState<"prevail" | "side_by_side">("prevail");
   const [rows, setRows] = useState<OrgStandardCategory[]>([]);

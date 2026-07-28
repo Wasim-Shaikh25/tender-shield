@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { billing, type BillingStatus, type Invoice, type Plan } from "@/lib/api";
 import { useSession } from "@/components/session";
+import { RequireAuth } from "@/components/require-auth";
 import { formatMoney } from "@/lib/money";
 
 const PLAN_LABEL: Record<Plan, string> = {
@@ -26,6 +27,14 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 export default function BillingPage() {
+  return (
+    <RequireAuth>
+      <BillingPageInner />
+    </RequireAuth>
+  );
+}
+
+function BillingPageInner() {
   const { session } = useSession();
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [invoices, setInvoices] = useState<Invoice[] | null>(null);

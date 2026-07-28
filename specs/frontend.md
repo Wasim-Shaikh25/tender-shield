@@ -5,13 +5,18 @@ board/countdown wall, opportunity detail with document checklist + risk
 workbench, static Help page), typed API client, session context. Builds clean;
 verified full-stack against the API. Billing UI (pricing, paywall, checkout,
 account billing page) now shipped as a thin but complete paid path (R-008,
-TS-091) — see below. shadcn, PDF.js source view, and the deadline wall (needs
-TS-015) are follow-ups. Plain Tailwind for now (no component kit) so it builds
-without extra tooling. The end-user AI assistant is intentionally not
-surfaced in the UI; internal codes are rendered through human labels
-(`lib/labels.ts`), and the type is set with a system font stack led by Inter.
-**Requirement refs:** Doc §9, §0.1–0.2, §11.4, §7, §15
-**Task refs:** TS-025, TS-040, TS-091
+TS-091) — see below. Session/refresh-token handling is now a real
+implementation, not a skeleton (R-010, TS-092) — access token in memory only,
+proactive + reactive refresh, multi-tab coordination, route guards — see B12.
+This also seeds the frontend's first test framework (Vitest + Testing
+Library), ahead of R-014/TS-104's broader test-stack task. shadcn, PDF.js
+source view, and the deadline wall (needs TS-015) are follow-ups. Plain
+Tailwind for now (no component kit) so it builds without extra tooling. The
+end-user AI assistant is intentionally not surfaced in the UI; internal codes
+are rendered through human labels (`lib/labels.ts`), and the type is set with
+a system font stack led by Inter.
+**Requirement refs:** Doc §9, §0.1–0.2, §11.4, §7, §15; R-010
+**Task refs:** TS-025, TS-040, TS-091, TS-092
 
 ## Purpose
 
@@ -44,7 +49,8 @@ one repo (`apps/web` later; starts as `frontend/`).
 - **B6:** empty states teach ("Upload the GCC too — 60% of traps live in
   conditions").
 - **B7:** access token in memory only; silent refresh on 401; API client
-  generated from OpenAPI.
+  generated from OpenAPI. (Implemented as B12, R-010/TS-092 — the
+  OpenAPI-generation half is still a hand-written client, not codegen.)
 
 - **B10:** the **Standards** page (`/standards`) lets an admin publish the
   firm's own notice regimes (key/label/typical-days/keywords/expected) with a
@@ -87,6 +93,66 @@ one repo (`apps/web` later; starts as `frontend/`).
   differentiator list, and a not-legal/QS-advice disclaimer (Doc §11.4). The
   table must not flatten roadmap items into "not covered." Reachable from the
   header nav.
+- **B12 (session/refresh-token handling, R-010, TS-092):** before this, the
+  frontend discarded the refresh token it was handed at login — the access
+  token (15-minute TTL) was the ONLY credential kept, so every session died
+  15 minutes after sign-in with no recovery path, and a 401 surfaced as
+  `[object Object]` (`Error(body.detail)` on the 402 paywall's object
+  payload). Rewritten as:
+  - `lib/auth-client.ts` (new, framework-free — no React import, so both
+    `components/session.tsx` and `lib/api.ts` can share it without a
+    dependency cycle): refresh-token/hint storage, a single-flight
+    `refreshTokens()` (module-level `inflight` promise — the backend revokes
+    the WHOLE refresh-token family when a refresh token is replayed,
+    `auth/refresh.py`'s reuse detection, so two concurrent refreshes against
+    the same stored token would look exactly like a replay; this collapses
+    concurrent callers AND concurrent tabs, since tabs share the same
+    localStorage-held token), JWT `exp`-claim decoding (display/scheduling
+    hint only, never a trust boundary), a `BroadcastChannel`-based multi-tab
+    channel, and two module-level pub/sub hooks (`onTokensRefreshed`,
+    `onSessionExpired`) that let `lib/api.ts` — a plain function with no
+    React/router access — notify the React-held session when a reactive
+    refresh succeeds or fails.
+  - `components/session.tsx` (rewritten): access token is **memory-only**
+    React state, never persisted; the refresh token is (Phase 1 — see
+    `specs/requirements/R-010-frontend-session.md`'s Phase 2 note on the
+    httpOnly-cookie move). `status` is a real three-state
+    (`loading | authenticated | unauthenticated`) — `session` alone can't
+    carry the loading/signed-out distinction, since it's legitimately `null`
+    in both. Proactive refresh is a `setTimeout` scheduled 60s before the
+    decoded expiry on every token adoption; sign-out calls
+    `POST /auth/logout` (best-effort, `keepalive`) before clearing local
+    state, and broadcasts to every other open tab.
+  - `lib/api.ts`'s `req()`: a 401 triggers exactly one refresh + retry (never
+    a loop against a genuinely revoked session); every OTHER call site keeps
+    its existing `api.xxx(token, ...)` signature unchanged — `req()` is the
+    one place that knows how to recover from a stale token, so this did not
+    require touching every page that calls the API.
+  - `lib/errors.ts` (new): `ApiError`/`SessionExpired`/`PaywallError`,
+    replacing the ad hoc `ApiError` that used to live in `lib/api.ts` — a 402
+    now always carries `{code, upsell}` as a real object (`PaywallError`),
+    not a string coerced from it.
+  - `components/require-auth.tsx` (new): route guard gating on `status`, not
+    `session` — an unauthenticated visit to a protected route redirects to
+    `/login?next=<path>` instead of rendering whatever the page's own
+    `if (!session)` branch happened to show; wraps `/opportunities`,
+    `/opportunities/[id]`, `/billing`, `/standards` (each page's own
+    `if (!session)` fallback stays as a harmless defensive branch
+    underneath). `/login` reads `?next=` and returns there after sign-in.
+  - Validated with a live backend + a real Chromium browser (not just
+    `next build`): unauthenticated `/opportunities` → redirects to
+    `/login?next=%2Fopportunities`; sign-up/login → lands back on
+    `/opportunities`; `localStorage` after login contains only `ts_refresh`/
+    `ts_hint`, no access token; a full page reload stays signed in with no
+    flash of the signed-out state; revoking the refresh token server-side
+    (simulating expiry/logout-elsewhere) then reloading redirects to
+    `/login` exactly once, with no loop, and clears `ts_refresh`. New
+    Vitest + Testing Library test stack (this task's first consumer, ahead
+    of R-014/TS-104's broader one) — `lib/auth-client.test.ts` (7 tests) and
+    `lib/api.test.ts` (2 tests) — including a test proving single-flight
+    collapses 3 concurrent refresh calls into 1 network request, sanity
+    checked by temporarily removing the `if (inflight) return inflight;`
+    guard and confirming both tests then fail (3 calls, not 1).
 
 ## Acceptance criteria
 
@@ -108,7 +174,44 @@ one repo (`apps/web` later; starts as `frontend/`).
 - A6 (R-008): `next build`/`tsc --noEmit` are clean with the billing pages
   added; no ESLint config exists yet in this repo (deferred to R-014/TS-104),
   so lint is not part of this task's validation.
+- A7 (R-010): after login, `localStorage` contains no access token — only
+  `ts_refresh` (the refresh token) and `ts_hint` (role/workspace, non-
+  sensitive) — verified live against a running backend, not just by
+  inspecting the code.
+- A8 (R-010): a request made with an expired access token succeeds
+  transparently, refreshing exactly once (`lib/api.test.ts`).
+- A9 (R-010): concurrent calls that all hit a 401 on the same stale token
+  collapse into exactly one `/auth/refresh` request
+  (`lib/auth-client.test.ts`, `lib/api.test.ts`).
+- A10 (R-010): a revoked/expired refresh token produces exactly one redirect
+  to `/login`, not a loop, and clears the stored refresh token — verified
+  live: sign in, revoke the session's refresh token via a direct
+  `POST /auth/logout` call (simulating expiry or a sign-out from another
+  tab), then reload — lands on `/login?next=...` once and stays there.
+- A11 (R-010): an unauthenticated visit to `/opportunities` or `/billing`
+  redirects to `/login?next=%2Fopportunities` (or `%2Fbilling`) and returns
+  there after a successful login — verified live with a real browser.
+- A12 (R-010): reloading while signed in never renders the signed-out state
+  (`RequireAuth` gates on `status`, not `session`) — verified live: after
+  sign-in, a full page reload stays on `/opportunities` with no flash of
+  "Sign in to see your board."
+- A13 (R-010): a 402 response is caught as `PaywallError` with `.upsell`
+  populated as a real object, not a stringified `[object Object]`.
+- A14 (R-010): `next build`/`tsc --noEmit` are clean; the new Vitest suite
+  (`npm test`) passes (9 tests).
+- A15 (R-010): signing out in one tab (or a session-expired event in one
+  tab) clears the session and broadcasts to every other open tab via
+  `BroadcastChannel` — exercised in the unit tests via the
+  `onTokensRefreshed`/`onSessionExpired` pub/sub hooks; full cross-tab timing
+  (A5 in the R-010 draft, "signs out tab B within 1s") is not separately
+  timed in this pass — the mechanism (a real `BroadcastChannel` message) is
+  synchronous enough in practice that a dedicated timing test wasn't judged
+  worth the added test-infrastructure cost here.
 
 ## Out of scope
 
 WhatsApp alert UI (P2), white-label theming (P2), mobile capture (P3).
+Session (R-010): the httpOnly-cookie move for the refresh token (Phase 2 —
+needs backend cookie support and a CORS/credentials decision, tracked under
+R-016), idle timeout / absolute session lifetime, and device/session
+management UI (endpoints exist per R-002 §B.3; the UI is R-013/TS-103).

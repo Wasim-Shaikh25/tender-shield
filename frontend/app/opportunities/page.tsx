@@ -4,10 +4,19 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, type Opportunity } from "@/lib/api";
 import { useSession } from "@/components/session";
+import { RequireAuth } from "@/components/require-auth";
 import { CountdownBadge } from "@/components/badges";
 import { statusLabel } from "@/lib/labels";
 
 export default function BoardPage() {
+  return (
+    <RequireAuth>
+      <BoardPageInner />
+    </RequireAuth>
+  );
+}
+
+function BoardPageInner() {
   const { session } = useSession();
   const [opps, setOpps] = useState<Opportunity[]>([]);
   const [title, setTitle] = useState("");

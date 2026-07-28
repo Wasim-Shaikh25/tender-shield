@@ -1,9 +1,12 @@
 // Typed client for the TenderShield API. Base URL from env; every mutating call
 // is workspace-scoped server-side (RLS) — the client just carries the bearer token.
-export const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
-
-export type Tokens = { access_token: string; refresh_token: string; role: string; workspace_id: string; is_superadmin?: boolean };
+export { API_BASE } from "./config";
+import { API_BASE } from "./config";
+import { refreshTokens } from "./auth-client";
+import type { Tokens } from "./auth-client";
+import { SessionExpired, toApiError } from "./errors";
+export { ApiError, SessionExpired, PaywallError } from "./errors";
+export type { Tokens } from "./auth-client";
 export type Opportunity = { id: string; title: string; status: string; submission_due?: string | null };
 export type MissingDocs = { present: string[]; missing: string[]; expected: string[] };
 export type Clause = { id: string; clause_ref: string | null; heading: string | null; page_from: number | null };
@@ -30,36 +33,37 @@ export type Finding = {
   review_status?: string;
 };
 
-// Thrown for non-2xx responses so callers (the paywall in particular) can
-// read the structured `detail` payload (`{code, upsell}` on a 402) instead of
-// only a stringified message.
-export class ApiError extends Error {
-  status: number;
-  detail: unknown;
-  constructor(status: number, detail: unknown, message: string) {
-    super(message);
-    this.status = status;
-    this.detail = detail;
-  }
-}
-
-async function req<T>(path: string, opts: RequestInit = {}, token?: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+function withAuth(opts: RequestInit, token?: string): RequestInit {
+  return {
     ...opts,
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(opts.headers ?? {}),
     },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new ApiError(
-      res.status,
-      body.detail,
-      typeof body.detail === "string" ? body.detail : `${res.status} ${res.statusText}`
-    );
+  };
+}
+
+/** Reactive 401 retry (R-010 §B.3): a 401 means the access token the caller
+ * was holding has expired — refresh (single-flight, so concurrent 401s from
+ * other in-flight calls collapse into the same request) and retry exactly
+ * once with the new token. A retry loop against a genuinely revoked session
+ * would hammer the API and hide the real problem, so this never retries
+ * twice. Every OTHER call site keeps passing a plain token string; this is
+ * the one place that knows how to recover from it going stale. */
+async function req<T>(path: string, opts: RequestInit = {}, token?: string): Promise<T> {
+  let res = await fetch(`${API_BASE}${path}`, withAuth(opts, token));
+
+  if (res.status === 401 && token) {
+    try {
+      const tokens = await refreshTokens();
+      res = await fetch(`${API_BASE}${path}`, withAuth(opts, tokens.access_token));
+    } catch {
+      throw new SessionExpired();
+    }
   }
+
+  if (!res.ok) throw await toApiError(res);
   return res.json() as Promise<T>;
 }
 

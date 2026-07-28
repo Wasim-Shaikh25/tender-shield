@@ -8,6 +8,13 @@ import { SessionExpired, toApiError } from "./errors";
 export { ApiError, SessionExpired, PaywallError } from "./errors";
 export type { Tokens } from "./auth-client";
 export type Opportunity = { id: string; title: string; status: string; submission_due?: string | null };
+export type WorkspaceSummary = {
+  workspace_id: string;
+  name: string;
+  role: string;
+  plan: string;
+  is_current: boolean;
+};
 export type MissingDocs = { present: string[]; missing: string[]; expected: string[] };
 export type Clause = { id: string; clause_ref: string | null; heading: string | null; page_from: number | null };
 export type Deadline = {
@@ -80,6 +87,20 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ email }),
     }),
+  listWorkspaces: (token: string) =>
+    req<WorkspaceSummary[]>("/auth/workspaces", {}, token),
+  createWorkspace: (token: string, name: string, country = "IN") =>
+    req<{ workspace_id: string; name: string }>(
+      "/auth/workspaces",
+      { method: "POST", body: JSON.stringify({ name, country }) },
+      token
+    ),
+  switchWorkspace: (token: string, workspaceId: string, refreshToken: string) =>
+    req<Tokens>(
+      `/auth/workspaces/${workspaceId}/switch`,
+      { method: "POST", body: JSON.stringify({ refresh_token: refreshToken }) },
+      token
+    ),
   resetPassword: (token: string, new_password: string) =>
     req<{ ok: boolean }>("/auth/reset-password", {
       method: "POST",

@@ -232,6 +232,31 @@ class AuthService:
     _LOCKOUT_THRESHOLD = 10
     _LOCKOUT_MAX_MINUTES = 60
 
+    def _resolve_login_workspace(self, user: User) -> WorkspaceMember | None:
+        """Pick the workspace to sign into, deterministically (R-011 §B.1).
+
+        Order: explicit default -> last used -> oldest membership. Without
+        this, the same user could land in a different workspace between
+        logins depending on what the database happened to return first for
+        an unordered `WorkspaceMember` query — a genuinely confusing bug to
+        report and to debug, and the reason this method exists at all.
+        Falls through past a candidate the user is no longer a member of
+        (membership can be revoked after a workspace was set as default/last
+        used — that is a normal state, not a data-integrity error).
+        """
+        for candidate in (user.default_workspace_id, user.last_workspace_id):
+            if candidate:
+                member = self._workspace_member(candidate, user.id)
+                if member:
+                    return member
+        return self.s.scalar(
+            select(WorkspaceMember)
+            .join(Workspace, Workspace.id == WorkspaceMember.workspace_id)
+            .where(WorkspaceMember.user_id == user.id)
+            .order_by(Workspace.created_at.asc())
+            .limit(1)
+        )
+
     def login(self, email: str, password: str) -> dict:
         email = email.strip().lower()
         user = self.s.scalar(select(User).where(User.email == email))
@@ -267,13 +292,18 @@ class AuthService:
         # neither app.workspace_id nor app.user_id is set yet at this point,
         # and the row is only visible via the user_id branch of that policy.
         bind_user_context(self.s, user.id)
-        member = self.s.scalar(select(WorkspaceMember).where(WorkspaceMember.user_id == user.id))
+        member = self._resolve_login_workspace(user)
         if not member:
-            if user.is_superadmin:
-                return self._issue_tokens(
-                    user.id, None, "owner", is_superadmin=True, new_family=True
-                )
-            raise AuthError("no_workspace")
+            # A user with zero memberships gets a workspace-less token
+            # instead of being locked out (R-011 §B.6) — the frontend routes
+            # this to /workspaces/new rather than a dead-end 401. Role is a
+            # placeholder ("owner") since RBAC only applies within a
+            # workspace; matches the pre-existing superadmin-with-no-
+            # workspace case this generalizes.
+            return self._issue_tokens(
+                user.id, None, "owner", is_superadmin=user.is_superadmin, new_family=True
+            )
+        user.last_workspace_id = member.workspace_id
         return self._issue_tokens(
             user.id,
             member.workspace_id,
@@ -298,16 +328,22 @@ class AuthService:
         row.used_at = datetime.now(UTC)
         user = self.s.get(User, row.user_id)
         bind_user_context(self.s, row.user_id)  # unauthenticated entry point — see login()
-        member = self.s.scalar(
-            select(WorkspaceMember).where(WorkspaceMember.user_id == row.user_id)
-        )
+        # Same deterministic resolution as login() (R-011 §B.1) — a naive
+        # unordered WorkspaceMember query here had the identical bug: a
+        # refresh could re-mint an access token scoped to a DIFFERENT
+        # workspace than the one the session started in, purely because of
+        # row ordering. Doesn't touch last_workspace_id itself — a refresh
+        # is a transparent continuation, not a fresh workspace choice; only
+        # login and switch_workspace update it.
+        member = self._resolve_login_workspace(user) if user else None
         if not member:
-            if user and user.is_superadmin:
-                tokens = self._issue_tokens(
-                    row.user_id, None, "owner", is_superadmin=True, family_id=row.family_id
-                )
-            else:
-                raise AuthError("no_workspace")
+            tokens = self._issue_tokens(
+                row.user_id,
+                None,
+                "owner",
+                is_superadmin=user.is_superadmin if user else False,
+                family_id=row.family_id,
+            )
         else:
             tokens = self._issue_tokens(
                 row.user_id,
@@ -390,13 +426,14 @@ class AuthService:
         # session — bind so the compound workspace_members policy (R-001 §B.7)
         # can find the user's own membership row.
         bind_user_context(self.s, user.id)
-        member = self.s.scalar(select(WorkspaceMember).where(WorkspaceMember.user_id == user.id))
+        member = self._resolve_login_workspace(user)
         if not member:
-            if user.is_superadmin:
-                return self._issue_tokens(
-                    user.id, None, "owner", is_superadmin=True, new_family=True
-                )
-            raise AuthError("no_workspace")
+            # R-011 §B.6 — see login()'s identical branch.
+            return self._issue_tokens(
+                user.id, None, "owner", is_superadmin=user.is_superadmin, new_family=True
+            )
+        user.last_workspace_id = member.workspace_id
+        self.s.commit()
         return self._issue_tokens(
             user.id,
             member.workspace_id,
@@ -461,13 +498,57 @@ class AuthService:
         self.s.commit()
         return {"workspace_id": str(workspace.id), "name": workspace.name}
 
-    def list_workspaces(self, user_id) -> list[dict]:
+    def list_workspaces(self, user_id, *, current_workspace_id=None) -> list[dict]:
         rows = self.s.execute(
             select(Workspace, WorkspaceMember)
             .join(WorkspaceMember, Workspace.id == WorkspaceMember.workspace_id)
             .where(WorkspaceMember.user_id == uuid.UUID(str(user_id)))
         ).all()
-        return [{"workspace_id": str(ws.id), "name": ws.name, "role": m.role} for ws, m in rows]
+        current = str(current_workspace_id) if current_workspace_id else None
+        return [
+            {
+                "workspace_id": str(ws.id),
+                "name": ws.name,
+                "role": m.role,
+                "plan": ws.plan,
+                "is_current": str(ws.id) == current,
+            }
+            for ws, m in rows
+        ]
+
+    def switch_workspace(self, user_id, workspace_id, *, refresh_token: str | None = None) -> dict:
+        """Re-issue tokens scoped to another workspace the caller belongs to
+        (R-011 §B.2). Membership is verified server-side — the client cannot
+        select a workspace by editing a token, since the workspace claim is
+        what RLS binds to (auth/deps.py's authenticate()).
+
+        Retires the previous refresh-token family: one active session per
+        user at a time (assumption, R-011) keeps the reuse-detection model in
+        `refresh()` simple and means a switch can never leave a stale token
+        scoped to the OLD workspace still valid. The trade-off is that a user
+        cannot hold two workspaces open in two tabs simultaneously.
+        """
+        member = self._workspace_member(workspace_id, user_id)
+        if not member:
+            raise AuthError("not_workspace_member")  # -> 404, per R-001 §B2
+        user = self.s.get(User, uuid.UUID(str(user_id)))
+        if not user:
+            raise AuthError("no_such_user")
+        user.last_workspace_id = member.workspace_id
+        if refresh_token:
+            old = self.s.scalar(
+                select(RefreshToken).where(RefreshToken.token_hash == rf.hash_token(refresh_token))
+            )
+            if old:
+                self._revoke_family(old.family_id)
+        tokens = self._issue_tokens(
+            user.id,
+            member.workspace_id,
+            member.role,
+            is_superadmin=user.is_superadmin,
+            new_family=True,
+        )
+        return tokens
 
     def _workspace_member(self, workspace_id, user_id):
         return self.s.scalar(

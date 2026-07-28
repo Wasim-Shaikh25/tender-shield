@@ -9,14 +9,16 @@ TS-091) — see below. Session/refresh-token handling is now a real
 implementation, not a skeleton (R-010, TS-092) — access token in memory only,
 proactive + reactive refresh, multi-tab coordination, route guards — see B12.
 This also seeds the frontend's first test framework (Vitest + Testing
-Library), ahead of R-014/TS-104's broader test-stack task. shadcn, PDF.js
-source view, and the deadline wall (needs TS-015) are follow-ups. Plain
-Tailwind for now (no component kit) so it builds without extra tooling. The
-end-user AI assistant is intentionally not surfaced in the UI; internal codes
-are rendered through human labels (`lib/labels.ts`), and the type is set with
-a system font stack led by Inter.
-**Requirement refs:** Doc §9, §0.1–0.2, §11.4, §7, §15; R-010
-**Task refs:** TS-025, TS-040, TS-091, TS-092
+Library), ahead of R-014/TS-104's broader test-stack task. A workspace
+switcher in the header and a `/workspaces/new` onboarding page (R-011,
+TS-100) — see B13 — close the "multi-workspace users are stranded" gap.
+shadcn, PDF.js source view, and the deadline wall (needs TS-015) are
+follow-ups. Plain Tailwind for now (no component kit) so it builds without
+extra tooling. The end-user AI assistant is intentionally not surfaced in
+the UI; internal codes are rendered through human labels (`lib/labels.ts`),
+and the type is set with a system font stack led by Inter.
+**Requirement refs:** Doc §9, §0.1–0.2, §11.4, §7, §15; R-010, R-011
+**Task refs:** TS-025, TS-040, TS-091, TS-092, TS-100
 
 ## Purpose
 
@@ -153,6 +155,29 @@ one repo (`apps/web` later; starts as `frontend/`).
     collapses 3 concurrent refresh calls into 1 network request, sanity
     checked by temporarily removing the `if (inflight) return inflight;`
     guard and confirming both tests then fail (3 calls, not 1).
+- **B13 (workspace switcher + workspace-less onboarding, R-011, TS-100):**
+  new `components/workspace-switcher.tsx` in the header, hidden entirely for
+  a single-workspace user (a switcher with one option is noise) — fetches
+  `GET /auth/workspaces` (now returning `plan`/`is_current` per row) and
+  renders nothing until there are ≥2. Switching calls the new
+  `POST /auth/workspaces/{id}/switch` and adopts the response through the
+  SAME `signIn()` every login uses (persists the rotated refresh token,
+  swaps in a new `session` object, broadcasts to other tabs via R-010's
+  multi-tab channel) — deliberately not a separate `adoptTokens` path, since
+  `signIn` already does everything a workspace switch needs. Every protected
+  page's data-fetching effect already depends on `session`
+  (`useEffect(..., [session])`), so switching naturally triggers a refetch
+  under the new workspace without a dedicated cache-clear step — this
+  codebase has no shared query cache to invalidate. New `/workspaces/new`
+  page: `RequireAuth` now redirects a workspace-less session
+  (`session.workspaceId === NO_WORKSPACE_ID`, R-011 §B.6) here instead of
+  onto a protected page that would just show empty results under RLS;
+  creating a workspace makes the user its owner, then the page immediately
+  calls `switchWorkspace` to pick up real tokens (workspace creation itself
+  returns no tokens). Validated live: signed in with one workspace (switcher
+  absent), created a second via the API, reloaded (switcher appears showing
+  both, current one bold), switched to the second (header updates, lands
+  back on `/opportunities`).
 
 ## Acceptance criteria
 
@@ -207,6 +232,12 @@ one repo (`apps/web` later; starts as `frontend/`).
   timed in this pass — the mechanism (a real `BroadcastChannel` message) is
   synchronous enough in practice that a dedicated timing test wasn't judged
   worth the added test-infrastructure cost here.
+- A16 (R-011): the workspace switcher does not render for a single-workspace
+  user, and renders with all workspaces (current one marked) for a
+  multi-workspace user — verified live with a real browser.
+- A17 (R-011): switching workspaces via the header updates the visible
+  workspace name without a full page reload, and workspace-scoped pages
+  reflect the new workspace's data on next fetch.
 
 ## Out of scope
 
@@ -215,3 +246,8 @@ Session (R-010): the httpOnly-cookie move for the refresh token (Phase 2 —
 needs backend cookie support and a CORS/credentials decision, tracked under
 R-016), idle timeout / absolute session lifetime, and device/session
 management UI (endpoints exist per R-002 §B.3; the UI is R-013/TS-103).
+Workspace switching (R-011): a "Switch to &lt;workspace&gt;" prompt after
+accepting an invitation to a different workspace (the invitation-accept UI
+itself doesn't exist yet — R-013/TS-103), and simultaneous multi-workspace
+tabs (one active session per user server-side — `specs/modules/auth.md`
+§B19).

@@ -139,11 +139,13 @@ _STATUS = {
     "account_locked": 423,
     "invalid_refresh": 401,
     "reuse_detected": 401,
-    "no_workspace": 401,
     "no_such_user": 400,
     "no_such_project": 400,
     "bad_role": 400,
-    "not_workspace_member": 403,
+    # 404, not 403 — a non-member gets the same response as a workspace that
+    # doesn't exist, since 403 would itself confirm the workspace's existence
+    # (R-001 §B2, matching require_workspace_member's own reasoning).
+    "not_workspace_member": 404,
     "apple_not_configured": 503,
     "apple_token_invalid": 401,
     "apple_email_missing": 400,
@@ -255,7 +257,28 @@ def list_workspaces(
     session: Session = Depends(get_session),
     principal: Principal = Depends(current_principal),
 ):
-    return _service(request, session).list_workspaces(principal.user_id)
+    return _service(request, session).list_workspaces(
+        principal.user_id, current_workspace_id=principal.workspace_id
+    )
+
+
+@router.post("/workspaces/{workspace_id}/switch")
+def switch_workspace(
+    workspace_id: str,
+    body: RefreshBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(current_principal),
+):
+    """Re-issue tokens scoped to another workspace the caller belongs to
+    (R-011 §B.2). The client cannot switch by editing its own token — the
+    workspace claim is what RLS binds to, so a genuinely new token, minted
+    server-side after a real membership check, is the only way."""
+    return _handle(
+        lambda: _service(request, session).switch_workspace(
+            principal.user_id, workspace_id, refresh_token=body.refresh_token
+        )
+    )
 
 
 @router.post("/workspaces/{workspace_id}/members")

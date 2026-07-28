@@ -1,6 +1,11 @@
 # R-011 — Workspace switching
 
-**Status:** draft
+**Status:** implemented (TS-100) — see `specs/modules/auth.md` §B18-B19 and
+`specs/frontend.md` §B13 for behavior/acceptance criteria. One deviation
+from this draft: the `WorkspaceSwitcher` calls `signIn()` (the same tokens-
+adoption path login already uses) rather than a separate `adoptTokens`
+export, and redirects to `/opportunities` (this app's actual home route)
+rather than the draft's `/dashboard`, which doesn't exist.
 **Severity:** P1 — multi-workspace users cannot reach most of their workspaces
 **Requirement refs:** Doc §5, §16
 **Task refs:** TS-100

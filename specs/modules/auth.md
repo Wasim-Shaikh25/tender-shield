@@ -4,8 +4,8 @@
 TOTP/email/SMS MFA enroll/verify done; password reset via token; phone OTP + Google OIDC deferred; Sign in
 with Apple backend callback implemented but requires Apple Developer credentials to
 enable)
-**Requirement refs:** Doc §5, §3.2, §16
-**Task refs:** TS-011, TS-012, TS-074..TS-078, TS-084, TS-085, TS-093, TS-098, TS-090
+**Requirement refs:** Doc §5, §3.2, §16; R-011
+**Task refs:** TS-011, TS-012, TS-074..TS-078, TS-084, TS-085, TS-093, TS-098, TS-090, TS-100
 
 ## Purpose
 
@@ -39,7 +39,10 @@ endpoints under `/api/auth/admin/*`.
 - **API routes:**
   - `/api/auth/signup`, `/login`, `/refresh`, `/logout`, `/me`
   - `/api/auth/forgot-password`, `/reset-password`
-  - `/api/auth/workspaces` (create/list)
+  - `/api/auth/workspaces` (create/list — list now returns `plan`/
+    `is_current` per workspace, R-011/TS-100)
+  - `/api/auth/workspaces/{id}/switch` (R-011, TS-100) — re-issues tokens
+    scoped to another workspace the caller belongs to
   - `/api/auth/workspaces/{id}/members` (add/list)
   - `/api/auth/workspaces/{id}/projects` (create/list)
   - `/api/auth/projects/{id}/members` (add/list)
@@ -153,6 +156,46 @@ endpoints under `/api/auth/admin/*`.
   snapshotted alongside the code against the referred signup's own email
   domain), is swallowed silently — signup still succeeds either way, and a
   self-referral attempt is never tipped off that it was detected.
+- **B18 (deterministic login workspace, R-011 §B.1, TS-100 bugfix):**
+  `login`, `refresh`, and `apple_callback` all resolve which workspace to
+  scope tokens to via `_resolve_login_workspace`: `User.default_workspace_id`
+  → `User.last_workspace_id` → oldest membership (`Workspace.created_at
+  ASC`), falling through past a candidate the user is no longer a member of.
+  Before this, all three used a plain unordered `WorkspaceMember` query — the
+  same user could land in a DIFFERENT workspace between logins purely
+  because of row ordering, a genuinely confusing bug to report and to debug.
+  `login`/`apple_callback` update `last_workspace_id` on every successful
+  sign-in; `refresh` deliberately does not (a refresh is a transparent
+  continuation of an existing session, not a fresh workspace choice — only
+  `login`, `apple_callback`, and `switch_workspace` change which workspace
+  "last used" means). Regression-verified: a dedicated test
+  (`test_switch_workspace_returns_tokens_scoped_to_the_new_workspace`)
+  confirms a subsequent LOGIN after a switch lands back in the switched-to
+  workspace even though it is NOT the oldest membership — sanity-checked by
+  temporarily reverting to the naive unordered query and confirming the test
+  then fails.
+- **B19 (workspace switching, R-011 §B.2-B.6, TS-100):**
+  `POST /workspaces/{id}/switch` re-issues tokens scoped to another
+  workspace the caller belongs to — membership is verified server-side
+  (`AuthError("not_workspace_member")` → **404**, not 403, matching
+  `require_workspace_member`'s own reasoning: a 403 would itself confirm the
+  workspace's existence). The workspace claim is what RLS binds to
+  (`auth/deps.py`'s `authenticate()`), so a client cannot switch by editing
+  its own token — only a genuinely new, server-minted token changes which
+  workspace a request is scoped to. Switching retires the PREVIOUS
+  refresh-token family (`assumption:` one active session per user at a
+  time — the alternative, concurrent families per workspace, interacts
+  badly with `refresh()`'s reuse-detection model and with R-010 §B.2's
+  single-flight refresh; revisit if simultaneous multi-workspace tabs
+  become a real need) and updates `last_workspace_id`, so a subsequent login
+  also lands in the switched-to workspace (see B18). `GET /workspaces` now
+  returns `plan`/`is_current` per row, enough for the frontend switcher to
+  render without a second call. A user with ZERO memberships (e.g. their
+  last membership was removed) gets a workspace-less token
+  (`workspace_id == AuthService._NO_WORKSPACE`, a well-known all-zero UUID)
+  instead of `AuthError("no_workspace")` — before this, such a user was
+  locked out at login with no route back; the frontend now routes a
+  workspace-less session to `/workspaces/new` (`specs/frontend.md` §B13).
 
 ## Acceptance criteria
 
@@ -188,8 +231,27 @@ endpoints under `/api/auth/admin/*`.
   where the bug this guards against passed vacuously.
 - A16 (R-006): signing up with a self-referral code (same owner email
   domain as the referrer) creates no `Referral` row; signup still succeeds.
+- A17 (R-011): a user in three workspaces logs in twice and lands in the
+  same workspace both times.
+- A18 (R-011): `POST /workspaces/{B}/switch` returns tokens whose
+  `workspace_id` claim is B and whose `role` is the caller's role in B, not
+  carried over from the previous workspace.
+- A19 (R-011): switching to a workspace the caller is not a member of
+  returns `404`.
+- A20 (R-011): the pre-switch refresh token returns `401` on its next use.
+- A21 (R-011): a user who is `owner` in A and `viewer` in B cannot create a
+  project in B after switching there (`403 insufficient_role`).
+- A22 (R-011): a subsequent LOGIN after switching to a NON-oldest workspace
+  still lands there — proves `last_workspace_id` is actually read, not just
+  that the switch response itself carries the right claim (regression test
+  for B18, sanity-checked against the pre-fix naive query).
+- A23 (R-011): a user with zero workspace memberships logs in successfully
+  and receives a token with `workspace_id == AuthService._NO_WORKSPACE`
+  rather than an error.
 
 ## Out of scope
 
 SSO/SAML (Phase 3), real email/SMS 2FA delivery, admin AI assistant / Ops Copilot
-(Doc §17).
+(Doc §17). Workspace switching (R-011): simultaneous multi-workspace sessions
+in separate browser tabs (one active refresh-token family per user —
+see B19), cross-workspace search/reporting, and workspace transfer/merge.

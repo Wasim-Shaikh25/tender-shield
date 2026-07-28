@@ -6,6 +6,61 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-28 (Workspace switching: TS-100)
+
+Before this, a user who belonged to several workspaces landed in an
+arbitrary one at login (an unordered `WorkspaceMember` query — the same
+user's next login could land somewhere different for no reason a customer
+could explain) and had no way to reach any workspace but the one baked into
+their current token. Persona P3 (a QS consultancy working across client
+workspaces) couldn't use the product as designed.
+
+- **Deterministic login workspace (real bug found and fixed).**
+  `login`/`refresh`/`apple_callback` now resolve via new
+  `AuthService._resolve_login_workspace`: explicit default → last used →
+  oldest membership (`Workspace.created_at ASC` tiebreak), via two new
+  `User` columns (`default_workspace_id`, `last_workspace_id`). `login`/
+  `apple_callback` update `last_workspace_id` on every sign-in;
+  `switch_workspace` (below) also updates it, so a later plain login lands
+  back in whichever workspace was last switched to — `refresh` deliberately
+  does NOT update it, since a refresh is a transparent continuation, not a
+  fresh workspace choice. Regression-proven: a test logs in again after
+  switching to a workspace that is NOT the oldest membership and confirms
+  it lands there — sanity-checked by temporarily reverting to the old naive
+  query and confirming the test then fails.
+- **New `POST /auth/workspaces/{id}/switch`.** Verifies membership
+  server-side (non-members get `404`, not `403` — matching
+  `require_workspace_member`'s existing reasoning: a 403 would itself
+  confirm the workspace exists) and re-issues tokens carrying the target
+  workspace's role — a client cannot switch by editing its own token, since
+  the workspace claim is what RLS binds to. Retires the PREVIOUS
+  refresh-token family (`assumption:` one active session per user at a
+  time — concurrent families per workspace would interact badly with the
+  reuse-detection model and R-010's single-flight refresh).
+- **`no_workspace` dead end closed.** A user with zero memberships (e.g.
+  their last membership was removed) now gets a workspace-less token
+  instead of `AuthError("no_workspace")` locking them out entirely.
+- **`GET /auth/workspaces`** now returns `plan`/`is_current` per row, enough
+  for the frontend switcher to render without a second call.
+- **Frontend: header `WorkspaceSwitcher`** (hidden entirely for a
+  single-workspace user — a switcher with one option is noise), built on
+  the R-010/TS-092 session plumbing: switching calls the SAME `signIn()`
+  login already uses, so it persists the rotated refresh token and swaps in
+  a new `session` object — every protected page's data-fetching effect
+  already depends on `session`, so switching naturally triggers a refetch
+  under the new workspace with no dedicated cache-clear step needed (this
+  codebase has no shared query cache). New `/workspaces/new` page: a
+  workspace-less session is now redirected here by `RequireAuth` instead of
+  onto a protected page that would just show empty results under RLS.
+- Validated live with a real browser: switcher absent with one workspace,
+  appears once a second is created, switching updates the header and lands
+  back on `/opportunities`. New `tests/test_workspace_switching.py` (7
+  tests). Updated `specs/modules/auth.md` (B18-B19, A17-A23),
+  `specs/frontend.md` (B13, A16-A17), `specs/requirements/
+  R-011-workspace-switching.md` (status: implemented). 247 SQLite tests
+  pass (1 skipped) + 13 Postgres tests; `ruff check .`, `next build`,
+  `tsc --noEmit` all clean.
+
 ### Done — 2026-07-28 (Frontend session: refresh tokens, 401 recovery, route guards: TS-092)
 
 Before this, the frontend discarded the refresh token it was handed at
@@ -155,12 +210,11 @@ last task; **Gate 2 (make it possible to get paid) is now fully closed.**
 
 ### Next
 
-- **Gate 2 is done.** Gate 3 (make it usable) is next; TS-092 is done (see
-  above) — remaining: TS-099 (email verification + disposable-email
-  blocklist), TS-100 (workspace switching), TS-101 (MFA enforcement at
-  login), TS-102 (portfolio dashboard), TS-103 (account UI), TS-104 (design
-  system + remaining frontend test stack: a11y, Playwright, error copy
-  table).
+- **Gate 2 is done.** Gate 3 (make it usable) is 2/7: TS-092 and TS-100 done
+  (see above) — remaining: TS-099 (email verification + disposable-email
+  blocklist), TS-101 (MFA enforcement at login), TS-102 (portfolio
+  dashboard), TS-103 (account UI), TS-104 (design system + remaining
+  frontend test stack: a11y, Playwright, error copy table).
 
 ### Done — 2026-07-28 (Plan entitlements — seats, top-ups, billing periods: TS-098)
 

@@ -15,6 +15,12 @@ export type Tokens = {
   is_superadmin?: boolean;
 };
 
+// Mirrors AuthService._NO_WORKSPACE (backend/app/modules/auth/service.py) —
+// the sentinel a workspace-less token's `workspace_id` claim carries (R-011
+// §B.6). A user with zero memberships gets one of these instead of a
+// dead-end login failure; the frontend routes them to /workspaces/new.
+export const NO_WORKSPACE_ID = "00000000-0000-0000-0000-000000000000";
+
 // Phase 1 (R-010 §B.1): the access token is never persisted — memory only,
 // held in React state. The refresh token IS persisted (it must survive a
 // reload) until Phase 2 moves it to an httpOnly cookie set by the backend.

@@ -10,6 +10,7 @@
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { useSession } from "@/components/session";
+import { NO_WORKSPACE_ID } from "@/lib/auth-client";
 
 const ROLE_RANK: Record<string, number> = {
   viewer: 0,
@@ -35,16 +36,24 @@ export function RequireAuth({
   const router = useRouter();
   const pathname = usePathname();
 
+  const workspaceless = status === "authenticated" && session?.workspaceId === NO_WORKSPACE_ID;
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+    } else if (workspaceless && pathname !== "/workspaces/new") {
+      // R-011 §B.6: a user with zero memberships holds a workspace-less
+      // token rather than being locked out at login — every workspace-
+      // scoped page is a dead end for them until they create or join one.
+      router.replace("/workspaces/new");
     }
-  }, [status, pathname, router]);
+  }, [status, workspaceless, pathname, router]);
 
   if (status === "loading") {
     return <div className="animate-pulse text-sm text-slate-400">Loading…</div>;
   }
   if (status === "unauthenticated" || !session) return null;
+  if (workspaceless) return null;
   if (!session.is_superadmin && !roleAtLeast(session.role, minRole)) {
     return (
       <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">

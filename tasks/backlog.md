@@ -164,7 +164,7 @@ Analysis: `docs/GAP_ANALYSIS.md` · Requirements: `specs/requirements/R-0xx-*.md
 | TS-097 | Webhook coverage: refunds, failures, disputes, dunning/grace, proration; reject events without an id | P1 | §2.7–§2.8 | R-005 §C | done |
 | TS-098 | Enforce seat limits; wire top-up purchase/consumption; billing-anniversary quota periods | P1 | §2.9 | R-009 | done |
 | TS-099 | Email verification on signup + delivery adapter; disposable-email blocklist (free-tier anti-abuse) | P1 | §3.1, §2.9 | R-015 | todo |
-| TS-100 | Workspace switching: `POST /auth/workspaces/{id}/switch` + UI switcher (multi-workspace users are stranded today) | P1 | §3.2 | R-011 | todo |
+| TS-100 | Workspace switching: `POST /auth/workspaces/{id}/switch` + UI switcher (multi-workspace users are stranded today) | P1 | §3.2 | R-011 | done |
 | TS-101 | Enforce MFA at login with step-up tokens, re-auth on re-enroll, replay guard, recovery codes | P1 | §1.7 | R-002 §D | todo |
 | TS-102 | Portfolio dashboard: cross-tender deadline wall, open critical findings, pipeline, quota (consumes the unused `analytics` module) | P1 | §4.4 | R-012 | todo |
 | TS-103 | UI for invitation accept, member management, MFA enrollment, workspace CRUD, super-admin console | P1 | §4.5 | R-013 | todo |

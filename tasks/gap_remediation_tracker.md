@@ -21,7 +21,7 @@ their tender data between tenants.
 |---|---|---|---|---|
 | **1** | Stop the leaks | TS-084…TS-086, TS-093…TS-095 | Any real customer data | **done** |
 | **2** | Make it possible to get paid | TS-087…TS-091, TS-096…TS-098 | All revenue; Phase-1 exit gate | **done** |
-| **3** | Make it usable | TS-092, TS-099…TS-104 | Daily use, retention | in progress (1/7) |
+| **3** | Make it usable | TS-092, TS-099…TS-104 | Daily use, retention | in progress (2/7) |
 | **4** | Scale and prove | TS-105…TS-109 | NFRs, phase gates, ops | todo |
 
 ---
@@ -304,7 +304,7 @@ correctly does not.
 | ID | Task | Sev | Req | Module(s) | Status | Acceptance gate |
 |---|---|---|---|---|---|---|
 | TS-092 | Persist + rotate refresh tokens; single-flight refresh; 401 retry; typed errors; route guards | P0 | [R-010](../specs/requirements/R-010-frontend-session.md) | frontend | **done**¹¹ | A7–A15 in frontend.md |
-| TS-100 | Workspace switching: deterministic default, switch endpoint, UI switcher | P1 | [R-011](../specs/requirements/R-011-workspace-switching.md) | `auth`, frontend | todo | A1–A8 in R-011 |
+| TS-100 | Workspace switching: deterministic default, switch endpoint, UI switcher | P1 | [R-011](../specs/requirements/R-011-workspace-switching.md) | `auth`, frontend | **done**¹² | A17–A23 in auth.md, A16–A17 in frontend.md |
 | TS-102 | Portfolio dashboard: cross-tender deadline wall, attention, pipeline, usage | P1 | [R-012](../specs/requirements/R-012-dashboard.md) | `analytics`, `ingestion`, frontend | todo | A1–A9 in R-012 |
 | TS-103 | Account UI: invitation accept, members, MFA, workspace/profile settings, admin console, audit viewer, session list + logout-all (deferred from TS-093) | P1 | [R-013](../specs/requirements/R-013-account-ui.md) | `auth`, frontend | todo | A1–A11 in R-013 |
 | TS-099 | Email verification, delivery adapters, disposable-email blocklist, canonical-email abuse counting | P1 | [R-015](../specs/requirements/R-015-email-verification.md) | `auth`, `notifications` | todo | A1–A11 in R-015 |
@@ -339,6 +339,31 @@ not-1), and a live Chromium/Playwright run against a real backend covering
 the redirect-with-`next=`, no-flash-on-reload, and revoked-token-clean-
 redirect-no-loop behaviors that a unit test can't prove on its own. `next
 build`/`tsc --noEmit` clean.
+
+¹² Fixed a real bug found while implementing this: `login`/`refresh`/
+`apple_callback` all resolved the caller's workspace via a plain, UNORDERED
+`WorkspaceMember` query — the same user could land in a different workspace
+between logins purely because of row ordering, with no way to reach any
+workspace but whichever one that query happened to return. New
+`AuthService._resolve_login_workspace` makes this deterministic (default →
+last used → oldest membership, via new `User.default_workspace_id`/
+`last_workspace_id` columns); a regression test proves it actually reads
+`last_workspace_id` (not just that a switch response carries the right
+claim) by logging in again after switching to a workspace that is NOT the
+oldest membership, and confirming it lands there — sanity-checked by
+temporarily reverting to the naive query and confirming the test then fails.
+New `POST /workspaces/{id}/switch` re-issues tokens after a server-side
+membership check (non-members get 404, matching `require_workspace_member`'s
+own reasoning — a 403 would itself confirm the workspace exists) and retires
+the previous refresh-token family. A user with zero memberships now gets a
+workspace-less token instead of a dead-end `AuthError("no_workspace")`,
+routed by a new `RequireAuth` check to a new `/workspaces/new` page.
+Frontend: a header `WorkspaceSwitcher` (hidden for single-workspace users)
+built on the R-010/TS-092 session plumbing — switching just calls the same
+`signIn()` login uses. Validated live: switcher absent with one workspace,
+appears with two, switching updates the header and the workspace's data.
+247 SQLite tests pass (1 skipped, 7 new) + 13 Postgres tests; `ruff check .`,
+`next build`, `tsc --noEmit` all clean.
 
 **Gate 3 exit:** a new customer can sign up, verify, invite a colleague, switch
 workspaces, work for an hour without being logged out, and see their portfolio

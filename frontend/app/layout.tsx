@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import { SessionProvider } from "@/components/session";
+import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 
 export const metadata: Metadata = {
   title: "TenderShield AI",
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Link href="/billing" className="hover:text-ink">Billing</Link>
                 <Link href="/standards" className="hover:text-ink">Standards</Link>
                 <Link href="/help" className="hover:text-ink">Help</Link>
+                <WorkspaceSwitcher />
                 <Link href="/login" className="rounded-md bg-ink px-3 py-1.5 text-white hover:opacity-90">
                   Sign in
                 </Link>

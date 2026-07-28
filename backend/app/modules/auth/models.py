@@ -34,6 +34,15 @@ class User(Base):
     # guessing attack into a denial-of-service handed to the attacker.
     failed_logins: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Deterministic login-workspace resolution (R-011 §B.1): without an
+    # explicit order, the same user could land in a different workspace
+    # between logins depending on what the database happened to return
+    # first. Order at login/refresh time is default -> last used -> oldest
+    # membership. Neither is a foreign key: the referenced workspace may be
+    # one the user has since lost membership of, which is a normal state
+    # (fall through to the next candidate), not a data-integrity error.
+    default_workspace_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    last_workspace_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

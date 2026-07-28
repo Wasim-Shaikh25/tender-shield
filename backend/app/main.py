@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import Settings
-from app.core.db import make_engine, make_session_factory
+from app.core.db import install_rls_rebinding, make_engine, make_session_factory
 from app.core.events import EventBus
 from app.core.loader import LoadReport, load_modules
 from app.core.module import AppContext
@@ -26,8 +26,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # via the registry rather than importing it (keeps them pluggable).
     if settings.database_url:
         engine = make_engine(settings)
+        session_factory = make_session_factory(engine)
+        install_rls_rebinding(session_factory)  # R-001 §B.5 — survive mid-request commits
         ctx.registry.provide("db.engine", engine)
-        ctx.registry.provide("db.sessionmaker", make_session_factory(engine))
+        ctx.registry.provide("db.sessionmaker", session_factory)
 
     report: LoadReport = load_modules(settings.enabled_module_names())
 

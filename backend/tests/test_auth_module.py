@@ -12,14 +12,26 @@ from app.main import create_app
 from app.modules.auth import security as sec
 
 
-@pytest.fixture
-def client() -> TestClient:
+def _make_client(**settings_kwargs) -> TestClient:
     application = create_app(
-        Settings(enabled_modules="health,auth", database_url="sqlite:///:memory:")
+        Settings(
+            enabled_modules="health,auth",
+            database_url="sqlite:///:memory:",
+            **settings_kwargs,
+        )
     )
     engine = application.state.ctx.registry.require("db.engine")
     Base.metadata.create_all(engine)
     return TestClient(application)
+
+
+@pytest.fixture
+def client() -> TestClient:
+    # dev_echo_tokens=True so tests that need to drive the reset/invitation
+    # flow end-to-end can read the token straight from the response, matching
+    # local dev. The production default (False) is exercised explicitly by
+    # test_forgot_password_default_does_not_echo_token below (R-002 §A).
+    return _make_client(dev_echo_tokens=True)
 
 
 def _signup(client, email="a@example.com"):
@@ -294,3 +306,130 @@ def test_reset_password_rejects_expired_or_reused_token(client):
     )
     assert r.status_code == 400
     assert r.json()["detail"] == "invalid_reset_token"
+
+
+# ---- R-002 §A: reset/invitation tokens are dev-only (TS-085) --------------
+
+
+def test_forgot_password_default_does_not_echo_token():
+    # Default settings (dev_echo_tokens=False) — the production posture.
+    prod_like = _make_client()
+    prod_like.post(
+        "/api/auth/signup",
+        json={"email": "noecho@example.com", "password": "hunter2hunter2"},
+    )
+    r = prod_like.post("/api/auth/forgot-password", json={"email": "noecho@example.com"})
+    assert r.status_code == 200
+    assert r.json() == {"ok": True}
+    assert "token" not in r.json()
+
+
+def test_settings_refuse_echo_tokens_in_production():
+    with pytest.raises(ValueError, match="TS_DEV_ECHO_TOKENS"):
+        Settings(env="production", dev_echo_tokens=True)
+
+
+def test_new_reset_invalidates_prior_outstanding_reset(client):
+    _signup(client, "tworesets@example.com")
+    first = client.post(
+        "/api/auth/forgot-password", json={"email": "tworesets@example.com"}
+    ).json()["token"]
+    # issuing a second reset invalidates the first, unused one
+    client.post("/api/auth/forgot-password", json={"email": "tworesets@example.com"})
+
+    r = client.post(
+        "/api/auth/reset-password",
+        json={"token": first, "new_password": "newpass123"},
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"] == "invalid_reset_token"
+
+
+def test_password_reset_revokes_existing_sessions(client):
+    _signup(client, "revoke@example.com")
+    tokens = _login(client, "revoke@example.com")
+    refresh_token = tokens["refresh_token"]
+
+    reset_token = client.post(
+        "/api/auth/forgot-password", json={"email": "revoke@example.com"}
+    ).json()["token"]
+    client.post(
+        "/api/auth/reset-password",
+        json={"token": reset_token, "new_password": "newpass123"},
+    )
+
+    r = client.post("/api/auth/refresh", json={"refresh_token": refresh_token})
+    assert r.status_code == 401
+
+
+# ---- R-001 §A: workspace/project membership authorization (TS-084) --------
+
+
+def test_member_list_is_workspace_scoped(client):
+    a = _signup(client, "a-owner@example.com")
+    _signup(client, "b-owner@example.com")
+    a_owner = _login(client, "a-owner@example.com")
+
+    # A's owner cannot read B's member list by guessing B's workspace id
+    b_workspace_id = _signup(client, "probe@example.com")["workspace_id"]
+    r = client.get(
+        f"/api/auth/workspaces/{b_workspace_id}/members",
+        headers={"authorization": f"Bearer {a_owner['access_token']}"},
+    )
+    assert r.status_code == 404
+
+    # but can read its own
+    r = client.get(
+        f"/api/auth/workspaces/{a['workspace_id']}/members",
+        headers={"authorization": f"Bearer {a_owner['access_token']}"},
+    )
+    assert r.status_code == 200
+
+
+def test_cannot_escalate_into_another_workspace(client):
+    _signup(client, "attacker@example.com")
+    attacker = _login(client, "attacker@example.com")
+    victim_workspace_id = _signup(client, "victim@example.com")["workspace_id"]
+
+    r = client.post(
+        f"/api/auth/workspaces/{victim_workspace_id}/members",
+        json={"email": "attacker@example.com", "role": "owner"},
+        headers={"authorization": f"Bearer {attacker['access_token']}"},
+    )
+    assert r.status_code == 404
+
+    # confirm no membership was created
+    r = client.get(
+        "/api/auth/workspaces", headers={"authorization": f"Bearer {attacker['access_token']}"}
+    )
+    assert len(r.json()) == 1
+
+
+def test_project_members_scoped_to_project_workspace(client):
+    _signup(client, "p-owner@example.com")
+    owner = _login(client, "p-owner@example.com")
+    project = client.post(
+        f"/api/auth/workspaces/{owner['workspace_id']}/projects",
+        json={"name": "Bridge Tender"},
+        headers={"authorization": f"Bearer {owner['access_token']}"},
+    ).json()
+
+    _signup(client, "outsider@example.com")
+    outsider = _login(client, "outsider@example.com")
+    r = client.get(
+        f"/api/auth/projects/{project['project_id']}/members",
+        headers={"authorization": f"Bearer {outsider['access_token']}"},
+    )
+    assert r.status_code == 404
+
+
+def test_last_owner_cannot_be_demoted(client):
+    signup = _signup(client, "sole-owner@example.com")
+    owner = _login(client, "sole-owner@example.com")
+    r = client.post(
+        f"/api/auth/workspaces/{signup['workspace_id']}/members",
+        json={"email": "sole-owner@example.com", "role": "viewer"},
+        headers={"authorization": f"Bearer {owner['access_token']}"},
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"] == "last_owner"

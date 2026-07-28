@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -5,12 +7,32 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import current_principal, get_session, require
 from app.modules.auth.apple import AppleClient
-from app.modules.auth.deps import require_superadmin
-from app.modules.auth.models import User
+from app.modules.auth.deps import (
+    require_project_member,
+    require_superadmin,
+    require_workspace_member,
+)
+from app.modules.auth.models import Project, User
 from app.modules.auth.rbac import Principal
 from app.modules.auth.service import AuthError, AuthService
 
 router = APIRouter()
+
+
+def _project_workspace(session: Session, project_id: str) -> str:
+    """The project's OWN workspace, not the caller's active token workspace.
+
+    require_project_member authorizes membership of the project's real
+    workspace, which may differ from principal.workspace_id (the caller can be
+    a member of several workspaces but only one is baked into their current
+    token). Downstream service calls must use the project's workspace or a
+    legitimately-authorized cross-workspace admin gets a spurious
+    no_such_project (TS-084).
+    """
+    project = session.scalar(select(Project).where(Project.id == uuid.UUID(str(project_id))))
+    if project is None:
+        raise HTTPException(404, "not_found")
+    return str(project.workspace_id)
 
 
 def _service(request: Request, session: Session) -> AuthService:
@@ -23,6 +45,9 @@ def _service(request: Request, session: Session) -> AuthService:
         access_ttl_min=settings.access_ttl_minutes,
         refresh_ttl_days=settings.refresh_ttl_days,
         apple_client=apple_client,
+        echo_tokens=settings.dev_echo_tokens,
+        notifier=request.app.state.ctx.registry.get("notifications.sender"),
+        app_url=settings.app_url,
     )
 
 
@@ -110,6 +135,7 @@ _STATUS = {
     "invitation_email_mismatch": 400,
     "invalid_reset_token": 400,
     "password_too_short": 400,
+    "last_owner": 400,
 }
 
 
@@ -205,7 +231,7 @@ def add_workspace_member(
     body: AddMemberBody,
     request: Request,
     session: Session = Depends(get_session),
-    principal: Principal = Depends(require("admin")),
+    principal: Principal = Depends(require_workspace_member("admin")),
 ):
     return _handle(
         lambda: _service(request, session).add_workspace_member(workspace_id, body.email, body.role)
@@ -217,7 +243,7 @@ def list_workspace_members(
     workspace_id: str,
     request: Request,
     session: Session = Depends(get_session),
-    principal: Principal = Depends(current_principal),
+    principal: Principal = Depends(require_workspace_member("viewer")),
 ):
     return _service(request, session).list_workspace_members(workspace_id)
 
@@ -228,7 +254,7 @@ def create_project(
     body: CreateProjectBody,
     request: Request,
     session: Session = Depends(get_session),
-    principal: Principal = Depends(require("admin")),
+    principal: Principal = Depends(require_workspace_member("admin")),
 ):
     return _handle(
         lambda: _service(request, session).create_project(
@@ -242,7 +268,7 @@ def list_projects(
     workspace_id: str,
     request: Request,
     session: Session = Depends(get_session),
-    principal: Principal = Depends(current_principal),
+    principal: Principal = Depends(require_workspace_member("viewer")),
 ):
     return _service(request, session).list_projects(principal.user_id, workspace_id)
 
@@ -253,12 +279,12 @@ def add_project_member(
     body: AddMemberBody,
     request: Request,
     session: Session = Depends(get_session),
-    principal: Principal = Depends(require("admin")),
+    principal: Principal = Depends(require_project_member("admin")),
 ):
-    # project membership is scoped to the active workspace from the token
+    workspace_id = _project_workspace(session, project_id)
     return _handle(
         lambda: _service(request, session).add_project_member(
-            principal.workspace_id, project_id, body.email, body.role
+            workspace_id, project_id, body.email, body.role
         )
     )
 
@@ -268,9 +294,10 @@ def list_project_members(
     project_id: str,
     request: Request,
     session: Session = Depends(get_session),
-    principal: Principal = Depends(current_principal),
+    principal: Principal = Depends(require_project_member("viewer")),
 ):
-    return _service(request, session).list_project_members(project_id)
+    workspace_id = _project_workspace(session, project_id)
+    return _service(request, session).list_project_members(workspace_id, project_id)
 
 
 @router.post("/invitations")

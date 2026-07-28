@@ -54,10 +54,23 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.flake8-bugbear]
 # FastAPI dependency-injection idiom: these calls in argument defaults are intentional.
-extend-immutable-calls = ["fastapi.Depends", "fastapi.Header", "fastapi.File", "app.core.deps.require"]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Header",
+    "fastapi.File",
+    "app.core.deps.require",
+    "app.modules.auth.deps.require_workspace_member",
+    "app.modules.auth.deps.require_project_member",
+]
 
 [tool.ruff.lint.per-file-ignores]
 "migrations/*" = ["E501"]  # Alembic column definitions read better unwrapped
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "postgres: requires a real PostgreSQL server (RLS isolation tests, R-001 §B)",
+]
+# Excluded by default so the SQLite-only dev/CI job doesn't need Postgres; the
+# dedicated backend-postgres CI job overrides this with -m postgres.
+addopts = "-m 'not postgres'"

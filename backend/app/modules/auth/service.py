@@ -4,12 +4,15 @@ session. This is the only place that touches auth tables."""
 from __future__ import annotations
 
 import json
+import logging
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
+from app.core.db import bind_user_context, bind_workspace_context
 from app.modules.auth import mfa
 from app.modules.auth import refresh as rf
 from app.modules.auth import security as sec
@@ -25,6 +28,20 @@ from app.modules.auth.models import (
     WorkspaceMember,
 )
 from app.modules.auth.rbac import ROLES
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class _MailMessage:
+    """Minimal shape a notifications.sender capability expects. Defined locally
+    (not imported from app.modules.notifications) so auth never imports another
+    module — cross-module calls go through the registry only (CLAUDE.md §2)."""
+
+    channel: str
+    to: str
+    subject: str
+    body: str
 
 
 class AuthError(Exception):
@@ -42,12 +59,43 @@ class AuthService:
         access_ttl_min=15,
         refresh_ttl_days=30,
         apple_client: AppleClient | None = None,
+        echo_tokens: bool = False,
+        notifier=None,
+        app_url: str = "",
     ):
         self.s = session
         self.keys = keys
         self.access_ttl = timedelta(minutes=access_ttl_min)
         self.refresh_ttl = timedelta(days=refresh_ttl_days)
         self._apple = apple_client
+        # DEV/TEST ONLY — see core/config.py Settings.dev_echo_tokens (R-002 §A).
+        self._echo_tokens = echo_tokens
+        self._notifier = notifier
+        self._app_url = app_url.rstrip("/")
+
+    def _notify(self, *, channel: str, to: str, subject: str, body: str) -> None:
+        if self._notifier is None:
+            logger.warning("no notifications sender available — %r to %s not sent", subject, to)
+            return
+        self._notifier.send(_MailMessage(channel=channel, to=to, subject=subject, body=body))
+
+    def _create_workspace_and_owner(self, user_id, name: str, country: str) -> Workspace:
+        """Insert a new Workspace + its owner WorkspaceMember row.
+
+        A brand-new workspace does not exist yet in current_setting('app.workspace_id'),
+        so with RLS FORCE + WITH CHECK enabled (R-001 §B) an INSERT into workspaces
+        or workspace_members would otherwise be rejected — there is no workspace to
+        bind to until this call generates one. Pre-generating the id client-side
+        and binding to it before the insert satisfies WITH CHECK; every other
+        workspace-creation path (signup, create_workspace, apple_callback) must go
+        through this helper rather than constructing Workspace(...) directly.
+        """
+        workspace = Workspace(id=uuid.uuid4(), owner_id=user_id, name=name, country=country)
+        bind_workspace_context(self.s, workspace.id)
+        self.s.add(workspace)
+        self.s.flush()
+        self.s.add(WorkspaceMember(workspace_id=workspace.id, user_id=user_id, role="owner"))
+        return workspace
 
     # ---- registration -----------------------------------------------------
     def signup(
@@ -59,11 +107,7 @@ class AuthService:
         user = User(email=email, password_hash=sec.hash_password(password))
         self.s.add(user)
         self.s.flush()
-        workspace_name = workspace_name or "Personal"
-        workspace = Workspace(owner_id=user.id, name=workspace_name, country=country)
-        self.s.add(workspace)
-        self.s.flush()
-        self.s.add(WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role="owner"))
+        workspace = self._create_workspace_and_owner(user.id, workspace_name or "Personal", country)
         self.s.commit()
         return {"user_id": str(user.id), "workspace_id": str(workspace.id)}
 
@@ -77,6 +121,12 @@ class AuthService:
             or not sec.verify_password(password, user.password_hash)
         ):
             raise AuthError("invalid_credentials")
+        # login is unauthenticated — no prior authenticate() call bound this
+        # session to anything, so workspace_members' compound RLS policy
+        # (R-001 §B.7) would hide the user's OWN membership row without this:
+        # neither app.workspace_id nor app.user_id is set yet at this point,
+        # and the row is only visible via the user_id branch of that policy.
+        bind_user_context(self.s, user.id)
         member = self.s.scalar(select(WorkspaceMember).where(WorkspaceMember.user_id == user.id))
         if not member:
             if user.is_superadmin:
@@ -107,6 +157,7 @@ class AuthService:
             raise AuthError("invalid_refresh")
         row.used_at = datetime.now(UTC)
         user = self.s.get(User, row.user_id)
+        bind_user_context(self.s, row.user_id)  # unauthenticated entry point — see login()
         member = self.s.scalar(
             select(WorkspaceMember).where(WorkspaceMember.user_id == row.user_id)
         )
@@ -185,10 +236,7 @@ class AuthService:
             workspace_name = self._apple_workspace_name(user_json)
             self.s.add(user)
             self.s.flush()
-            workspace = Workspace(owner_id=user.id, name=workspace_name, country="IN")
-            self.s.add(workspace)
-            self.s.flush()
-            self.s.add(WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role="owner"))
+            self._create_workspace_and_owner(user.id, workspace_name, "IN")
         else:
             if not user.apple_id:
                 user.apple_id = sub
@@ -197,6 +245,11 @@ class AuthService:
             user.email_verified = True
 
         self.s.commit()
+        # Existing-Apple-user sign-in is, like login()/refresh(), an
+        # unauthenticated entry point that may be the first query on this
+        # session — bind so the compound workspace_members policy (R-001 §B.7)
+        # can find the user's own membership row.
+        bind_user_context(self.s, user.id)
         member = self.s.scalar(select(WorkspaceMember).where(WorkspaceMember.user_id == user.id))
         if not member:
             if user.is_superadmin:
@@ -264,10 +317,7 @@ class AuthService:
         user = self.s.get(User, uuid.UUID(str(user_id)))
         if not user:
             raise AuthError("no_such_user")
-        workspace = Workspace(owner_id=user.id, name=name, country=country)
-        self.s.add(workspace)
-        self.s.flush()
-        self.s.add(WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role="owner"))
+        workspace = self._create_workspace_and_owner(user.id, name, country)
         self.s.commit()
         return {"workspace_id": str(workspace.id), "name": workspace.name}
 
@@ -300,6 +350,19 @@ class AuthService:
                 WorkspaceMember.user_id == user.id,
             )
         )
+        if existing and existing.role == "owner" and role != "owner":
+            # The last owner cannot be demoted — that orphans the workspace
+            # (nobody left who can manage billing/members/deletion), R-001 §A.4.
+            owners = self.s.scalar(
+                select(func.count())
+                .select_from(WorkspaceMember)
+                .where(
+                    WorkspaceMember.workspace_id == workspace_id,
+                    WorkspaceMember.role == "owner",
+                )
+            )
+            if owners <= 1:
+                raise AuthError("last_owner")
         if existing:
             existing.role = role
         else:
@@ -381,12 +444,16 @@ class AuthService:
         self.s.commit()
         return {"project_id": str(project_id), "user_id": str(user.id), "role": role}
 
-    def list_project_members(self, project_id) -> list[dict]:
+    def list_project_members(self, workspace_id, project_id) -> list[dict]:
+        workspace_id = uuid.UUID(str(workspace_id))
         project_id = uuid.UUID(str(project_id))
         rows = self.s.execute(
             select(ProjectMember, User)
             .join(User, ProjectMember.user_id == User.id)
-            .where(ProjectMember.project_id == project_id)
+            .where(
+                ProjectMember.project_id == project_id,
+                ProjectMember.workspace_id == workspace_id,  # defensive: R-001 §A.3
+            )
         ).all()
         return [
             {"user_id": str(user.id), "email": user.email, "role": member.role}
@@ -402,18 +469,29 @@ class AuthService:
         project_uuid = uuid.UUID(str(project_id)) if project_id else None
         token = uuid.uuid4().hex
         expires_at = datetime.now(UTC) + timedelta(days=7)
+        invitee_email = email.strip().lower()
         invitation = Invitation(
             workspace_id=workspace_id,
             project_id=project_uuid,
-            email=email.strip().lower(),
+            email=invitee_email,
             role=role,
             token=token,
             expires_at=expires_at,
         )
         self.s.add(invitation)
         self.s.commit()
-        # TODO: wire email/SMS delivery; for now the token is returned directly.
-        return {"token": token, "expires_at": expires_at.isoformat()}
+        workspace = self.s.get(Workspace, workspace_id)
+        workspace_name = workspace.name if workspace else "a TenderShield workspace"
+        self._notify(
+            channel="email",
+            to=invitee_email,
+            subject=f"You've been invited to {workspace_name}",
+            body=f"{self._app_url}/invitations/{token}\n\nThis invitation expires in 7 days.",
+        )
+        result = {"expires_at": expires_at.isoformat()}
+        if self._echo_tokens:
+            result["token"] = token
+        return result
 
     def accept_invitation(self, user_id, token: str) -> dict:
         user_id = uuid.UUID(str(user_id))
@@ -492,13 +570,30 @@ class AuthService:
         email = email.strip().lower()
         user = self.s.scalar(select(User).where(User.email == email))
         if not user:
+            # Identical response for known and unknown emails — no enumeration.
             return {"ok": True}
+        # Invalidate any outstanding reset so a stale link in an old email
+        # cannot be replayed after a newer one is issued (R-002 §A.3).
+        self.s.execute(
+            update(PasswordReset)
+            .where(PasswordReset.user_id == user.id, PasswordReset.used_at.is_(None))
+            .values(used_at=datetime.now(UTC))
+        )
         raw, token_hash = rf.new_refresh()
         expires_at = datetime.now(UTC) + timedelta(minutes=15)
         self.s.add(PasswordReset(user_id=user.id, token_hash=token_hash, expires_at=expires_at))
         self.s.commit()
-        # TODO: wire email delivery; return token for dev/test until delivery exists
-        return {"ok": True, "token": raw}
+        self._notify(
+            channel="email",
+            to=user.email,
+            subject="Reset your TenderShield password",
+            body=(
+                f"{self._app_url}/reset-password?token={raw}\n\n"
+                "This link expires in 15 minutes. If you didn't ask for this, ignore this email."
+            ),
+        )
+        # Returned only in dev/test — see Settings.dev_echo_tokens (R-002 §A).
+        return {"ok": True, "token": raw} if self._echo_tokens else {"ok": True}
 
     def reset_password(self, token: str, new_password: str) -> dict:
         if len(new_password) < 8:
@@ -520,8 +615,19 @@ class AuthService:
             raise AuthError("no_such_user")
         user.password_hash = sec.hash_password(new_password)
         row.used_at = datetime.now(UTC)
+        # A password reset must invalidate every session an attacker (or the
+        # victim, on another device) might be holding — otherwise a stolen
+        # session survives the exact action meant to kill it (TS-093, R-002 §B).
+        self._revoke_all_sessions(user.id)
         self.s.commit()
         return {"ok": True}
+
+    def _revoke_all_sessions(self, user_id) -> None:
+        self.s.execute(
+            update(RefreshToken)
+            .where(RefreshToken.user_id == uuid.UUID(str(user_id)), RefreshToken.revoked.is_(False))
+            .values(revoked=True)
+        )
 
     # ---- super-admin -------------------------------------------------------
     def list_users(self) -> list[dict]:

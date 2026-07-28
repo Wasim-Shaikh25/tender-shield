@@ -27,10 +27,17 @@ def test_org_scoped_table_registered_for_rls():
 
 
 def test_rls_statements_shape():
+    # R-001 §B / TS-086: FORCE (owner bypass would otherwise make the policy
+    # inert) and WITH CHECK (blocks writing a row into another workspace) are
+    # both required, not just USING.
     stmts = rls_statements("findings")
     assert stmts[0] == "ALTER TABLE findings ENABLE ROW LEVEL SECURITY"
-    assert "current_setting('app.workspace_id')::uuid" in stmts[1]
-    assert "CREATE POLICY workspace_isolation ON findings" in stmts[1]
+    assert stmts[1] == "ALTER TABLE findings FORCE ROW LEVEL SECURITY"
+    assert stmts[2] == "DROP POLICY IF EXISTS workspace_isolation ON findings"
+    assert "CREATE POLICY workspace_isolation ON findings" in stmts[3]
+    predicate = "workspace_id = NULLIF(current_setting('app.workspace_id', true), '')::uuid"
+    assert f"USING ({predicate})" in stmts[3]
+    assert f"WITH CHECK ({predicate})" in stmts[3]
 
 
 def test_session_roundtrip_on_sqlite():

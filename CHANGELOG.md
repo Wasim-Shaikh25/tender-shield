@@ -6,6 +6,89 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-28 (Gate 1 security fixes: TS-084, TS-085, TS-086, TS-093)
+
+Implementation of the first four Gate 1 tasks from `tasks/gap_remediation_tracker.md`,
+validated against **real PostgreSQL** (not just SQLite) — a local Postgres 16
+server was provisioned specifically to exercise the RLS isolation guarantee,
+which had never been tested against a real database before this session.
+
+- **TS-084** — Membership authorization on every workspace/project path-scoped
+  route. New `require_workspace_member(min_role)` / `require_project_member(min_role)`
+  guards in `auth/deps.py` verify the caller's real membership of the workspace
+  named in the URL (not the token's active workspace) before
+  `GET/POST /workspaces/{id}/members`, `POST/GET /workspaces/{id}/projects`,
+  and `GET/POST /projects/{id}/members` do anything; non-members get `404`
+  (not `403`, so existence isn't disclosed). Also closes a real privilege
+  escalation: an admin of workspace A could previously add themselves as
+  `owner` of workspace B by posting to `/workspaces/{B}/members`. Added a
+  last-owner guard (`add_workspace_member` now refuses to demote the sole
+  remaining owner, `400 last_owner`) and fixed `list_project_members` to
+  filter by workspace defensively.
+- **TS-085** — `forgot_password`/`create_invitation` no longer echo raw tokens
+  by default. New `TS_DEV_ECHO_TOKENS` setting (default `false`); app startup
+  raises if it's `true` while `TS_ENV=production`. Both flows now also deliver
+  via the `notifications.sender` capability (resolved by name — auth never
+  imports notifications) when one is configured. `forgot_password` additionally
+  invalidates any prior outstanding reset token for the user.
+- **TS-093** — `reset_password` now revokes every refresh-token family for the
+  user in the same transaction as the password change, so a session held
+  before the reset (attacker's or the user's own other device) doesn't survive
+  it. Session-list/logout-all endpoints deferred to TS-103 (need a UI to be
+  worth shipping).
+- **TS-086** — RLS actually isolates now. `FORCE ROW LEVEL SECURITY` (without
+  it, PostgreSQL exempts the table *owner* from RLS, and the app connects as
+  the owner in every deployment — the original policy was inert) and
+  `WITH CHECK` (the original policy only filtered reads; a write could still
+  place a row in another workspace) on every workspace-scoped table, plus
+  `workspaces`/`workspace_members`/`project_members`, which were silently
+  absent from RLS entirely (`WorkspaceScopedMixin` never covered them). New
+  migration `ae76edba3a7a`.
+  - **Four real bugs found by testing against real Postgres**, not by reading
+    the code (documented as an erratum at the top of
+    `specs/requirements/R-001-tenant-isolation.md`, since the original draft
+    got all four wrong): (1) `SET LOCAL app.workspace_id = :param` is a
+    PostgreSQL syntax error — `SET` only accepts a literal; fixed with
+    `set_config(...)`. (2) SQLAlchemy's `after_commit` event cannot emit SQL
+    (the session has no active transaction when it fires) — the rebinding
+    listener that survives mid-request commits now uses `after_begin`
+    instead. (3) A plain single-workspace RLS predicate on
+    `workspaces`/`workspace_members` breaks `list_workspaces`, which must
+    show a user every workspace they belong to — fixed with a compound
+    predicate (bound workspace OR the caller's own row), backed by a new
+    session-scoped GUC `app.user_id`. (4) That in turn broke `login`,
+    `refresh`, and Apple sign-in's existing-user branch, which are
+    unauthenticated entry points where `authenticate()` never runs — each now
+    binds `app.user_id` explicitly before its first `WorkspaceMember` query.
+    Workspace **creation** (`signup`, `create_workspace`, Apple sign-in) was
+    unified behind one helper, `AuthService._create_workspace_and_owner`,
+    which binds to the new workspace's own pre-generated id before inserting
+    it (there's no workspace to bind to until that insert creates one).
+  - Also found and fixed only by testing against a **non-superuser** Postgres
+    role: a superuser bypasses RLS regardless of `FORCE`, which would have
+    made the whole isolation test suite pass vacuously.
+  - New `tests/test_rls_postgres.py` (9 tests, `@pytest.mark.postgres`) is the
+    only place in the repo this guarantee is exercised — `bind_workspace_context`
+    is a documented no-op on SQLite, so it was never tested before. Wired into
+    CI as a new `backend-postgres` job (`.github/workflows/ci.yml`) with its
+    own Postgres 16 service container and two databases (one for the
+    migration up/down check, one dedicated to the RLS test's own minimal
+    schema — sharing one database broke the test's `drop_all` against tables
+    the test file doesn't import models for).
+- Updated `specs/modules/auth.md` (B5, new B12–B15) and `specs/data-model.md`
+  (B1, foundation section, acceptance criteria) to match.
+- 152 SQLite tests + 9 Postgres tests pass; `ruff check` clean; `alembic
+  upgrade head`/`downgrade base` clean on both SQLite and Postgres.
+
+### Next
+
+- **TS-094, TS-095** — the two remaining Gate 1 tasks: rate limiting/lockout on
+  auth endpoints, and streaming uploads with a real size cap (currently
+  buffered fully in memory before the check).
+- **Gate 2, starting with TS-087/TS-088** — enforce metering in the review
+  path and apply the free-tier watermark; nothing else in billing has value
+  until those two ship.
+
 ### Done — 2026-07-28 (whole-project gap analysis: TS-083)
 
 - **TS-083** — Read-only audit of the entire project (business model, monetization,

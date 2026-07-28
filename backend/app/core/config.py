@@ -10,6 +10,20 @@ class Settings(BaseSettings):
     # PostgreSQL 16 in all deployed environments; SQLite only for local tests.
     database_url: str = "sqlite:///./tendershield.db"
 
+    # DEV/TEST ONLY. Returns password-reset / invitation tokens directly in the
+    # HTTP response so local flows work without an email provider wired up.
+    # Enabling this in production is unauthenticated account takeover — anyone
+    # who knows a user's email can read the reset token from the response and
+    # take the account (R-002 §A). Startup refuses env=production + this true.
+    dev_echo_tokens: bool = False
+
+    def model_post_init(self, __context) -> None:
+        if self.env == "production" and self.dev_echo_tokens:
+            raise ValueError(
+                "TS_DEV_ECHO_TOKENS must be false when TS_ENV=production — it "
+                "returns password-reset/invitation tokens to unauthenticated callers"
+            )
+
     # Uploaded-file storage root (LocalStorage in dev; S3 in prod, Doc §11.2).
     storage_dir: str = "./.tender_storage"
 
@@ -26,6 +40,10 @@ class Settings(BaseSettings):
 
     # CORS: comma-separated allowed origins for the browser SPA ("*" in dev).
     cors_origins: str = "*"
+
+    # Base URL of the frontend SPA, used to build links in transactional email
+    # (password reset, invitations).
+    app_url: str = "http://localhost:3000"
 
     # Billing (Doc §7, §15). Webhook secret verifies the only billing truth.
     razorpay_webhook_secret: str = "dev-razorpay-secret"

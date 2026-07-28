@@ -148,16 +148,16 @@ Analysis: `docs/GAP_ANALYSIS.md` · Requirements: `specs/requirements/R-0xx-*.md
 
 | ID | Task | Severity | Gap ref | Requirement | Status |
 |---|---|---|---|---|---|
-| TS-084 | Membership checks on `GET/POST /workspaces/{id}/members` and `GET /projects/{id}/members` — currently any authenticated user can read/escalate cross-workspace | P0 | §1.1–§1.3 | R-001 §A | todo |
-| TS-085 | Gate the dev token echo in `forgot_password` / `create_invitation` behind a dev-only setting; fail startup if on in production | P0 | §1.5 | R-002 §A | todo |
-| TS-086 | RLS hardening: `FORCE ROW LEVEL SECURITY`, `WITH CHECK`, add `workspaces`/`workspace_members`/`project_members` to `WORKSPACE_SCOPED_TABLES`, Postgres CI job with a cross-tenant test | P0 | §1.4 | R-001 §B | todo |
+| TS-084 | Membership checks on `GET/POST /workspaces/{id}/members` and `GET /projects/{id}/members` — currently any authenticated user can read/escalate cross-workspace | P0 | §1.1–§1.3 | R-001 §A | done |
+| TS-085 | Gate the dev token echo in `forgot_password` / `create_invitation` behind a dev-only setting; fail startup if on in production | P0 | §1.5 | R-002 §A | done |
+| TS-086 | RLS hardening: `FORCE ROW LEVEL SECURITY`, `WITH CHECK`, `workspaces`/`workspace_members`/`project_members` RLS coverage (compound policy for the first two), Postgres CI job with a cross-tenant test | P0 | §1.4 | R-001 §B | done |
 | TS-087 | Enforce billing metering inside the review path (registry capability), not only in `POST /billing/authorize-review` | P0 | §2.1 | R-004 §A | todo |
 | TS-088 | Apply the free-tier watermark in the export renderer | P0 | §2.2 | R-004 §B | todo |
 | TS-089 | Real Razorpay order/subscription creation; resolve plan+amount server-side, never from webhook `notes` | P0 | §2.3–§2.4 | R-005 §A–B | todo |
 | TS-090 | Coupons/discounts: `coupons` + `coupon_redemptions` tables, checkout validation, referral credits | P1 | §2.5 | R-006 | todo |
 | TS-091 | Billing UI: pricing page, checkout, paywall interstitial, invoice list, usage-vs-quota meter | P0 | §4.1 | R-008 | todo |
 | TS-092 | Persist the refresh token in the frontend session + 401-refresh interceptor (sessions currently die after 15 min) | P0 | §4.2 | R-010 | todo |
-| TS-093 | Revoke refresh-token families on password reset | P1 | §1.6 | R-002 §B | todo |
+| TS-093 | Revoke refresh-token families on password reset | P1 | §1.6 | R-002 §B | done |
 | TS-094 | Rate limiting / lockout on login, signup, forgot-password, reset-password | P1 | §1.8 | R-002 §C | todo |
 | TS-095 | Stream uploads to disk and enforce the size cap before buffering (2 GB is read into RAM today) | P1 | §1.9 | R-003 | todo |
 | TS-096 | Wire `billing/gst.py` into `create_invoice`: tax columns, buyer GSTIN, statutory FY series, PDF invoice | P1 | §2.6 | R-007 | todo |

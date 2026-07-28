@@ -1,11 +1,62 @@
 # R-001 — Tenant isolation: membership authorization + working RLS
 
-**Status:** draft
+**Status:** implemented (TS-084, TS-086 both done — see erratum below for
+where the shipped implementation differs from this draft)
 **Severity:** P0 — cross-tenant data leak and privilege escalation
 **Requirement refs:** Doc §3.2, §5; `CLAUDE.md` §4 ("cross-tenant leakage is company-ending")
 **Task refs:** TS-084 (authorization), TS-086 (RLS)
 **Gap refs:** `docs/GAP_ANALYSIS.md` §1.1–§1.4
-**Specs to update in the same change:** `specs/modules/auth.md`, `specs/data-model.md`
+**Specs updated:** `specs/modules/auth.md`, `specs/data-model.md`
+
+## Erratum — three things the implementation found that this draft didn't anticipate
+
+Found by testing against a real (non-superuser) PostgreSQL role rather than
+trusting the design on paper. Each is a real bug that would have shipped if
+the §B code below had been implemented literally.
+
+1. **`SET LOCAL app.workspace_id = :param` is a PostgreSQL syntax error.**
+   `SET` only accepts a literal, never a bind parameter. Every code sample in
+   §B.5/§B.6 below using this form is wrong. The shipped fix uses
+   `set_config('app.workspace_id', :workspace_id, true)` — a normal function
+   call, which does accept parameters, with `is_local=true` giving the same
+   transaction-scoped lifetime as `SET LOCAL`.
+2. **`after_commit` cannot emit SQL.** §B.5's rebinding listener as drafted
+   uses `event.listens_for(session_factory, "after_commit")` and calls
+   `session.execute(...)` from inside it — SQLAlchemy's own docs say the
+   session has no active transaction when `after_commit` fires. It raises
+   `"session is in 'committed' state"`. The shipped fix uses `after_begin`
+   instead, which is the documented hook for populating per-transaction
+   session state and fires exactly when a new transaction starts (i.e.
+   immediately after the prior one committed).
+3. **A plain single-workspace predicate on `workspaces`/`workspace_members`
+   breaks `list_workspaces`.** This draft's §B.3 gives both tables the same
+   `workspace_id = bound` predicate as every other table. That's wrong for
+   these two specifically: a user's own workspace memberships legitimately
+   span *multiple* workspaces, and `list_workspaces` must show all of them —
+   not just whichever one happens to be bound to the current session. The
+   shipped fix uses a compound predicate on both tables (bound workspace OR
+   the caller's own row/membership — see `workspaces_rls_statements` /
+   `workspace_members_rls_statements` in `app/core/db.py`), backed by a second
+   session-scoped GUC, `app.user_id`, bound once per request at
+   `authenticate()`. This in turn exposed a fourth issue: `login`, `refresh`,
+   and Apple sign-in's existing-user branch are unauthenticated entry
+   points — `authenticate()` never runs for them — so each now binds
+   `app.user_id` explicitly before its first `WorkspaceMember` query, and
+   every workspace-creation path (`signup`, `create_workspace`, Apple
+   sign-in's new-user branch) goes through one helper,
+   `AuthService._create_workspace_and_owner`, which binds `app.workspace_id`
+   to the new workspace's own pre-generated id before inserting it — there is
+   no workspace to bind to until that insert creates one, so `WITH CHECK`
+   would otherwise reject workspace creation entirely.
+
+All four are covered by `tests/test_rls_postgres.py` (9 tests) and validated
+against a real, non-superuser PostgreSQL role — a superuser bypasses RLS
+regardless of `FORCE`, which would have made the whole test suite pass
+vacuously against a misconfigured role.
+
+The rest of this document is the original design; read it with the erratum in
+mind — the numbered predicates in §B.5 below are the intent, and `app/core/db.py`
+is the corrected, shipped implementation.
 
 ## Purpose
 

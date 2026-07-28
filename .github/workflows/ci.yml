@@ -30,6 +30,60 @@ jobs:
           alembic upgrade head
           alembic downgrade base
 
+  backend-postgres:
+    # RLS isolation cannot be exercised on SQLite (bind_workspace_context is a
+    # documented no-op there — see app/core/db.py). This job is the only place
+    # the R-001 §B / TS-086 isolation guarantee is actually checked, against a
+    # real PostgreSQL server with FORCE ROW LEVEL SECURITY live.
+    #
+    # Two databases, deliberately: tendershield_migrate verifies the full
+    # alembic chain (every module's tables/FKs) up/down cleanly; tendershield_rls
+    # is owned entirely by test_rls_postgres.py, which builds its own minimal
+    # schema for just the tables it exercises. Sharing one database made the
+    # test's Base.metadata.drop_all fail — it only imports auth/ingestion
+    # models, so it doesn't know about the FKs other modules' tables (findings,
+    # artifacts, baselines, ...) hold against opportunities once the full
+    # migration has run.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: tendershield
+          POSTGRES_PASSWORD: tendershield
+          POSTGRES_DB: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports: ["5432:5432"]
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install
+        run: pip install -e ".[dev]" "psycopg[binary]"
+      - name: Create test databases
+        run: |
+          PGPASSWORD=tendershield psql -h localhost -U tendershield -d postgres -c "CREATE DATABASE tendershield_migrate"
+          PGPASSWORD=tendershield psql -h localhost -U tendershield -d postgres -c "CREATE DATABASE tendershield_rls"
+      - name: Migrate full schema (Postgres) — up then down
+        env:
+          TS_DATABASE_URL: postgresql+psycopg://tendershield:tendershield@localhost:5432/tendershield_migrate
+        run: |
+          alembic upgrade head
+          alembic downgrade base
+      - name: RLS isolation tests
+        env:
+          TS_TEST_DATABASE_URL: postgresql+psycopg://tendershield:tendershield@localhost:5432/tendershield_rls
+        run: pytest -q -m postgres tests/test_rls_postgres.py
+
   frontend:
     runs-on: ubuntu-latest
     defaults:

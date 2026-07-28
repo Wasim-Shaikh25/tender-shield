@@ -33,15 +33,34 @@ work that removes three cross-tenant leaks and an account-takeover path.
 
 | ID | Task | Sev | Req | Module(s) | Status | Acceptance gate |
 |---|---|---|---|---|---|---|
-| TS-084 | Membership authorization on all path-scoped workspace/project routes | P0 | [R-001 §A](../specs/requirements/R-001-tenant-isolation.md) | `auth` | todo | A1–A3, A7 in R-001 |
-| TS-085 | Gate the dev token echo (`forgot_password`, `create_invitation`) behind a dev-only setting; production startup refuses it | P0 | [R-002 §A](../specs/requirements/R-002-auth-hardening.md) | `auth`, `core` | todo | A1–A3 in R-002 |
-| TS-086 | RLS hardening: `FORCE`, `WITH CHECK`, missing tables, post-commit rebinding, Postgres CI job | P0 | [R-001 §B](../specs/requirements/R-001-tenant-isolation.md) | `core`, migrations, CI | todo | A4–A6, A8 in R-001 |
-| TS-093 | Revoke all refresh-token families on password reset; session list + logout-all | P1 | [R-002 §B](../specs/requirements/R-002-auth-hardening.md) | `auth` | todo | A4 in R-002 |
+| TS-084 | Membership authorization on all path-scoped workspace/project routes | P0 | [R-001 §A](../specs/requirements/R-001-tenant-isolation.md) | `auth` | **done** | A1–A3, A7 in R-001 |
+| TS-085 | Gate the dev token echo (`forgot_password`, `create_invitation`) behind a dev-only setting; production startup refuses it | P0 | [R-002 §A](../specs/requirements/R-002-auth-hardening.md) | `auth`, `core` | **done** | A1–A3 in R-002 |
+| TS-086 | RLS hardening: `FORCE`, `WITH CHECK`, missing tables, post-commit rebinding, Postgres CI job | P0 | [R-001 §B](../specs/requirements/R-001-tenant-isolation.md) | `core`, migrations, CI | **done**² | A4–A6, A8 in R-001 |
+| TS-093 | Revoke all refresh-token families on password reset | P1 | [R-002 §B](../specs/requirements/R-002-auth-hardening.md) | `auth` | **done**¹ | A4 in R-002 |
 | TS-094 | Rate limiting on auth endpoints + capped per-account lockout | P1 | [R-002 §C](../specs/requirements/R-002-auth-hardening.md) | `core`, `auth` | todo | A5, A6 in R-002 |
 | TS-095 | Stream uploads; enforce size cap before buffering; type allowlist; ZIP guards; storage quota | P1 | [R-003](../specs/requirements/R-003-upload-safety.md) | `ingestion` | todo | A1–A6 in R-003 |
 
+¹ TS-093 ships the revoke-on-reset behavior (R-002 §B.2, acceptance A4). The
+session-list/logout-all endpoints (R-002 §B.3 — `GET /auth/sessions`,
+`DELETE /auth/sessions/{family}`, `POST /auth/logout-all`) are deferred to
+TS-103 (account UI), since they need a UI to be worth shipping and are naturally
+built alongside the security settings page.
+
+² TS-086's implementation diverged from the R-001 §B draft in four ways, all
+found by testing against a real (non-superuser) PostgreSQL role rather than
+trusting the design on paper — see the erratum at the top of
+[R-001](../specs/requirements/R-001-tenant-isolation.md): `SET LOCAL` with a
+bind parameter is a syntax error (fixed with `set_config`), `after_commit`
+cannot emit SQL (fixed with `after_begin`), and `workspaces`/`workspace_members`
+need a compound predicate or `list_workspaces` breaks (which in turn required
+binding a second GUC, `app.user_id`, and fixing `login`/`refresh`/Apple
+sign-in — all unauthenticated entry points — to bind it explicitly). New test
+file `tests/test_rls_postgres.py` (9 tests) is the only place in the repo the
+isolation guarantee is actually exercised; wired into CI as the
+`backend-postgres` job.
+
 **Gate 1 exit:** all six done; the Postgres CI job is green; a cross-tenant read
-attempt is covered by an automated test.
+attempt is covered by an automated test. Remaining: TS-094, TS-095.
 
 ---
 
@@ -77,7 +96,7 @@ and export without a watermark — end to end, through the UI.
 | TS-092 | Persist + rotate refresh tokens; single-flight refresh; 401 retry; typed errors; route guards | P0 | [R-010](../specs/requirements/R-010-frontend-session.md) | frontend | todo | A1–A10 in R-010 |
 | TS-100 | Workspace switching: deterministic default, switch endpoint, UI switcher | P1 | [R-011](../specs/requirements/R-011-workspace-switching.md) | `auth`, frontend | todo | A1–A8 in R-011 |
 | TS-102 | Portfolio dashboard: cross-tender deadline wall, attention, pipeline, usage | P1 | [R-012](../specs/requirements/R-012-dashboard.md) | `analytics`, `ingestion`, frontend | todo | A1–A9 in R-012 |
-| TS-103 | Account UI: invitation accept, members, MFA, workspace/profile settings, admin console, audit viewer | P1 | [R-013](../specs/requirements/R-013-account-ui.md) | frontend | todo | A1–A11 in R-013 |
+| TS-103 | Account UI: invitation accept, members, MFA, workspace/profile settings, admin console, audit viewer, session list + logout-all (deferred from TS-093) | P1 | [R-013](../specs/requirements/R-013-account-ui.md) | `auth`, frontend | todo | A1–A11 in R-013 |
 | TS-099 | Email verification, delivery adapters, disposable-email blocklist, canonical-email abuse counting | P1 | [R-015](../specs/requirements/R-015-email-verification.md) | `auth`, `notifications` | todo | A1–A11 in R-015 |
 | TS-101 | Enforce MFA at login: challenge tokens, replay guard, re-auth on re-enroll, recovery codes | P1 | [R-002 §D](../specs/requirements/R-002-auth-hardening.md) | `auth` | todo | A7–A11 in R-002 |
 | TS-104 | Design system, error copy table, `/signup` route, a11y pass, frontend test stack | P2 | [R-014](../specs/requirements/R-014-design-system.md) | frontend | todo | A1–A10 in R-014 |
@@ -147,8 +166,8 @@ measured from production data.
 
 | Gate | Done | Total |
 |---|---|---|
-| 1 | 0 | 6 |
+| 1 | 4 | 6 |
 | 2 | 0 | 8 |
 | 3 | 0 | 7 |
 | 4 | 0 | 5 |
-| **Total** | **0** | **26** |
+| **Total** | **4** | **26** |

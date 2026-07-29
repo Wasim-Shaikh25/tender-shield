@@ -6,9 +6,9 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
-### Done — 2026-07-29 (production readiness audit fixes: TS-083 in progress)
+### Done — 2026-07-29 (production readiness audit fixes: TS-083)
 
-- **TS-083** — Production security hardening (in progress):
+- **TS-083** — Production security hardening:
   - `Settings` now uses `SecretStr` for all secrets and adds `TS_ENV`, `TS_ALLOWED_HOSTS`,
     `TS_CORS_ORIGINS` enforcement, `TS_STORAGE_TYPE`/`s3_*`, and `TS_REDIS_URL`.
   - `create_app` validates production settings: no default Razorpay webhook secret,

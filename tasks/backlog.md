@@ -152,7 +152,7 @@ staying inside the tender-review domain. Full requirements and tracker:
 
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
-| TS-083 | Security hardening: CORS restrictions, security headers, default-secret guard, rate limiting, public health split | audit F01/F02/F08/F10/F23 | `specs/900-production-readiness-audit-fixes.md`, `specs/modules/core.md`, `specs/modules/health.md` | in-progress |
+| TS-083 | Security hardening: CORS restrictions, security headers, default-secret guard, rate limiting, public health split | audit F01/F02/F08/F10/F23 | `specs/900-production-readiness-audit-fixes.md`, `specs/modules/core.md`, `specs/modules/health.md` | done |
 | TS-084 | Auth session/MFA: httpOnly refresh cookies, MFA enforcement at login, password policy + lockout | audit F04/F05/F22 | `specs/900-production-readiness-audit-fixes.md`, `specs/modules/auth.md` | todo |
 | TS-085 | Workspace/tenant: multi-workspace selection and switcher | audit F06 | `specs/900-production-readiness-audit-fixes.md`, `specs/modules/auth.md` | todo |
 | TS-086 | File upload/storage: MIME/magic/size validation, S3 adapter, virus-scan stub, BOQ size cap | audit F09/F11/F20 | `specs/900-production-readiness-audit-fixes.md`, `specs/modules/ingestion.md`, `specs/modules/boq.md` | todo |

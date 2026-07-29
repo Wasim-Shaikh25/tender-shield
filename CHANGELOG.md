@@ -2,7 +2,11 @@
 
 All notable changes to TenderShield. Updated **every session** with what was
 done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
-[Keep a Changelog](https://keepachangelog.com/); task IDs reference `tasks/backlog.md`.
+[Keep a Changelog](https://keepachangelog.com/); task IDs reference
+`tasks/TRACKER.md` (the master tracker — see its intro for the four tracker
+files it consolidated). Historical entries below that reference the old
+`tasks/backlog.md`/`gap_remediation_tracker.md`/etc. are left as written —
+they're a record of what was true in that session, not updated in place.
 
 ## [Unreleased]
 

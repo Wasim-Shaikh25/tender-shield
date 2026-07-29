@@ -6,6 +6,9 @@ alwaysApply: false
 
 # Specs (`specs/`)
 
+- `specs/SYSTEM.md` is the living entry point: business goal, architecture
+  overview, a module index and a requirement index, each with current
+  status. Update it when a change shifts a module's or requirement's status.
 - One spec per module at `specs/modules/<name>.md`; product-level specs at `specs/`.
 - Use the template in `specs/README.md`: Purpose · Requirement refs · Public interface
   (capabilities, events, API routes) · Data owned · Behavior · Acceptance criteria ·
@@ -14,11 +17,31 @@ alwaysApply: false
   (`docs/TenderShield_Full_Build_Doc.md`). Anything beyond the doc is marked
   `assumption:`.
 - Specs and code must never contradict; fix the mismatch in the same change.
+- Requirement docs (`specs/requirements/R-0xx-*.md`) stay business/behavior-level —
+  Purpose, target behavior, acceptance criteria — and name which task(s) implement
+  them. Code-level detail (snippets, `file:line`, files touched) belongs in the
+  task's own file (see below), not blended into the requirement doc.
 
-# Tasks (`tasks/backlog.md`)
+# Tasks (`tasks/TRACKER.md` + `tasks/specs/`)
 
+- **One master tracker: `tasks/TRACKER.md`.** Every task ever created gets exactly
+  one row there, sectioned by phase/gate. This replaced four separate tracker files
+  (`backlog.md`, `gap_remediation_tracker.md`, `phase15_tracker.md`,
+  `spec_audit_tracker.md`), which are now stubs pointing here — do not create a new
+  tracker file; add a section to this one instead.
+- **One task file per task: `tasks/specs/TS-###-<slug>.md`.** Template and
+  conventions in `tasks/specs/README.md`. Code-level: current vs. target code with
+  `file:line`, files touched, tests, and the acceptance criteria this task closes.
+  Every task — done or not — gets one, including tasks predating the requirement-doc
+  system (reconstructed from current code + the relevant module spec).
 - IDs are sequential `TS-###`, never reused.
-- Fields: ID, title, phase (P0/P1/…), requirement ref, spec ref, status, notes.
 - Statuses: `todo | in-progress | blocked | done`.
-- Order the backlog by build value (Build Doc §13.5): risk patterns → BOQ engine →
-  clarification letter → billing. Don't pull Phase-2+ tasks before Phase-1 gates pass.
+- A task is not closeable without *both* its tracker row set to `done` *and* its
+  task file completed (code shipped, tests listed, commit hash).
+- Run `python scripts/check_tracker.py` before pushing — it verifies every tracker
+  row's task-file and requirement links resolve, and reports the live done/left
+  count. It fails (exit 1) on a broken link, duplicate ID, or bad status value; a
+  task still missing its file is reported as backlog, not a failure — unless it's
+  the task you were just asked to close.
+- Order new work by build value (Build Doc §13.5) and by the gate structure already
+  in `tasks/TRACKER.md`. Don't pull later-gate tasks ahead of an earlier gate's P0s.

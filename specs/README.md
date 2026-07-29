@@ -5,6 +5,10 @@ Specifications generated from the requirement source of truth,
 contradicts its spec is a defect in one of the two — fix the mismatch in the same
 change (`CLAUDE.md` §1.2).
 
+**Start at [`SYSTEM.md`](SYSTEM.md)** — the living entry point: business goal,
+architecture overview, and a module/requirement index with current status.
+This file is the per-module/per-doc detail SYSTEM.md's index points into.
+
 ## Index
 
 | Spec | Covers | Doc refs |
@@ -15,7 +19,7 @@ change (`CLAUDE.md` §1.2).
 | `frontend.md` | Next.js app structure + UX principles | §9 |
 | `modules/core.md` | Pluggable module framework (registry, events, loader) | §3.1 |
 | `modules/rulepacks.md` | Contract rule-packs: structure, governance, loader | §2, §14 |
-| `modules/auth.md` | AuthN/AuthZ, orgs, RBAC, RLS binding | §5 |
+| `modules/auth.md` | AuthN/AuthZ, workspaces/projects, RBAC, RLS binding | §5 |
 | `modules/ingestion.md` | Upload, classification, deadlines, clause segmentation | §3.3, §6.1–6.2 |
 | `modules/risk.md` | Risk-pattern engine | §6.3 |
 | `modules/boq.md` | Deterministic BOQ engine + scope gaps | §6.4 |
@@ -29,15 +33,25 @@ change (`CLAUDE.md` §1.2).
 | `modules/export.md` | Bid Review Pack export (DOCX/XLSX/PDF) with review gate | §1.1(8), §6.5, §11.4 |
 | `modules/health.md` | Health / module discovery / capabilities endpoint | §11.1 |
 | `modules/notifications.md` | Deadline-digest notification sender abstraction | §11.6, §11.7 |
+| `modules/qualification.md` | Bid eligibility/qualification extraction (Phase 1.5) | Phase 1.5 doc §5 |
+| `modules/timeline.md` | Milestone calendar + `.ics` export (Phase 1.5) | Phase 1.5 doc §5 |
+| `modules/crossref.md` | Cross-document clause search + change detection (Phase 1.5) | Phase 1.5 doc §5 |
+| `modules/comparison.md` | Cross-tender ranking (Phase 1.5) | Phase 1.5 doc §5 |
+| `modules/analytics.md` | Internal accuracy dashboard (Phase 1.5) | Phase 1.5 doc §5 |
 
 ## Requirements (`specs/requirements/`)
 
-Implementation-ready requirement documents (`R-001`…`R-016`) derived from the
-gap analysis (`docs/GAP_ANALYSIS.md`, TS-083). They sit between the build doc
-and the module specs: each cites the code it replaces, gives a reference
-implementation, and carries acceptance criteria that become tests. Index and
-conventions: `specs/requirements/README.md`. Sprint plan:
-`tasks/gap_remediation_tracker.md`.
+Implementation-ready requirement documents (`R-001`…`R-023` and counting)
+derived from two audits: the gap analysis (`docs/GAP_ANALYSIS.md`, TS-083,
+Gates 1–4 — what exists and is defective) and the product-discovery audit
+(`docs/PRODUCT_DISCOVERY_GAPS.md`, TS-126, Gates 5–7 — what was never built
+at all). They sit between the build doc and the module specs: business/
+behavior-level (Purpose, target behavior, acceptance criteria) — code-level
+detail lives in the task file(s) that implement them
+(`tasks/specs/TS-###-*.md`), never blended into the requirement doc itself.
+Index and conventions: `specs/requirements/README.md`. Master tracker (the
+one place to see done vs. left): `tasks/TRACKER.md`, checked by
+`python scripts/check_tracker.py`.
 
 A requirement doc names the module specs it changes; those specs must be updated
 in the same commit as the implementation (`CLAUDE.md` §1.2).

@@ -7,20 +7,28 @@ alwaysApply: true
 
 Follow **Requirement → Task → Spec → Implement → Commit → Changelog**:
 
-1. **Task first.** Before writing code, create/locate a task in `tasks/backlog.md`
-   with an ID (`TS-###`), phase, requirement reference (`Build Doc §N` in
-   `docs/TenderShield_Full_Build_Doc.md`), acceptance criteria, and status
-   (`todo | in-progress | blocked | done`). No code without a task ID.
+1. **Task first.** Before writing code, find or create the task's row in
+   `tasks/TRACKER.md` (the single master tracker — replaces the old `backlog.md`/
+   `gap_remediation_tracker.md`/`phase15_tracker.md`/`spec_audit_tracker.md`, now
+   stubs) **and** its task file at `tasks/specs/TS-###-<slug>.md` (template:
+   `tasks/specs/README.md`) — code-level detail (snippets, `file:line`, files
+   touched, tests) lives there, not in the requirement doc. Every task has an ID
+   (`TS-###`), a requirement reference (an `R-0xx` doc, or `Build Doc §N` for
+   pre-R-doc tasks), and a status (`todo | in-progress | blocked | done`). No code
+   without both a tracker row and a task file.
 2. **Spec before implementation.** New modules/behaviors need a spec in `specs/`
    (template: `specs/README.md`). If behavior diverges from an existing spec, update
-   the spec in the same change.
+   the spec in the same change. `specs/SYSTEM.md` is the living entry point — update
+   its status tables when a change shifts a module's or requirement's status.
 3. **Implement in small increments.** Run tests and `ruff` before committing.
 4. **Commit per logical step**: `<type>(<scope>): <summary>`
    (`feat|fix|docs|spec|chore|test|refactor`), task ID in body (`Task: TS-###`).
 5. **Changelog every session.** Update `CHANGELOG.md` `[Unreleased]` in the same push:
    **Done** (what happened) and **Next** (concrete task IDs). A push without a
    changelog entry is incomplete work.
-6. **Close the loop**: flip the task status in `tasks/backlog.md` in the completing commit.
+6. **Close the loop**: flip the row in `tasks/TRACKER.md` to `done` and finish the
+   task file in the completing commit. Run `python scripts/check_tracker.py` before
+   pushing.
 
 Keep these rules in sync with `CLAUDE.md` and `.devin/rules/` — if you edit any
 one, mirror the change in the others.

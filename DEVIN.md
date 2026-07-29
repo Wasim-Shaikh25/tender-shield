@@ -15,14 +15,17 @@ three in sync when editing any of them.
 
 Every piece of work follows **Requirement → Task → Spec → Implement → Commit → Changelog**:
 
-1. **Task first.** Before writing any code, create/locate a task in `tasks/backlog.md`.
-   Every task has an ID (`TS-###`), a phase, a requirement reference (doc section, e.g.
-   `Build Doc §5`), acceptance criteria, and a status
-   (`todo | in-progress | blocked | done`). No code without a task ID.
+1. **Task first.** Before writing any code, find or create the task's row in
+   `tasks/TRACKER.md` (the single master tracker — see §1a) **and** its task file at
+   `tasks/specs/TS-###-<slug>.md` (code-level detail — see §1b). Every task has an ID
+   (`TS-###`), a requirement reference (an `R-0xx` doc, or a Build Doc section for
+   pre-R-doc tasks), and a status (`todo | in-progress | blocked | done`). No code
+   without both a tracker row and a task file.
 2. **Spec before implementation.** Any new module or behavior change needs a spec in
    `specs/` (see §3 below). If a spec exists, update it *in the same change* when
    behavior diverges. Code that contradicts its spec is a bug in one of the two — fix
-   the mismatch, never leave it.
+   the mismatch, never leave it. `specs/SYSTEM.md` is the living entry point — update
+   its module/requirement status tables when a change shifts either.
 3. **Implement in small, verifiable increments.** Run tests/linters before committing.
 4. **Commit per logical step** with a clear message:
    `<type>(<scope>): <summary>` — types: `feat|fix|docs|spec|chore|test|refactor`;
@@ -31,8 +34,27 @@ Every piece of work follows **Requirement → Task → Spec → Implement → Co
 5. **Changelog every session.** Update `CHANGELOG.md` (`[Unreleased]` section) in the
    same push: what was **Done** and what is **Next**. The Next list must name concrete
    task IDs. A push without a changelog entry is incomplete work.
-6. **Close the loop.** Mark the task status in `tasks/backlog.md` in the same commit
-   that completes it.
+6. **Close the loop.** Flip the task's `tasks/TRACKER.md` row to `done` and finish its
+   task file (code shipped, tests listed, commit hash) in the same commit that
+   completes it. Run `python scripts/check_tracker.py` before pushing — it fails the
+   check on a broken link or bad status value; a missing task file for OTHER tasks is
+   reported, not a failure, but yours must exist.
+
+### 1a. `tasks/TRACKER.md` — the one tracker
+
+Single file, sectioned by phase/gate, every `TS-###` task ever created gets exactly
+one row. This replaced four separate tracker files that existed before this rule
+(`backlog.md`, `gap_remediation_tracker.md`, `phase15_tracker.md`,
+`spec_audit_tracker.md` — now stubs pointing here). Do not create a new tracker file;
+add a new section to this one if a new body of work needs organizing.
+
+### 1b. `tasks/specs/TS-###-<slug>.md` — the task file
+
+Code-level: current vs. target code with `file:line`, files touched, tests,
+acceptance criteria this task closes. Template and conventions:
+`tasks/specs/README.md`. This is what makes a task's implementation detail findable
+without re-reading the whole requirement doc it came from, and is where reference
+code snippets live instead of being blended across every task a requirement spans.
 
 ## 2. Module architecture — pluggable, no hard dependencies
 
@@ -58,10 +80,19 @@ pluggable module. This is non-negotiable:
 
 ## 3. Specs (`specs/` folder)
 
+- `specs/SYSTEM.md` is the living entry point: business goal, architecture overview,
+  a module index and a requirement index, each with current status. Read it first;
+  update it when a change shifts a module's or requirement's status.
 - One spec per module: `specs/modules/<name>.md`. Product-level specs in `specs/`.
-- Follow the template in `specs/README.md`: Purpose, Requirement refs, Public
+  Follow the template in `specs/README.md`: Purpose, Requirement refs, Public
   interface (capabilities published, events emitted/consumed, API routes), Data owned,
   Behavior, Acceptance criteria, Out of scope.
+- Requirement docs (`specs/requirements/R-0xx-*.md`) are business/behavior-level —
+  Purpose, target behavior, acceptance criteria — and name which task(s) implement
+  them. Code-level detail (snippets, `file:line`, files touched) lives in the task's
+  own file (`tasks/specs/TS-###-*.md`, §1b), not in the requirement doc — a
+  requirement spanning several tasks (e.g. one doc, four tasks) must not have all
+  four tasks' implementation detail blended into one undifferentiated file.
 - Specs cite the build doc section they derive from. Anything invented beyond the doc
   is marked `assumption:` explicitly.
 

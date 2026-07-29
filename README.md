@@ -8,8 +8,9 @@ letter, assumptions & exclusions register, deadline calendar, Bid Review Pack).
 > **Status:** Phase-1 MVP — the feature engine is functionally complete end-to-end
 > (see the flow below). Not yet production-hardened (real OCR/uploads, Postgres deploy,
 > live payments) and **not yet domain-validated** (needs real tenders + a QS review,
-> Doc §18.3). See `CHANGELOG.md` for what's done / what's next and `tasks/backlog.md`
-> for task-level state.
+> Doc §18.3). See `CHANGELOG.md` for what's done / what's next, `specs/SYSTEM.md`
+> for the living system overview, and `tasks/TRACKER.md` for task-level state
+> (run `python scripts/check_tracker.py` for the checked done/left count).
 
 ## End-to-end flow (all working, through the UI)
 
@@ -26,8 +27,10 @@ quote-verified, and nothing exports until a human reviews it.
 | Path | What it is |
 |---|---|
 | `docs/TenderShield_Full_Build_Doc.md` | The requirement source of truth (build blueprint v1.0) |
-| `specs/` | Specifications — product-level + one per module |
-| `tasks/backlog.md` | Task backlog derived from requirements (`TS-###` IDs) |
+| `specs/SYSTEM.md` | Living entry point: business goal, architecture, module/requirement status |
+| `specs/` | Specifications — product-level + one per module + `requirements/R-0xx-*.md` |
+| `tasks/TRACKER.md` | Master task tracker, one row per `TS-###`; checked by `scripts/check_tracker.py` |
+| `tasks/specs/TS-###-*.md` | Per-task code-level detail (current/target code, files touched, tests) |
 | `CHANGELOG.md` | What's done and what's next, updated every session |
 | `CLAUDE.md`, `.cursor/rules/` | Mandatory workflow + architecture rules for AI assistants |
 | `backend/` | FastAPI modular monolith — pluggable modules, no hard cross-module deps |
@@ -136,6 +139,10 @@ Details in `CLAUDE.md` §1. No code without a task ID; no push without a changel
   `POST /api/boq/opportunities/{id}/upload`.
 - **Still needs live accounts (interfaces built, adapters todo):** Textract (hard
   scanned-table BOQs), tus resumable, Celery/Redis streaming, SES/MSG91 send,
-  Google OIDC + phone OTP, Stripe. See `tasks/backlog.md` TS-033…TS-037.
+  Google OIDC + phone OTP, Stripe. See `tasks/TRACKER.md` TS-033…TS-037.
 - **The real gate (not code):** domain-accuracy validation — 5 real tenders + gold answers
   + a QS review (Doc §18.3/§19.2). Run `scripts/phase0_accuracy_test.py` with a key.
+- **The bigger gap — a customer cannot yet upload their own tender.** The section
+  above describes engine completeness; `docs/PRODUCT_DISCOVERY_GAPS.md` (and
+  `tasks/TRACKER.md` Gates 5–7) covers what was never built at all — starting with
+  the fact that the hardened upload endpoint has no UI.

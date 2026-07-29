@@ -5,7 +5,7 @@
 defective. This audit asks a different question: **what is missing entirely** —
 requirements never written, roles with no workflow, journeys that dead-end,
 capabilities the domain expects that nobody has represented anywhere.
-**Tracked as:** Gates 5–7 in `tasks/gap_remediation_tracker.md`, tasks TS-110…TS-125.
+**Tracked as:** Gates 5–7 in `tasks/TRACKER.md`, tasks TS-110…TS-126.
 
 ---
 

@@ -41,6 +41,18 @@ class Settings(BaseSettings):
     # Billing (Doc §7, §15). Webhook secret verifies the only billing truth.
     # No default is provided so that a missing secret fails production startup.
     razorpay_webhook_secret: SecretStr | None = None
+    razorpay_key_id: str = ""
+    razorpay_key_secret: SecretStr | None = None
+    stripe_secret_key: SecretStr | None = None
+    stripe_publishable_key: str = ""
+
+    # Notifications (Doc §11.6/§11.7). SES/MSG91 are gated by credentials.
+    email_from: str = ""
+    ses_region: str = ""
+    ses_access_key_id: SecretStr | None = None
+    ses_secret_access_key: SecretStr | None = None
+    msg91_auth_key: SecretStr | None = None
+    msg91_sender_id: str = ""
 
     # Sign in with Apple (Doc §5). PEM private key may contain escaped newlines.
     apple_team_id: str = ""

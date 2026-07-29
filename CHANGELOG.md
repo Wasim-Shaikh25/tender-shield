@@ -68,11 +68,22 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   - Added ESLint config and `lint` / `typecheck` scripts to `frontend/package.json`.
   - Resolved `postcss`/`sharp`/`brace-expansion` npm audit warnings via `overrides`.
 
+### Done — 2026-07-29 (production readiness audit fixes: TS-091)
+
+- **TS-091** — Notification/payment adapter skeletons:
+  - Added `app.modules.notifications.adapters` with `SesSender` and `Msg91Sender`
+    that fall back to console logging when credentials are absent.
+  - Added `app.modules.billing.providers` with `RazorpayProvider` and `StripeProvider`
+    that return mock handles without live keys.
+  - Added `app.core.scheduler` (APScheduler optional) and wired it into `create_app`
+    lifespan; `notifications` registers a daily digest stub job.
+  - Added provider/notification settings to `app.core.config`.
+  - Added `billing` and `scheduler` optional extras to `pyproject.toml`.
+
 ### Next
 
 - TS-085 — Workspace switcher frontend and backend polish.
 - TS-088 — Frontend cleanup (remove demo data), workspace switcher, billing/admin pages.
-- TS-091 — Notification/payment adapter skeletons (credential-gated).
 - TS-092 — Admin console and analytics UI.
 
 ### Done — 2026-07-26 (real web validation + invitation fix: TS-080..TS-081)

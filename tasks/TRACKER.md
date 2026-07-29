@@ -141,19 +141,19 @@ Full sprint narrative preserved below under "Phase 1.5 sprint detail."
 
 | ID | Title | Requirement | Task file | Module(s) | Sev | Status |
 |---|---|---|---|---|---|---|
-| TS-058 | Spec: `findings` module (shared findings store, `Finding` contract, review columns) | spec audit | — | `findings` | P1 | done |
-| TS-059 | Spec: `export` module (Bid Review Pack DOCX/XLSX/PDF renderer, review gate, watermark) | spec audit; Doc §1.1(8), §6.5 | — | `export` | P1 | done |
-| TS-060 | Spec: `health` module (health/capabilities endpoint, module load report) | spec audit; Doc §11.1 | — | `health` | P1 | done |
-| TS-061 | Spec: `notifications` module (digest sender abstraction, dev console adapter) | spec audit; Doc §11.6, §11.7 | — | `notifications` | P1 | done |
-| TS-062 | Publish `analytics.service_factory` and `comparison.service_factory` from their `module.py` files | spec audit | — | `analytics`, `comparison` | P0 | done |
-| TS-063 | Fix route wording in `specs/modules/timeline.md` and `specs/modules/crossref.md` to match implementation | spec audit | — | `timeline`, `crossref` | P0 | done |
-| TS-064 | Align `ingestion` public interface with code: publish `ingestion.service_factory` shape, add `doc_chunks` and `doc_text` | spec audit; Doc §3.3, §6.1 | — | `ingestion` | P2 | done |
-| TS-065 | Align `risk` public interface with code | spec audit; Doc §6.3 | — | `risk` | P2 | done |
-| TS-066 | Align `drafting` public interface with code | spec audit; Doc §6.5 | — | `drafting` | P2 | done |
-| TS-067 | Add tests for `export`, `health`, and `notifications` modules | spec audit | — | `export`, `health`, `notifications` | P2 | done |
-| TS-068 | Implement `ingestion.doc_chunks` table and `ingestion.doc_text` capability | spec audit; Doc §3.3 | — | `ingestion` | P2 | done |
-| TS-069 | Implement assistant SSE `/chat` and conversation/session persistence | spec audit; Doc §8 | — | `assistant` | P2 | done |
-| TS-070 | Add billing invoice list and `billing.record_usage` capability | spec audit; Doc §7, §15 | — | `billing` | P2 | done |
+| TS-058 | Spec: `findings` module (shared findings store, `Finding` contract, review columns) | spec audit | [TS-058](specs/TS-058-spec-findings-module.md) | `findings` | P1 | done |
+| TS-059 | Spec: `export` module (Bid Review Pack DOCX/XLSX/PDF renderer, review gate, watermark) | spec audit; Doc §1.1(8), §6.5 | [TS-059](specs/TS-059-spec-export-module.md) | `export` | P1 | done |
+| TS-060 | Spec: `health` module (health/capabilities endpoint, module load report) | spec audit; Doc §11.1 | [TS-060](specs/TS-060-spec-health-module.md) | `health` | P1 | done |
+| TS-061 | Spec: `notifications` module (digest sender abstraction, dev console adapter) | spec audit; Doc §11.6, §11.7 | [TS-061](specs/TS-061-spec-notifications-module.md) | `notifications` | P1 | done |
+| TS-062 | Publish `analytics.service_factory` and `comparison.service_factory` from their `module.py` files | spec audit | [TS-062](specs/TS-062-publish-service-factories.md) | `analytics`, `comparison` | P0 | done |
+| TS-063 | Fix route wording in `specs/modules/timeline.md` and `specs/modules/crossref.md` to match implementation | spec audit | [TS-063](specs/TS-063-fix-spec-route-wording.md) | `timeline`, `crossref` | P0 | done |
+| TS-064 | Align `ingestion` public interface with code: publish `ingestion.service_factory` shape, add `doc_chunks` and `doc_text` | spec audit; Doc §3.3, §6.1 | [TS-064](specs/TS-064-align-ingestion-interface.md) | `ingestion` | P2 | done |
+| TS-065 | Align `risk` public interface with code | spec audit; Doc §6.3 | [TS-065](specs/TS-065-align-risk-interface.md) | `risk` | P2 | done |
+| TS-066 | Align `drafting` public interface with code | spec audit; Doc §6.5 | [TS-066](specs/TS-066-align-drafting-interface.md) | `drafting` | P2 | done |
+| TS-067 | Add tests for `export`, `health`, and `notifications` modules | spec audit | [TS-067](specs/TS-067-tests-export-health-notifications.md) | `export`, `health`, `notifications` | P2 | done |
+| TS-068 | Implement `ingestion.doc_chunks` table and `ingestion.doc_text` capability | spec audit; Doc §3.3 | [TS-068](specs/TS-068-doc-chunks-doc-text.md) | `ingestion` | P2 | done |
+| TS-069 | Implement assistant SSE `/chat` and conversation/session persistence | spec audit; Doc §8 | [TS-069](specs/TS-069-assistant-sse-chat.md) | `assistant` | P2 | done |
+| TS-070 | Add billing invoice list and `billing.record_usage` capability | spec audit; Doc §7, §15 | [TS-070](specs/TS-070-billing-invoice-list-record-usage.md) | `billing` | P2 | done |
 
 ## Post-audit — workspace/admin refactor + misc (TS-071…TS-083)
 

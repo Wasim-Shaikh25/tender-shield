@@ -223,3 +223,9 @@ Audit only — no source changes. Findings and full remediation detail live in
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
 | TS-130 | Fifth-round end-to-end re-audit of trunk: review notifications, drafting, timeline, risk/assistant adapters, ingestion async/direct routes; skip existing `TS-*` findings and append new gaps | `END_TO_END_PRODUCTION_AUDIT_PROMPT.md` | `PRODUCTION_READINESS_AUDIT.md` | done |
+
+## Sixth-round production readiness audit (2026-07-29)
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-131 | Sixth-round end-to-end re-audit of trunk: review core storage, CORS/allowed-hosts guard, Stripe provider, tus I/O, and review/authz scoping; skip existing `TS-*` findings and append new gaps | `END_TO_END_PRODUCTION_AUDIT_PROMPT.md` | `PRODUCTION_READINESS_AUDIT.md` | done |

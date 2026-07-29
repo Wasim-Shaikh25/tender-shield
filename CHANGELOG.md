@@ -86,6 +86,23 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   - Baseline recorded: `ruff` clean, `mypy` clean (143 files), 145 backend tests passing,
     frontend lint/typecheck/build clean, `npm audit` 0 vulnerabilities, `pip-audit` 0.
 
+### Done — 2026-07-29 (TS-131: sixth-round production readiness audit rerun)
+
+- **TS-131** — Sixth-round end-to-end re-audit of trunk (`claude/dev-workflow-modules-58dpqw`) per
+  `END_TO_END_PRODUCTION_AUDIT_PROMPT.md`. **Audit only — no source files were changed.**
+  `PRODUCTION_READINESS_AUDIT.md` updated with:
+  - All prior `TS-*` findings re-verified and still present.
+  - Six new findings: `TS-S04` (`LocalStorage` async methods run synchronous file I/O),
+    `TS-O05` (production guard allows a comma-separated wildcard in `CORS`/`allowed_hosts`),
+    `TS-B07` (Stripe checkout hardcodes `example.com` redirect URLs),
+    `TS-B08` (Stripe webhook verifier swallows all exceptions),
+    `TS-I09` (tus endpoints perform synchronous file I/O and `OPTIONS` is non-compliant),
+    and `TS-A16` (`review_finding` does not scope by `opportunity_id`).
+  - Updated counts: **57 findings (5 Critical, 15 High, 33 Medium, 4 Low), 18 release-blocking**.
+  - Updated remediation plan and final recommendation remains **NO-GO**.
+  - Baseline recorded: `ruff` clean, `mypy` clean (143 files), 145 backend tests passing,
+    frontend lint/typecheck/build clean, `npm audit` 0 vulnerabilities, `pip-audit` 0.
+
 ### Next
 
 Fix in order — the four blockers first (`TS-095` cross-workspace member add, `TS-096`

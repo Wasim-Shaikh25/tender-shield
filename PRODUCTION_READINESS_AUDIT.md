@@ -70,15 +70,24 @@ default Anthropic model name in both the risk classifier and the assistant agent
 does not classify documents, segment clauses, update the opportunity submission deadline, or
 use the configured OCR provider (`TS-I08`).
 
+A sixth-round pass (§11) re-scanned infrastructure, billing, storage, CORS/allowed-hosts
+guards, ingestion/tus I/O, and review opportunity-scoping. It identified six additional gaps:
+`LocalStorage` async methods run synchronous filesystem I/O (`TS-S04`), the production startup
+guard for CORS and allowed hosts can be bypassed with a comma-separated wildcard (`TS-O05`),
+Stripe checkout redirects are hardcoded to `example.com` (`TS-B07`), the Stripe webhook verifier
+swallows all exceptions (`TS-B08`), tus routes block the event loop with synchronous file I/O and
+return an empty, non-compliant `OPTIONS` response (`TS-I09`), and `POST /api/review/findings/{finding_id}`
+does not scope by opportunity (`TS-A16`).
+
 ### 1.2 Finding count by severity
 
 | Severity | Count | Release-blocking | IDs |
 |---|---|---|---|
 | **Critical** | 5 | 5 | TS-A01, TS-A02, TS-A03, TS-B01, TS-P02 |
 | **High** | 15 | 13 | TS-A04, TS-A05, TS-I01, TS-I02, TS-B02, TS-F01, TS-O01, TS-A06, TS-A07, TS-O04, TS-A10, TS-I04, TS-I05, TS-F02, TS-R02 |
-| **Medium** | 27 | 0 | TS-O02, TS-I03, TS-N01, TS-P01, TS-S01, TS-X01, TS-B03, TS-S02, TS-O03, TS-A08, TS-A09, TS-R01, TS-D02, TS-Q01, TS-X02, TS-A11, TS-I06, TS-B05, TS-S03, TS-A13, TS-N02, TS-I07, TS-I08, TS-A14, TS-A15, TS-B06, TS-D03 |
+| **Medium** | 33 | 0 | TS-O02, TS-I03, TS-N01, TS-P01, TS-S01, TS-X01, TS-B03, TS-S02, TS-O03, TS-A08, TS-A09, TS-R01, TS-D02, TS-Q01, TS-X02, TS-A11, TS-I06, TS-B05, TS-S03, TS-A13, TS-N02, TS-I07, TS-I08, TS-A14, TS-A15, TS-B06, TS-D03, TS-S04, TS-O05, TS-B07, TS-B08, TS-I09, TS-A16 |
 | **Low** | 4 | 0 | TS-L01, TS-L02, TS-L03, TS-L04 |
-| **Total** | **51** | **18** | |
+| **Total** | **57** | **18** | |
 
 Product-completeness gaps are tracked separately in §3.5 (they are capability gaps, not
 defects, and are not counted above).
@@ -102,6 +111,9 @@ defects, and are not counted above).
 | BOQ run accepts unbounded CSV payloads | `boq/router.py:47` `RunBody.csv` has no max length; parsed entirely in memory (§9 TS-I05) | High |
 | Session provider keeps stale workspace list after switch | `frontend/components/session.tsx:52` refuses to overwrite a non-empty workspace list (§9 TS-F02) | High |
 | Risk classifier uses an invalid Anthropic model name | `risk/classifier.py:33` default is `claude-sonnet-5`; `risk/module.py:15` instantiates without override (§10 TS-R02) | High |
+| Production CORS/allowed-hosts guard bypassed by comma-separated wildcard | `main.py:66-69` checks the exact string `"*"` while `config.py` splits on commas (§11 TS-O05) | Medium |
+| LocalStorage async methods block the event loop with synchronous I/O | `core/storage.py:104-119` `read`/`write`/`delete` call sync `pathlib` without `asyncio.to_thread` (§11 TS-S04) | Medium |
+| Review finding endpoint does not scope by opportunity | `review/router.py:50-70` and `findings/store.py:49-83` query by `workspace_id` and `finding_id` only (§11 TS-A16) | Medium |
 
 ### 1.4 Major product risks
 
@@ -3972,3 +3984,450 @@ one of which is release-blocking (`TS-R02`). There are now **51 findings** (5 Cr
 27 Medium, 4 Low) with **18 release-blocking** items. The new release blocker is a broken
 core feature (risk review silently fails when an Anthropic key is configured) and must be
 resolved before any paying user can rely on the product.
+
+## 11. Sixth-round re-audit
+
+### 11.1 Summary
+
+The sixth round focused on paths that had not been deeply reviewed in prior rounds or were
+flagged for a second look: `core/storage.py`, `main.py` CORS/allowed-hosts guard, the
+`billing/providers.py` and `webhook.py` Stripe integration, `ingestion/tus.py`, and the
+`review`/`findings` authz boundary. All previously documented `TS-*` findings were re-verified
+and still present. This round adds **six new findings** (`TS-S04`, `TS-O05`, `TS-B07`, `TS-B08`,
+`TS-I09`, `TS-A16`).
+
+### 11.2 New findings
+
+#### TS-S04 — `LocalStorage` async methods perform synchronous file I/O
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Storage / Async I/O |
+| **Release-blocking** | No |
+| **Affected roles** | All users uploading/downloading files when `TS_STORAGE_TYPE=local` |
+
+**Location** — `backend/app/core/storage.py:99-123`
+
+**Evidence** `LocalStorage` declares async methods but calls synchronous `pathlib` operations:
+
+```python
+class LocalStorage:
+    async def write(self, key: str, data: bytes, content_type: str) -> str:
+        path = self.root / key
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        return str(path.relative_to(self.root))
+
+    async def read(self, key: str) -> bytes:
+        path = self.root / key
+        if not path.exists():
+            raise StorageError("file_not_found")
+        return path.read_bytes()
+```
+
+`delete` is identical (`path.exists()`, `path.unlink()`). `S3Storage` correctly uses
+`asyncio.to_thread`.
+
+**Root cause** The local backend was written with async signatures but not async
+implementations.
+
+**Impact** Uploads and downloads block the event-loop thread while reading/writing files. Under
+load this stalls other requests and can make the app unresponsive. The issue is invisible on
+small files or light traffic.
+
+**Recommended solution** Wrap all blocking calls in `asyncio.to_thread` (or use `aiofiles`):
+
+```python
+async def write(self, key, data, content_type):
+    path = self.root / key
+    await asyncio.to_thread(lambda: path.parent.mkdir(parents=True, exist_ok=True))
+    await asyncio.to_thread(path.write_bytes, data)
+    return str(path.relative_to(self.root))
+```
+
+Do the same for `read` and `delete`.
+
+**Regression risks** Low — only the local backend implementation changes.
+
+**Tests to add** `test_local_storage_write_does_not_block_event_loop` — run concurrent writes
+and assert they overlap rather than execute sequentially.
+
+**Similar locations** `ingestion/tus.py` (`tus_create`, `tus_patch`, `_load_state`, `_save_state`)
+also performs synchronous file I/O in async routes (`TS-I09`).
+
+---
+
+#### TS-O05 — Production guard for CORS and allowed hosts can be bypassed with a comma-separated wildcard
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Configuration / Production Hardening |
+| **Release-blocking** | No |
+| **Affected roles** | All users (if an admin misconfigures CORS/hosts) |
+
+**Location** — `backend/app/core/config.py:36-39,98-107`; `backend/app/main.py:66-69`
+
+**Evidence** `cors_origins` and `allowed_hosts` are comma-separated strings, split into lists:
+
+```python
+cors_origins: str = "*"
+allowed_hosts: str = "*"
+
+def cors_origin_list(self) -> list[str]:
+    return [o.strip() for o in self.cors_origins.split(",") if o.strip()] or ["*"]
+
+def allowed_host_list(self) -> list[str]:
+    return [h.strip() for h in self.allowed_hosts.split(",") if h.strip()] or ["*"]
+```
+
+The production guard only checks the exact string `"*"`:
+
+```python
+if settings.cors_origins == "*":
+    errors.append("TS_CORS_ORIGINS must be explicit in production (no wildcard)")
+if settings.allowed_hosts == "*":
+    errors.append("TS_ALLOWED_HOSTS must be explicit in production (no wildcard)")
+```
+
+So `TS_CORS_ORIGINS="https://app.example.com,*"` or `TS_ALLOWED_HOSTS="app.example.com, *"`
+bypass the guard and produce a list containing a wildcard.
+
+**Root cause** The guard checks the raw string, not the parsed list, and does not reject wildcard
+elements.
+
+**Impact** `TrustedHostMiddleware` receives a list containing `"*"`, which disables host
+validation. `CORSMiddleware` receives a list containing `"*"` and `allow_credentials` is forced
+to `False`, so any origin can make cross-origin requests (without cookies). An admin can
+unknowingly deploy with an open CORS/hosts policy.
+
+**Recommended solution** In `_validate_prod_settings`, call `settings.cors_origin_list()` and
+`settings.allowed_host_list()` and raise if either contains `"*"` or is empty after stripping:
+
+```python
+if "*" in settings.cors_origin_list():
+    errors.append("TS_CORS_ORIGINS must be explicit in production (no wildcard)")
+if "*" in settings.allowed_host_list():
+    errors.append("TS_ALLOWED_HOSTS must be explicit in production (no wildcard)")
+```
+
+**Regression risks** Low — only production startup validation changes.
+
+**Tests to add** `test_prod_settings_reject_wildcard_in_cors_list`;
+`test_prod_settings_reject_wildcard_in_allowed_hosts_list`.
+
+**Similar locations** `cors_supports_credentials()` already checks `"*" in cors_origin_list()`
+but only to disable credentials; the startup guard should reject the wildcard outright.
+
+---
+
+#### TS-B07 — Stripe checkout uses hardcoded `example.com` redirect URLs
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Billing / Stripe Integration |
+| **Release-blocking** | No |
+| **Affected roles** | Users paying via Stripe |
+
+**Location** — `backend/app/modules/billing/providers.py:115-117`
+
+**Evidence**
+
+```python
+session = self._client.checkout.Session.create(
+    payment_method_types=["card"],
+    line_items=[...],
+    mode="payment",
+    success_url="https://example.com/success",
+    cancel_url="https://example.com/cancel",
+    metadata=metadata,
+)
+```
+
+`success_url` and `cancel_url` are hardcoded to `example.com` in the live Stripe provider.
+
+**Root cause** Placeholder URLs were left in the live provider and not replaced with settings or
+request-derived URLs.
+
+**Impact** After a successful Stripe payment the customer is redirected to `example.com`
+instead of the application. The UI never receives the session completion signal, so the user
+sees a broken payment flow even though the webhook may activate the workspace server-side.
+
+**Recommended solution** Add `TS_STRIPE_SUCCESS_URL` and `TS_STRIPE_CANCEL_URL` settings (or a
+single `TS_PUBLIC_APP_URL` and derive `/billing/stripe/success` and `/billing/stripe/cancel`),
+and pass them to `checkout.Session.create`. Validate they are HTTPS in production.
+
+**Regression risks** Low — only affects Stripe checkout when live keys are configured.
+
+**Tests to add** `test_stripe_checkout_uses_configured_redirect_urls`.
+
+**Similar locations** `RazorpayProvider` does not require redirect URLs; only Stripe is affected.
+
+---
+
+#### TS-B08 — Stripe webhook verifier swallows all exceptions and returns `None`
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Billing / Webhook Validation |
+| **Release-blocking** | No |
+| **Affected roles** | Stripe-using workspaces, operators |
+
+**Location** — `backend/app/modules/billing/webhook.py:31-48`
+
+**Evidence**
+
+```python
+def verify_stripe_signature(
+    raw_body: bytes, signature: str, secret: str | SecretStr | None
+) -> dict | None:
+    secret_value = _secret_to_bytes(secret).decode() if secret else ""
+    if not signature or not secret_value:
+        return None
+    try:
+        import stripe
+        return stripe.Webhook.construct_event(
+            payload=raw_body,
+            sig_header=signature,
+            secret=secret_value,
+        )
+    except Exception as exc:
+        logger.exception("stripe webhook verification failed: %s", exc)
+        return None
+```
+
+Every exception — `SignatureVerificationError`, `ValueError` from a malformed payload,
+`ImportError` if `stripe` is missing, or any runtime SDK error — is caught and logged at
+exception level. The function returns `None`, so the caller treats it as a bad signature and
+returns HTTP 400.
+
+**Root cause** An overly broad `except Exception` was used to avoid surfacing any Stripe SDK
+failures.
+
+**Impact** Real SDK/configuration problems are hidden in logs and appear as signature failures,
+so operators cannot distinguish "wrong secret" from "Stripe SDK broken". The service returns
+400, so Stripe may stop retrying or retry pointlessly, and payment activation may never happen.
+
+**Recommended solution** Catch only `stripe.error.SignatureVerificationError` (and `ValueError`
+for malformed payload) and return `None` for those. Let unexpected SDK/import errors propagate
+as 500 so they are visible in error tracking and not retried.
+
+```python
+try:
+    import stripe
+    return stripe.Webhook.construct_event(...)
+except stripe.error.SignatureVerificationError:
+    return None
+except ValueError:
+    return None
+```
+
+**Regression risks** Low — only changes error-handling paths.
+
+**Tests to add** `test_verify_stripe_signature_distinguishes_signature_failure_from_sdk_error`.
+
+**Similar locations** `process_stripe_webhook` in `billing/service.py` and `billing/router.py`
+consume this verifier.
+
+---
+
+#### TS-I09 — tus endpoints perform synchronous file I/O and `OPTIONS` returns a non-compliant empty body
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Ingestion / tus Protocol |
+| **Release-blocking** | No |
+| **Affected roles** | Users uploading large documents via tus |
+
+**Location** — `backend/app/modules/ingestion/tus.py:87-90,118-119,123-140,143-164`
+
+**Evidence** The `OPTIONS` handler returns an empty body with no tus protocol headers:
+
+```python
+@router.options("/")
+def tus_options():
+    return {}  # CORS handled globally; tus clients may probe OPTIONS.
+```
+
+A tus client expects `Tus-Resumable`, `Tus-Version`, `Tus-Max-Size`, etc. Without these the
+client cannot discover server capabilities.
+
+`tus_create` and `tus_patch` are async but read and write local chunk files synchronously:
+
+```python
+@router.post("/")
+async def tus_create(...):
+    ...
+    _file_path(upload_id).write_bytes(b"")  # sync
+    _save_state(upload_id, state)             # _state_path(upload_id).write_text(...)
+    return {}
+
+@router.patch("/{upload_id}")
+async def tus_patch(...):
+    state = _load_state(upload_id)            # json.loads(path.read_text())
+    ...
+    with file_path.open("ab") as f:
+        f.write(data)
+    state["offset"] = file_path.stat().st_size
+    _save_state(upload_id, state)
+```
+
+`_finalize` also reads the merged file synchronously before `await validate_and_store`.
+
+**Root cause** tus routes were written as async handlers but perform blocking filesystem calls
+inline; the `OPTIONS` probe was not implemented to spec.
+
+**Impact** In addition to `TS-I03` (missing `Location` header, node-local storage, no cleanup),
+tus uploads also block the event loop during every chunk read/write. Some tus clients may
+refuse to start uploads when `OPTIONS` is non-compliant.
+
+**Recommended solution** 1. Implement `tus_options` to return protocol headers:
+
+```python
+@router.options("/")
+def tus_options():
+    return Response(
+        headers={
+            "Tus-Resumable": "1.0.0",
+            "Tus-Version": "1.0.0",
+            "Tus-Max-Size": str(DEFAULT_MAX_UPLOAD_SIZE),
+            "Tus-Extension": "creation,creation-defer-length",
+        }
+    )
+```
+
+2. Wrap `_file_path(...).write_bytes`, `_save_state`, `_load_state`, and chunk writes in
+`asyncio.to_thread`. 3. Return the `Location` header from `tus_create` (already tracked by
+`TS-I03`).
+
+**Regression risks** Low; the tus endpoint is currently non-functional in standard clients.
+
+**Tests to add** `test_tus_options_returns_protocol_headers`;
+`test_tus_create_does_not_block_event_loop`.
+
+**Similar locations** `LocalStorage` (`TS-S04`) and `_finalize` share the same sync-I/O
+anti-pattern.
+
+---
+
+#### TS-A16 — `POST /api/review/findings/{finding_id}` does not scope by opportunity
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Authorization / Data Isolation |
+| **Release-blocking** | No |
+| **Affected roles** | `reviewer`, `admin`, `owner` |
+
+**Location** — `backend/app/modules/review/router.py:50-70`;
+`backend/app/modules/review/service.py:52-66`; `backend/app/modules/findings/store.py:49-55,63-83`
+
+**Evidence** The route accepts only a `finding_id`:
+
+```python
+@router.post("/findings/{finding_id}")
+def review_finding(
+    finding_id: str,
+    body: ReviewBody,
+    ...
+):
+    row = _service(request, session).review_finding(
+        principal.workspace_id,
+        finding_id,
+        decision=body.decision,
+        ...
+    )
+```
+
+The service delegates to `FindingStore.set_review`, which calls `FindingStore.get`:
+
+```python
+def get(self, workspace_id, finding_id) -> FindingRow | None:
+    return self.s.scalar(
+        select(FindingRow).where(
+            FindingRow.id == uuid.UUID(str(finding_id)),
+            FindingRow.workspace_id == uuid.UUID(str(workspace_id)),
+        )
+    )
+```
+
+No `opportunity_id` appears in the query. `FindingRow` has an `opportunity_id` column, but it
+is not used to scope the update.
+
+**Root cause** `review_finding` was built around finding IDs only, without tying the call to
+the opportunity being reviewed. The store's `get`/`set_review` methods are workspace-scoped but
+not opportunity-scoped.
+
+**Impact** A reviewer who knows the UUID of a finding from another opportunity in the same
+workspace can accept, reject, or edit it. This cross-opportunity write corrupts the wrong
+tender's review state and audit trail.
+
+**Recommended solution** Add an `opportunity_id` path parameter to the route (or derive it from
+the session) and update `FindingStore.get`/`set_review` to include `opportunity_id` in the
+`where` clause:
+
+```python
+def set_review(self, workspace_id, opportunity_id, finding_id, *, status, ...):
+    row = self.get(workspace_id, opportunity_id, finding_id)
+    if row is None:
+        return None
+    ...
+
+def get(self, workspace_id, opportunity_id, finding_id) -> FindingRow | None:
+    return self.s.scalar(
+        select(FindingRow).where(
+            FindingRow.id == uuid.UUID(str(finding_id)),
+            FindingRow.workspace_id == uuid.UUID(str(workspace_id)),
+            FindingRow.opportunity_id == uuid.UUID(str(opportunity_id)),
+        )
+    )
+```
+
+Update the review router and service signatures accordingly.
+
+**Regression risks** Low — all current callers already operate within a known opportunity
+context; the frontend calls are per-opportunity.
+
+**Tests to add** `test_review_finding_rejects_foreign_opportunity`;
+`test_finding_store_get_scopes_by_opportunity`.
+
+**Similar locations** `findings/store.py` `replace_for_producer` and `list` already scope by
+`opportunity_id`; only `get`/`set_review` are missing it. `confirm_deadline` has a related
+`opportunity_id` scoping gap (`TS-I06`).
+
+### 11.3 Updated remediation plan
+
+Add to the P0/P1 remediation lists from §5, §7.4, §8.4, §9.4, and §10.3:
+
+- **P0 (release-blocking, new)**
+  - None.
+- **P1 (pre-release)**
+  - **TS-S04**: wrap `LocalStorage` `read`/`write`/`delete` in `asyncio.to_thread`.
+  - **TS-O05**: reject wildcard entries in `cors_origin_list()` and `allowed_host_list()` in
+    the production startup guard.
+  - **TS-B07**: configure Stripe `success_url`/`cancel_url` from settings, not `example.com`.
+  - **TS-B08**: narrow Stripe webhook verifier exception handling to
+    `SignatureVerificationError`/`ValueError`; let SDK/runtime errors propagate.
+  - **TS-I09**: wrap tus file I/O in `asyncio.to_thread` and implement a compliant
+    `tus_options` response (also return `Location` from `tus_create` per `TS-I03`).
+  - **TS-A16**: scope `ReviewService.review_finding` and `FindingStore.set_review` by
+    `opportunity_id`.
+
+### 11.4 Updated final recommendation
+
+**NO-GO** for public launch and for any deployment holding more than one customer's data.
+
+The sixth round re-confirmed every prior release blocker and identified six additional gaps.
+There are now **57 findings** (5 Critical, 15 High, 33 Medium, 4 Low) with **18 release-blocking**
+items. The new gaps are infrastructure, configuration, payment-flow, and authz hardening issues;
+they do not add new release blockers, but they should be fixed and verified before launch.

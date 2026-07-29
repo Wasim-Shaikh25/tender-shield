@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.billing.models import Invoice, PaymentLog, UsageEvent, WebhookEvent
 from app.modules.billing.plans import Grant, PaywallError, authorize
-from app.modules.billing.webhook import verify_signature
+from app.modules.billing.webhook import verify_signature, verify_stripe_signature
 
 
 class BillingService:
@@ -184,6 +184,68 @@ class BillingService:
             )
         self.s.commit()
         return {"ok": True, "applied": typ}
+
+    def process_stripe_webhook(self, raw_body: bytes, signature: str, secret: str) -> dict:
+        evt = verify_stripe_signature(raw_body, signature, secret)
+        event_id = evt.get("id", "") if isinstance(evt, dict) else ""
+        event_type = evt.get("type", "unknown") if isinstance(evt, dict) else "unknown"
+        status = "verified" if evt else "failed"
+        self._log(None, "stripe", event_id, event_type, status=status, raw=evt)
+        if not evt:
+            return {"ok": False, "reason": "bad_signature"}
+
+        # Idempotency: replays are no-ops
+        if event_id and self.s.scalar(
+            select(WebhookEvent).where(WebhookEvent.provider_event_id == event_id)
+        ):
+            return {"ok": True, "duplicate": True}
+
+        data = evt.get("data", {}) if isinstance(evt, dict) else {}
+        obj = data.get("object", {}) if isinstance(data, dict) else {}
+        metadata = obj.get("metadata", {}) if isinstance(obj, dict) else {}
+        workspace_id = metadata.get("workspace_id")
+
+        if event_type == "checkout.session.completed" and workspace_id:
+            amount = obj.get("amount_total")
+            currency = obj.get("currency", "INR").upper()
+            kind = metadata.get("kind", "paygo")
+            if kind == "paygo":
+                self.record_usage(
+                    workspace_id, "review_paid", ref_id=metadata.get("opportunity_id")
+                )
+                if amount:
+                    self.create_invoice(
+                        workspace_id,
+                        amount_minor=int(amount),
+                        currency=currency,
+                        provider="stripe",
+                        provider_invoice_id=obj.get("id") or event_id,
+                        raw=evt,
+                        status="paid",
+                    )
+            elif kind == "subscription":
+                self._workspaces().set_plan(workspace_id, metadata.get("plan", "pro"))
+                if amount:
+                    self.create_invoice(
+                        workspace_id,
+                        amount_minor=int(amount),
+                        currency=currency,
+                        provider="stripe",
+                        provider_invoice_id=obj.get("id") or event_id,
+                        raw=evt,
+                        status="paid",
+                    )
+
+        if event_id:
+            self.s.add(
+                WebhookEvent(
+                    workspace_id=uuid.UUID(str(workspace_id)) if workspace_id else uuid.UUID(int=0),
+                    provider="stripe",
+                    provider_event_id=event_id,
+                )
+            )
+        self.s.commit()
+        return {"ok": True, "applied": event_type}
 
     def _log(self, workspace_id, provider, event_id, event_type, *, status, raw):
         self.s.add(

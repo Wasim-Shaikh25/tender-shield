@@ -126,16 +126,16 @@ Full sprint narrative preserved below under "Phase 1.5 sprint detail."
 
 | ID | Title | Requirement | Task file | Module(s) | Sev | Status |
 |---|---|---|---|---|---|---|
-| TS-054 | Risk Explainability: structured `explanation` object on every risk finding (pattern, evidence, industry reason, suggested reviewer) | Phase 1.5 doc §5 | — | `risk`, frontend | P0 | done |
-| TS-055 | Structured Review Outcomes: `needs_clarification`/`false_positive` states + rejection reasons | Phase 1.5 doc §5 | — | `review` | P0 | done |
-| TS-049 | Qualification Compliance Matrix: extract eligibility criteria (turnover, experience, EMD, certifications) and flag gaps as findings | Phase 1.5 doc §5 | — | `qualification` | P0 | done |
-| TS-056 | Organization Standards Enforcement: org thresholds → `standard_violation` findings, feeds bid score | Phase 1.5 doc §5 | — | `standards`, `review`, `drafting` | P0 | done |
-| TS-052 | Tender Timeline: milestone calendar (pre-bid, clarification, submission, technical/financial opening, EMD/BG validity, contract signing) | Phase 1.5 doc §5 | — | `ingestion`, `timeline` | P0 | done |
-| TS-048 | Bid / No-Bid Recommendation: deterministic Bid Readiness Score + conditional recommendation artifact | Phase 1.5 doc §5 | — | `drafting` | P0 | done |
-| TS-053 | Clause Cross-Reference: cross-document citation search for a clause/topic | Phase 1.5 doc §5 | — | `crossref` | P2 | done |
-| TS-051 | Clause Change Detection: diff added/removed/changed clauses between document versions | Phase 1.5 doc §5 | — | `crossref` | P2 | done |
-| TS-050 | Tender Comparison: portfolio dashboard ranking by risk, BOQ quality, deadline, bid readiness | Phase 1.5 doc §5 | — | `comparison` | P2 | done |
-| TS-057 | Internal Accuracy Dashboard: admin-only precision/recall/FP/FN by pattern and review-outcome telemetry | Phase 1.5 doc §5 | — | `analytics` | P3 | done |
+| TS-054 | Risk Explainability: structured `explanation` object on every risk finding (pattern, evidence, industry reason, suggested reviewer) | Phase 1.5 doc §5 | [TS-054](specs/TS-054-risk-explainability.md) | `risk`, frontend | P0 | done |
+| TS-055 | Structured Review Outcomes: `needs_clarification`/`false_positive` states + rejection reasons | Phase 1.5 doc §5 | [TS-055](specs/TS-055-structured-review-outcomes.md) | `review` | P0 | done |
+| TS-049 | Qualification Compliance Matrix: extract eligibility criteria (turnover, experience, EMD, certifications) and flag gaps as findings | Phase 1.5 doc §5 | [TS-049](specs/TS-049-qualification-compliance-matrix.md) | `qualification` | P0 | done |
+| TS-056 | Organization Standards Enforcement: org thresholds → `standard_violation` findings, feeds bid score | Phase 1.5 doc §5 | [TS-056](specs/TS-056-org-standards-enforcement.md) | `standards`, `review`, `drafting` | P0 | done |
+| TS-052 | Tender Timeline: milestone calendar (pre-bid, clarification, submission, technical/financial opening, EMD/BG validity, contract signing) | Phase 1.5 doc §5 | [TS-052](specs/TS-052-tender-timeline.md) | `ingestion`, `timeline` | P0 | done |
+| TS-048 | Bid / No-Bid Recommendation: deterministic Bid Readiness Score + conditional recommendation artifact | Phase 1.5 doc §5 | [TS-048](specs/TS-048-bid-no-bid-recommendation.md) | `drafting` | P0 | done |
+| TS-053 | Clause Cross-Reference: cross-document citation search for a clause/topic | Phase 1.5 doc §5 | [TS-053](specs/TS-053-clause-cross-reference.md) | `crossref` | P2 | done |
+| TS-051 | Clause Change Detection: diff added/removed/changed clauses between document versions | Phase 1.5 doc §5 | [TS-051](specs/TS-051-clause-change-detection.md) | `crossref` | P2 | done |
+| TS-050 | Tender Comparison: portfolio dashboard ranking by risk, BOQ quality, deadline, bid readiness | Phase 1.5 doc §5 | [TS-050](specs/TS-050-tender-comparison.md) | `comparison` | P2 | done |
+| TS-057 | Internal Accuracy Dashboard: admin-only precision/recall/FP/FN by pattern and review-outcome telemetry | Phase 1.5 doc §5 | [TS-057](specs/TS-057-internal-accuracy-dashboard.md) | `analytics` | P3 | done |
 
 ## Phase 1.5 follow-up — Spec audit fixes (2026-07-26)
 

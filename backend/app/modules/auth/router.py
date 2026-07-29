@@ -8,6 +8,7 @@ from app.core.deps import current_principal, get_session, require
 from app.core.ratelimit import RateLimitDep
 from app.modules.auth.apple import AppleClient
 from app.modules.auth.deps import require_superadmin
+from app.modules.auth.google import GoogleClient
 from app.modules.auth.models import User
 from app.modules.auth.rbac import Principal
 from app.modules.auth.service import AuthError, AuthService
@@ -19,12 +20,16 @@ def _service(request: Request, session: Session) -> AuthService:
     settings = request.app.state.ctx.settings
     keys = request.app.state.ctx.registry.require("auth.keys")
     apple_client = AppleClient(settings) if settings.apple_services_id else None
+    google_client = GoogleClient(settings) if settings.google_client_id else None
+    sender = request.app.state.ctx.registry.get("notifications.sender")
     return AuthService(
         session,
         keys,
         access_ttl_min=settings.access_ttl_minutes,
         refresh_ttl_days=settings.refresh_ttl_days,
         apple_client=apple_client,
+        google_client=google_client,
+        sender=sender,
     )
 
 
@@ -157,6 +162,10 @@ class MfaChallengeBody(BaseModel):
     code: str
 
 
+class GoogleLoginBody(BaseModel):
+    id_token: str
+
+
 class CreateSuperadminBody(BaseModel):
     email: str
     password: str = Field(min_length=8)
@@ -184,6 +193,9 @@ _STATUS = {
     "apple_not_configured": 503,
     "apple_token_invalid": 401,
     "apple_email_missing": 400,
+    "google_not_configured": 503,
+    "google_token_invalid": 401,
+    "google_email_missing": 400,
     "bad_mfa_method": 400,
     "mfa_not_enrolled": 400,
     "mfa_invalid": 401,
@@ -227,6 +239,18 @@ def login(
 ):
     return _call_and_issue(
         request, response, session, lambda svc: svc.login(body.email, body.password)
+    )
+
+
+@router.post("/google", dependencies=_LOGIN_LIMIT)
+def google_login(
+    body: GoogleLoginBody,
+    response: Response,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    return _call_and_issue(
+        request, response, session, lambda svc: svc.google_login(body.id_token)
     )
 
 

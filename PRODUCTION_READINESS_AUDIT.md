@@ -1,7 +1,7 @@
 # TenderShield — End-to-End Production Readiness Audit
 
 **Repository:** `Wasim-Shaikh25/tender-shield`
-**Commit audited:** `0866bb7` — `Merge pull request #17 from Wasim-Shaikh25/devin/update-skills-1785346060`
+**Commit audited:** `4bca1235b9db253859c16587e55866a17f19b67d` — trunk (`claude/dev-workflow-modules-58dpqw`)
 **Branch audited:** `claude/dev-workflow-modules-58dpqw` (the repository's trunk — see §2.0)
 **Audit date:** 2026-07-29
 **Roles applied:** Principal Software Engineer, Security Engineer, QA Engineer, DevOps/SRE, Database Architect, Product Manager, UX Designer, Accessibility Specialist, Performance Engineer.
@@ -52,15 +52,22 @@ previous finding, and discovered an additional cross-tenant write path: `POST /a
 accepts an arbitrary `project_id` and `POST /api/auth/invitations/{token}/accept` adds a
 `ProjectMember` row without verifying the project belongs to the invitation's workspace (`TS-A10`).
 
+A fourth-round pass (§9) re-ran baseline checks after setting up a Python 3.11 virtualenv,
+re-confirmed all previous findings, and discovered additional defects: `confirm_deadline` ignores
+`opportunity_id` (TS-A11), `register_document` accepts a cross-workspace `supersedes` value
+(TS-A12), the `anthropic` package is missing from dependencies (TS-P03), PDF export crashes on
+XML metacharacters (TS-E01), several routes ignore opportunity scoping (TS-A13, TS-A15), and
+password `login()` non-deterministically selects a workspace for multi-workspace users (TS-A14).
+
 ### 1.2 Finding count by severity
 
 | Severity | Count | Release-blocking | IDs |
 |---|---|---|---|
 | **Critical** | 5 | 5 | TS-A01, TS-A02, TS-A03, TS-B01, TS-P02 |
-| **High** | 11 | 9 | TS-A04, TS-A05, TS-I01, TS-I02, TS-B02, TS-F01, TS-O01, TS-A06, TS-A07, TS-O04, TS-A10 |
-| **Medium** | 11 | 0 | TS-O02, TS-I03, TS-N01, TS-P01, TS-S01, TS-X01, TS-B03, TS-S02, TS-O03, TS-A08, TS-A09 |
-| **Low** | 4 | 0 | TS-L01, TS-L02, TS-L03, TS-L04 |
-| **Total** | **31** | **14** | |
+| **High** | 15 | 13 | TS-A04, TS-A05, TS-I01, TS-I02, TS-B02, TS-F01, TS-O01, TS-A06, TS-A07, TS-O04, TS-A10, TS-A11, TS-A12, TS-P03, TS-E01 |
+| **Medium** | 14 | 0 | TS-O02, TS-I03, TS-N01, TS-P01, TS-S01, TS-X01, TS-B03, TS-S02, TS-O03, TS-A08, TS-A09, TS-A13, TS-A14, TS-A15 |
+| **Low** | 6 | 0 | TS-L01, TS-L02, TS-L03, TS-L04, TS-O05, TS-L05 |
+| **Total** | **40** | **18** | |
 
 Product-completeness gaps are tracked separately in §3.5 (they are capability gaps, not
 defects, and are not counted above).
@@ -80,6 +87,13 @@ defects, and are not counted above).
 | Verification token leaked by resend endpoint | `auth/router.py` `resend_verification` returns raw token (§7 TS-A07) | High |
 | Container image missing runtime extras | `backend/Dockerfile` omits `celery`, `billing`, `scheduler`, `ocr` extras (§7 TS-O04) | High |
 | Arbitrary project_id in invitation adds member to any project | `auth/service.py` `create_invitation`/`accept_invitation` do not verify project ownership (§8 TS-A10) | High |
+| `confirm_deadline` ignores the `opportunity_id` path parameter | `ingestion/router.py:271-282` → `ingestion/service.py:152-162` (§9 TS-A11) | High |
+| `register_document` accepts a cross-workspace `supersedes` document ID | `ingestion/router.py:90-109` → `ingestion/service.py:90-109` (§9 TS-A12) | High |
+| `anthropic` package missing from `pyproject.toml`; LLM features fail when enabled | `pyproject.toml` / `Dockerfile` / `risk/classifier.py` / `assistant/agent.py` (§9 TS-P03) | High |
+| PDF export crashes on tender text containing XML/HTML metacharacters | `export/render.py:96-142` and `:239-289` (§9 TS-E01) | High |
+| `document_stream` and `get_document_text` do not enforce opportunity scoping | `ingestion/router.py:184-217` / `:295-303` (§9 TS-A13) | Medium |
+| Password `login()` non-deterministically selects workspace | `auth/service.py:160-162` (§9 TS-A14) | Medium |
+| `review/audit_trail` ignores `opportunity_id` and returns workspace-wide logs | `review/router.py:83-101` → `review/service.py:98-100` (§9 TS-A15) | Medium |
 
 ### 1.4 Major product risks
 
@@ -131,7 +145,7 @@ Stated up front so the recommendation is read against what was actually tested:
 
 ### 1.7 Release conditions
 
-Ship only when **all thirteen** release-blocking findings in §5.1, §5.2, and §7.3 are fixed,
+Ship only when **all eighteen** release-blocking findings in §5.1, §5.2, §7.3, §8.4, and §9.3 are fixed,
 each with a regression test, **and** the RLS behaviour in TS-A03 has been verified against a real
 PostgreSQL instance using a non-owner application role (§6.2). Fixing the application-layer
 checks without fixing RLS leaves the product one missing `if` statement away from the same
@@ -2570,4 +2584,699 @@ release-blocking cross-tenant write path (TS-A10). There are now **31 findings**
 11 High, 11 Medium, 4 Low) with **14 release-blocking** items. The defects remain concentrated
 in the auth module and are fixable, but the product should not ship until all fourteen blockers
 are resolved and verified.
+
+## 9. Fourth-round re-audit
+
+### 9.1 Scope and evidence
+
+This pass re-ran the end-to-end audit on the same trunk branch
+(`claude/dev-workflow-modules-58dpqw`, commit `4bca1235b9db253859c16587e55866a17f19b67d`).
+It focused on modules that prior rounds had explicitly marked as not reviewed in depth:
+`risk`, `assistant`, `export`, `ingestion` (documents/deadlines), `review`, `auth` (login path),
+and deployment packaging.
+
+Baseline checks executed:
+
+| # | Command | Result |
+|---|---|---|
+| 1 | `ruff check .` | **PASS** — All checks passed |
+| 2 | `mypy app` | **PASS** — 143 source files, no issues |
+| 3 | `pytest -q` | **PASS** — 146 passed, 1 warning |
+| 4 | `npm run lint` | **PASS** — no ESLint errors |
+| 5 | `npm run typecheck` | **PASS** — `tsc --noEmit` |
+| 6 | `npm run build` | **PASS** — 13 routes compiled |
+| 7 | `pip-audit` | **Not run** — not independently re-run this round |
+| 8 | `npm audit` | **PASS** — 0 vulnerabilities |
+
+The local Python environment was missing the documented `backend/.venv` and the system Python
+was 3.10; this round set up pyenv 3.11.11, created `backend/.venv`, and installed
+`".[dev,storage,redis,billing,scheduler,celery,ocr,auth]"` to run the checks. This is a
+one-time setup step and is not committed.
+
+All previously reported `TS-*` findings were re-confirmed by code inspection. New findings below
+are reproducible where noted.
+
+### 9.2 New findings
+
+#### TS-A11 — `confirm_deadline` ignores the `opportunity_id` path parameter
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect — reproduced end-to-end |
+| **Severity** | **High** |
+| **Category** | Broken Access Control / Data Integrity |
+| **Release-blocking** | **YES** |
+| **Affected roles** | estimator, reviewer, owner |
+
+**Location** — `backend/app/modules/ingestion/router.py:271-282`;
+`backend/app/modules/ingestion/service.py:152-162`
+
+**Evidence** The route exposes
+`POST /ingestion/opportunities/{opportunity_id}/deadlines/{deadline_id}/confirm`. The service
+method filters only by `workspace_id` and `deadline_id`:
+
+```python
+def confirm_deadline(self, workspace_id, deadline_id) -> Deadline | None:
+    dl = self.s.scalar(
+        select(Deadline).where(
+            Deadline.id == uuid.UUID(str(deadline_id)),
+            Deadline.workspace_id == uuid.UUID(str(workspace_id)),
+        )
+    )
+    if dl is not None:
+        dl.confirmed = True
+        self.s.commit()
+    return dl
+```
+
+The route path parameter `opportunity_id` is never passed to the service or included in the
+`WHERE` clause.
+
+Reproduction:
+
+```text
+1. Create workspace, opportunity O1, register a document with a submission deadline.
+2. Create a second opportunity O2.
+3. POST /api/ingestion/opportunities/{O2}/deadlines/{deadline_id}/confirm
+   → HTTP 200 {"id": "...", "confirmed": true}
+4. POST /api/ingestion/opportunities/{fake-uuid}/deadlines/{deadline_id}/confirm
+   → HTTP 200 {"id": "...", "confirmed": true}
+```
+
+The deadline is confirmed regardless of which opportunity appears in the URL.
+
+**Root cause** The `opportunity_id` foreign key exists on `Deadline` but the confirmation query
+does not use it; the route treats the path parameter as documentation.
+
+**Impact** Any workspace member with `estimator` role can confirm deadlines for any opportunity in
+the workspace by knowing or guessing a deadline UUID. This corrupts the deadline wall,
+bid-readiness countdown, and notice-register; an attacker can suppress a bid-submission alert
+or make an unreviewed tender appear ready. It also breaks the audit trail because the action is
+logged against the wrong opportunity URL.
+
+**Recommended solution** Add `opportunity_id` to the service method and query:
+
+```python
+def confirm_deadline(self, workspace_id, opportunity_id, deadline_id) -> Deadline | None:
+    dl = self.s.scalar(
+        select(Deadline).where(
+            Deadline.id == uuid.UUID(str(deadline_id)),
+            Deadline.opportunity_id == uuid.UUID(str(opportunity_id)),
+            Deadline.workspace_id == uuid.UUID(str(workspace_id)),
+        )
+    )
+    ...
+```
+
+Update the route to pass `opportunity_id` and return 404 when the deadline does not belong to
+the path opportunity.
+
+**Regression risks** Low; only affects the confirm endpoint and the database already has the
+required column and index.
+
+**Tests to add** `test_confirm_deadline_rejects_foreign_opportunity`;
+`test_confirm_deadline_rejects_fake_opportunity`;
+`test_confirm_deadline_url_matches_deadline`.
+
+**Similar locations** `document_stream` and `get_document_text` (TS-A13); `review/audit_trail`
+(TS-A15).
+
+---
+
+#### TS-A12 — `register_document` accepts a cross-workspace `supersedes` document ID
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect — reproduced end-to-end |
+| **Severity** | **High** |
+| **Category** | Broken Access Control / Tenant Isolation |
+| **Release-blocking** | **YES** |
+| **Affected roles** | estimator+ |
+
+**Location** — `backend/app/modules/ingestion/router.py:90-109`;
+`backend/app/modules/ingestion/service.py:90-109`;
+`backend/app/modules/ingestion/models.py:46-48`
+
+**Evidence** `POST /ingestion/opportunities/{opportunity_id}/documents` accepts an optional
+`supersedes` UUID. The router converts it and passes it through `**fields` to the service, which
+creates a `Document` row:
+
+```python
+doc = Document(
+    workspace_id=uuid.UUID(str(workspace_id)),
+    opportunity_id=uuid.UUID(str(opportunity_id)),
+    filename=filename,
+    kind=kind,
+    **fields,
+)
+```
+
+The `supersedes` field is a `ForeignKey("documents.id")` but there is no check that the target
+document belongs to the same workspace or opportunity. The `get_opportunity` check only validates
+the new document's opportunity.
+
+Reproduction:
+
+```text
+1. Victim B signs up → workspace B, creates opportunity OB, registers document DB.
+2. Attacker A signs up → workspace A, creates opportunity OA.
+3. POST /api/ingestion/opportunities/{OA}/documents
+   {"filename": "a2.pdf", "sample_text": "x", "supersedes": "<DB UUID>"}
+   → HTTP 200 {"id": "...", "filename": "a2.pdf", "kind": "other"}
+```
+
+The new document in workspace A now references document DB in workspace B. In PostgreSQL the FK
+constraint enforces that DB exists, so the cross-workspace link persists; in SQLite the test even
+succeeded with a non-existent UUID because SQLite FK enforcement is off by default.
+
+**Root cause** The service validates the opportunity for the new document but never validates
+the `supersedes` target.
+
+**Impact** Cross-tenant data-integrity corruption. The supersession chain used by
+`crossref/service.py` and any future version/diff feature will link documents across workspaces.
+This is a latent incident-response problem and can produce confusing or incorrect
+change-detection output.
+
+**Recommended solution** In `register_document`, before creating the `Document`, verify
+`supersedes` (if provided):
+
+```python
+if supersedes:
+    target = self.get_document(workspace_id, str(supersedes))
+    if target is None or str(target.opportunity_id) != str(opportunity_id):
+        raise ValueError("no_such_document_or_opportunity")
+```
+
+Return a 404/422 from the router when the service raises.
+
+**Regression risks** Low; only affects the register-document flow. Existing rows with
+cross-workspace `supersedes` should be cleaned up before adding a database-level check constraint.
+
+**Tests to add** `test_register_document_rejects_cross_workspace_supersedes`;
+`test_register_document_rejects_nonexistent_supersedes`;
+`test_supersedes_chain_stays_within_opportunity`.
+
+**Similar locations** `crossref/service.py` `_resolve_pair` already filters `get_document` by
+workspace, but it trusts the persisted `supersedes` value.
+
+---
+
+#### TS-P03 — `anthropic` package is missing from `pyproject.toml`; LLM features fail when enabled
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect — reproduced by execution |
+| **Severity** | **High** |
+| **Category** | Packaging / Dependency / Product Correctness |
+| **Release-blocking** | **YES** |
+| **Affected roles** | all users when `ANTHROPIC_API_KEY` is configured |
+
+**Location** — `backend/pyproject.toml` (no `anthropic` entry); `backend/Dockerfile:9`;
+`backend/app/modules/risk/classifier.py:38`;
+`backend/app/modules/assistant/agent.py:27`
+
+**Evidence** The `risk` and `assistant` modules lazily `import anthropic` only inside their
+`classify`/`answer` methods, but the package is not declared anywhere in `pyproject.toml`:
+
+```text
+$ grep -n anthropic backend/pyproject.toml
+(no output)
+```
+
+The Dockerfile installs `".[dev,storage,redis]"` or `".[storage,redis]"` as a fallback, neither
+of which includes `anthropic`.
+
+Reproduction (with `backend/.venv` activated and `ANTHROPIC_API_KEY` set):
+
+```python
+from types import SimpleNamespace
+from app.modules.risk.classifier import AnthropicClassifier
+c = AnthropicClassifier()
+c.classify(SimpleNamespace(id='p', judgment_prompt='test', default_playbook=None),
+           [{'clause_ref': 'c', 'page_from': 1, 'text': 'x'}])
+# → ModuleNotFoundError: No module named 'anthropic'
+```
+
+The same `ModuleNotFoundError` occurs for `AnthropicAgent.answer(...)`.
+
+**Root cause** The `anthropic` SDK was added to the runtime code without adding it as a
+dependency. The optional-activation design (guarded by `ANTHROPIC_API_KEY`) masks the bug in
+environments that do not configure the key.
+
+**Impact** Any environment that enables LLM classification or the free-form assistant (the
+intended production configuration) will raise `ModuleNotFoundError` on the first real request.
+The risk engine returns an empty list and the assistant returns a generic error, degrading the
+product silently. The Docker image cannot run LLM features even if the key is mounted.
+
+**Recommended solution** Add the `anthropic` SDK to the dependency graph:
+
+```toml
+[project.optional-dependencies]
+llm = ["anthropic>=0.30"]
+```
+
+Then update `backend/Dockerfile` to install
+`".[storage,redis,celery,billing,scheduler,ocr,auth,llm]"` (or collapse into a `prod`
+extra). Add a startup smoke test that imports `AnthropicClassifier` and `AnthropicAgent` when
+`ANTHROPIC_API_KEY` is set.
+
+**Regression risks** Low; additive dependency only. If the product intends to make LLM fully
+optional, the modules should degrade gracefully and log a clear warning when `anthropic` is
+not installed.
+
+**Tests to add** `test_anthropic_classifier_imports`; `test_anthropic_agent_imports`;
+container build smoke test that calls `python -c "import anthropic"` after `pip install`.
+
+**Similar locations** `risk/module.py` and `assistant/module.py` gate on the env var; the
+defect is the missing package, not the gating logic.
+
+---
+
+#### TS-E01 — PDF export crashes on tender text containing XML/HTML metacharacters
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect — reproduced by execution |
+| **Severity** | **High** |
+| **Category** | Export / Robustness / Input Sanitization |
+| **Release-blocking** | **YES** |
+| **Affected roles** | all users generating Bid Review Pack or handover PDF |
+
+**Location** — `backend/app/modules/export/render.py:96-142` (`render_pdf`);
+`backend/app/modules/export/render.py:239-289` (`render_handover_pack` PDF branch)
+
+**Evidence** `render_pdf` passes raw user-provided strings into ReportLab `Paragraph` objects:
+
+```python
+flow.append(Paragraph(b.get("title", art.get("kind", "Artifact")), styles["Heading2"]))
+if b.get("preamble"):
+    flow.append(Paragraph(b["preamble"], normal))
+for item in b.get("items", []):
+    if art.get("kind") == "clarification_letter":
+        flow.append(Paragraph(f"{item.get('n')}. {item.get('heading', '')}", normal))
+        if item.get("quote"):
+            flow.append(Paragraph(f"<i>“{item['quote']}”</i>", normal))
+        flow.append(Paragraph(str(item.get("ask", "")), normal))
+```
+
+`Paragraph` interprets its argument as a subset of HTML. Real tender text commonly contains
+`<`, `>`, and `&` (e.g., material specs, cost ranges, OCR'd HTML fragments). A reproduction
+with the existing `render_pdf` function:
+
+```python
+artifacts = [{
+    'kind': 'clarification_letter',
+    'body': {
+        'title': 'Letter',
+        'preamble': 'Test <script> & "quote"',
+        'items': [{'n': 1, 'heading': 'Heading with <tag>',
+                   'quote': 'He said <b>ok</b> & yes', 'ask': 'Ask <request>'}]
+    }
+}]
+findings = [{'severity': 'high', 'category': 'cat <>',
+             'title': 'title with <angle> & amp', 'review_status': 'accepted'}]
+render_pdf('Opportunity', artifacts, findings, {'date': '2025-01-01'})
+```
+
+Raises:
+
+```text
+ValueError: paraparser: syntax error: parse ended with 1 unclosed tags
+```
+
+**Root cause** User-derived tender text is passed to ReportLab `Paragraph` without escaping XML
+entities. The code intentionally uses `<b>` and `<i>` tags in format strings, so a global escape
+of the whole template is not appropriate — the data substrings must be escaped individually.
+
+**Impact** Any export that includes tender text, finding titles, or artifact quotes containing
+`<`, `>`, or `&` will crash. This is common in construction tender specifications ("<10 mm",
+"5 < x < 10", "M&S", quoted HTML from OCR) and is a core export feature. The error is unhandled
+and will return a 500 to the user.
+
+**Recommended solution** Escape each user-derived value with `xml.sax.saxutils.escape` before
+interpolation, and preserve intentional markup in the format strings:
+
+```python
+from xml.sax.saxutils import escape
+
+def _pdf_text(value: str) -> str:
+    if value is None:
+        return ""
+    return escape(str(value)).replace("\n", "<br/>")
+
+# In render_pdf:
+if b.get("preamble"):
+    flow.append(Paragraph(_pdf_text(b["preamble"]), normal))
+if item.get("quote"):
+    flow.append(Paragraph(f"<i>“{_pdf_text(item['quote'])}”</i>", normal))
+```
+
+Apply the same treatment in `render_handover_pack` PDF branch.
+
+**Regression risks** Low; purely additive escaping in the render layer. The DOCX and XLSX
+renderers should be regression-tested with the same fixtures; they are likely safe because
+their libraries handle escaping, but this should be verified.
+
+**Tests to add** `test_render_pdf_with_angle_brackets`;
+`test_render_pdf_with_ampersand`; `test_render_pdf_with_clarification_quote`;
+`test_render_handover_pdf_with_special_chars`.
+
+**Similar locations** `render_handover_pack` PDF branch uses the same `Paragraph` pattern for
+obligations, notice rules, gaps, and deadlines.
+
+---
+
+#### TS-A13 — `document_stream` and `get_document_text` do not enforce opportunity scoping
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect — by code inspection |
+| **Severity** | **Medium** |
+| **Category** | Broken Access Control / Information Disclosure (intra-workspace) |
+| **Release-blocking** | **No** |
+| **Affected roles** | viewer+ |
+
+**Location** — `backend/app/modules/ingestion/router.py:184-217`;
+`backend/app/modules/ingestion/router.py:295-303`;
+`backend/app/modules/ingestion/service.py` `get_document` / `get_doc_text`
+
+**Evidence** `document_stream` declares `opportunity_id` and `document_id` path parameters:
+
+```python
+@router.get("/opportunities/{opportunity_id}/documents/{document_id}/stream")
+async def document_stream(...):
+    svc = _service(request, session)
+    if not svc.get_document(principal.workspace_id, document_id):
+        raise HTTPException(404, "not_found")
+```
+
+`get_document` filters by `workspace_id` and `document_id` only. The `opportunity_id` path parameter
+is never used. `get_document_text` has no `opportunity_id` at all and uses
+`get_doc_text(workspace_id, document_id, page=page)`.
+
+**Root cause** The service layer does not model the opportunity as an authorization scope for
+documents; the route includes it in the path but does not validate it.
+
+**Impact** Within a workspace, a user who knows or gleans a document ID or Celery task ID from
+another opportunity can request its processing stream or extracted text via any opportunity's
+URL. This is not cross-tenant, but it bypasses any future opportunity-level permission model
+and breaks URL semantics.
+
+**Recommended solution** Add `opportunity_id` to `get_document` and `get_doc_text` and include
+`Document.opportunity_id == ...` in the query. Return 404 if the document does not belong to the
+path opportunity. In `document_stream`, also validate that the Celery `task_id` is associated
+with the document (or at least that the document's opportunity matches).
+
+**Regression risks** Low; the `Document` model already has the `opportunity_id` column and index.
+
+**Tests to add** `test_document_stream_rejects_foreign_opportunity`;
+`test_get_document_text_enforces_opportunity`.
+
+**Similar locations** `drafting/router.py` `get_artifact`, `baseline/router.py` `get_baseline` and
+`verify_baseline` use only `workspace_id` + id; they should be reviewed when opportunity-level
+permissions are introduced.
+
+---
+
+#### TS-A14 — Password `login()` non-deterministically selects workspace for multi-workspace users
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect — by code inspection |
+| **Severity** | **Medium** |
+| **Category** | Auth / Session Management |
+| **Release-blocking** | **No** |
+| **Affected roles** | users with more than one workspace |
+
+**Location** — `backend/app/modules/auth/service.py:160-162`
+
+**Evidence** After a successful password verification, `login()` selects the workspace membership
+row:
+
+```python
+member = self.s.scalar(select(WorkspaceMember).where(WorkspaceMember.user_id == user.id))
+workspace_id = member.workspace_id if member else None
+role = member.role if member else "owner"
+```
+
+There is no `ORDER BY` and no `LIMIT`. SQLAlchemy `scalar()` returns the first row of an
+unordered result, which is database-dependent. The `create_workspace` endpoint means users can
+have multiple workspaces.
+
+**Root cause** Same pattern as `google_login` (TS-A02) but in the password path. The previous
+audit praised `login()` for using `member.role` correctly but missed the unordered workspace
+selection.
+
+**Impact** A multi-workspace user may land in an arbitrary workspace after each login, or always
+in the wrong one, depending on the query plan. This breaks the "last workspace" expectation
+and can confuse users; combined with TS-A06 it can also interact badly with refresh rotation.
+
+**Recommended solution** Make workspace selection deterministic. Short-term, order by
+`WorkspaceMember.created_at` and take the first:
+
+```python
+member = self.s.scalar(
+    select(WorkspaceMember)
+    .where(WorkspaceMember.user_id == user.id)
+    .order_by(WorkspaceMember.created_at)
+    .limit(1)
+)
+```
+
+Better: add `User.default_workspace_id` or `last_workspace_id` and use that; expose it in account
+settings. The frontend already has a workspace switcher (TS-F01), but the initial login choice
+should be predictable.
+
+**Regression risks** Low; only affects users with multiple workspaces, and current behaviour is
+already non-deterministic.
+
+**Tests to add** `test_login_selects_first_workspace_deterministically`;
+`test_login_multi_workspace`.
+
+**Similar locations** `google_login` in the same file (TS-A02). `switch_workspace` and
+`refresh` are correctly scoped.
+
+---
+
+#### TS-A15 — `review/audit_trail` ignores `opportunity_id` and returns workspace-wide audit logs
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect — by code inspection |
+| **Severity** | **Medium** |
+| **Category** | Information Disclosure / Access Control (intra-workspace) |
+| **Release-blocking** | **No** |
+| **Affected roles** | reviewer+ |
+
+**Location** — `backend/app/modules/review/router.py:83-101`;
+`backend/app/modules/review/service.py:98-100`
+
+**Evidence** The route is `GET /review/opportunities/{opportunity_id}/audit`:
+
+```python
+@router.get("/opportunities/{opportunity_id}/audit")
+def audit_trail(...):
+    rows = _service(request, session).audit_trail(principal.workspace_id, opportunity_id)
+```
+
+But the service implementation ignores `opportunity_id`:
+
+```python
+def audit_trail(self, workspace_id, opportunity_id=None) -> list[AuditLog]:
+    stmt = select(AuditLog).where(AuditLog.workspace_id == uuid.UUID(str(workspace_id)))
+    return list(self.s.scalars(stmt.order_by(AuditLog.id.desc())))
+```
+
+**Root cause** `AuditLog` does not store `opportunity_id` directly; it stores `object_type` and
+`object_id` (currently only `finding.{decision}` with `object_id` = finding UUID). The service
+does not join back to `FindingRow` to filter by opportunity.
+
+**Impact** A reviewer viewing one opportunity's audit trail sees every `AuditLog` entry in the
+workspace, including review decisions on other opportunities. This leaks activity and reviewer
+notes across tenders in the same workspace.
+
+**Recommended solution** Short-term, join `AuditLog` to `FindingRow` for `object_type == "finding"`
+and filter:
+
+```python
+def audit_trail(self, workspace_id, opportunity_id=None) -> list[AuditLog]:
+    stmt = select(AuditLog).where(AuditLog.workspace_id == uuid.UUID(str(workspace_id)))
+    if opportunity_id:
+        finding_ids = select(FindingRow.id).where(
+            FindingRow.workspace_id == uuid.UUID(str(workspace_id)),
+            FindingRow.opportunity_id == uuid.UUID(str(opportunity_id)),
+        )
+        stmt = stmt.where(
+            AuditLog.object_type == "finding",
+            AuditLog.object_id.in_(finding_ids),
+        )
+    return list(self.s.scalars(stmt.order_by(AuditLog.id.desc())))
+```
+
+Long-term, add `opportunity_id` to `AuditLog` and populate it in `ReviewService.audit()` to
+avoid the join and to support audit of non-finding actions.
+
+**Regression risks** Low; changes only the read path. Ensure the `object_id`/`object_type` values
+are consistently populated.
+
+**Tests to add** `test_audit_trail_is_opportunity_scoped`;
+`test_audit_trail_does_not_leak_other_opportunities`.
+
+**Similar locations** `findings/store.py` `get` filters by `workspace_id` + `finding_id` but not
+`opportunity_id`; since `review_finding` has no opportunity path parameter this is not a direct
+bypass, but any future route that adds opportunity should enforce it.
+
+---
+
+#### TS-O05 — Backend Docker image runs as root
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect — by code inspection |
+| **Severity** | **Low** |
+| **Category** | Deployment / Container Hardening |
+| **Release-blocking** | **No** |
+| **Affected roles** | infrastructure operators |
+
+**Location** — `backend/Dockerfile:1-14`
+
+**Evidence** The Dockerfile does not create a non-root user:
+
+```dockerfile
+FROM python:3.12-slim
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
+COPY pyproject.toml ./
+RUN pip install ...
+COPY . .
+EXPOSE 8000
+CMD ["sh", "-c", "alembic upgrade head && uvicorn ..."]
+```
+
+The container therefore runs as `root` (UID 0).
+
+**Root cause** Missing `RUN useradd` / `USER` directives.
+
+**Impact** A container escape or compromised workload gains root privileges on the host
+namespace. Low likelihood in a properly configured Kubernetes pod with `runAsNonRoot`, but the
+image itself does not support defence in depth.
+
+**Recommended solution** Add an unprivileged user to the Dockerfile:
+
+```dockerfile
+RUN groupadd -r app && useradd -r -g app app
+RUN chown -R app:app /app
+USER app
+```
+
+Ensure `backend_storage` volume and `/tmp` write paths are writable by that user.
+
+**Regression risks** Low; may require adjusting file permissions for local storage and `/tmp`
+tus chunk directory.
+
+**Tests to add** `test_dockerfile_runs_as_non_root` (CI step
+`docker run --rm <image> id -u` should not be 0).
+
+---
+
+#### TS-L05 — `create_opportunity` accepts free-text `jurisdiction`/`employer_family`/`employer`
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect — by code inspection |
+| **Severity** | **Low** |
+| **Category** | Data Integrity / Input Validation |
+| **Release-blocking** | **No** |
+| **Affected roles** | estimator+ |
+
+**Location** — `backend/app/modules/ingestion/router.py:28-33`;
+`backend/app/modules/ingestion/router.py:60-74`;
+`backend/app/modules/ingestion/service.py:59-64`;
+`backend/app/modules/ingestion/models.py:19-22`
+
+**Evidence** `CreateOpportunityBody` allows arbitrary strings:
+
+```python
+class CreateOpportunityBody(BaseModel):
+    title: str = Field(min_length=1)
+    employer: str | None = None
+    employer_family: str | None = None
+    jurisdiction: str = "IN"
+```
+
+The service stores them verbatim:
+
+```python
+def create_opportunity(self, workspace_id, title: str, **fields) -> Opportunity:
+    opp = Opportunity(workspace_id=uuid.UUID(str(workspace_id)), title=title, **fields)
+```
+
+There is no enum or country-code validation. The model has `contract_form` but the request body
+has no field for it.
+
+**Root cause** No validation on domain fields that are intended to be categorical (`jurisdiction`
+should be an ISO country code; `employer_family` and `contract_form` should be controlled values).
+
+**Impact** Inconsistent data breaks filtering, reporting, and bid-decision artifacts. For
+example, `jurisdiction` values like `"india"`, `"IN"`, and `"India"` will be treated as three
+different jurisdictions. `contract_form` cannot be set at creation, so the field is always null.
+
+**Recommended solution** Add Pydantic validators or enums:
+
+```python
+from pydantic import Field, field_validator
+
+class CreateOpportunityBody(BaseModel):
+    title: str = Field(min_length=1)
+    employer: str | None = None
+    employer_family: str | None = None
+    jurisdiction: str = "IN"
+    contract_form: str | None = None
+
+    @field_validator("jurisdiction")
+    @classmethod
+    def _upper_jurisdiction(cls, v):
+        return (v or "IN").strip().upper()
+```
+
+Add an allowed-values table or enum for `employer_family` and `contract_form`, or at least
+normalize case and strip whitespace.
+
+**Regression risks** Low; additive validation. Existing free-text values may need a data cleanup
+migration.
+
+**Tests to add** `test_create_opportunity_normalizes_jurisdiction`;
+`test_create_opportunity_rejects_unknown_contract_form` (if enum enforced).
+
+### 9.3 Updated remediation plan
+
+Add to the release-blocking list from §5.1, §5.2, §7.3, and §8.4:
+
+- **P0 (release-blocking, new)**
+  - **TS-A11**: add `opportunity_id` filter to `confirm_deadline`.
+  - **TS-A12**: validate `supersedes` document belongs to the same workspace/opportunity.
+  - **TS-P03**: add `anthropic` to `pyproject.toml`/Dockerfile extras and smoke-test LLM
+    activation.
+  - **TS-E01**: escape XML metacharacters in `render_pdf` and `render_handover_pack` PDF output.
+
+- **P1 (required pre-release)**
+  - **TS-A13**: enforce `opportunity_id` in `document_stream` and `get_document_text`.
+  - **TS-A14**: deterministic workspace selection in `login()`.
+  - **TS-A15**: scope `audit_trail` to the requested opportunity.
+
+- **P2 (short-term improvements)**
+  - **TS-O05**: run backend container as non-root.
+  - **TS-L05**: validate/normalize opportunity categorical fields.
+
+### 9.4 Updated final recommendation
+
+**NO-GO** for public launch and for any deployment holding more than one customer's data.
+
+This fourth round re-confirmed every prior release blocker and added four new release-blocking
+findings (TS-A11, TS-A12, TS-P03, TS-E01) plus five medium/low-priority gaps (TS-A13, TS-A14,
+TS-A15, TS-O05, TS-L05). There are now **40 findings** (5 Critical, 15 High, 14 Medium, 6 Low)
+with **18 release-blocking** items. The new blockers are concentrated in `ingestion`
+(document/deadline scoping), `export` (PDF sanitization), and packaging (`anthropic`
+dependency), and are fixable, but the product should not ship until all eighteen blockers are
+resolved and verified.
 

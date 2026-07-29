@@ -6,6 +6,25 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-29 (TS-130: fourth-round production readiness re-audit)
+
+- **TS-130** — Fourth-round end-to-end re-audit of trunk
+  (`claude/dev-workflow-modules-58dpqw`, commit `4bca1235b9db253859c16587e55866a17f19b67d`) per
+  `END_TO_END_PRODUCTION_AUDIT_PROMPT.md`. **Audit only — no source files were changed.**
+  `PRODUCTION_READINESS_AUDIT.md` updated with:
+  - Re-verification that all previous `TS-*` findings still reproduce.
+  - Nine new findings: `TS-A11` (`confirm_deadline` ignores `opportunity_id`),
+    `TS-A12` (`register_document` accepts cross-workspace `supersedes`), `TS-P03`
+    (missing `anthropic` dependency breaks LLM features), `TS-E01` (PDF export crashes
+    on XML metacharacters), `TS-A13` (`document_stream`/`get_document_text` opportunity
+    scoping), `TS-A14` (`login()` non-deterministic workspace selection), `TS-A15`
+    (`review/audit_trail` ignores `opportunity_id`), `TS-O05` (Docker image runs as root),
+    and `TS-L05` (unvalidated opportunity categorical fields).
+  - Updated counts: **40 findings (5 Critical, 15 High, 14 Medium, 6 Low), 18 release-blocking**.
+  - Updated remediation plan and final recommendation remains **NO-GO**.
+  - Baseline recorded: `ruff` clean, `mypy` clean (143 files), `pytest -q` 146 passed,
+    frontend lint/typecheck/build clean, `npm audit` 0 vulnerabilities.
+
 ### Done — 2026-07-29 (TS-094: end-to-end production readiness audit)
 
 - **TS-094** — Full end-to-end production readiness audit of trunk

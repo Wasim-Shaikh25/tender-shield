@@ -217,3 +217,18 @@ Audit only — no source changes. Findings and full remediation detail live in
 |---|---|---|---|---|
 | TS-128 | Third-round production readiness audit rerun from scratch: re-verify all `TS-*` findings, search for new auth/tenant/deployment/product issues, update `PRODUCTION_READINESS_AUDIT.md` | `END_TO_END_PRODUCTION_AUDIT_PROMPT.md` | `PRODUCTION_READINESS_AUDIT.md` | done |
 | TS-129 | **BLOCKER** `create_invitation` and `accept_invitation` must verify `project_id` belongs to the invitation's workspace before persisting `ProjectMember` | audit TS-A10; Doc §5 | `specs/modules/auth.md` (update) | todo |
+
+## Fourth-round production readiness audit (2026-07-29, commit `4bca1235b9db253859c16587e55866a17f19b67d`)
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-130 | Fourth-round end-to-end re-audit: re-verify all `TS-*` findings, find ingestion/export/packaging/auth gaps, update `PRODUCTION_READINESS_AUDIT.md` | `END_TO_END_PRODUCTION_AUDIT_PROMPT.md` | `PRODUCTION_READINESS_AUDIT.md` | done |
+| TS-131 | **BLOCKER** `confirm_deadline` must include `opportunity_id` in its query | audit TS-A11; Doc §6.2 | `specs/modules/ingestion.md` (update) | todo |
+| TS-132 | **BLOCKER** `register_document` must validate `supersedes` belongs to the same workspace/opportunity | audit TS-A12; Doc §6.1 | `specs/modules/ingestion.md` (update) | todo |
+| TS-133 | **BLOCKER** Add `anthropic` to dependencies/Dockerfile and smoke-test LLM activation | audit TS-P03; Doc §6.3, §8 | `pyproject.toml`, `backend/Dockerfile` | todo |
+| TS-134 | **BLOCKER** Escape XML metacharacters in PDF export (`render_pdf` / `render_handover_pack`) | audit TS-E01; Doc §1.1(8) | `specs/modules/export.md` (update) | todo |
+| TS-135 | Enforce `opportunity_id` in `document_stream` and `get_document_text` | audit TS-A13; Doc §6.1 | `specs/modules/ingestion.md` (update) | todo |
+| TS-136 | Deterministic workspace selection in password `login()` | audit TS-A14; Doc §5 | `specs/modules/auth.md` (update) | todo |
+| TS-137 | Scope `review/audit_trail` to the requested opportunity | audit TS-A15; Doc §11.4 | `specs/modules/review.md` (update) | todo |
+| TS-138 | Run backend container as non-root | audit TS-O05; Doc §16 | `specs/deployment.md` (update) | todo |
+| TS-139 | Validate/normalize `create_opportunity` categorical fields | audit TS-L05; Doc §6.1 | `specs/modules/ingestion.md` (update) | todo |

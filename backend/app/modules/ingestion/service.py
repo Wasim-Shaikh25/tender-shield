@@ -80,6 +80,12 @@ class IngestionService:
             )
         )
 
+    def extract_text(self, filename: str, data: bytes) -> str:
+        """Digital text extraction (no persistence) for callers like baseline."""
+        from app.modules.ingestion.extract import extract_text as _extract_text
+
+        return _extract_text(filename, data)
+
     # ---- documents --------------------------------------------------------
     def register_document(
         self, workspace_id, opportunity_id, filename: str, sample_text: str = "", **fields

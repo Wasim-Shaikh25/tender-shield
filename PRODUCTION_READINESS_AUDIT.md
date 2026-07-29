@@ -52,15 +52,24 @@ previous finding, and discovered an additional cross-tenant write path: `POST /a
 accepts an arbitrary `project_id` and `POST /api/auth/invitations/{token}/accept` adds a
 `ProjectMember` row without verifying the project belongs to the invitation's workspace (`TS-A10`).
 
+A fourth-round pass (§9) concentrated on modules and pages explicitly marked "not reviewed in
+depth" in prior rounds (analytics, comparison, crossref, qualification, standards, timeline,
+baseline, assistant, notifications, risk engine, BOQ engine, export rendering, ingestion tus,
+and frontend pages beyond login). It identified twelve additional gaps, the most significant
+being synchronous CPU-bound extraction inside async upload routes (`TS-I04`), unbounded CSV
+payloads in the BOQ run endpoint (`TS-I05`), a frontend session provider that keeps stale
+workspace state after switching (`TS-F02`), and a brittle LLM-response parser in the risk
+classifier (`TS-R01`).
+
 ### 1.2 Finding count by severity
 
 | Severity | Count | Release-blocking | IDs |
 |---|---|---|---|
 | **Critical** | 5 | 5 | TS-A01, TS-A02, TS-A03, TS-B01, TS-P02 |
-| **High** | 11 | 9 | TS-A04, TS-A05, TS-I01, TS-I02, TS-B02, TS-F01, TS-O01, TS-A06, TS-A07, TS-O04, TS-A10 |
-| **Medium** | 11 | 0 | TS-O02, TS-I03, TS-N01, TS-P01, TS-S01, TS-X01, TS-B03, TS-S02, TS-O03, TS-A08, TS-A09 |
+| **High** | 14 | 12 | TS-A04, TS-A05, TS-I01, TS-I02, TS-B02, TS-F01, TS-O01, TS-A06, TS-A07, TS-O04, TS-A10, TS-I04, TS-I05, TS-F02 |
+| **Medium** | 20 | 0 | TS-O02, TS-I03, TS-N01, TS-P01, TS-S01, TS-X01, TS-B03, TS-S02, TS-O03, TS-A08, TS-A09, TS-R01, TS-D02, TS-Q01, TS-X02, TS-A11, TS-I06, TS-B05, TS-S03, TS-A13 |
 | **Low** | 4 | 0 | TS-L01, TS-L02, TS-L03, TS-L04 |
-| **Total** | **31** | **14** | |
+| **Total** | **43** | **17** | |
 
 Product-completeness gaps are tracked separately in §3.5 (they are capability gaps, not
 defects, and are not counted above).
@@ -80,6 +89,9 @@ defects, and are not counted above).
 | Verification token leaked by resend endpoint | `auth/router.py` `resend_verification` returns raw token (§7 TS-A07) | High |
 | Container image missing runtime extras | `backend/Dockerfile` omits `celery`, `billing`, `scheduler`, `ocr` extras (§7 TS-O04) | High |
 | Arbitrary project_id in invitation adds member to any project | `auth/service.py` `create_invitation`/`accept_invitation` do not verify project ownership (§8 TS-A10) | High |
+| Synchronous extraction blocks the async event loop on upload | `ingestion/router.py:164` calls `extract_upload` directly from an `async def` route (§9 TS-I04) | High |
+| BOQ run accepts unbounded CSV payloads | `boq/router.py:47` `RunBody.csv` has no max length; parsed entirely in memory (§9 TS-I05) | High |
+| Session provider keeps stale workspace list after switch | `frontend/components/session.tsx:52` refuses to overwrite a non-empty workspace list (§9 TS-F02) | High |
 
 ### 1.4 Major product risks
 
@@ -131,7 +143,7 @@ Stated up front so the recommendation is read against what was actually tested:
 
 ### 1.7 Release conditions
 
-Ship only when **all thirteen** release-blocking findings in §5.1, §5.2, and §7.3 are fixed,
+Ship only when **all seventeen** release-blocking findings in §5.1, §5.2, §7.3, and §9.4 are fixed,
 each with a regression test, **and** the RLS behaviour in TS-A03 has been verified against a real
 PostgreSQL instance using a non-owner application role (§6.2). Fixing the application-layer
 checks without fixing RLS leaves the product one missing `if` statement away from the same
@@ -2570,4 +2582,671 @@ release-blocking cross-tenant write path (TS-A10). There are now **31 findings**
 11 High, 11 Medium, 4 Low) with **14 release-blocking** items. The defects remain concentrated
 in the auth module and are fixable, but the product should not ship until all fourteen blockers
 are resolved and verified.
+## 9. Fourth-round re-audit
+
+### 9.1 Scope and evidence
+
+This re-audit was requested to analyse the repository end-to-end, skip findings already
+documented in prior sections, and add any newly discovered gaps. It concentrated on the areas
+explicitly listed in §2.3 as "not reviewed in depth" and on additional frontend pages and
+infrastructure. Baseline checks were re-run on the current commit (`4bca123`) and remain green:
+`ruff check .`, `mypy app`, `pytest -q` (146 passed), `npm run lint`, `npm run typecheck`, and
+`npm run build` all pass. Source code is unchanged from the commit audited in the previous
+report (git diff is limited to documentation/changelog/backlog), so all previously reported
+`TS-*` findings remain present.
+
+### 9.2 Re-verification status of previous findings
+
+All previously reported `TS-*` findings were re-confirmed by code inspection. No previously
+reported finding was retired in this round.
+
+### 9.3 New findings
+
+#### TS-I04 — Synchronous extraction blocks the async event loop in `upload_document`
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **High** |
+| **Category** | Concurrency / Performance |
+| **Release-blocking** | **YES** |
+| **Affected roles** | Any authenticated user with `estimator` role |
+
+**Location** — `backend/app/modules/ingestion/router.py:112-181`
+
+**Evidence** The `upload_document` route is declared `async def`, but after storing the file it
+calls the synchronous, CPU-bound `extract_upload` directly:
+
+```python
+# backend/app/modules/ingestion/router.py:164
+ocr = request.app.state.ctx.registry.get("ingestion.ocr")
+text, ocr_status = extract_upload(file.filename, data, ocr)
+```
+
+`extract_upload` performs PDF parsing, table extraction, and optional OCR. Running it on the
+main event loop blocks all other requests for the duration of the parse.
+
+**Root cause** Missing `await asyncio.to_thread(...)` (or a Celery enqueue) around a synchronous,
+CPU-intensive operation inside an async route.
+
+**Impact** A single large uploaded tender pack can freeze the entire server for all users.
+Combined with TS-I01 (fully-buffered upload), this is a practical DoS vector.
+
+**Recommended solution** Move `extract_upload` to a thread pool:
+
+```python
+text, ocr_status = await asyncio.to_thread(extract_upload, file.filename, data, ocr)
+```
+
+For production, consider making the non-async path queue to Celery (as the `?async=1` path does)
+by default, and stream progress via the existing SSE endpoint.
+
+**Regression risks** Low — the function is already side-effect-free given stored bytes.
+
+**Tests to add** `test_upload_document_yields_event_loop` (assert no other request is blocked
+while a large PDF is parsed); `test_async_query_runs_in_thread`.
+
+**Similar locations** `baseline/router.py:92` `upload_award_document` stores but does not extract
+text; the extraction is deferred to `BaselineService.store_award_document`, which is called from a
+sync route so the concern is smaller. `boq/router.py:95-100` `upload_boq` calls `to_csv` on
+parsed data inside an `async def` route and has the same pattern (see TS-X02).
+
+---
+
+#### TS-I05 — BOQ run endpoint accepts unbounded CSV payloads
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **High** |
+| **Category** | Denial of Service / Input Validation |
+| **Release-blocking** | **YES** |
+| **Affected roles** | Any authenticated user with `estimator` role |
+
+**Location** — `backend/app/modules/boq/router.py:40-54`; `backend/app/modules/boq/service.py:79-89`
+
+**Evidence** The request body has no maximum length and is parsed directly into a pandas
+DataFrame:
+
+```python
+# backend/app/modules/boq/service.py:80
+def run_csv(self, workspace_id, opportunity_id, csv_text: str) -> list[Finding]:
+    df = pd.read_csv(io.StringIO(csv_text))
+```
+
+```python
+# backend/app/modules/boq/router.py:47-51
+def run_boq(...):
+    findings = _runner(...).run_csv(principal.workspace_id, opportunity_id, body.csv)
+```
+
+`RunBody` only declares `csv: str`; Pydantic will accept an arbitrarily long string.
+
+**Root cause** No payload size cap on `RunBody.csv` and no streaming/ chunked CSV parser.
+
+**Impact** A multi-megabyte or multi-gigabyte `csv` string will be loaded into memory as a single
+object, causing OOM or extremely long CPU consumption on every request. The `estimator` role is
+required, but a compromised account or a single malicious user can crash the worker.
+
+**Recommended solution** Add a `max_length` validator to `RunBody.csv` (e.g. 5 MB, matching the
+largest permitted CSV upload) and reject before `pd.read_csv`:
+
+```python
+class RunBody(BaseModel):
+    csv: str = Field(..., max_length=5 * 1024 * 1024)
+```
+
+**Regression risks** Low — legitimate BOQ CSVs are well below this size.
+
+**Tests to add** `test_run_boq_rejects_oversized_csv`; `test_run_boq_accepts_max_size_csv`.
+
+**Similar locations** `ingestion/router.py:127` `file.read()` is bounded by `MAX_UPLOAD_SIZES`,
+so the raw upload path is safer; the BOQ text path bypasses those checks.
+
+---
+
+#### TS-F02 — Session provider keeps a stale workspace list after switch/refresh
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **High** |
+| **Category** | Frontend State / Session |
+| **Release-blocking** | **YES** |
+| **Affected roles** | Any user with more than one workspace |
+
+**Location** — `frontend/components/session.tsx:42-53`
+
+**Evidence** `applyTokens` only replaces the workspace list when the current list is empty:
+
+```tsx
+const applyTokens = (t: Tokens, all?: Workspace[]) => {
+  ...
+  const match = (all ?? workspaces).find((w) => w.id === t.workspace_id);
+  if (match) {
+    setWorkspaces((prev) => (prev.length ? prev : all ?? prev));
+  }
+};
+```
+
+After the first successful load `prev` is non-empty, so subsequent `switchWorkspace` or
+`refreshSession` calls pass a fresh `all` list but the state is not updated. The active
+workspace is then computed from the stale list:
+
+```tsx
+const activeWorkspace = workspaces.find((w) => w.id === session?.workspaceId) ?? null;
+```
+
+Because `session.workspaceId` is new but `workspaces` is old, `activeWorkspace` becomes `null`
+after every switch or refresh.
+
+**Root cause** A guard intended to avoid overwriting a loaded list also prevents updating it when
+the user's context changes.
+
+**Impact** The workspace switcher and any UI that depends on `activeWorkspace` break after the
+first switch/refresh. This undermines the multi-workspace support the session provider is meant
+to provide.
+
+**Recommended solution** Replace the conditional update with unconditional state replacement:
+
+```tsx
+if (match) {
+  setWorkspaces(all ?? workspaces);
+}
+```
+
+**Regression risks** Low — the intent is to keep the workspace list in sync with the token.
+
+**Tests to add** A React component test rendering `SessionProvider` through a mock
+`switchWorkspace` response and asserting `activeWorkspace` matches the new workspace.
+
+**Similar locations** `refreshSession` and `signIn` both call `applyTokens` with a freshly loaded
+list and are also affected.
+
+---
+
+#### TS-R01 — Risk classifier uses brittle string slicing and no schema validation
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | LLM Reliability / Data Integrity |
+| **Release-blocking** | No |
+| **Affected roles** | All users running risk review with an LLM key |
+
+**Location** — `backend/app/modules/risk/classifier.py:50-59`
+
+**Evidence**
+
+```python
+raw = msg.content[0].text
+return json.loads(raw[raw.index("[") : raw.rindex("]") + 1])
+```
+
+The parser finds the first `[` and the last `]` in the response. If the model emits any other
+square brackets — in an explanation, a clause reference, or a formatting artifact — the slice will
+be wrong and `json.loads` will fail or return malformed data. There is no Pydantic validation of
+the required fields (`found`, `facts`, `source_quote`, `source_page`).
+
+**Root cause** Ad-hoc JSON extraction instead of a constrained tool/schema call or strict
+response parsing.
+
+**Impact** Risk review can crash silently (returns `[]`) or return fabricated `facts` that feed
+into deterministic severity scoring, producing incorrect findings without the user noticing.
+
+**Recommended solution** Switch to Anthropic's `tool_use` / JSON mode with a defined schema, or
+wrap `json.loads` in a Pydantic validator and reject any response that does not match:
+
+```python
+from pydantic import BaseModel, Field, ValidationError
+
+class ClauseMatch(BaseModel):
+    found: bool
+    finding: str
+    facts: dict = Field(default_factory=dict)
+    source_quote: str = ""
+    source_page: int | None = None
+```
+
+**Regression risks** Low — the contract with the rest of the engine is a list of dicts with the
+same keys.
+
+**Tests to add** `test_classifier_rejects_bracket_noise`; `test_classifier_validates_missing_fields`.
+
+**Similar locations** `assistant/agent.py:46` returns raw text and does not validate that the
+answer is grounded-only or that it cites only provided facts (see TS-A13).
+
+---
+
+#### TS-D02 — `days_to_submission` mixes UTC and local time for naive deadlines
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Date Arithmetic / Data Quality |
+| **Release-blocking** | No |
+| **Affected roles** | All users viewing the opportunity board / analytics |
+
+**Location** — `backend/app/modules/comparison/service.py:64-70`
+
+**Evidence**
+
+```python
+if submission_due:
+    ref = datetime.now(UTC) if submission_due.tzinfo else datetime.now()
+    delta = submission_due - ref
+    days_to_submission = max(0, delta.days)
+```
+
+When `submission_due` is naive (the common case on SQLite and for extracted deadlines without an
+explicit timezone), the reference is `datetime.now()` in the server's local timezone, while the
+deadline is interpreted as UTC by the storage layer. This produces an off-by-hours error in the
+countdown and can flip the red/amber deadline badges incorrectly.
+
+**Root cause** Inconsistent timezone handling: naive datetimes are assumed UTC in the model but
+compared against local wall-clock time.
+
+**Impact** The board and analytics show wrong urgency, misleading bid teams about how much time
+remains.
+
+**Recommended solution** Store and compare all deadline datetimes in UTC. When a naive value is
+encountered, assume UTC rather than local time:
+
+```python
+ref = datetime.now(UTC)
+if submission_due.tzinfo is None:
+    submission_due = submission_due.replace(tzinfo=UTC)
+delta = submission_due - ref
+```
+
+**Regression risks** Low — the change only affects comparison semantics.
+
+**Tests to add** `test_days_to_submission_for_naive_utc_deadline` with mocked wall-clock time.
+
+**Similar locations** `notifications/module.py:57-58` also normalises naive `due_at` to UTC but
+only after comparison with `datetime.now(UTC)`, so it has the same local-time bug.
+
+---
+
+#### TS-Q01 — Qualification matrix marks missing criteria as `not_met` with HIGH severity
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Product Correctness / False Positives |
+| **Release-blocking** | No |
+| **Affected roles** | All users running qualification review |
+
+**Location** — `backend/app/modules/qualification/service.py:144-199`
+
+**Evidence** When no keyword for a criterion is found in the tender clauses, the code creates a
+`QualificationCriterion` with `status="not_met"`:
+
+```python
+if found is None:
+    records.append(
+        QualificationCriterion(
+            key=cfg["key"],
+            label=cfg["label"],
+            status="not_met",
+            ...
+        )
+    )
+```
+
+`_to_finding` then assigns `Severity.HIGH` to any `not_met` row:
+
+```python
+severity = Severity.HIGH if c.status == "not_met" else Severity.MEDIUM
+```
+
+A missing mention of "equipment requirements" does not mean the bidder does not meet it; it
+means the tender is silent on that criterion.
+
+**Root cause** Confusing "criterion not mentioned in tender" with "criterion not met by bidder".
+
+**Impact** Every qualification run generates HIGH-severity false positives, reducing trust in the
+register and hiding real problems in a wall of noise.
+
+**Recommended solution** Introduce a `not_mentioned` status and set severity to `LOW` or
+`INFO`:
+
+```python
+if found is None:
+    status = "not_mentioned"
+    severity = Severity.LOW
+else:
+    status = "unknown"   # present but not verified
+    severity = Severity.MEDIUM
+```
+
+**Regression risks** Low — the `status` values are not exposed outside this module.
+
+**Tests to add** `test_qualification_missing_criterion_is_not_high_severity`.
+
+---
+
+#### TS-X02 — BOQ engine relies on DuckDB reading `df` from caller scope
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Architecture / Deterministic Engine |
+| **Release-blocking** | No |
+| **Affected roles** | All users running BOQ checks |
+
+**Location** — `backend/app/modules/boq/engine.py:79-80,126-127`
+
+**Evidence** `run_checks` interpolates numeric parameters into a SQL string and then asks DuckDB
+to read `df` from the Python scope:
+
+```python
+sql = CHECKS_SQL.format(tol=tolerance, q=outlier_quantile, mult=outlier_multiplier)
+rows = duckdb.query(sql).to_df().to_dict("records")  # duckdb reads `df` from scope
+```
+
+```python
+totals = duckdb.query("SELECT sum(amount) a, sum(amount_calc) c FROM df").fetchone()
+```
+
+DuckDB's `query` resolves `df` from the current Python frame. If `run_checks` is refactored,
+renamed, or called from a context where the variable is not named `df`, the query fails. The
+`str.format` on `CHECKS_SQL` is also fragile and harder to audit than parameterized queries.
+
+**Root cause** Tight coupling between SQL text and the local variable name; use of string
+formatting for numeric placeholders.
+
+**Impact** The deterministic engine can fail in unexpected execution contexts (async threads,
+Celery workers, refactored callers) and is harder to maintain or reason about.
+
+**Recommended solution** Pass `df` explicitly to DuckDB via `duckdb.from_df` or a relation
+alias, and avoid `str.format` for SQL even with trusted numeric values:
+
+```python
+conn = duckdb.connect()
+conn.register("df", df)
+rows = conn.execute(CHECKS_SQL, [tolerance, outlier_quantile, outlier_multiplier]).fetchall()
+```
+
+**Regression risks** Low — the query shape and returned columns can stay identical.
+
+**Tests to add** `test_run_checks_with_renamed_dataframe`; `test_check_sql_uses_bound_parameters`.
+
+**Similar locations** `boq/router.py:95` `to_csv` for scanned PDFs is also CPU-heavy but does not
+use DuckDB scope injection.
+
+---
+
+#### TS-A11 — Cross-reference search loads all clauses regardless of `limit`
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Performance / Denial of Service |
+| **Release-blocking** | No |
+| **Affected roles** | Any authenticated `viewer` |
+
+**Location** — `backend/app/modules/crossref/router.py:17-33`; `backend/app/modules/crossref/service.py:23-61`
+
+**Evidence** The router accepts `limit: int = 20` and `q: str = ""` with no validation:
+
+```python
+def search(..., q: str = "", limit: int = 20, ...):
+    ...
+    return {
+        "query": q,
+        "results": _service(...).search(principal.workspace_id, opportunity_id, q, limit=limit),
+    }
+```
+
+The service loads every clause for the opportunity from the database and then slices in Python:
+
+```python
+docs = {str(d.id): d for d in svc.list_documents(workspace_id, opportunity_id)}
+clauses = svc.list_clauses(workspace_id, opportunity_id)
+...
+scored.sort(key=lambda x: x["score"], reverse=True)
+return scored[:limit]
+```
+
+`limit` only trims the returned list; the full clause set is always fetched.
+
+**Root cause** No pagination or database-level `LIMIT`, and no upper bound on `limit` or length
+of `q`.
+
+**Impact** A workspace with many clauses (large tender packs) can be trivially OOM'd or CPU
+exhausted by a single search request. A very long `q` string also increases processing time.
+
+**Recommended solution** Cap `limit` with `Query(..., ge=1, le=100)`, validate `q` length, and
+move scoring to the database or at least apply a `LIMIT` after tokenisation. Short-term fix:
+
+```python
+limit: int = Query(20, ge=1, le=100)
+```
+
+**Regression risks** Low — search results are currently unranked beyond Jaccard score.
+
+**Tests to add** `test_crossref_search_respects_limit`; `test_crossref_search_rejects_huge_limit`.
+
+---
+
+#### TS-I06 — `confirm_deadline` does not verify the deadline belongs to the opportunity
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Authorization / Data Integrity |
+| **Release-blocking** | No |
+| **Affected roles** | Any authenticated `estimator` |
+
+**Location** — `backend/app/modules/ingestion/router.py:271-282`; `backend/app/modules/ingestion/service.py:152-162`
+
+**Evidence** The route is `/opportunities/{opportunity_id}/deadlines/{deadline_id}/confirm`, but
+the service only filters by `deadline_id` and `workspace_id`:
+
+```python
+def confirm_deadline(self, workspace_id, deadline_id) -> Deadline | None:
+    dl = self.s.scalar(
+        select(Deadline).where(
+            Deadline.id == uuid.UUID(str(deadline_id)),
+            Deadline.workspace_id == uuid.UUID(str(workspace_id)),
+        )
+    )
+```
+
+The `opportunity_id` path parameter is never used.
+
+**Root cause** Missing `opportunity_id` filter in the service query.
+
+**Impact** A user can confirm a deadline belonging to a different opportunity in the same
+workspace, mutating the wrong tender's timeline.
+
+**Recommended solution** Add `Deadline.opportunity_id == uuid.UUID(str(opportunity_id))` to the
+`where` clause and return 404 when the deadline does not belong to the requested opportunity.
+
+**Regression risks** None — all legitimate calls already include a valid opportunity ID.
+
+**Tests to add** `test_confirm_deadline_rejects_foreign_opportunity`.
+
+---
+
+#### TS-B05 — Baseline `freeze` has a race condition on `version` numbering
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Data Integrity / Concurrency |
+| **Release-blocking** | No |
+| **Affected roles** | Users with `reviewer` role |
+
+**Location** — `backend/app/modules/baseline/service.py:331-358`; `backend/app/modules/baseline/models.py:17-33`
+
+**Evidence** `freeze` reads the current maximum version, increments it, and then inserts:
+
+```python
+next_version = (
+    self.s.scalar(
+        select(func.coalesce(func.max(Baseline.version), 0)).where(
+            Baseline.opportunity_id == opp
+        )
+    )
+    + 1
+)
+```
+
+There is no unique constraint on `(opportunity_id, version)` in `Baseline` model.
+
+**Root cause** Non-atomic read-modify-write and missing unique constraint.
+
+**Impact** Two concurrent `freeze` calls for the same opportunity can both receive the same
+`next_version`, producing two baselines with the same version number and ambiguous ordering.
+
+**Recommended solution** Add a unique constraint/index on `(opportunity_id, version)` and use an
+advisory lock or atomic `INSERT ... ON CONFLICT DO NOTHING` retry:
+
+```python
+class Baseline(Base, WorkspaceScopedMixin):
+    __table_args__ = (UniqueConstraint("opportunity_id", "version"),)
+```
+
+**Regression risks** Low — existing data may need migration if duplicates already exist.
+
+**Tests to add** `test_freeze_version_is_unique_per_opportunity` under concurrent requests.
+
+---
+
+#### TS-S03 — Uploaded filename can inject `Content-Disposition` header in file download
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Header Injection / File Download |
+| **Release-blocking** | No |
+| **Affected roles** | Any authenticated user downloading uploaded files |
+
+**Location** — `backend/app/main.py:159-181`
+
+**Evidence** The `/api/files/{key:path}` endpoint constructs `Content-Disposition` directly from
+the filename portion of the storage key:
+
+```python
+filename = _pathlib.Path(key).name
+...
+headers={"Content-Disposition": f"attachment; filename={filename}"},
+```
+
+`validate_and_store` stores the key as `workspace/{id}/{digest[:16]}-{safe_name}` where `safe_name`
+is the original filename with path traversal stripped but special characters (including `"` and
+`;`) left intact. An uploaded file named `report"; filename="evil` becomes part of the key and then
+part of the response header.
+
+**Root cause** No escaping/sanitising of filename before use in an HTTP header.
+
+**Impact** Response-header splitting and possible content-sniffing attacks if a browser misparses
+the header. Although the route returns `application/octet-stream`, `Content-Disposition` injection
+is a security hardening gap.
+
+**Recommended solution** Sanitise the filename to a safe basename and escape it for RFC 5987:
+
+```python
+import re
+safe = re.sub(r'[^\w.\-]', '_', filename)
+headers={"Content-Disposition": f'attachment; filename="{safe}"'},
+```
+
+**Regression risks** Low — legitimate filenames contain only safe characters.
+
+**Tests to add** `test_download_file_sanitises_filename_header`.
+
+**Similar locations** `export/router.py:48` and `baseline/router.py:215` generate filenames from a
+fixed `opportunity_id` UUID template, so they are safe; `main.py` is the only user-controlled
+path.
+
+---
+
+#### TS-A13 — Assistant agent has no output guard and includes user prompt verbatim
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | LLM Safety / Prompt Injection |
+| **Release-blocking** | No |
+| **Affected roles** | All users using the assistant chat |
+
+**Location** — `backend/app/modules/assistant/agent.py:21-49`; `backend/app/modules/assistant/service.py:159-166`
+
+**Evidence** The `AnthropicAgent` sends the user question and tool context to the LLM without any
+output guard:
+
+```python
+messages=[{
+    "role": "user",
+    "content": (
+        f"QUESTION: {message}\n\nTOOL RESULTS (the only facts you may use):\n"
+        f"{json.dumps(context, default=str)}"
+    ),
+}]
+```
+
+The system prompt instructs the model to answer only from tool results and refuse unrelated
+questions, but there is no enforcement: a user message that says "ignore previous instructions"
+can override the system prompt, and the model's free-text output is returned directly.
+
+**Root cause** No constrained output (tool/schema call), no prompt-injection classifier, and no
+post-hoc validation that the response only cites the provided tool results.
+
+**Impact** The assistant could leak context, give non-grounded legal/commercial advice, or be
+manipulated by crafted tender text uploaded by a malicious user.
+
+**Recommended solution** Use Anthropic's tool-calling / JSON mode to force a structured
+response, validate citations against the provided context, and run a lightweight prompt-injection
+classifier on the user message. At minimum, add a post-processor that rejects answers whose
+citations are not in the tool context.
+
+**Regression risks** Low — the assistant is already a thin adapter.
+
+**Tests to add** `test_assistant_refuses_prompt_injection`; `test_assistant_rejects_ungrounded_citation`.
+
+### 9.4 Updated remediation plan
+
+Add to the P0/P1 remediation lists from §5, §7.4, and §8.4:
+
+- **P0 (release-blocking, new)**
+  - **TS-I04**: move `extract_upload` out of the async event loop (`asyncio.to_thread` or Celery).
+  - **TS-I05**: cap the `csv` payload size in `boq/router.py`.
+  - **TS-F02**: fix `applyTokens` to always overwrite the workspace list with the freshly loaded
+    list.
+- **P1 (pre-release)**
+  - **TS-R01**: replace ad-hoc JSON slicing in `risk/classifier.py` with a schema-validated or
+    tool-call response.
+  - **TS-D02**: normalise all deadline comparisons to UTC and remove the local-time fallback.
+  - **TS-Q01**: distinguish "not_mentioned" from "not_met" in the qualification matrix.
+  - **TS-X02**: make the BOQ engine explicitly bind its DataFrame and use parameterized SQL.
+  - **TS-A11**: cap `crossref` `limit`/`q` and apply database-level pagination.
+  - **TS-I06**: add `opportunity_id` filter to `confirm_deadline`.
+  - **TS-B05**: add a unique constraint on `(opportunity_id, version)` and serialise `freeze`
+    calls.
+  - **TS-S03**: sanitise and escape filenames in `Content-Disposition` headers.
+  - **TS-A13**: add output validation/guarding to the assistant agent.
+
+### 9.5 Updated final recommendation
+
+**NO-GO** for public launch and for any deployment holding more than one customer's data.
+
+The fourth round re-confirmed every prior release blocker and identified twelve additional gaps,
+three of which are release-blocking (TS-I04, TS-I05, TS-F02). There are now **43 findings** (5
+Critical, 14 High, 20 Medium, 4 Low) with **17 release-blocking** items. The new blockers are
+concentrated in ingestion, BOQ, and frontend session state and are fixable in the same short
+timeframe as the auth blockers, but the product should not ship until all seventeen are resolved
+and verified.
+
 

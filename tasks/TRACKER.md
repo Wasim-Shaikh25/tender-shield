@@ -66,59 +66,59 @@ summary block below — never hand-edit it.
 
 | ID | Title | Requirement | Task file | Module(s) | Sev | Status |
 |---|---|---|---|---|---|---|
-| TS-011 | `auth` module: email+password (argon2id), RS256 JWT (15 min), rotating refresh + reuse detection | Doc §5 | — | `auth` | P0 | done |
-| TS-012 | Orgs, org_members, RBAC guard, RLS binding (`SET LOCAL app.org_id`) | Doc §5, §3.2 | — | `auth` | P0 | done |
-| TS-013 | DB foundation: Base/mixins, RLS helpers, session factory (registry capability), Alembic scaffold w/ pluggable model discovery | Doc §3.2 | — | `core` | P0 | done |
-| TS-013a | Per-module SQLAlchemy models + migrations (0001-0008: auth, ingestion, findings, audit_log, artifacts, billing) — risk + BOQ persist findings, review/drafting/export/billing wired | Doc §3.2 | — | multiple | P0 | done |
-| TS-014 | `ingestion` module: upload → rules-first classification + missing-doc checklist | Doc §6.1, §3.3 | — | `ingestion` | P0 | done |
-| TS-015 | Deadline extraction (deterministic date parse + quote citation) + deadline wall API + confirm chips | Doc §6.2 | — | `ingestion` | P0 | done |
-| TS-016 | Clause segmentation → `clauses` rows with refs + defined terms | Doc §3.3 | — | `ingestion` | P0 | done |
-| TS-017 | `risk` module: pattern engine (retrieve → classify → verify), deterministic severity, absence detection | Doc §6.3 | — | `risk` | P0 | done |
-| TS-018 | `boq` module: normalization (unit canon map) + deterministic checks (DuckDB) — zero LLM | Doc §6.4 | — | `boq` | P0 | done |
-| TS-019 | Scope-gap engine: trade checklist × spec/BOQ cross-reference | Doc §6.4 | — | `boq` | P0 | done |
-| TS-020 | `drafting` module: clarification letter + assumptions register + 3 validators (quotes/citations/numbers) | Doc §6.5 | — | `drafting` | P0 | done |
-| TS-021 | Review workbench API + append-only audit log + export gating | Doc §1.1(7), §11.4 | — | `review` | P0 | done |
-| TS-022 | `billing` module: free-tier metering (race-safe), paywall errors, Razorpay orders + webhooks, payment_log | Doc §7, §15, §16.5 | — | `billing` | P0 | done |
-| TS-023 | Export renderer: Bid Review Pack (DOCX/XLSX; PDF pending) with review-approval stamp + gate | Doc §1.1(8), §11.4 | — | `drafting` | P0 | done |
-| TS-024 | `assistant` module: grounded Q&A over org corpus, citations mandatory | Doc §8 | — | `assistant` | P1 | done |
-| TS-025 | Frontend skeleton: Next.js 15 app router, opportunity board + deadline wall | Doc §9 | — | frontend | P0 | done |
+| TS-011 | `auth` module: email+password (argon2id), RS256 JWT (15 min), rotating refresh + reuse detection | Doc §5 | [TS-011](specs/TS-011-auth-core.md) | `auth` | P0 | done |
+| TS-012 | Orgs, org_members, RBAC guard, RLS binding (`SET LOCAL app.org_id`) | Doc §5, §3.2 | [TS-012](specs/TS-012-orgs-rbac-rls.md) | `auth` | P0 | done |
+| TS-013 | DB foundation: Base/mixins, RLS helpers, session factory (registry capability), Alembic scaffold w/ pluggable model discovery | Doc §3.2 | [TS-013](specs/TS-013-db-foundation.md) | `core` | P0 | done |
+| TS-013a | Per-module SQLAlchemy models + migrations (0001-0008: auth, ingestion, findings, audit_log, artifacts, billing) — risk + BOQ persist findings, review/drafting/export/billing wired | Doc §3.2 | [TS-013a](specs/TS-013a-module-migrations.md) | multiple | P0 | done |
+| TS-014 | `ingestion` module: upload → rules-first classification + missing-doc checklist | Doc §6.1, §3.3 | [TS-014](specs/TS-014-ingestion-classify.md) | `ingestion` | P0 | done |
+| TS-015 | Deadline extraction (deterministic date parse + quote citation) + deadline wall API + confirm chips | Doc §6.2 | [TS-015](specs/TS-015-deadline-extraction.md) | `ingestion` | P0 | done |
+| TS-016 | Clause segmentation → `clauses` rows with refs + defined terms | Doc §3.3 | [TS-016](specs/TS-016-clause-segmentation.md) | `ingestion` | P0 | done |
+| TS-017 | `risk` module: pattern engine (retrieve → classify → verify), deterministic severity, absence detection | Doc §6.3 | [TS-017](specs/TS-017-risk-pattern-engine.md) | `risk` | P0 | done |
+| TS-018 | `boq` module: normalization (unit canon map) + deterministic checks (DuckDB) — zero LLM | Doc §6.4 | [TS-018](specs/TS-018-boq-normalization.md) | `boq` | P0 | done |
+| TS-019 | Scope-gap engine: trade checklist × spec/BOQ cross-reference | Doc §6.4 | [TS-019](specs/TS-019-boq-scope-gap.md) | `boq` | P0 | done |
+| TS-020 | `drafting` module: clarification letter + assumptions register + 3 validators (quotes/citations/numbers) | Doc §6.5 | [TS-020](specs/TS-020-drafting-clarification.md) | `drafting` | P0 | done |
+| TS-021 | Review workbench API + append-only audit log + export gating | Doc §1.1(7), §11.4 | [TS-021](specs/TS-021-review-workbench.md) | `review` | P0 | done |
+| TS-022 | `billing` module: free-tier metering (race-safe), paywall errors, Razorpay orders + webhooks, payment_log | Doc §7, §15, §16.5 | [TS-022](specs/TS-022-billing-metering-razorpay.md) | `billing` | P0 | done |
+| TS-023 | Export renderer: Bid Review Pack (DOCX/XLSX; PDF pending) with review-approval stamp + gate | Doc §1.1(8), §11.4 | [TS-023](specs/TS-023-export-bid-review-pack.md) | `drafting` | P0 | done |
+| TS-024 | `assistant` module: grounded Q&A over org corpus, citations mandatory | Doc §8 | [TS-024](specs/TS-024-assistant-grounded-qa.md) | `assistant` | P1 | done |
+| TS-025 | Frontend skeleton: Next.js 15 app router, opportunity board + deadline wall | Doc §9 | [TS-025](specs/TS-025-frontend-skeleton.md) | frontend | P0 | done |
 
 ## Phase 1 — Production hardening (infra + money/file path)
 
 | ID | Title | Requirement | Task file | Module(s) | Sev | Status |
 |---|---|---|---|---|---|---|
-| TS-026 | Real file upload (multipart) + text extraction (PDF/XLSX/CSV) → feeds classify/segment/deadlines | Doc §3.3, §6.1 | — | `ingestion` | P0 | done |
-| TS-027 | Deadline-digest notifications: pluggable sender abstraction + dev console sender + digest logic | Doc §11.6, §11.7 | — | `notifications` | P1 | done |
-| TS-028 | TOTP MFA (pyotp): enroll (secret+otpauth URI) + verify | Doc §5 | — | `auth` | P1 | done |
-| TS-029 | GST invoice computation (CGST/SGST vs IGST, sequential numbering) | Doc §15.8 | — | `billing` | P1 | done |
-| TS-030 | PDF export (reportlab) — completes the DOCX/PDF/XLSX trio, gated + stamped | Doc §1.1(8) | — | `drafting` | P1 | done |
-| TS-031 | Deploy scaffolding: Postgres docker-compose + backend/frontend Dockerfiles + `.env.example` | Doc §4, §11.1 | — | — | P1 | done |
-| TS-032 | Frontend CI (npm build) job in GitHub Actions | Doc §11.1 | — | — | P2 | done |
-| TS-033 | tus resumable upload | Doc §4, §6.1 | — | `ingestion` | P2 | todo |
-| TS-038 | Local OCR (RapidOCR, offline) + PDF table extraction (pdfplumber) — no cloud; OCR provider interface + honest needs_ocr degradation | Doc §6.1, §12.4 | — | `ingestion` | P1 | done |
-| TS-039 | Scanned-table BOQ via rapid-table (offline ONNX, NO cloud) + HTML→CSV; wired as BOQ-upload fallback | Doc §6.1, §12.4 | — | `ingestion` | P2 | done (model download on first use; not sandbox-verified) |
-| TS-034 | Celery + Redis: async page-streamed processing (SSE) | Doc §3.1, §3.3 | — | `core` | P2 | todo (needs Redis; superseded by TS-105) |
-| TS-035 | SES/Resend + MSG91 send adapters behind the notifications interface | Doc §4, §11.6 | — | `notifications` | P2 | todo (needs creds) |
-| TS-036 | Phone OTP (MSG91) + Google OIDC login | Doc §5 | — | `auth` | P2 | todo (needs creds) |
-| TS-037 | Stripe (GCC/UK) provider + live Razorpay keys behind the billing interface | Doc §7, §15.6 | — | `billing` | P2 | todo (needs creds) |
+| TS-026 | Real file upload (multipart) + text extraction (PDF/XLSX/CSV) → feeds classify/segment/deadlines | Doc §3.3, §6.1 | [TS-026](specs/TS-026-real-upload-extraction.md) | `ingestion` | P0 | done |
+| TS-027 | Deadline-digest notifications: pluggable sender abstraction + dev console sender + digest logic | Doc §11.6, §11.7 | [TS-027](specs/TS-027-notifications-digest.md) | `notifications` | P1 | done |
+| TS-028 | TOTP MFA (pyotp): enroll (secret+otpauth URI) + verify | Doc §5 | [TS-028](specs/TS-028-totp-mfa.md) | `auth` | P1 | done |
+| TS-029 | GST invoice computation (CGST/SGST vs IGST, sequential numbering) | Doc §15.8 | [TS-029](specs/TS-029-gst-invoicing.md) | `billing` | P1 | done |
+| TS-030 | PDF export (reportlab) — completes the DOCX/PDF/XLSX trio, gated + stamped | Doc §1.1(8) | [TS-030](specs/TS-030-pdf-export.md) | `drafting` | P1 | done |
+| TS-031 | Deploy scaffolding: Postgres docker-compose + backend/frontend Dockerfiles + `.env.example` | Doc §4, §11.1 | [TS-031](specs/TS-031-deploy-scaffolding.md) | — | P1 | done |
+| TS-032 | Frontend CI (npm build) job in GitHub Actions | Doc §11.1 | [TS-032](specs/TS-032-frontend-ci.md) | — | P2 | done |
+| TS-033 | tus resumable upload | Doc §4, §6.1 | [TS-033](specs/TS-033-tus-resumable-upload.md) | `ingestion` | P2 | todo |
+| TS-038 | Local OCR (RapidOCR, offline) + PDF table extraction (pdfplumber) — no cloud; OCR provider interface + honest needs_ocr degradation | Doc §6.1, §12.4 | [TS-038](specs/TS-038-local-ocr.md) | `ingestion` | P1 | done |
+| TS-039 | Scanned-table BOQ via rapid-table (offline ONNX, NO cloud) + HTML→CSV; wired as BOQ-upload fallback | Doc §6.1, §12.4 | [TS-039](specs/TS-039-scanned-boq-fallback.md) | `ingestion` | P2 | done (model download on first use; not sandbox-verified) |
+| TS-034 | Celery + Redis: async page-streamed processing (SSE) | Doc §3.1, §3.3 | [TS-034](specs/TS-034-celery-redis-async.md) | `core` | P2 | todo (needs Redis; superseded by TS-105) |
+| TS-035 | SES/Resend + MSG91 send adapters behind the notifications interface | Doc §4, §11.6 | [TS-035](specs/TS-035-notification-send-adapters.md) | `notifications` | P2 | todo (needs creds) |
+| TS-036 | Phone OTP (MSG91) + Google OIDC login | Doc §5 | [TS-036](specs/TS-036-phone-otp-google-oidc.md) | `auth` | P2 | todo (needs creds) |
+| TS-037 | Stripe (GCC/UK) provider + live Razorpay keys behind the billing interface | Doc §7, §15.6 | [TS-037](specs/TS-037-stripe-live-razorpay.md) | `billing` | P2 | todo (needs creds) |
 
 ## Phase 1 — UX & docs
 
 | ID | Title | Requirement | Task file | Module(s) | Sev | Status |
 |---|---|---|---|---|---|---|
-| TS-040 | In-app Help page: how-to-use walkthrough + honest scope / QS-lifecycle coverage + disclaimer | Doc §0.1–0.2, §11.4 | — | frontend | P2 | done |
+| TS-040 | In-app Help page: how-to-use walkthrough + honest scope / QS-lifecycle coverage + disclaimer | Doc §0.1–0.2, §11.4 | [TS-040](specs/TS-040-help-page.md) | frontend | P2 | done |
 
 ## Phase 2 — Baseline lock (stickiness beyond the bid)
 
 | ID | Title | Requirement | Task file | Module(s) | Sev | Status |
 |---|---|---|---|---|---|---|
-| TS-041 | `baseline` module: hash-sealed baseline freeze (immutable snapshot of accepted findings + confirmed deadlines + opportunity meta), integrity verify, deterministic notice-rule register, award-vs-tender delta, commercial handover pack | Doc §0.1 (P2), §10, §1.2 | — | `baseline` | P1 | done |
-| TS-042 | Frontend: opportunity "Handover" tab — freeze baseline, notice register, award-vs-tender delta, handover pack | Doc §9, §0.1 | — | frontend | P1 | done |
-| TS-046 | Layered contract-standards rulepack (universal base + regional overlay, merged at load) + standards-aware notice register with expected-regime gap detection | Doc §0.1, §2, §10 | — | `rulepacks`, `baseline` | P1 | done |
-| TS-047 | `standards` module: org-defined custom notice standards (prevail / side-by-side); researched real figures (FIDIC 28/84d, NEC 56d, MSMED 45d). Frontend editor + register origin badges | Doc §10, §0.1, §2 | — | `standards` | P1 | done |
-| TS-043 | Notice-deadline countdowns + alerts driven by the notice-rule register | Doc §0.1 (P3), §10 | — | `baseline` | P2 | todo |
-| TS-044 | Award-document ingestion: parse negotiated contract / award letter so the award baseline seals from real award text | Doc §0.1 (P2/P3) | — | `baseline` | P2 | todo |
-| TS-045 | Handover-pack file export (DOCX/PDF) reusing the export renderer | Doc §1.1(8), §0.1 | — | `baseline` | P2 | todo |
+| TS-041 | `baseline` module: hash-sealed baseline freeze (immutable snapshot of accepted findings + confirmed deadlines + opportunity meta), integrity verify, deterministic notice-rule register, award-vs-tender delta, commercial handover pack | Doc §0.1 (P2), §10, §1.2 | [TS-041](specs/TS-041-baseline-module.md) | `baseline` | P1 | done |
+| TS-042 | Frontend: opportunity "Handover" tab — freeze baseline, notice register, award-vs-tender delta, handover pack | Doc §9, §0.1 | [TS-042](specs/TS-042-frontend-handover-tab.md) | frontend | P1 | done |
+| TS-046 | Layered contract-standards rulepack (universal base + regional overlay, merged at load) + standards-aware notice register with expected-regime gap detection | Doc §0.1, §2, §10 | [TS-046](specs/TS-046-layered-standards-rulepack.md) | `rulepacks`, `baseline` | P1 | done |
+| TS-047 | `standards` module: org-defined custom notice standards (prevail / side-by-side); researched real figures (FIDIC 28/84d, NEC 56d, MSMED 45d). Frontend editor + register origin badges | Doc §10, §0.1, §2 | [TS-047](specs/TS-047-standards-module.md) | `standards` | P1 | done |
+| TS-043 | Notice-deadline countdowns + alerts driven by the notice-rule register | Doc §0.1 (P3), §10 | [TS-043](specs/TS-043-notice-countdowns.md) | `baseline` | P2 | todo |
+| TS-044 | Award-document ingestion: parse negotiated contract / award letter so the award baseline seals from real award text | Doc §0.1 (P2/P3) | [TS-044](specs/TS-044-award-document-ingestion.md) | `baseline` | P2 | todo |
+| TS-045 | Handover-pack file export (DOCX/PDF) reusing the export renderer | Doc §1.1(8), §0.1 | [TS-045](specs/TS-045-handover-pack-export.md) | `baseline` | P2 | todo |
 
 ## Phase 1.5 — Bid-Decision Extensions
 

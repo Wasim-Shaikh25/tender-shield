@@ -210,3 +210,10 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-125 | **PRODUCT BLOCKER** Complete rulepack QS validation or add a beta/disclaimer flag so paid workspaces see unvalidated patterns | audit TS-P02; Doc §14 | `specs/modules/rulepacks.md` (update) | todo |
 | TS-126 | Hash `Invitation.token` instead of storing it plaintext | audit TS-A08; Doc §5 | `specs/modules/auth.md` (update) | todo |
 | TS-127 | Require TOTP verification before committing `mfa_method=totp` | audit TS-A09; Doc §5 | `specs/modules/auth.md` (update) | todo |
+
+## Third-round production readiness audit (2026-07-29, commit `d651d00`)
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-128 | Third-round production readiness audit rerun from scratch: re-verify all `TS-*` findings, search for new auth/tenant/deployment/product issues, update `PRODUCTION_READINESS_AUDIT.md` | `END_TO_END_PRODUCTION_AUDIT_PROMPT.md` | `PRODUCTION_READINESS_AUDIT.md` | done |
+| TS-129 | **BLOCKER** `create_invitation` and `accept_invitation` must verify `project_id` belongs to the invitation's workspace before persisting `ProjectMember` | audit TS-A10; Doc §5 | `specs/modules/auth.md` (update) | todo |

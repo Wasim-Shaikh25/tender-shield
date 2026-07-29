@@ -1,15 +1,19 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
 from app.core.storage import StorageError, ValidationError, validate_and_store
+from app.modules.ingestion import tus
 from app.modules.ingestion.extract import extract_upload
 from app.modules.ingestion.service import IngestionService
+from app.modules.ingestion.tasks import process_document
 
 router = APIRouter()
+router.include_router(tus.router)
 
 
 def _service(request: Request, session: Session) -> IngestionService:
@@ -110,11 +114,13 @@ async def upload_document(
     opportunity_id: str,
     request: Request,
     file: UploadFile = File(...),
+    async_process: bool = Query(False, alias="async"),
     session: Session = Depends(get_session),
     principal: Any = Depends(require("estimator")),
 ):
     """Real multipart upload → store file → extract text (PDF/XLSX/CSV) → run the
-    classify/segment/deadline pipeline."""
+    classify/segment/deadline pipeline. Set ?async=1 to enqueue Celery processing
+    and stream progress via the SSE endpoint."""
     svc = _service(request, session)
     if not svc.get_opportunity(principal.workspace_id, opportunity_id):
         raise HTTPException(404, "not_found")
@@ -131,6 +137,29 @@ async def upload_document(
         raise HTTPException(422, str(exc)) from exc
     except StorageError as exc:
         raise HTTPException(500, str(exc)) from exc
+
+    if async_process:
+        doc = svc.register_document(
+            principal.workspace_id,
+            opportunity_id,
+            file.filename,
+            "",
+            s3_key=stored["key"],
+            sha256=stored["sha256"],
+            ocr_status="pending",
+            uploaded_by=_to_uuid(principal.user_id),
+        )
+        task = process_document.delay(
+            str(doc.id), str(principal.workspace_id), opportunity_id
+        )
+        return {
+            "id": str(doc.id),
+            "filename": doc.filename,
+            "kind": doc.kind,
+            "task_id": task.id,
+            "ocr_status": "pending",
+        }
+
     ocr = request.app.state.ctx.registry.get("ingestion.ocr")
     text, ocr_status = extract_upload(file.filename, data, ocr)
     doc = svc.register_document(
@@ -150,6 +179,41 @@ async def upload_document(
         "chars": len(text),
         "ocr_status": ocr_status,
     }
+
+
+@router.get("/opportunities/{opportunity_id}/documents/{document_id}/stream")
+async def document_stream(
+    opportunity_id: str,
+    document_id: str,
+    task_id: str,
+    request: Request,
+):
+    """Server-Sent Events stream of a Celery document-processing task."""
+    from celery.result import AsyncResult
+
+    def _events():
+        app = request.app.state.ctx.registry.get("celery.app")
+        if not app:
+            yield _sse_event("error", "celery not configured")
+            return
+        result = AsyncResult(task_id, app=app)
+        prev = {}
+        while not result.ready():
+            meta = result.info or {}
+            if meta != prev:
+                prev = meta.copy()
+                yield _sse_event(meta.get("step", "progress"), meta)
+        if result.successful():
+            yield _sse_event("done", result.result)
+        else:
+            yield _sse_event("error", str(result.result))
+
+    return StreamingResponse(_events(), media_type="text/event-stream")
+
+
+def _sse_event(event: str, data):
+    import json
+    return f"event: {event}\ndata: {json.dumps(data, default=str)}\n\n"
 
 
 @router.get("/opportunities/{opportunity_id}/clauses")

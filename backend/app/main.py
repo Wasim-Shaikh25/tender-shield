@@ -11,6 +11,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from app.core.celery import make_celery_app
 from app.core.config import Settings
 from app.core.db import make_engine, make_session_factory
 from app.core.events import EventBus
@@ -92,6 +93,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Scheduler: in-memory stub unless APScheduler is installed and Redis is available.
     scheduler = Scheduler()
     ctx.registry.provide("core.scheduler", scheduler)
+
+    # Celery: async page-streamed document processing (TS-034).
+    celery_app = make_celery_app(settings)
+    ctx.registry.provide("celery.app", celery_app)
 
     report: LoadReport = load_modules(settings.enabled_module_names())
 

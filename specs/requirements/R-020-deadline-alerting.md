@@ -5,6 +5,8 @@
 unrealised; the digest logic is written and has zero callers
 **Requirement refs:** Doc §11.6, §11.7; product overview §Purpose
 **Task refs:** TS-113 · **Depends on:** R-016/TS-105 (job scheduler),
+**Task files:** code-level detail (current-vs-target snippets, file:line, files touched, tests) now lives per-task, split out by TS-126's restructure: [TS-113](../../tasks/specs/TS-113-deadline-alerts-delivered.md). This document stays the business/behavior-level record (purpose, target behavior, acceptance criteria).
+
 R-015/TS-099 (email delivery adapter)
 **Gap refs:** `docs/PRODUCT_DISCOVERY_GAPS.md` §G-04
 **Specs to update:** `specs/modules/notifications.md`, `specs/frontend.md`

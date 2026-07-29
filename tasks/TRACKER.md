@@ -572,11 +572,11 @@ decision). Nothing inferred is recorded as confirmed.
 
 | ID | Task | Sev | Requirement | Task file | Module(s) | Status | Class | Acceptance gate |
 |---|---|---|---|---|---|---|---|---|
-| TS-110 | Document upload journey: file picker/drag-drop, multipart client, per-file progress + failure, document list | P0 | [R-017](../specs/requirements/R-017-document-upload-journey.md) | — | frontend, `ingestion` | todo | Confirmed Missing | A1–A6 in R-017 |
-| TS-119 | Review queue + audit viewer UI — gates the paid export path; `reviewer` has no reachable workflow without it | P0 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | — | frontend, `review` | todo | Confirmed Missing | TS-119 §Acceptance in R-023 |
-| TS-111 | Opportunity lifecycle + bid/no-bid decision record (`status` is a dead column) | P0 | [R-018](../specs/requirements/R-018-opportunity-lifecycle.md) | — | `ingestion`, frontend | todo | Confirmed Missing | A1–A6 in R-018 |
-| TS-112 | Archive / delete / restore for opportunities and documents | P0 (archive) | [R-019](../specs/requirements/R-019-record-lifecycle.md) | — | `ingestion`, frontend | todo | Strongly Implied | A1–A6 in R-019 |
-| TS-113 | Deadline alerts actually delivered (`digest.py` has zero callers) | P0 | [R-020](../specs/requirements/R-020-deadline-alerting.md) | — | `notifications`, frontend | todo | Confirmed Missing | A1–A6 in R-020 |
+| TS-110 | Document upload journey: file picker/drag-drop, multipart client, per-file progress + failure, document list | P0 | [R-017](../specs/requirements/R-017-document-upload-journey.md) | [TS-110](specs/TS-110-document-upload-journey.md) | frontend, `ingestion` | todo | Confirmed Missing | A1–A6 in R-017 |
+| TS-119 | Review queue + audit viewer UI — gates the paid export path; `reviewer` has no reachable workflow without it | P0 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | [TS-119](specs/TS-119-review-queue-ui.md) | frontend, `review` | todo | Confirmed Missing | TS-119 §Acceptance in R-023 |
+| TS-111 | Opportunity lifecycle + bid/no-bid decision record (`status` is a dead column) | P0 | [R-018](../specs/requirements/R-018-opportunity-lifecycle.md) | [TS-111](specs/TS-111-opportunity-lifecycle.md) | `ingestion`, frontend | todo | Confirmed Missing | A1–A6 in R-018 |
+| TS-112 | Archive / delete / restore for opportunities and documents | P0 (archive) | [R-019](../specs/requirements/R-019-record-lifecycle.md) | [TS-112](specs/TS-112-archive-delete-restore.md) | `ingestion`, frontend | todo | Strongly Implied | A1–A6 in R-019 |
+| TS-113 | Deadline alerts actually delivered (`digest.py` has zero callers) | P0 | [R-020](../specs/requirements/R-020-deadline-alerting.md) | [TS-113](specs/TS-113-deadline-alerts-delivered.md) | `notifications`, frontend | todo | Confirmed Missing | A1–A6 in R-020 |
 
 **Sequencing:** TS-110 → TS-119 → TS-111 → TS-112 → TS-113. That order is the
 shortest path to a product a design partner can use end to end on their own
@@ -591,10 +591,10 @@ do not need, and is told about a deadline without opening the app.
 
 | ID | Task | Sev | Requirement | Task file | Module(s) | Status | Class | Acceptance gate |
 |---|---|---|---|---|---|---|---|---|
-| TS-116 | Member removal (with immediate session revocation) + invitation list/revoke/resend | P0 | [R-022 §A](../specs/requirements/R-022-team-lifecycle-and-run-recovery.md) | — | `auth`, frontend | todo | Strongly Implied | A1–A6 in R-022 §A |
-| TS-114 | Audit trail beyond review decisions; move `audit_log` to `core` | P1 | [R-021 §A](../specs/requirements/R-021-audit-and-data-rights.md) | — | `core`, `auth`, `billing`, `export` | todo | Strongly Implied | A1–A5 in R-021 §A |
-| TS-117 | Processing-failure visibility + retry; metering correction for failed runs | P1 | [R-022 §B](../specs/requirements/R-022-team-lifecycle-and-run-recovery.md) | — | `risk`, `billing`, frontend | todo | Strongly Implied | B1–B5 in R-022 §B |
-| TS-115 | Workspace data export + account/workspace closure (DPDP) | P1 | [R-021 §B](../specs/requirements/R-021-audit-and-data-rights.md) | — | `auth`, all workspace-scoped modules | todo | Clarification Required | B1–B5 in R-021 §B |
+| TS-116 | Member removal (with immediate session revocation) + invitation list/revoke/resend | P0 | [R-022 §A](../specs/requirements/R-022-team-lifecycle-and-run-recovery.md) | [TS-116](specs/TS-116-member-removal-invitation-lifecycle.md) | `auth`, frontend | todo | Strongly Implied | A1–A6 in R-022 §A |
+| TS-114 | Audit trail beyond review decisions; move `audit_log` to `core` | P1 | [R-021 §A](../specs/requirements/R-021-audit-and-data-rights.md) | [TS-114](specs/TS-114-core-audit-trail.md) | `core`, `auth`, `billing`, `export` | todo | Strongly Implied | A1–A5 in R-021 §A |
+| TS-117 | Processing-failure visibility + retry; metering correction for failed runs | P1 | [R-022 §B](../specs/requirements/R-022-team-lifecycle-and-run-recovery.md) | [TS-117](specs/TS-117-processing-failure-visibility.md) | `risk`, `billing`, frontend | todo | Strongly Implied | B1–B5 in R-022 §B |
+| TS-115 | Workspace data export + account/workspace closure (DPDP) | P1 | [R-021 §B](../specs/requirements/R-021-audit-and-data-rights.md) | [TS-115](specs/TS-115-data-export-account-closure.md) | `auth`, all workspace-scoped modules | todo | Clarification Required | B1–B5 in R-021 §B |
 
 **TS-116 is release-blocking on its own merits.** "Cannot remove a departed
 employee's access" is not a shippable state for a product holding confidential
@@ -619,13 +619,13 @@ for. (TS-119 is listed in Gate 5 rather than here because it gates the paid path
 
 | ID | Task | Sev | Requirement | Task file | Module(s) | Status | Class | Acceptance gate |
 |---|---|---|---|---|---|---|---|---|
-| TS-118 | Timeline view + `.ics` calendar subscription (needs a signed, revocable feed token) | P1 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | — | frontend, `timeline` | todo | Confirmed Missing | TS-118 §Acceptance in R-023 |
-| TS-120 | Bid qualification / eligibility UI — feeds the bid decision (TS-111) | P1 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | — | frontend, `qualification` | todo | Confirmed Missing | R-023 |
-| TS-124 | Search across opportunities, clauses and findings; opportunity assignment | P1 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | — | frontend, `ingestion`, `findings` | todo | Strongly Implied | R-023 |
-| TS-122 | Addendum cross-reference / diff UI | P1 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | — | frontend, `crossref` | todo | Confirmed Missing | R-023 |
-| TS-121 | Cross-tender comparison UI — build with TS-102's dashboard, not separately | P2 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | — | frontend, `comparison` | todo | Confirmed Missing | R-023 |
-| TS-123 | Rule-pack transparency UI (which patterns ran, at what version/confidence) | P2 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | — | frontend, `rulepacks` | todo | Strongly Implied | R-023 |
-| TS-125 | Support/ops investigation console (read-only; no impersonation by design) | P2 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | — | frontend, `auth` | todo | Domain-Expected | R-023 |
+| TS-118 | Timeline view + `.ics` calendar subscription (needs a signed, revocable feed token) | P1 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | [TS-118](specs/TS-118-timeline-ics-calendar.md) | frontend, `timeline` | todo | Confirmed Missing | TS-118 §Acceptance in R-023 |
+| TS-120 | Bid qualification / eligibility UI — feeds the bid decision (TS-111) | P1 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | [TS-120](specs/TS-120-qualification-ui.md) | frontend, `qualification` | todo | Confirmed Missing | R-023 |
+| TS-124 | Search across opportunities, clauses and findings; opportunity assignment | P1 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | [TS-124](specs/TS-124-search-and-assignment.md) | frontend, `ingestion`, `findings` | todo | Strongly Implied | R-023 |
+| TS-122 | Addendum cross-reference / diff UI | P1 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | [TS-122](specs/TS-122-addendum-crossref-ui.md) | frontend, `crossref` | todo | Confirmed Missing | R-023 |
+| TS-121 | Cross-tender comparison UI — build with TS-102's dashboard, not separately | P2 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | [TS-121](specs/TS-121-cross-tender-comparison-ui.md) | frontend, `comparison` | todo | Confirmed Missing | R-023 |
+| TS-123 | Rule-pack transparency UI (which patterns ran, at what version/confidence) | P2 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | [TS-123](specs/TS-123-rulepack-transparency-ui.md) | frontend, `rulepacks` | todo | Strongly Implied | R-023 |
+| TS-125 | Support/ops investigation console (read-only; no impersonation by design) | P2 | [R-023](../specs/requirements/R-023-unexposed-capabilities.md) | [TS-125](specs/TS-125-support-ops-console.md) | frontend, `auth` | todo | Domain-Expected | R-023 |
 
 **TS-118 is the best value-to-effort item in the whole backlog.** The `.ics`
 feed is already written. Calendar subscription puts the product inside the

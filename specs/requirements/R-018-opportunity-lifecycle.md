@@ -5,6 +5,8 @@
 to record the decision; `Opportunity.status` is a dead column
 **Requirement refs:** Doc §0.1, §1.1, §10 (phase/kill gates)
 **Task refs:** TS-111
+**Task files:** code-level detail (current-vs-target snippets, file:line, files touched, tests) now lives per-task, split out by TS-126's restructure: [TS-111](../../tasks/specs/TS-111-opportunity-lifecycle.md). This document stays the business/behavior-level record (purpose, target behavior, acceptance criteria).
+
 **Gap refs:** `docs/PRODUCT_DISCOVERY_GAPS.md` §G-02
 **Specs to update:** `specs/modules/ingestion.md`, `specs/frontend.md`
 

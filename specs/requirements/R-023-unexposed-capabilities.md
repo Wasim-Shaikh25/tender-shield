@@ -6,6 +6,8 @@ rest — this is the cheapest value in the backlog, because the engines are buil
 tested and routable already
 **Requirement refs:** Doc §6, §7, §9
 **Task refs:** TS-118…TS-125
+**Task files:** code-level detail (current-vs-target snippets, file:line, files touched, tests) now lives per-task, split out by TS-126's restructure: [TS-118](../../tasks/specs/TS-118-timeline-ics-calendar.md), [TS-119](../../tasks/specs/TS-119-review-queue-ui.md), [TS-120](../../tasks/specs/TS-120-qualification-ui.md), [TS-121](../../tasks/specs/TS-121-cross-tender-comparison-ui.md), [TS-122](../../tasks/specs/TS-122-addendum-crossref-ui.md), [TS-123](../../tasks/specs/TS-123-rulepack-transparency-ui.md), [TS-124](../../tasks/specs/TS-124-search-and-assignment.md), [TS-125](../../tasks/specs/TS-125-support-ops-console.md). This document stays the business/behavior-level record (purpose, target behavior, acceptance criteria).
+
 **Gap refs:** `docs/PRODUCT_DISCOVERY_GAPS.md` §Gate 7
 **Specs to update:** `specs/frontend.md` and the per-module specs named below
 

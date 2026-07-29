@@ -5,6 +5,8 @@
 analyses its own built-in fixture
 **Requirement refs:** Doc §1.3 (NFR), §6.1; product overview §NFR
 **Task refs:** TS-110
+**Task files:** code-level detail (current-vs-target snippets, file:line, files touched, tests) now lives per-task, split out by TS-126's restructure: [TS-110](../../tasks/specs/TS-110-document-upload-journey.md). This document stays the business/behavior-level record (purpose, target behavior, acceptance criteria).
+
 **Gap refs:** `docs/PRODUCT_DISCOVERY_GAPS.md` §G-01
 **Specs to update:** `specs/frontend.md`, `specs/modules/ingestion.md`
 

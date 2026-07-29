@@ -5,6 +5,8 @@
 is materially weaker; data-subject rights may be a legal requirement
 **Requirement refs:** Doc §3.2, §16; R-001 (isolation), R-016/TS-109 (legal surface)
 **Task refs:** TS-114 (audit), TS-115 (data rights)
+**Task files:** code-level detail (current-vs-target snippets, file:line, files touched, tests) now lives per-task, split out by TS-126's restructure: [TS-114](../../tasks/specs/TS-114-core-audit-trail.md), [TS-115](../../tasks/specs/TS-115-data-export-account-closure.md). This document stays the business/behavior-level record (purpose, target behavior, acceptance criteria).
+
 **Gap refs:** `docs/PRODUCT_DISCOVERY_GAPS.md` §G-05, §G-06
 **Specs to update:** `specs/modules/core.md`, `specs/modules/auth.md`,
 `specs/data-model.md`

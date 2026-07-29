@@ -5,6 +5,8 @@
 tender in the workspace, permanently
 **Requirement refs:** Doc §5, §16; R-009 §B.3 (seats)
 **Task refs:** TS-116 (team lifecycle), TS-117 (run recovery)
+**Task files:** code-level detail (current-vs-target snippets, file:line, files touched, tests) now lives per-task, split out by TS-126's restructure: [TS-116](../../tasks/specs/TS-116-member-removal-invitation-lifecycle.md), [TS-117](../../tasks/specs/TS-117-processing-failure-visibility.md). This document stays the business/behavior-level record (purpose, target behavior, acceptance criteria).
+
 **Gap refs:** `docs/PRODUCT_DISCOVERY_GAPS.md` §G-07, §G-08
 **Specs to update:** `specs/modules/auth.md`, `specs/modules/risk.md`,
 `specs/frontend.md`

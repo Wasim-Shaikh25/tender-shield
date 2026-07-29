@@ -163,3 +163,38 @@ staying inside the tender-review domain. Full requirements and tracker:
 | TS-091 | Notification/payment adapter skeletons: SES/MSG91 senders, Razorpay/Stripe providers, scheduler stubs (credential-gated) | audit F07/F12/F15, TS-035/TS-037/TS-079 | `specs/900-production-readiness-audit-fixes.md`, `specs/modules/notifications.md`, `specs/modules/billing.md` | done |
 | TS-092 | Admin console and analytics UI: superadmin dashboard, audit log viewer, accuracy dashboard | audit F21 | `specs/900-production-readiness-audit-fixes.md`, `specs/frontend.md` | done |
 | TS-093 | Post-audit remaining fixes: env templates, upload/SSE auth, integration fallbacks, currency, file download, scheduler lock, email verification | `PRODUCTION_READINESS_AUDIT.md` F26–F42; Doc §3.2, §5, §7, §11.1, §11.6, §11.7, §14, §15 | `specs/901-post-audit-remaining-fixes.md` | done |
+
+## End-to-end production readiness audit (2026-07-29, commit `d651d00`)
+
+Audit only — no source changes. Findings and full remediation detail live in
+`PRODUCTION_READINESS_AUDIT.md`. Each row below is a fix task derived from it.
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-094 | End-to-end production readiness audit of trunk (`d651d00`); report + reproduced exploit probes | `CLAUDE.md` §4; Doc §3.2, §5, §7 | `PRODUCTION_READINESS_AUDIT.md` | done |
+| TS-095 | **BLOCKER** Bind workspace-scoped routes to the caller's workspace; membership check in `add_workspace_member` | audit TS-A01; Doc §3.2, §5 | `specs/modules/auth.md` (update) | todo |
+| TS-096 | **BLOCKER** Google login must use `member.role`, not a hardcoded `"owner"`; unify token issuance across providers | audit TS-A02; Doc §5 | `specs/modules/auth.md` (update) | todo |
+| TS-097 | **BLOCKER** RLS: add `FORCE`, `WITH CHECK`, `current_setting(…, true)`; cover membership tables; add PostgreSQL to CI | audit TS-A03; Doc §3.2 | `specs/modules/core.md`, `specs/data-model.md` (update) | todo |
+| TS-098 | **BLOCKER** Server-owned per-currency price table; drop client `amount_minor`; validate paid amount at webhook activation | audit TS-B01; Doc §7, §15 | `specs/modules/billing.md` (update) | todo |
+| TS-099 | Membership checks on workspace/project member-list endpoints | audit TS-A04; Doc §3.2 | `specs/modules/auth.md` (update) | todo |
+| TS-100 | Google account linking on verified email; `IntegrityError` → 409 instead of 500 | audit TS-A05; Doc §5 | `specs/modules/auth.md` (update) | todo |
+| TS-101 | Cap upload size before buffering (`Content-Length` + streamed read); enforce at the proxy | audit TS-I01; Doc §11.1 | `specs/modules/ingestion.md` (update) | todo |
+| TS-102 | Async SSE generator: sleep, client-disconnect check, hard timeout | audit TS-I02; Doc §11.1 | `specs/modules/ingestion.md` (update) | todo |
+| TS-103 | Align `/auth/workspaces` response contract with the frontend client; generate the TS client from OpenAPI | audit TS-F01; Doc §9 | `specs/frontend.md` (update) | todo |
+| TS-104 | Rate limiting: wall-clock Redis scores, unique members, `X-Forwarded-For` with configured hop count | audit TS-O01; Doc §11.3 | `specs/modules/core.md` (update) | todo |
+| TS-105 | Webhook atomicity: claim the idempotency marker first, single transaction, unique constraint | audit TS-B02; Doc §15.5 | `specs/modules/billing.md` (update) | todo |
+| TS-106 | Team-management UI: invite, list, change role, remove member; member removal + invitation revocation API | audit §3.5 items 1, 3; Doc §5, §9 | `specs/frontend.md`, `specs/modules/auth.md` (update) | todo |
+| TS-107 | Account & security settings UI: change password, MFA enrolment, resend verification, session list | audit §3.5 item 2; Doc §5, §9 | `specs/frontend.md` (update) | todo |
+| TS-108 | Observability: metrics, error tracking, dependency-checking health probes, documented backup/rollback | audit TS-O02; Doc §16 | `specs/modules/health.md` (update) | todo |
+| TS-109 | Enforce plan seat limits in `add_workspace_member` and `accept_invitation` | audit TS-B03; Doc §7 | `specs/modules/billing.md` (update) | todo |
+| TS-110 | tus: `201` + `Location` header, shared chunk state, TTL sweeper, `upload_id` validation | audit TS-I03; Doc §11.1 | `specs/modules/ingestion.md` (update) | todo |
+| TS-111 | Deadline-alert deduplication table and per-user notification preferences | audit TS-N01; Doc §11.6 | `specs/modules/notifications.md` (update) | todo |
+| TS-112 | Prompt-injection hardening: delimit untrusted tender text; adversarial eval fixtures | audit TS-P01; Doc §11.3 | `specs/modules/assistant.md` (update) | todo |
+| TS-113 | Replace the virus-scan stub with a real scanner; quarantine on detection | audit TS-S01; Doc §11.2 | `specs/modules/ingestion.md` (update) | todo |
+| TS-114 | Remove the cross-module FK `findings.opportunity_id → opportunities`; add a metadata architecture test | audit TS-X01; `CLAUDE.md` §2 | `specs/modules/findings.md`, `specs/data-model.md` (update) | todo |
+| TS-115 | Extend the production startup guard (Stripe secret, Redis, cookie policy, keypair parse) | audit TS-S02; Doc §11 | `specs/modules/core.md` (update) | todo |
+| TS-116 | Complete the audit log: auth, membership, role, billing, and export events | audit §3.5 item 6; Doc §11.4 | `specs/modules/review.md` (update) | todo |
+| TS-117 | Data export and account deletion (GDPR/DPDP) | audit §3.5 item 5; Doc §11.5 | `specs/modules/auth.md` (update) | todo |
+| TS-118 | Pagination on all list endpoints; `/api/health/details` super-admin gate in every environment | audit TS-L01, TS-L02 | `specs/modules/core.md` (update) | todo |
+| TS-119 | Accessibility: `eslint-plugin-jsx-a11y` + `axe-core` in CI, then WCAG 2.1 AA assessment | audit TS-L03; Doc §9 | `specs/frontend.md` (update) | todo |
+| TS-120 | Repository governance: default branch, branch protection, `CODEOWNERS`; document the venv install | audit TS-O03, TS-L04 | — | todo |

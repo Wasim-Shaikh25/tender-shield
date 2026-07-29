@@ -6,6 +6,62 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-29 (TS-094: end-to-end production readiness audit)
+
+- **TS-094** — Full end-to-end production readiness audit of trunk
+  (`claude/dev-workflow-modules-58dpqw`, commit `d651d00`). **Audit only — no source
+  files were changed.** `PRODUCTION_READINESS_AUDIT.md` was rewritten and now supersedes
+  the previous report, whose `F26`–`F41` findings are retired (four no longer reproduce:
+  `.env.*` templates exist, tus `PATCH` and the SSE endpoint are authenticated, and S3
+  calls no longer block the event loop).
+  - **Recommendation: NO-GO** — 24 findings (4 Critical, 7 High, 9 Medium, 4 Low),
+    9 release-blocking.
+  - **Four exploits reproduced end-to-end** against the running app via `TestClient`:
+    - Any verified user can add themselves as `owner` to **any** workspace by UUID —
+      `add_workspace_member` applies the caller's own token role to a path-supplied
+      workspace with no membership check (full cross-tenant takeover).
+    - `POST /api/auth/google` mints `role="owner"` for every user because the role is a
+      hardcoded string literal; a `viewer` was escalated to `owner`.
+    - `GET /auth/workspaces/{id}/members` and `GET /auth/projects/{id}/members` return
+      foreign tenants' member emails and roles.
+    - Google sign-in with an email that already has a password account raises an
+      unhandled `IntegrityError` (HTTP 500) — no account linking.
+  - **Row-level security is structurally inoperative**: `ENABLE` without `FORCE` (the app
+    role owns the tables, so policies are bypassed), `USING` without `WITH CHECK`,
+    `current_setting()` without the missing-OK argument, and `workspace_members` /
+    `project_members` carry no policy at all. Not verified against PostgreSQL — none was
+    available — and no test in the suite exercises RLS, since all 145 tests run on SQLite.
+  - **Billing accepts a client-supplied price**: `checkout.amount_minor` flows to the
+    provider unchecked, and the webhook activates a plan without ever comparing the amount
+    paid to the plan price — a ₹1 payment activates the ₹14,999/month plan with a
+    genuinely valid signature. Plan seat limits are defined but never read anywhere.
+  - Also confirmed: unbounded in-memory upload buffering before the size check; an SSE
+    progress loop that busy-spins a threadpool worker with no sleep, disconnect check, or
+    timeout; a Redis rate limiter keyed on `time.monotonic()` (meaningless across
+    processes) with no proxy-header handling; non-atomic, racy webhook idempotency; and a
+    `/auth/workspaces` response shape the frontend client cannot consume.
+  - **Verified as working** (reported as defenses, not assumptions): path traversal in
+    `/api/files` blocked across three variants; workspace switching correctly enforces
+    membership; no real secrets in any committed `.env.*` file; SQL injection surface clean;
+    the three artifact validators genuinely enforce the no-invented-quotes/clauses/numbers
+    invariants; domain services filter on `workspace_id` consistently.
+  - Baseline recorded: `ruff` clean, `mypy` clean (143 files), 145 backend tests passing,
+    frontend lint/typecheck/build clean, `npm audit` 0 vulnerabilities.
+  - Product gaps identified: no team-management UI, no account/security settings UI, no
+    member removal or invitation revocation, no data export/deletion, and an audit log
+    covering only finding decisions.
+
+### Next
+
+Fix in order — the four blockers first (`TS-095` cross-workspace member add, `TS-096`
+Google role escalation, `TS-098` billing price validation, then `TS-097` RLS, which
+carries the highest regression risk and needs PostgreSQL in CI plus a staging soak).
+Then the High findings `TS-099`–`TS-105`, and the launch-required product gaps `TS-106`
+(team management) and `TS-107` (account settings). Every fix needs a regression test;
+`TS-097` cannot be marked done until RLS is verified against a real PostgreSQL instance
+using a non-owner application role. Six product questions (§3.6 of the report) need
+answers before `TS-097`, `TS-100`, `TS-098`, `TS-109`, and `TS-111` can be finalised.
+
 ### Done — 2026-07-29 (older requirements completed: TS-033..TS-037, TS-043..TS-045, TS-079)
 
 - **TS-033** — Minimal tus 1.0 resumable upload server at `/api/ingestion/tus`:

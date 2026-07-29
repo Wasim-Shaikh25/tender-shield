@@ -151,7 +151,19 @@ def test_apple_callback_creates_user_and_issues_tokens(client, monkeypatch):
 def _login(client, email="a@example.com"):
     r = client.post("/api/auth/login", json={"email": email, "password": TEST_PASSWORD})
     assert r.status_code == 200, r.text
-    return r.json()
+    tokens = r.json()
+    # Verify the email address so gated flows (billing, invitations) can be tested.
+    if not tokens.get("email_verified"):
+        resend = client.post(
+            "/api/auth/resend-verification",
+            headers={"authorization": f"Bearer {tokens['access_token']}"},
+        )
+        if resend.status_code == 200 and resend.json():
+            client.post("/api/auth/verify-email", json={"token": resend.json()})
+        r = client.post("/api/auth/login", json={"email": email, "password": TEST_PASSWORD})
+        assert r.status_code == 200, r.text
+        tokens = r.json()
+    return tokens
 
 
 def test_create_and_list_workspaces(client):

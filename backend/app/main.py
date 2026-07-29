@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import logging
+import mimetypes
+import pathlib as _pathlib
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -14,12 +17,14 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app.core.celery import make_celery_app
 from app.core.config import Settings
 from app.core.db import make_engine, make_session_factory
+from app.core.deps import require
 from app.core.events import EventBus
 from app.core.loader import LoadReport, load_modules
 from app.core.module import AppContext
 from app.core.ratelimit import default_rate_limiter
 from app.core.registry import ServiceRegistry
 from app.core.scheduler import Scheduler
+from app.core.storage import StorageError, get_storage
 
 logger = logging.getLogger(__name__)
 
@@ -150,6 +155,30 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 continue
         if spec.router is not None:
             app.include_router(spec.router, prefix=f"/api/{spec.name}", tags=[spec.name])
+
+    @app.get("/api/files/{key:path}")
+    async def download_file(
+        key: str,
+        request: Request,
+        principal=Depends(require("viewer")),
+    ):
+        # Local-storage URLs are generated as /api/files/{stored_key} where the key
+        # is workspace-scoped. Enforce that callers can only fetch their own files.
+        expected_prefix = f"workspace/{principal.workspace_id}/"
+        if not key.startswith(expected_prefix):
+            raise HTTPException(404, "not_found")
+        storage = get_storage(request.app.state.ctx.settings)
+        try:
+            data = await storage.read(key)
+        except StorageError:
+            raise HTTPException(404, "not_found") from None
+        filename = _pathlib.Path(key).name
+        content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        return StreamingResponse(
+            iter([data]),
+            media_type=content_type,
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
 
     report.loaded = [s for s in report.loaded if s.name not in report.failed]
     return app

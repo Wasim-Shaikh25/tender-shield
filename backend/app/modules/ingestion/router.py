@@ -187,9 +187,15 @@ async def document_stream(
     document_id: str,
     task_id: str,
     request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
 ):
     """Server-Sent Events stream of a Celery document-processing task."""
     from celery.result import AsyncResult
+
+    svc = _service(request, session)
+    if not svc.get_document(principal.workspace_id, document_id):
+        raise HTTPException(404, "not_found")
 
     def _events():
         app = request.app.state.ctx.registry.get("celery.app")

@@ -77,7 +77,6 @@ async def upload_boq(
             data,
             max_size=BOQ_MAX_UPLOAD_SIZE,
             workspace_id=str(principal.workspace_id),
-            scan=False,  # BOQ CSV text is generated locally; no user-executable upload here
         )
     except ValidationError as exc:
         raise HTTPException(422, str(exc)) from exc

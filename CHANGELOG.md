@@ -146,7 +146,27 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   - Added per-opportunity **Audit** tab on the workbench using `/review/opportunities/{id}/audit`.
   - Added `/analytics` dashboard showing opportunity risk counts, BOQ defects, and export readiness.
 
+### Done — 2026-07-29 (production readiness audit quick wins: TS-093)
+
+- **TS-093** — Implemented quick-win fixes from `PRODUCTION_READINESS_AUDIT.md` F26–F42:
+  - Added `.env.local`, `.env.dev`, and `.env.prod` templates with no secrets and updated `.gitignore`.
+  - Aligned frontend upload `accept` list with backend MIME/extension allow-list.
+  - Made billing checkout currency-aware by `Workspace.country` (`IN` → `inr`, `AE`/`SA`/`QA`/`GB` → local currencies) and defaulted to `IN`.
+  - Protected `GET /api/rulepacks` and `/api/rulepacks/{id}/patterns` with `require("viewer")`.
+  - Authenticated the Celery SSE stream endpoint (`/api/ingestion/opportunities/{id}/documents/{id}/stream`) and scoped the document lookup.
+  - Added `GET /api/files/{key:path}` download route enforcing workspace prefix isolation.
+  - Made S3 initialization raise `StorageError` in production instead of silently falling back to local storage.
+  - Added a Redis distributed lock around the deadline-alert scheduler tick (`notifications.module`).
+  - Added email verification flow: `EmailVerification` model + migration, `POST /api/auth/verify-email`, `POST /api/auth/resend-verification`, `email_verified` claim in access/MFA tokens, and gated billing checkout + member invitations on `email_verified` (or super-admin).
+  - Hardened tus `PATCH`/`HEAD` with auth, workspace scoping, and per-extension upload-size caps; enabled virus-scan stub path for BOQ uploads.
+  - Moved S3 `put_object`/`get_object`/`delete_object`/`generate_presigned_url` calls to `asyncio.to_thread` to avoid blocking the event loop.
+  - Added migration `df4721874c4d_add_email_verifications`.
+
 ### Next
+
+- TS-094 — Replace `StorageError` in production with a real ClamAV/cloud virus-scan hook.
+- TS-095 — End-to-end browser validation of signup, email verification, file upload, and payment flows.
+- TS-096 — Rulepack validation by a QS/contracts expert against real tender sets (F27 remains open).
 
 ### Done — 2026-07-26 (real web validation + invitation fix: TS-080..TS-081)
 

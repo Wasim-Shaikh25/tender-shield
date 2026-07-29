@@ -1,9 +1,13 @@
+from datetime import timedelta
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+import app.modules.auth.models  # noqa: F401
 from app.core.config import Settings
+from app.core.db import Base
 from app.main import create_app
+from app.modules.auth import security as sec
 from app.modules.rulepacks.loader import RulePackLoader
 
 PHASE0_PATTERN_IDS = {
@@ -83,13 +87,27 @@ judgment_prompt: p
 
 
 def test_api_exposes_packs_and_patterns():
-    app = create_app(Settings(enabled_modules="health,rulepacks"))
+    app = create_app(
+        Settings(enabled_modules="health,auth,rulepacks", database_url="sqlite:///:memory:")
+    )
+    engine = app.state.ctx.registry.require("db.engine")
+    Base.metadata.create_all(engine)
+    keys = app.state.ctx.registry.require("auth.keys")
+    token = sec.mint_access(
+        keys,
+        user_id="00000000-0000-0000-0000-000000000001",
+        workspace_id="00000000-0000-0000-0000-0000000000aa",
+        role="viewer",
+        email_verified=True,
+        ttl=timedelta(minutes=5),
+    )
+    headers = {"authorization": f"Bearer {token}"}
     client = TestClient(app)
-    packs = client.get("/api/rulepacks").json()["packs"]
+    packs = client.get("/api/rulepacks", headers=headers).json()["packs"]
     assert any(p["id"] == "in-works" and p["patterns"] == 5 for p in packs)
-    body = client.get("/api/rulepacks/in-works/patterns").json()
+    body = client.get("/api/rulepacks/in-works/patterns", headers=headers).json()
     assert {p["id"] for p in body["patterns"]} == PHASE0_PATTERN_IDS
-    assert client.get("/api/rulepacks/nope/patterns").status_code == 404
+    assert client.get("/api/rulepacks/nope/patterns", headers=headers).status_code == 404
     # capability is registered and visible via health details
     caps = client.get("/api/health/details").json()["capabilities"]
     assert "rulepacks.loader" in caps

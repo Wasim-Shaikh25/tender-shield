@@ -6,6 +6,7 @@ operations are async so that S3 IO does not block the event loop.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import mimetypes
@@ -155,18 +156,29 @@ class S3Storage:
 
     async def write(self, key: str, data: bytes, content_type: str) -> str:
         full = self._full_key(key)
-        self.client.put_object(Bucket=self.bucket, Key=full, Body=data, ContentType=content_type)
+        await asyncio.to_thread(
+            self.client.put_object,
+            Bucket=self.bucket,
+            Key=full,
+            Body=data,
+            ContentType=content_type,
+        )
         return full
 
     async def read(self, key: str) -> bytes:
-        resp = self.client.get_object(Bucket=self.bucket, Key=self._full_key(key))
-        return resp["Body"].read()
+        resp = await asyncio.to_thread(
+            self.client.get_object, Bucket=self.bucket, Key=self._full_key(key)
+        )
+        return await asyncio.to_thread(resp["Body"].read)
 
     async def delete(self, key: str) -> None:
-        self.client.delete_object(Bucket=self.bucket, Key=self._full_key(key))
+        await asyncio.to_thread(
+            self.client.delete_object, Bucket=self.bucket, Key=self._full_key(key)
+        )
 
     async def url(self, key: str, *, expiry_seconds: int = 3600) -> str | None:
-        return self.client.generate_presigned_url(
+        return await asyncio.to_thread(
+            self.client.generate_presigned_url,
             "get_object",
             Params={"Bucket": self.bucket, "Key": self._full_key(key)},
             ExpiresIn=expiry_seconds,
@@ -178,6 +190,8 @@ def get_storage(settings: Settings) -> StorageBackend:
         try:
             return S3Storage(settings)
         except Exception as exc:
+            if settings.is_prod():
+                raise StorageError(f"s3_initialisation_failed: {exc}") from exc
             logger.warning("s3 storage failed, falling back to local: %s", exc)
     root = pathlib.Path(settings.storage_dir)
     return LocalStorage(root)

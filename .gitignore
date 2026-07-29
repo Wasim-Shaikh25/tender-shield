@@ -17,7 +17,10 @@ dist/
 
 # Env & secrets
 .env
-.env.*
+.env.*.local
+!.env.local
+!.env.dev
+!.env.prod
 !.env.example
 
 # Local runtime artifacts

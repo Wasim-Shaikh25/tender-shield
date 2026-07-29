@@ -100,6 +100,7 @@ def mint_access(
     workspace_id: str,
     role: str,
     is_superadmin: bool = False,
+    email_verified: bool = False,
     ttl: timedelta,
     now: datetime | None = None,
 ) -> str:
@@ -110,6 +111,7 @@ def mint_access(
             "workspace": workspace_id,
             "role": role,
             "is_superadmin": is_superadmin,
+            "email_verified": email_verified,
             "iat": now,
             "exp": now + ttl,
             "iss": ISSUER,
@@ -136,6 +138,7 @@ def mint_mfa_token(
     workspace_id: str,
     role: str,
     is_superadmin: bool = False,
+    email_verified: bool = False,
     ttl: timedelta = timedelta(minutes=5),
     now: datetime | None = None,
 ) -> str:
@@ -147,6 +150,7 @@ def mint_mfa_token(
             "workspace": workspace_id,
             "role": role,
             "is_superadmin": is_superadmin,
+            "email_verified": email_verified,
             "iat": now,
             "exp": now + ttl,
             "iss": ISSUER,

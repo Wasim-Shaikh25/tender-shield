@@ -17,7 +17,13 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
-from app.core.storage import StorageError, ValidationError, validate_and_store
+from app.core.storage import (
+    DEFAULT_MAX_UPLOAD_SIZE,
+    MAX_UPLOAD_SIZES,
+    StorageError,
+    ValidationError,
+    validate_and_store,
+)
 from app.modules.ingestion.extract import extract_upload
 from app.modules.ingestion.service import IngestionService
 from app.modules.ingestion.tasks import process_document
@@ -73,6 +79,11 @@ def _save_state(upload_id: str, state: dict) -> None:
     _state_path(upload_id).write_text(json.dumps(state))
 
 
+def _max_upload_size(filename: str) -> int:
+    ext = pathlib.Path(filename).suffix.lower()
+    return MAX_UPLOAD_SIZES.get(ext, DEFAULT_MAX_UPLOAD_SIZE)
+
+
 @router.options("/")
 def tus_options():
     return {}  # CORS handled globally; tus clients may probe OPTIONS.
@@ -88,11 +99,15 @@ async def tus_create(
 ):
     metadata = _decode_metadata(upload_metadata)
     filename = metadata.get("filename", "upload")
+    max_size = _max_upload_size(filename)
+    if upload_length is not None and upload_length > max_size:
+        raise HTTPException(413, "file_too_large")
     upload_id = uuid.uuid4().hex
     state = {
         "id": upload_id,
         "offset": 0,
         "length": upload_length,
+        "max_size": max_size,
         "filename": filename,
         "workspace_id": str(principal.workspace_id),
         "opportunity_id": metadata.get("opportunity_id", ""),
@@ -106,8 +121,13 @@ async def tus_create(
 
 
 @router.head("/{upload_id}")
-def tus_status(upload_id: str):
+def tus_status(
+    upload_id: str,
+    principal: Any = Depends(require("estimator")),
+):
     state = _load_state(upload_id)
+    if state["workspace_id"] != str(principal.workspace_id):
+        raise HTTPException(403, "workspace_mismatch")
     from fastapi import Response
 
     return Response(
@@ -126,12 +146,18 @@ async def tus_patch(
     request: Request,
     upload_offset: int = Header(..., alias="Upload-Offset"),
     session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
 ):
     state = _load_state(upload_id)
+    if state["workspace_id"] != str(principal.workspace_id):
+        raise HTTPException(403, "workspace_mismatch")
     if upload_offset != state["offset"]:
         raise HTTPException(409, "offset_conflict")
     data = await request.body()
     file_path = _file_path(upload_id)
+    max_size = state.get("max_size", DEFAULT_MAX_UPLOAD_SIZE)
+    if file_path.stat().st_size + len(data) > max_size:
+        raise HTTPException(413, "file_too_large")
     with file_path.open("ab") as f:
         f.write(data)
     state["offset"] = file_path.stat().st_size

@@ -1,7 +1,11 @@
+import logging
+
 from app.core.db import bind_workspace_context
 from app.core.module import AppContext, ModuleSpec
 from app.modules.notifications.adapters import build_sender
 from app.modules.notifications.sender import Message
+
+logger = logging.getLogger(__name__)
 
 
 def setup(ctx: AppContext) -> None:
@@ -14,44 +18,66 @@ def setup(ctx: AppContext) -> None:
 
         def _deadline_alert_tick() -> None:
             """Scan every workspace for deadlines in the next 7 days and alert members."""
-            session_maker = ctx.registry.get("db.sessionmaker")
-            ingestion_factory = ctx.registry.get("ingestion.service_factory")
-            workspace_factory = ctx.registry.get("auth.workspace_factory")
-            if not session_maker or not ingestion_factory or not workspace_factory:
-                return
+            if ctx.settings.redis_url:
+                import redis
 
-            from datetime import UTC, datetime, timedelta
+                redis_client = redis.Redis.from_url(ctx.settings.redis_url, decode_responses=True)
+                lock = redis_client.lock(
+                    "tendershield:deadline_alert_lock",
+                    timeout=60 * 60 * 23,
+                    blocking_timeout=5,
+                )
+                if not lock.acquire():
+                    logger.info("deadline_alert_tick skipped, another instance holds the lock")
+                    return
+            else:
+                lock = None
 
-            session = session_maker()
             try:
-                admin = workspace_factory(session)
-                for workspace in admin.list_all_workspaces():
-                    workspace_id = workspace["workspace_id"]
-                    bind_workspace_context(session, workspace_id)
-                    ingestion = ingestion_factory(session)
-                    for opp in ingestion.list_opportunities(workspace_id):
-                        for dl in ingestion.list_deadlines(workspace_id, str(opp.id)):
-                            due_at = dl.due_at
-                            if not due_at or dl.confirmed:
-                                continue
-                            if due_at.tzinfo is None:
-                                due_at = due_at.replace(tzinfo=UTC)
-                            if timedelta(0) < (due_at - datetime.now(UTC)) <= timedelta(days=7):
-                                for member in admin.list_members(workspace_id):
-                                    sender.send(
-                                        Message(
-                                            channel="email",
-                                            to=member["email"],
-                                            subject=f"Deadline alert: {opp.title}",
-                                            body=(
-                                                f"Deadline '{dl.description or dl.kind}' is due at "
-                                                f"{due_at.isoformat()} for opportunity "
-                                                f"{str(opp.id)}."
-                                            ),
+                session_maker = ctx.registry.get("db.sessionmaker")
+                ingestion_factory = ctx.registry.get("ingestion.service_factory")
+                workspace_factory = ctx.registry.get("auth.workspace_factory")
+                if not session_maker or not ingestion_factory or not workspace_factory:
+                    return
+
+                from datetime import UTC, datetime, timedelta
+
+                session = session_maker()
+                try:
+                    admin = workspace_factory(session)
+                    for workspace in admin.list_all_workspaces():
+                        workspace_id = workspace["workspace_id"]
+                        bind_workspace_context(session, workspace_id)
+                        ingestion = ingestion_factory(session)
+                        for opp in ingestion.list_opportunities(workspace_id):
+                            for dl in ingestion.list_deadlines(workspace_id, str(opp.id)):
+                                due_at = dl.due_at
+                                if not due_at or dl.confirmed:
+                                    continue
+                                if due_at.tzinfo is None:
+                                    due_at = due_at.replace(tzinfo=UTC)
+                                if timedelta(0) < (due_at - datetime.now(UTC)) <= timedelta(days=7):
+                                    for member in admin.list_members(workspace_id):
+                                        sender.send(
+                                            Message(
+                                                channel="email",
+                                                to=member["email"],
+                                                subject=f"Deadline alert: {opp.title}",
+                                                body=(
+                                                    f"Deadline '{dl.description or dl.kind}' "
+                                                    f"is due at {due_at.isoformat()} "
+                                                    f"for opportunity {str(opp.id)}."
+                                                ),
+                                            )
                                         )
-                                    )
+                finally:
+                    session.close()
             finally:
-                session.close()
+                if lock:
+                    try:
+                        lock.release()
+                    except Exception:
+                        pass
 
         scheduler.add_job(_deadline_alert_tick, "interval", hours=24)
 

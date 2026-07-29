@@ -1,4 +1,8 @@
-from fastapi import APIRouter, HTTPException, Request
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+
+from app.core.deps import require
 
 router = APIRouter()
 
@@ -8,7 +12,8 @@ def _loader(request: Request):
 
 
 @router.get("")
-def list_packs(request: Request) -> dict:
+def list_packs(request: Request, principal: Any = Depends(require("viewer"))) -> dict:
+    _ = principal
     loader = _loader(request)
     packs = []
     for pack_id in loader.list_packs():
@@ -26,7 +31,13 @@ def list_packs(request: Request) -> dict:
 
 
 @router.get("/{pack_id}/patterns")
-def list_patterns(pack_id: str, request: Request, validated_only: bool = False) -> dict:
+def list_patterns(
+    pack_id: str,
+    request: Request,
+    validated_only: bool = False,
+    principal: Any = Depends(require("viewer")),
+) -> dict:
+    _ = principal
     loader = _loader(request)
     if pack_id not in loader.list_packs():
         raise HTTPException(404, "unknown pack")

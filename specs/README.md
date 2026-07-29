@@ -30,6 +30,7 @@ change (`CLAUDE.md` §1.2).
 | `modules/health.md` | Health / module discovery / capabilities endpoint | §11.1 |
 | `modules/notifications.md` | Deadline-digest notification sender abstraction | §11.6, §11.7 |
 | `900-production-readiness-audit-fixes.md` | Cross-cutting hardening and product completeness from audit | `PRODUCTION_READINESS_AUDIT.md` |
+| `901-post-audit-remaining-fixes.md` | Second batch of audit fixes after TS-083–TS-092 | `PRODUCTION_READINESS_AUDIT.md` |
 
 ## Template (use for every new spec)
 

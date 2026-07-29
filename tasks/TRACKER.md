@@ -46,21 +46,21 @@ summary block below — never hand-edit it.
 
 | ID | Title | Requirement | Task file | Module(s) | Sev | Status |
 |---|---|---|---|---|---|---|
-| TS-001 | Repo bootstrap: AI workflow rules (Claude+Cursor), requirement doc, repo map | user request | — | — | P1 | done |
-| TS-002 | Task backlog generated from requirements | user request | — | — | P1 | done |
-| TS-003 | Spec suite in `specs/` — product overview + per-module specs | user request; Doc §0–§9 | — | — | P1 | done |
-| TS-004 | Backend core: pluggable module framework (loader, service registry, event bus, config) + tests | Doc §3.1 | — | `core` | P0 | done |
-| TS-005 | CI: ruff + pytest on push (GitHub Actions) | Doc §11.1 | — | — | P1 | done |
+| TS-001 | Repo bootstrap: AI workflow rules (Claude+Cursor), requirement doc, repo map | user request | [TS-001](specs/TS-001-repo-bootstrap.md) | — | P1 | done |
+| TS-002 | Task backlog generated from requirements | user request | [TS-002](specs/TS-002-task-backlog.md) | — | P1 | done |
+| TS-003 | Spec suite in `specs/` — product overview + per-module specs | user request; Doc §0–§9 | [TS-003](specs/TS-003-spec-suite.md) | — | P1 | done |
+| TS-004 | Backend core: pluggable module framework (loader, service registry, event bus, config) + tests | Doc §3.1 | [TS-004](specs/TS-004-backend-core-framework.md) | `core` | P0 | done |
+| TS-005 | CI: ruff + pytest on push (GitHub Actions) | Doc §11.1 | [TS-005](specs/TS-005-ci-ruff-pytest.md) | — | P1 | done |
 
 ## Phase 0 — Bootstrap corpus & de-risk
 
 | ID | Title | Requirement | Task file | Module(s) | Sev | Status |
 |---|---|---|---|---|---|---|
-| TS-006 | Week-2 accuracy test harness (throwaway script + scorecard template) | Doc §19 | — | — | P1 | done |
-| TS-007 | Rule-pack scaffold: `rulepacks/in-works/` structure, pack.yaml + YAML schemas, loader in core | Doc §2 | — | `rulepacks` | P1 | done |
-| TS-008 | First 5 risk patterns from public sources (payment, escalation, LD, defect liability, termination), `confidence: unvalidated` | Doc §14.1, §19.3 | — | `rulepacks` | P1 | done |
-| TS-009 | 3 trade checklists (civil_structure, electrical, hvac) | Doc §2, §6.4 | — | `rulepacks` | P1 | done |
-| TS-010 | Eval/golden-set folder scaffold (`evals/in-works/…`) | Doc §11.5 | — | — | P2 | done |
+| TS-006 | Week-2 accuracy test harness (throwaway script + scorecard template) | Doc §19 | [TS-006](specs/TS-006-accuracy-test-harness.md) | — | P1 | done |
+| TS-007 | Rule-pack scaffold: `rulepacks/in-works/` structure, pack.yaml + YAML schemas, loader in core | Doc §2 | [TS-007](specs/TS-007-rulepack-scaffold.md) | `rulepacks` | P1 | done |
+| TS-008 | First 5 risk patterns from public sources (payment, escalation, LD, defect liability, termination), `confidence: unvalidated` | Doc §14.1, §19.3 | [TS-008](specs/TS-008-first-risk-patterns.md) | `rulepacks` | P1 | done |
+| TS-009 | 3 trade checklists (civil_structure, electrical, hvac) | Doc §2, §6.4 | [TS-009](specs/TS-009-trade-checklists.md) | `rulepacks` | P1 | done |
+| TS-010 | Eval/golden-set folder scaffold (`evals/in-works/…`) | Doc §11.5 | [TS-010](specs/TS-010-eval-scaffold.md) | — | P2 | done |
 
 ## Phase 1 — MVP
 

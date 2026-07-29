@@ -28,7 +28,8 @@ endpoints under `/api/auth/admin/*`.
   - `/api/auth/workspaces/{id}/projects` (create/list)
   - `/api/auth/projects/{id}/members` (add/list)
   - `/api/auth/invitations` (create) + `/api/auth/invitations/{token}/accept`
-  - `/api/auth/mfa/enroll` + `/api/auth/mfa/verify`
+  - `/api/auth/mfa/enroll` + `/api/auth/mfa/verify` + `/api/auth/mfa/challenge`
+  - `/api/auth/workspaces/{id}/switch`
   - `/api/auth/otp/send`, `/api/auth/otp/verify`
   - `/api/auth/google/callback`, `/api/auth/apple/authorize`, `/api/auth/apple/callback`
   - `/api/auth/admin/*` (super-admin only: list/create users, set superadmin, list workspaces)
@@ -67,7 +68,7 @@ endpoints under `/api/auth/admin/*`.
   `refresh_token` as an `httpOnly`, `Secure` (prod), `SameSite=Lax` cookie.
   `/api/auth/refresh` reads the cookie, rotates the stored token family, and sets a new
   cookie. `/api/auth/logout` clears the cookie and revokes the family.
-- **B13 — MFA enforcement:** when `User.mfa_enrolled_at` is set, password verification
+- **B13 — MFA enforcement:** when `User.mfa_totp_secret` is set, password verification
   returns `mfa_required`. The client posts `/api/auth/mfa/challenge` with the current
   TOTP code to receive tokens.
 - **B14 — Workspace switcher:** `GET /api/auth/workspaces` lists the user's workspace

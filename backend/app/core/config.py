@@ -53,6 +53,12 @@ class Settings(BaseSettings):
     # limiting in multi-instance deployments; falls back to in-memory when empty.
     redis_url: str | None = None
 
+    # Cookie policy for httpOnly refresh-token delivery. In production, Secure is
+    # forced and SameSite is configurable ("lax" | "strict" | "none").
+    cookie_name: str = "refresh_token"
+    cookie_samesite: str = "lax"
+    cookie_secure: bool | None = None  # None → Secure when env == "prod"
+
     # Comma-separated module names. Empty string means "discover everything
     # under app/modules". The app must boot with any subset (spec core B2).
     enabled_modules: str = ""
@@ -94,3 +100,8 @@ class Settings(BaseSettings):
 
     def is_prod(self) -> bool:
         return self.env == "prod"
+
+    def cookie_is_secure(self) -> bool:
+        if self.cookie_secure is not None:
+            return self.cookie_secure
+        return self.is_prod()

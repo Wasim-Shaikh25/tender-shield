@@ -67,9 +67,9 @@ def client():
 def _auth(client):
     client.post(
         "/api/auth/signup",
-        json={"email": "b@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
+        json={"email": "b@x.com", "password": "Hunter2!Hunter2", "workspace_name": "Acme"},
     )
-    r = client.post("/api/auth/login", json={"email": "b@x.com", "password": "hunter2hunter2"})
+    r = client.post("/api/auth/login", json={"email": "b@x.com", "password": "Hunter2!Hunter2"})
     return {"authorization": f"Bearer {r.json()['access_token']}"}, r.json()["workspace_id"]
 
 

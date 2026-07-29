@@ -49,10 +49,10 @@ def app_client():
 def _owner_token(client: TestClient, email="e@example.com") -> str:
     client.post(
         "/api/auth/signup",
-        json={"email": email, "password": "hunter2hunter2", "workspace_name": "Acme"},
+        json={"email": email, "password": "Hunter2!Hunter2", "workspace_name": "Acme"},
     )
     return client.post(
-        "/api/auth/login", json={"email": email, "password": "hunter2hunter2"}
+        "/api/auth/login", json={"email": email, "password": "Hunter2!Hunter2"}
     ).json()["access_token"]
 
 

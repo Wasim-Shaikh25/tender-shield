@@ -22,10 +22,13 @@ def client() -> TestClient:
     return TestClient(application)
 
 
+TEST_PASSWORD = "Hunter2!Hunter2"
+
+
 def _signup(client, email="a@example.com"):
     r = client.post(
         "/api/auth/signup",
-        json={"email": email, "password": "hunter2hunter2", "workspace_name": "Acme Infra"},
+        json={"email": email, "password": TEST_PASSWORD, "workspace_name": "Acme Infra"},
     )
     assert r.status_code == 200, r.text
     return r.json()
@@ -34,7 +37,7 @@ def _signup(client, email="a@example.com"):
 def test_signup_login_me_flow(client):
     _signup(client)
     r = client.post(
-        "/api/auth/login", json={"email": "a@example.com", "password": "hunter2hunter2"}
+        "/api/auth/login", json={"email": "a@example.com", "password": TEST_PASSWORD}
     )
     assert r.status_code == 200
     tokens = r.json()
@@ -48,7 +51,7 @@ def test_duplicate_email_rejected(client):
     _signup(client)
     r = client.post(
         "/api/auth/signup",
-        json={"email": "a@example.com", "password": "hunter2hunter2", "workspace_name": "Other"},
+        json={"email": "a@example.com", "password": TEST_PASSWORD, "workspace_name": "Other"},
     )
     assert r.status_code == 409
 
@@ -61,23 +64,24 @@ def test_bad_password_rejected(client):
 
 def test_refresh_rotation_and_reuse_detection(client):
     _signup(client)
-    tokens = client.post(
-        "/api/auth/login", json={"email": "a@example.com", "password": "hunter2hunter2"}
-    ).json()
-    r0 = tokens["refresh_token"]
+    client.post("/api/auth/login", json={"email": "a@example.com", "password": TEST_PASSWORD})
+    r0 = client.cookies.get("refresh_token")
+    assert r0
 
-    rotated = client.post("/api/auth/refresh", json={"refresh_token": r0})
+    rotated = client.post("/api/auth/refresh")
     assert rotated.status_code == 200
-    r1 = rotated.json()["refresh_token"]
+    r1 = client.cookies.get("refresh_token")
     assert r1 != r0
 
     # replay the already-used r0 → reuse detected, whole family revoked
-    reuse = client.post("/api/auth/refresh", json={"refresh_token": r0})
+    client.cookies.set("refresh_token", r0)
+    reuse = client.post("/api/auth/refresh")
     assert reuse.status_code == 401
     assert reuse.json()["detail"] == "reuse_detected"
 
     # r1 belonged to the same family → now revoked/invalid
-    assert client.post("/api/auth/refresh", json={"refresh_token": r1}).status_code == 401
+    client.cookies.set("refresh_token", r1)
+    assert client.post("/api/auth/refresh").status_code == 401
 
 
 def test_me_requires_token(client):
@@ -145,7 +149,7 @@ def test_apple_callback_creates_user_and_issues_tokens(client, monkeypatch):
 
 
 def _login(client, email="a@example.com"):
-    r = client.post("/api/auth/login", json={"email": email, "password": "hunter2hunter2"})
+    r = client.post("/api/auth/login", json={"email": email, "password": TEST_PASSWORD})
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -258,19 +262,19 @@ def test_forgot_password_and_reset(client):
 
     r = client.post(
         "/api/auth/reset-password",
-        json={"token": token, "new_password": "newpass123"},
+        json={"token": token, "new_password": "NewPass123!"},
     )
     assert r.status_code == 200
     assert r.json()["ok"] is True
 
     # old password no longer works
     assert client.post(
-        "/api/auth/login", json={"email": "reset@example.com", "password": "hunter2hunter2"}
+        "/api/auth/login", json={"email": "reset@example.com", "password": TEST_PASSWORD}
     ).status_code == 401
 
     # new password works
     r = client.post(
-        "/api/auth/login", json={"email": "reset@example.com", "password": "newpass123"}
+        "/api/auth/login", json={"email": "reset@example.com", "password": "NewPass123!"}
     )
     assert r.status_code == 200
     assert r.json()["role"] == "owner"
@@ -284,13 +288,13 @@ def test_reset_password_rejects_expired_or_reused_token(client):
     # first reset consumes token
     assert client.post(
         "/api/auth/reset-password",
-        json={"token": token, "new_password": "newpass123"},
+        json={"token": token, "new_password": "NewPass123!"},
     ).status_code == 200
 
     # reuse fails
     r = client.post(
         "/api/auth/reset-password",
-        json={"token": token, "new_password": "anotherpass123"},
+        json={"token": token, "new_password": "AnotherPass123!"},
     )
     assert r.status_code == 400
     assert r.json()["detail"] == "invalid_reset_token"

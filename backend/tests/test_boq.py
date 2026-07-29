@@ -101,10 +101,10 @@ def test_boq_run_persists_defects_via_findings():
     client = TestClient(application)
     client.post(
         "/api/auth/signup",
-        json={"email": "bq@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
+        json={"email": "bq@x.com", "password": "Hunter2!Hunter2", "workspace_name": "Acme"},
     )
     tok = client.post(
-        "/api/auth/login", json={"email": "bq@x.com", "password": "hunter2hunter2"}
+        "/api/auth/login", json={"email": "bq@x.com", "password": "Hunter2!Hunter2"}
     ).json()["access_token"]
     h = {"authorization": f"Bearer {tok}"}
     opp_id = client.post("/api/ingestion/opportunities", json={"title": "Depot"}, headers=h).json()[

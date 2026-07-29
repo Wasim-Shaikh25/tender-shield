@@ -6,7 +6,7 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
-### Done — 2026-07-29 (production readiness audit fixes: TS-083)
+### Done — 2026-07-29 (production readiness audit fixes: TS-083..TS-084)
 
 - **TS-083** — Production security hardening:
   - `Settings` now uses `SecretStr` for all secrets and adds `TS_ENV`, `TS_ALLOWED_HOSTS`,
@@ -19,11 +19,24 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
     exposes module/capability metadata and is gated by auth (super-admin in production,
     authenticated in non-production, public when auth is disabled).
   - Updated affected tests to use `/api/health/details`.
+- **TS-084** — Auth session/MFA hardening:
+  - Refresh tokens are now returned as `httpOnly`, `Secure` (prod), `SameSite=Lax`
+    cookies named `refresh_token`; `/api/auth/refresh` and `/logout` read them from
+    cookies. The JSON response no longer contains `refresh_token`.
+  - Added `/api/auth/mfa/challenge`; when `User.mfa_totp_secret` is set, `/login` returns
+    `mfa_required` and a short-lived `mfa_token` instead of final tokens.
+  - Added `/api/auth/workspaces/{id}/switch` to rotate refresh and reissue access for the
+    selected workspace.
+  - Added password policy: ≥8 chars, uppercase, lowercase, digit, symbol, and a blocklist
+    of trivial passwords.
+  - Added account lockout: 5 failed login attempts within 15 minutes lock the account for
+    15 minutes, stored in new `users.failed_login_attempts` and `users.locked_until` columns.
+  - Migration `64f9e4b70eda` adds the lockout columns.
+  - Updated test suite to use strong passwords and cookie-based refresh flow.
 
 ### Next
 
-- TS-084 — httpOnly refresh cookies, MFA enforcement, password policy + account lockout.
-- TS-085 — Workspace switcher and multi-workspace APIs.
+- TS-085 — Workspace switcher frontend and backend polish.
 - TS-086 — File upload validation, S3 adapter, BOQ size cap, virus-scan stub.
 - TS-087 — Risk `validated_only` filtering, export reviewer stamp, `datetime.utcnow` cleanup.
 - TS-088 — Frontend cleanup (remove demo data), workspace switcher, billing/admin pages.

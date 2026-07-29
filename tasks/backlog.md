@@ -198,3 +198,15 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-118 | Pagination on all list endpoints; `/api/health/details` super-admin gate in every environment | audit TS-L01, TS-L02 | `specs/modules/core.md` (update) | todo |
 | TS-119 | Accessibility: `eslint-plugin-jsx-a11y` + `axe-core` in CI, then WCAG 2.1 AA assessment | audit TS-L03; Doc §9 | `specs/frontend.md` (update) | todo |
 | TS-120 | Repository governance: default branch, branch protection, `CODEOWNERS`; document the venv install | audit TS-O03, TS-L04 | — | todo |
+
+## Second-round production readiness audit (2026-07-29, commit `d651d00`)
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-121 | Second-round production readiness audit: re-verify TS-* findings, review rulepacks, auth, and packaging; update `PRODUCTION_READINESS_AUDIT.md` | `END_TO_END_PRODUCTION_AUDIT_PROMPT.md` | `PRODUCTION_READINESS_AUDIT.md` | done |
+| TS-122 | **BLOCKER** `switch_workspace` must commit the rotated refresh-token session | audit TS-A06; Doc §5 | `specs/modules/auth.md` (update) | todo |
+| TS-123 | **BLOCKER** `resend-verification` must not return the raw verification token; send via email only | audit TS-A07; Doc §5 | `specs/modules/auth.md` (update) | todo |
+| TS-124 | **BLOCKER** `backend/Dockerfile` must install runtime extras (`celery`, `billing`, `scheduler`, `ocr`) and boot in CI | audit TS-O04; Doc §16 | `specs/deployment.md` (create) | todo |
+| TS-125 | **PRODUCT BLOCKER** Complete rulepack QS validation or add a beta/disclaimer flag so paid workspaces see unvalidated patterns | audit TS-P02; Doc §14 | `specs/modules/rulepacks.md` (update) | todo |
+| TS-126 | Hash `Invitation.token` instead of storing it plaintext | audit TS-A08; Doc §5 | `specs/modules/auth.md` (update) | todo |
+| TS-127 | Require TOTP verification before committing `mfa_method=totp` | audit TS-A09; Doc §5 | `specs/modules/auth.md` (update) | todo |

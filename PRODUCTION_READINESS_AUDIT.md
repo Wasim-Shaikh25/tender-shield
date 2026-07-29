@@ -39,15 +39,23 @@ The codebase is otherwise in genuinely good shape — see §1.5. The blockers ar
 in a small number of files and are all fixable within days, not months. The recommendation is
 NO-GO on the current commit, not a judgement that the architecture is unsound.
 
+A second-round pass (§7) re-verified the findings above and reproduced three additional
+release-blocking regressions: the workspace-switch refresh path does not commit the rotated
+refresh token (`TS-A06`), `POST /api/auth/resend-verification` returns the raw verification
+token in the response body (`TS-A07`), and the backend `Dockerfile` omits the extras required
+to boot the container or enable Celery, billing, scheduling, and OCR (`TS-O04`). Two
+medium-hardening auth items (`TS-A08`, `TS-A09`) and the unvalidated-rulepack product blocker
+(`TS-P02`) were also confirmed.
+
 ### 1.2 Finding count by severity
 
 | Severity | Count | Release-blocking | IDs |
 |---|---|---|---|
-| **Critical** | 4 | 4 | TS-A01, TS-A02, TS-A03, TS-B01 |
-| **High** | 7 | 5 | TS-A04, TS-A05, TS-I01, TS-I02, TS-B02, TS-F01, TS-O01 |
-| **Medium** | 9 | 0 | TS-O02, TS-I03, TS-N01, TS-P01, TS-S01, TS-X01, TS-B03, TS-S02, TS-O03 |
+| **Critical** | 5 | 5 | TS-A01, TS-A02, TS-A03, TS-B01, TS-P02 |
+| **High** | 10 | 8 | TS-A04, TS-A05, TS-I01, TS-I02, TS-B02, TS-F01, TS-O01, TS-A06, TS-A07, TS-O04 |
+| **Medium** | 11 | 0 | TS-O02, TS-I03, TS-N01, TS-P01, TS-S01, TS-X01, TS-B03, TS-S02, TS-O03, TS-A08, TS-A09 |
 | **Low** | 4 | 0 | TS-L01, TS-L02, TS-L03, TS-L04 |
-| **Total** | **24** | **9** | |
+| **Total** | **30** | **13** | |
 
 Product-completeness gaps are tracked separately in §3.5 (they are capability gaps, not
 defects, and are not counted above).
@@ -63,6 +71,9 @@ defects, and are not counted above).
 | Workspace/project member lists readable cross-tenant | Reproduced: victim emails returned (§4 TS-A04) | High |
 | Uploads fully buffered in memory before any size check | `ingestion/router.py:126` (§4 TS-I01) | High |
 | SSE progress endpoint busy-spins a CPU core per client | `ingestion/router.py:199-207` (§4 TS-I02) | High |
+| Session broken after workspace switch | `auth/service.py` `switch_workspace` does not commit rotated refresh token (§7 TS-A06) | High |
+| Verification token leaked by resend endpoint | `auth/router.py` `resend_verification` returns raw token (§7 TS-A07) | High |
+| Container image missing runtime extras | `backend/Dockerfile` omits `celery`, `billing`, `scheduler`, `ocr` extras (§7 TS-O04) | High |
 
 ### 1.4 Major product risks
 
@@ -72,6 +83,7 @@ defects, and are not counted above).
 | No account/security settings page | Users cannot change a password, enrol MFA, view sessions, or verify email from the UI. MFA can only be *used* at login, never *enabled*. |
 | Audit log covers only finding decisions | No audit record for logins, member additions, role changes, super-admin grants, billing changes, or exports — the events an incident response would need most, and the ones most relevant given TS-A01. |
 | No data export or account deletion | Blocks GDPR/DPDP compliance for a product that ingests customer commercial documents. |
+| Unvalidated rulepacks deliver zero risk findings to paid workspaces | `risk/service.py` filters paying users to `validated_only`; every `in-works` pattern is `confidence: unvalidated` (§7 TS-P02). |
 
 ### 1.5 What is genuinely solid
 
@@ -113,8 +125,8 @@ Stated up front so the recommendation is read against what was actually tested:
 
 ### 1.7 Release conditions
 
-Ship only when **all nine** release-blocking findings in §5.1 and §5.2 are fixed, each with a
-regression test, **and** the RLS behaviour in TS-A03 has been verified against a real
+Ship only when **all thirteen** release-blocking findings in §5.1, §5.2, and §7.3 are fixed,
+each with a regression test, **and** the RLS behaviour in TS-A03 has been verified against a real
 PostgreSQL instance using a non-owner application role (§6.2). Fixing the application-layer
 checks without fixing RLS leaves the product one missing `if` statement away from the same
 outcome.
@@ -2060,24 +2072,308 @@ open question in this audit.
    cannot establish compliance either way.
 3. **No performance baseline exists.** TS-I01 and TS-I02 are reasoned from code. The system has
    never been measured under load, so scaling behaviour is entirely unknown.
-4. **Rulepack validation status was not assessed.** The 32 rulepack YAML files were not reviewed.
-   The previous audit reported every pattern as `confidence: unvalidated`, which it claimed causes
-   paid workspaces to receive zero findings. **That claim was not re-verified here** and remains
-   open — if still true it is a product blocker independent of everything in this report.
-5. **Six modules were not reviewed in depth** (§2.3). Given that four exploitable defects were
-   found in the modules that *were* reviewed closely, the unreviewed modules should not be assumed
-   clean.
+4. **Rulepack validation status was verified in the second round (§7 TS-P02).** All 32 rulepack
+   YAML files in `rulepacks/in-works/` carry `confidence: unvalidated`, and `risk/service.py`
+   sets `validated_only=True` for paying workspaces, so paid workspaces currently receive an empty
+   risk register. This is a confirmed product blocker.
+5. **Three modules reviewed more deeply in the second round.** `auth` (`switch_workspace`,
+   `resend_verification`, `mfa_enroll`, invitation token storage), `ingestion` rulepack loader, and
+   `docker` packaging were re-examined. The remaining unreviewed modules (`analytics`,
+   `comparison`, `crossref`, `qualification`, `standards`, `timeline`, `boq/engine`, `export/render`,
+   `ingestion/{ocr,tables,segment,classify,extract}` and frontend pages beyond `login`) should not
+   be assumed clean.
 6. **Prior exploitation cannot be ruled out.** TS-A01 leaves no distinctive trace beyond a
    `workspace_members` row, and there is no authentication or membership audit log (§3.5 item 6).
    If this code has been deployed with real users, assume the membership table needs review.
 
 ### 6.4 Statement of limits
 
-This audit does not certify the application as bug-free or secure. It reports what was found
-within the scope described in §2.3, under the conditions in §1.6, using the commands in §2.4. Four
-exploitable defects were reproduced end-to-end; the remainder are identified by code inspection
+This audit does not certify the application as bug-free or secure. The first pass (§1–§6)
+reports what was found within the scope described in §2.3, under the conditions in §1.6, using the
+commands in §2.4; the second pass (§7) reports additional findings from a focused re-audit of
+`auth`, `rulepacks`, and deployment packaging. Six exploitable defects were reproduced end-to-end
+(TS-A01, TS-A02, TS-A04, TS-A05, TS-A06, TS-A07); the remainder are identified by code inspection
 and are labelled accordingly. Areas marked **Not Tested** are genuinely unknown, not implicitly
 passing.
 
-The recommendation is **NO-GO** for the audited commit. The blockers are specific, well-understood,
-and concentrated in a handful of files — this is a fixable release, not a failed architecture.
+The recommendation remains **NO-GO** for the audited commit. The blockers are specific,
+well-understood, and concentrated in a handful of files — this is a fixable release, not a
+failed architecture.
+
+## 7. Second-round re-audit (TS-097)
+
+### 7.1 Scope and evidence
+
+This second pass re-verified the `TS-*` findings in §4 against commit `d651d00` and searched for
+new regressions, especially in `auth`, `rulepacks`, and deployment packaging. No source code was
+modified. Evidence came from:
+
+- Re-reading `auth/service.py`, `auth/router.py`, `auth/models.py`, `core/storage.py`,
+  `ingestion/tus.py`, `core/celery.py`, `Dockerfile`, `docker-compose.yml`, `pyproject.toml`, and
+  `rulepacks/in-works/`.
+- `ruff`, `mypy app`, `pytest -q`, `npm run lint`, `npm run typecheck`, `npm run build`,
+  `npm audit`, and `pip-audit`.
+- Two targeted `TestClient` reproductions for `switch_workspace` and `resend-verification`.
+- `grep -R "confidence:" rulepacks/in-works/` and `risk/service.py` analysis.
+
+### 7.2 Re-verification status of previous release blockers
+
+All `TS-*` findings from the first round remain present in `d651d00`; no fixes were observed. The
+second round therefore concentrated on new defects and on product gaps that had been explicitly
+out of scope earlier.
+
+| ID | Severity | Status in `d651d00` |
+|---|---|---|
+| TS-A01 | Critical | Still present |
+| TS-A02 | Critical | Still present |
+| TS-A03 | Critical | Still present |
+| TS-B01 | Critical | Still present |
+| TS-A04 | High | Still present |
+| TS-A05 | High | Still present |
+| TS-I01 | High | Still present |
+| TS-I02 | High | Still present |
+| TS-B02 | High | Still present |
+| TS-F01 | High | Still present |
+| TS-O01 | High | Still present |
+| Other Medium/Low TS-* | Medium/Low | Still present |
+
+### 7.3 New findings
+
+#### TS-A06 — `switch_workspace` does not persist the rotated refresh token
+
+| | |
+|---|---|
+| **Status** | Confirmed defect — reproduced end-to-end |
+| **Severity** | **High** |
+| **Category** | Auth / session management |
+| **Release-blocking** | Yes |
+| **Affected code** | `backend/app/modules/auth/service.py` `switch_workspace` |
+
+The method issues a new refresh-token family and marks the old family row `used_at`, but it never
+calls `self.s.commit()`. The new token is therefore never written to the database, while the
+browser receives an httpOnly cookie for it. The access token is valid for 15 minutes, but the next
+`/auth/refresh` fails with `invalid_refresh`, logging the user out.
+
+**Reproduction:**
+
+```python
+from fastapi.testclient import TestClient
+from app.core.config import Settings
+from app.core.db import Base
+from app.main import create_app
+
+app = create_app(Settings(enabled_modules="health,auth,ingestion", database_url="sqlite:///:memory:"))
+engine = app.state.ctx.registry.require("db.engine")
+Base.metadata.create_all(engine)
+client = TestClient(app)
+
+client.post("/api/auth/signup", json={
+    "email": "a@example.com",
+    "password": "Hunter2!Hunter2",
+    "workspace_name": "Acme",
+})
+login = client.post("/api/auth/login", json={
+    "email": "a@example.com",
+    "password": "Hunter2!Hunter2",
+})
+tok = login.json()["access_token"]
+ws2 = client.post(
+    "/api/auth/workspaces",
+    json={"name": "Second"},
+    headers={"authorization": f"Bearer {tok}"},
+).json()["workspace_id"]
+
+client.post(
+    f"/api/auth/workspaces/{ws2}/switch",
+    headers={"authorization": f"Bearer {tok}"},
+)
+refresh = client.post("/api/auth/refresh")
+assert refresh.status_code == 401  # {'detail': 'invalid_refresh'}
+```
+
+**Recommended solution:** Add `self.s.commit()` immediately after `_issue_tokens(...)` in
+`switch_workspace` (mirroring `refresh()`).
+
+---
+
+#### TS-A07 — `POST /api/auth/resend-verification` returns raw verification token
+
+| | |
+|---|---|
+| **Status** | Confirmed defect — reproduced end-to-end |
+| **Severity** | **High** |
+| **Category** | Auth / information disclosure |
+| **Release-blocking** | Yes |
+| **Affected code** | `backend/app/modules/auth/router.py` `resend_verification`; `backend/app/modules/auth/service.py` `create_email_verification` |
+
+`create_email_verification` always returns the raw token, and the `resend-verification` endpoint
+returns that value directly in the HTTP response body even when an email sender is configured. If
+the response is logged by a proxy or browser extension, an attacker can verify the email address
+without mailbox access. This is inconsistent with `signup`, which only returns the token in
+non-prod environments when no sender is configured.
+
+**Reproduction:**
+
+```python
+client.post("/api/auth/signup", json={
+    "email": "a@example.com",
+    "password": "Hunter2!Hunter2",
+    "workspace_name": "Acme",
+})
+login = client.post("/api/auth/login", json={
+    "email": "a@example.com",
+    "password": "Hunter2!Hunter2",
+})
+tok = login.json()["access_token"]
+resend = client.post(
+    "/api/auth/resend-verification",
+    headers={"authorization": f"Bearer {tok}"},
+)
+print(resend.json())  # -> raw verification token string
+```
+
+**Recommended solution:** `resend_verification` should return only `{"ok": True}` and the token
+must be transmitted through the configured email channel. If `create_email_verification` must
+return a value for dev/test, the router should strip it in prod.
+
+---
+
+#### TS-O04 — Backend Dockerfile omits required optional extras
+
+| | |
+|---|---|
+| **Status** | Confirmed defect — by code inspection |
+| **Severity** | **High** |
+| **Category** | Deployment / packaging |
+| **Release-blocking** | Yes |
+| **Affected code** | `backend/Dockerfile`; `backend/pyproject.toml` |
+
+The image runs `pip install -e ".[dev,storage,redis]" || pip install -e ".[storage,redis]"`. This
+omits `celery`, `billing`, `scheduler`, and `ocr` extras. `app/core/celery.py` imports `celery` at
+module scope and `app/main.py` always calls `make_celery_app()`, so the container will fail to boot
+unless `celery` is installed. Even after fixing that, payments, deadline-alert scheduling, and
+OCR cannot be enabled in the container because their dependencies are missing.
+
+**Evidence:**
+
+```dockerfile
+# backend/Dockerfile
+RUN pip install -e ".[dev,storage,redis]" || pip install -e ".[storage,redis]"
+```
+
+```python
+# backend/app/core/celery.py
+from celery import Celery
+```
+
+**Recommended solution:** Change the Dockerfile to install a production extras set such as
+`".[storage,redis,celery,billing,scheduler,ocr]"` and add a smoke test in CI that builds the
+image and runs `python -c "from app.main import create_app"`.
+
+---
+
+#### TS-A08 — Invitation tokens stored in plaintext
+
+| | |
+|---|---|
+| **Status** | Confirmed defect — by code inspection |
+| **Severity** | **Medium** |
+| **Category** | Auth / data protection |
+| **Release-blocking** | No |
+| **Affected code** | `backend/app/modules/auth/models.py` `Invitation.token` |
+
+`EmailVerification` and `PasswordReset` store SHA256 hashes of their tokens, but `Invitation`
+stores the token as a plaintext `String`. A database dump would disclose every active invitation
+token. The token is already emailed once, so the raw value does not need to be retained.
+
+**Recommended solution:** Store `token_hash` on `Invitation`, migrate existing rows, and verify
+the hash in the invitation-accept endpoint.
+
+---
+
+#### TS-A09 — TOTP enrollment does not require a verification code
+
+| | |
+|---|---|
+| **Status** | Confirmed defect — by code inspection |
+| **Severity** | **Medium** |
+| **Category** | Auth / MFA |
+| **Release-blocking** | No |
+| **Affected code** | `backend/app/modules/auth/service.py` `mfa_enroll` |
+
+When `method == "totp"`, the service generates a secret, writes it to `user.mfa_totp_secret`, sets
+`mfa_method="totp"`, commits, and returns the secret/URI without requiring the user to prove they
+can produce a valid TOTP code. A session that is briefly compromised can enable TOTP and lock the
+account without the legitimate owner noticing.
+
+**Recommended solution:** Keep `mfa_method` unchanged until the user posts a valid TOTP code
+generated from the new secret; only then persist `mfa_totp_secret` and `mfa_method="totp"`.
+
+---
+
+#### TS-P02 — Rulepack patterns are still unvalidated; paying workspaces receive zero risk findings
+
+| | |
+|---|---|
+| **Status** | Confirmed product blocker — by code and data inspection |
+| **Severity** | **Critical** |
+| **Category** | Product correctness / business logic |
+| **Release-blocking** | Yes |
+| **Affected code** | `backend/app/modules/risk/service.py`; `backend/app/modules/rulepacks/loader.py`; `rulepacks/in-works/` |
+
+Every risk pattern and trade checklist in `rulepacks/in-works/` carries `confidence: unvalidated`.
+`risk/service.py` sets `validated_only=True` for paying workspaces and
+`RulePackLoader.list_patterns` filters to patterns with `confidence == "validated"`. The result is
+that paid workspaces currently receive an empty risk register. Free workspaces see unvalidated
+patterns.
+
+**Evidence:**
+
+```text
+$ grep -R "^confidence:" rulepacks/in-works/
+confidence: unvalidated
+... (every file)
+```
+
+```python
+def _is_paying(self, workspace_id) -> bool:
+    ...
+    return ws is not None and ws.plan.lower() in PAID_PLANS
+
+def run_opportunity(self, workspace_id, opportunity_id) -> list[Finding]:
+    validated_only = self._is_paying(workspace_id)
+    patterns = self._loader.list_patterns(self._pack_id, validated_only=validated_only)
+    ...
+```
+
+**Recommended solution:** Complete the Phase-1 QS validation checkpoint and flip at least the
+critical patterns to `confidence: validated`, or add an explicit beta/disclaimer flag that lets
+paying users see unvalidated patterns with clear "unvalidated" labeling.
+
+### 7.4 Updated remediation plan
+
+The second-round findings do not change the priority of the original release blockers (TS-A01,
+TS-A02, TS-A03, TS-B01 remain P0), but add new P0 items:
+
+1. **P0 (release-blocking, new)**
+   - TS-A06: add `self.s.commit()` in `switch_workspace`.
+   - TS-A07: stop returning raw tokens from `resend-verification`, `forgot-password`, and
+     `create-invitation` responses; send through email only.
+   - TS-O04: fix `backend/Dockerfile` extras and validate container boot in CI.
+2. **P0 (original)**
+   - TS-A01, TS-A02, TS-A03, TS-B01 as in §5.1.
+   - TS-P02: complete rulepack QS validation or add a beta flag.
+3. **P1**
+   - TS-A04, TS-A05, TS-I01, TS-I02, TS-B02, TS-F01, TS-O01.
+   - TS-A08: hash `Invitation.token`.
+   - TS-A09: require TOTP verification before committing enrollment.
+4. **P2**
+   - Remaining Medium/Low TS-* and product completeness gaps in §3.5.
+
+### 7.5 Updated final recommendation
+
+**NO-GO** for public launch and for any deployment holding more than one customer's data.
+
+The second round confirmed all original `TS-*` release blockers are still present and added three
+new release-blocking code defects (TS-A06, TS-A07, TS-O04) plus a product blocker (TS-P02). All
+thirteen release-blocking findings must be fixed before a public or multi-tenant launch.

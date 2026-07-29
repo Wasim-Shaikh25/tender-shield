@@ -51,16 +51,36 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
     member removal or invitation revocation, no data export/deletion, and an audit log
     covering only finding decisions.
 
+### Done — 2026-07-29 (TS-121: second-round production readiness audit)
+
+- **TS-121** — Second-round end-to-end re-audit of trunk (`d651d00`) per
+  `END_TO_END_PRODUCTION_AUDIT_PROMPT.md`. **Audit only — no source files were changed.**
+  `PRODUCTION_READINESS_AUDIT.md` updated with:
+  - Re-verification that all first-round `TS-*` findings still reproduce.
+  - Six new findings: `TS-A06` (workspace switch refresh token not committed),
+    `TS-A07` (`resend-verification` leaks raw token), `TS-O04` (Dockerfile missing
+    runtime extras), `TS-A08` (invitation token stored plaintext), `TS-A09` (TOTP
+    enrollment lacks verification), and `TS-P02` (rulepacks still unvalidated; paying
+    workspaces receive zero findings).
+  - Updated counts: **30 findings (5 Critical, 10 High, 11 Medium, 4 Low), 13 release-blocking**.
+  - Updated remediation plan and final recommendation remains **NO-GO**.
+  - Baseline recorded: `ruff` clean, `mypy` clean (143 files), 145 backend tests passing,
+    frontend lint/typecheck/build clean, `npm audit` 0 vulnerabilities, `pip-audit` 0.
+
 ### Next
 
 Fix in order — the four blockers first (`TS-095` cross-workspace member add, `TS-096`
 Google role escalation, `TS-098` billing price validation, then `TS-097` RLS, which
 carries the highest regression risk and needs PostgreSQL in CI plus a staging soak).
 Then the High findings `TS-099`–`TS-105`, and the launch-required product gaps `TS-106`
-(team management) and `TS-107` (account settings). Every fix needs a regression test;
-`TS-097` cannot be marked done until RLS is verified against a real PostgreSQL instance
-using a non-owner application role. Six product questions (§3.6 of the report) need
-answers before `TS-097`, `TS-100`, `TS-098`, `TS-109`, and `TS-111` can be finalised.
+(team management) and `TS-107` (account settings). The second-round audit adds the
+following to the launch-critical list: `TS-122` (workspace switch refresh persistence),
+`TS-123` (resend-verification token leak), `TS-124` (Dockerfile runtime extras), `TS-125`
+(rulepack validation / beta flag), `TS-126` (hash invitation tokens), and `TS-127` (TOTP
+verification before enrollment). Every fix needs a regression test; `TS-097` cannot be
+marked done until RLS is verified against a real PostgreSQL instance using a non-owner
+application role. Six product questions (§3.6 of the report) need answers before `TS-097`,
+`TS-100`, `TS-098`, `TS-109`, and `TS-111` can be finalised.
 
 ### Done — 2026-07-29 (older requirements completed: TS-033..TS-037, TS-043..TS-045, TS-079)
 

@@ -29,6 +29,7 @@ change (`CLAUDE.md` §1.2).
 | `modules/export.md` | Bid Review Pack export (DOCX/XLSX/PDF) with review gate | §1.1(8), §6.5, §11.4 |
 | `modules/health.md` | Health / module discovery / capabilities endpoint | §11.1 |
 | `modules/notifications.md` | Deadline-digest notification sender abstraction | §11.6, §11.7 |
+| `900-production-readiness-audit-fixes.md` | Cross-cutting hardening and product completeness from audit | `PRODUCTION_READINESS_AUDIT.md` |
 
 ## Template (use for every new spec)
 

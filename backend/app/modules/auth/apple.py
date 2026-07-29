@@ -6,10 +6,17 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import jwt
+from pydantic import SecretStr
 
 
-def _normalize_pem(key: str) -> str:
-    return key.replace("\\n", "\n").strip()
+def _normalize_pem(key: str | SecretStr | None) -> str:
+    if key is None:
+        return ""
+    if isinstance(key, SecretStr):
+        raw = key.get_secret_value() or ""
+    else:
+        raw = key
+    return raw.replace("\\n", "\n").strip()
 
 
 class AppleClient:

@@ -38,6 +38,8 @@ trade checklists for scope gaps.
   BOQ line matches the item's patterns; finding carries the trigger's page.
 - **B5 (money order):** defects sort by rupee impact, not row order (Doc §9).
 - **B6 (provenance):** every defect points to `src_sheet`/`src_row`.
+- **B7 (upload guard):** BOQ upload enforces a 100 MB size cap and the same MIME/
+  extension validation as ingestion documents.
 
 ## Acceptance criteria
 
@@ -47,6 +49,7 @@ trade checklists for scope gaps.
   dewatering BOQ line.
 - A4: grand-total carry-forward error detected on fixture.
 - A5: running twice yields byte-identical findings (determinism).
+- A6: oversized BOQ upload returns 413.
 
 ## Out of scope
 

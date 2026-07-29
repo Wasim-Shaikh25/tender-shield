@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import Settings
 from app.core.deps import current_principal, get_session, require
+from app.core.ratelimit import RateLimitDep
 from app.modules.auth.apple import AppleClient
 from app.modules.auth.deps import require_superadmin
 from app.modules.auth.models import User
@@ -26,11 +28,75 @@ def _service(request: Request, session: Session) -> AuthService:
     )
 
 
+# Public routes share a tight per-IP limit to slow credential stuffing.
+_LOGIN_LIMIT = [Depends(RateLimitDep(5, 60))]
+_SIGNUP_LIMIT = [Depends(RateLimitDep(5, 60))]
+_FORGOT_LIMIT = [Depends(RateLimitDep(5, 60))]
+_RESET_LIMIT = [Depends(RateLimitDep(5, 60))]
+_REFRESH_LIMIT = [Depends(RateLimitDep(20, 60))]
+
+
+def _set_refresh_cookie(response: Response, token: str, settings: Settings) -> None:
+    response.set_cookie(
+        key=settings.cookie_name,
+        value=token,
+        httponly=True,
+        secure=settings.cookie_is_secure(),
+        samesite=settings.cookie_samesite.lower(),
+        max_age=settings.refresh_ttl_days * 86400,
+        path="/api/auth",
+    )
+
+
+def _clear_refresh_cookie(response: Response, settings: Settings) -> None:
+    response.delete_cookie(key=settings.cookie_name, path="/api/auth")
+
+
+def _issue_token_response(response: Response, settings: Settings, tokens: dict) -> dict:
+    """Return an access-token response and ship the refresh token as httpOnly cookie.
+
+    If the service returned an MFA challenge instead of tokens, pass it through
+    without setting any cookies.
+    """
+    if tokens.get("mfa_required"):
+        return {"mfa_required": True, "mfa_token": tokens["mfa_token"]}
+    _set_refresh_cookie(response, tokens["refresh_token"], settings)
+    return {
+        "access_token": tokens["access_token"],
+        "role": tokens["role"],
+        "workspace_id": tokens["workspace_id"],
+        "is_superadmin": tokens["is_superadmin"],
+    }
+
+
+def _call_and_issue(
+    request: Request, response: Response, session: Session, fn
+) -> dict:
+    """Call a service method that returns tokens and package the cookie response."""
+    try:
+        tokens = fn(_service(request, session))
+    except AuthError as exc:
+        raise HTTPException(_STATUS.get(exc.code, 400), exc.code) from exc
+    return _issue_token_response(response, request.app.state.ctx.settings, tokens)
+
+
+def _validate_password_field(v: str) -> str:
+    from app.modules.auth import security as sec
+
+    sec.validate_password(v)
+    return v
+
+
 class SignupBody(BaseModel):
     email: str
     password: str = Field(min_length=8)
     workspace_name: str | None = Field(default="Personal", min_length=1)
     country: str = "IN"
+
+    @field_validator("password")
+    @classmethod
+    def _password_policy(cls, v: str) -> str:
+        return _validate_password_field(v)
 
 
 class LoginBody(BaseModel):
@@ -39,7 +105,7 @@ class LoginBody(BaseModel):
 
 
 class RefreshBody(BaseModel):
-    refresh_token: str
+    refresh_token: str | None = None
 
 
 class ForgotPasswordBody(BaseModel):
@@ -49,6 +115,11 @@ class ForgotPasswordBody(BaseModel):
 class ResetPasswordBody(BaseModel):
     token: str
     new_password: str = Field(min_length=8)
+
+    @field_validator("new_password")
+    @classmethod
+    def _password_policy(cls, v: str) -> str:
+        return _validate_password_field(v)
 
 
 class AddMemberBody(BaseModel):
@@ -81,9 +152,19 @@ class MfaVerifyBody(BaseModel):
     code: str
 
 
+class MfaChallengeBody(BaseModel):
+    mfa_token: str
+    code: str
+
+
 class CreateSuperadminBody(BaseModel):
     email: str
     password: str = Field(min_length=8)
+
+    @field_validator("password")
+    @classmethod
+    def _password_policy(cls, v: str) -> str:
+        return _validate_password_field(v)
 
 
 class SetSuperadminBody(BaseModel):
@@ -105,11 +186,19 @@ _STATUS = {
     "apple_email_missing": 400,
     "bad_mfa_method": 400,
     "mfa_not_enrolled": 400,
+    "mfa_invalid": 401,
+    "invalid_mfa_token": 401,
     "invalid_invitation": 400,
     "invitation_used": 400,
     "invitation_email_mismatch": 400,
     "invalid_reset_token": 400,
+    "account_locked": 429,
     "password_too_short": 400,
+    "password_missing_uppercase": 400,
+    "password_missing_lowercase": 400,
+    "password_missing_digit": 400,
+    "password_missing_special": 400,
+    "password_too_common": 400,
 }
 
 
@@ -120,7 +209,7 @@ def _handle(fn):
         raise HTTPException(_STATUS.get(exc.code, 400), exc.code) from exc
 
 
-@router.post("/signup")
+@router.post("/signup", dependencies=_SIGNUP_LIMIT)
 def signup(body: SignupBody, request: Request, session: Session = Depends(get_session)):
     return _handle(
         lambda: _service(request, session).signup(
@@ -129,19 +218,48 @@ def signup(body: SignupBody, request: Request, session: Session = Depends(get_se
     )
 
 
-@router.post("/login")
-def login(body: LoginBody, request: Request, session: Session = Depends(get_session)):
-    return _handle(lambda: _service(request, session).login(body.email, body.password))
+@router.post("/login", dependencies=_LOGIN_LIMIT)
+def login(
+    body: LoginBody,
+    response: Response,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    return _call_and_issue(
+        request, response, session, lambda svc: svc.login(body.email, body.password)
+    )
 
 
-@router.post("/refresh")
-def refresh(body: RefreshBody, request: Request, session: Session = Depends(get_session)):
-    return _handle(lambda: _service(request, session).refresh(body.refresh_token))
+@router.post("/refresh", dependencies=_REFRESH_LIMIT)
+def refresh(
+    response: Response,
+    request: Request,
+    session: Session = Depends(get_session),
+    body: RefreshBody | None = None,
+):
+    settings = request.app.state.ctx.settings
+    raw = request.cookies.get(settings.cookie_name)
+    if not raw and body:
+        raw = body.refresh_token
+    if not raw:
+        raise HTTPException(401, "invalid_refresh")
+    return _call_and_issue(request, response, session, lambda svc: svc.refresh(raw))
 
 
-@router.post("/logout")
-def logout(body: RefreshBody, request: Request, session: Session = Depends(get_session)):
-    _service(request, session).logout(body.refresh_token)
+@router.post("/logout", dependencies=_REFRESH_LIMIT)
+def logout(
+    response: Response,
+    request: Request,
+    session: Session = Depends(get_session),
+    body: RefreshBody | None = None,
+):
+    settings = request.app.state.ctx.settings
+    raw = request.cookies.get(settings.cookie_name)
+    if not raw and body:
+        raw = body.refresh_token
+    if raw:
+        _service(request, session).logout(raw)
+    _clear_refresh_cookie(response, settings)
     return {"ok": True}
 
 
@@ -155,7 +273,7 @@ def me(principal: Principal = Depends(current_principal)):
     }
 
 
-@router.post("/forgot-password")
+@router.post("/forgot-password", dependencies=_FORGOT_LIMIT)
 def forgot_password(
     body: ForgotPasswordBody,
     request: Request,
@@ -164,13 +282,15 @@ def forgot_password(
     return _handle(lambda: _service(request, session).forgot_password(body.email))
 
 
-@router.post("/reset-password")
+@router.post("/reset-password", dependencies=_RESET_LIMIT)
 def reset_password(
     body: ResetPasswordBody,
     request: Request,
     session: Session = Depends(get_session),
 ):
-    return _handle(lambda: _service(request, session).reset_password(body.token, body.new_password))
+    return _handle(
+        lambda: _service(request, session).reset_password(body.token, body.new_password)
+    )
 
 
 # ---- workspaces & projects ---------------------------------------------
@@ -197,6 +317,26 @@ def list_workspaces(
     principal: Principal = Depends(current_principal),
 ):
     return _service(request, session).list_workspaces(principal.user_id)
+
+
+@router.post("/workspaces/{workspace_id}/switch")
+def switch_workspace(
+    workspace_id: str,
+    response: Response,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(current_principal),
+):
+    settings = request.app.state.ctx.settings
+    raw = request.cookies.get(settings.cookie_name)
+    if not raw:
+        raise HTTPException(401, "invalid_refresh")
+    return _call_and_issue(
+        request,
+        response,
+        session,
+        lambda svc: svc.switch_workspace(principal.user_id, workspace_id, raw),
+    )
 
 
 @router.post("/workspaces/{workspace_id}/members")
@@ -331,6 +471,18 @@ def mfa_verify(
     return _handle(lambda: _service(request, session).mfa_verify(principal.user_id, body.code))
 
 
+@router.post("/mfa/challenge", dependencies=_LOGIN_LIMIT)
+def mfa_challenge(
+    body: MfaChallengeBody,
+    response: Response,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    return _call_and_issue(
+        request, response, session, lambda svc: svc.mfa_challenge(body.mfa_token, body.code)
+    )
+
+
 # ---- legacy workspace member route (kept for compatibility) ---------------
 
 
@@ -371,14 +523,18 @@ def apple_authorize(request: Request):
     return {"url": url}
 
 
-@router.post("/apple/callback")
+@router.post("/apple/callback", dependencies=_LOGIN_LIMIT)
 def apple_callback(
     body: AppleCallbackBody,
+    response: Response,
     request: Request,
     session: Session = Depends(get_session),
 ):
-    return _handle(
-        lambda: _service(request, session).apple_callback(body.id_token, body.code, body.user)
+    return _call_and_issue(
+        request,
+        response,
+        session,
+        lambda svc: svc.apple_callback(body.id_token, body.code, body.user),
     )
 
 
@@ -410,7 +566,9 @@ def admin_create_superadmin(
     session: Session = Depends(get_session),
     principal: Principal = Depends(require_superadmin),
 ):
-    return _handle(lambda: _service(request, session).create_superadmin(body.email, body.password))
+    return _handle(
+        lambda: _service(request, session).create_superadmin(body.email, body.password)
+    )
 
 
 @router.post("/admin/users/{user_id}/superadmin")
@@ -421,4 +579,6 @@ def admin_set_superadmin(
     session: Session = Depends(get_session),
     principal: Principal = Depends(require_superadmin),
 ):
-    return _handle(lambda: _service(request, session).set_superadmin(user_id, body.is_superadmin))
+    return _handle(
+        lambda: _service(request, session).set_superadmin(user_id, body.is_superadmin)
+    )

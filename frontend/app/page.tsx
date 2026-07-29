@@ -39,28 +39,16 @@ export default function Landing() {
             </Link>
           </div>
           <p className="text-xs text-slate-500">
-            No card for the free review · Data never used for training · Hosted in India (ap-south-1)
+            No card for the free review · Data never used for training
           </p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
-            <span className="text-sm font-semibold text-slate-700">Metro Depot — CPWD</span>
-            <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">2d to submission</span>
-          </div>
-          <ul className="space-y-3 text-sm">
-            <li className="flex items-start gap-2">
-              <span className="rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">critical</span>
-              <span className="text-slate-700">LD @ 1%/week with <b>no cap</b> — GCC 33, p4</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">critical</span>
-              <span className="text-slate-700">Escalation <b>barred</b> on a 30-month work — SCC 14, p2</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="rounded bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">high</span>
-              <span className="text-slate-700">No dewatering item despite basement excavation</span>
-            </li>
-          </ul>
+          <h3 className="mb-3 text-sm font-semibold text-slate-700">How it works</h3>
+          <ol className="list-inside list-decimal space-y-2 text-sm text-slate-600">
+            <li>Upload NIT, GCC/SCC, specs, BOQ and addenda.</li>
+            <li>Review extracted deadlines, risk findings and BOQ defects.</li>
+            <li>Accept or reject each finding, then export the bid-review pack.</li>
+          </ol>
         </div>
       </section>
 

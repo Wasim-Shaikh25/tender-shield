@@ -9,10 +9,20 @@ from app.modules.auth.workspaces import WorkspaceAdmin
 logger = logging.getLogger(__name__)
 
 
+def _secret_str(value) -> str:
+    from pydantic import SecretStr
+
+    if isinstance(value, SecretStr):
+        return value.get_secret_value() or ""
+    return value or ""
+
+
 def setup(ctx: AppContext) -> None:
     s = ctx.settings
-    if s.jwt_private_key and s.jwt_public_key:
-        keys = sec.load_keypair(s.jwt_private_key, s.jwt_public_key)
+    private_pem = _secret_str(s.jwt_private_key)
+    public_pem = _secret_str(s.jwt_public_key)
+    if private_pem and public_pem:
+        keys = sec.load_keypair(private_pem, public_pem)
     else:
         keys = sec.generate_keypair()
         logger.warning(

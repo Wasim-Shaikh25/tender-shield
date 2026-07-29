@@ -33,11 +33,11 @@ def client():
 def _auth(client):
     client.post(
         "/api/auth/signup",
-        json={"email": "cmp@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
+        json={"email": "cmp@x.com", "password": "Hunter2!Hunter2", "workspace_name": "Acme"},
     )
     tok = client.post(
         "/api/auth/login",
-        json={"email": "cmp@x.com", "password": "hunter2hunter2"},
+        json={"email": "cmp@x.com", "password": "Hunter2!Hunter2"},
     ).json()["access_token"]
     return {"authorization": f"Bearer {tok}"}
 

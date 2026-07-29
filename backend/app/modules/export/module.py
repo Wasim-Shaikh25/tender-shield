@@ -13,6 +13,7 @@ def setup(ctx: AppContext) -> None:
             findings_factory=reg.get("findings.store_factory"),
             drafting_factory=reg.get("drafting.service_factory"),
             ingestion_factory=reg.get("ingestion.service_factory"),
+            workspace_factory=reg.get("auth.workspace_factory"),
             pack_version=reg.get("rulepacks.loader").get_pack("in-works").version_tag
             if reg.get("rulepacks.loader")
             else "in-works",

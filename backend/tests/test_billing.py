@@ -54,7 +54,11 @@ SECRET = "dev-razorpay-secret"
 @pytest.fixture
 def client():
     app = create_app(
-        Settings(enabled_modules="health,auth,billing", database_url="sqlite:///:memory:")
+        Settings(
+            enabled_modules="health,auth,billing",
+            database_url="sqlite:///:memory:",
+            razorpay_webhook_secret=SECRET,
+        )
     )
     Base.metadata.create_all(app.state.ctx.registry.require("db.engine"))
     return TestClient(app)
@@ -63,9 +67,9 @@ def client():
 def _auth(client):
     client.post(
         "/api/auth/signup",
-        json={"email": "b@x.com", "password": "hunter2hunter2", "workspace_name": "Acme"},
+        json={"email": "b@x.com", "password": "Hunter2!Hunter2", "workspace_name": "Acme"},
     )
-    r = client.post("/api/auth/login", json={"email": "b@x.com", "password": "hunter2hunter2"})
+    r = client.post("/api/auth/login", json={"email": "b@x.com", "password": "Hunter2!Hunter2"})
     return {"authorization": f"Bearer {r.json()['access_token']}"}, r.json()["workspace_id"]
 
 

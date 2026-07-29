@@ -1,4 +1,5 @@
 from app.core.module import AppContext, ModuleSpec
+from app.modules.billing.providers import get_provider
 from app.modules.billing.router import router
 from app.modules.billing.service import BillingService
 
@@ -18,6 +19,8 @@ def setup(ctx: AppContext) -> None:
             session, workspace_factory=reg.get("auth.workspace_factory")
         ).record_usage(workspace_id, event, ref_id),
     )
+    # Payment-provider adapters are selected by name; live keys are credential-gated.
+    reg.provide("billing.provider_factory", lambda provider: get_provider(ctx.settings, provider))
 
 
 module = ModuleSpec(

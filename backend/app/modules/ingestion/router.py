@@ -5,11 +5,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
+from app.core.storage import StorageError, ValidationError, validate_and_store
 from app.modules.ingestion.extract import extract_upload
 from app.modules.ingestion.service import IngestionService
-from app.modules.ingestion.storage import LocalStorage
-
-MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024  # 2 GB cap (Doc §11.2)
 
 router = APIRouter()
 
@@ -121,10 +119,18 @@ async def upload_document(
     if not svc.get_opportunity(principal.workspace_id, opportunity_id):
         raise HTTPException(404, "not_found")
     data = await file.read()
-    if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(413, "file_too_large")
-    storage = LocalStorage(request.app.state.ctx.settings.storage_dir)
-    key, sha = storage.put(str(principal.workspace_id), file.filename, data)
+    try:
+        stored = await validate_and_store(
+            request.app.state.ctx.settings,
+            file.filename,
+            file.content_type,
+            data,
+            workspace_id=str(principal.workspace_id),
+        )
+    except ValidationError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except StorageError as exc:
+        raise HTTPException(500, str(exc)) from exc
     ocr = request.app.state.ctx.registry.get("ingestion.ocr")
     text, ocr_status = extract_upload(file.filename, data, ocr)
     doc = svc.register_document(
@@ -132,8 +138,8 @@ async def upload_document(
         opportunity_id,
         file.filename,
         text,
-        s3_key=key,
-        sha256=sha,
+        s3_key=stored["key"],
+        sha256=stored["sha256"],
         ocr_status=ocr_status,
         uploaded_by=_to_uuid(principal.user_id),
     )

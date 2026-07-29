@@ -6,6 +6,100 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-29 (production readiness audit fixes: TS-083..TS-084)
+
+- **TS-083** — Production security hardening:
+  - `Settings` now uses `SecretStr` for all secrets and adds `TS_ENV`, `TS_ALLOWED_HOSTS`,
+    `TS_CORS_ORIGINS` enforcement, `TS_STORAGE_TYPE`/`s3_*`, and `TS_REDIS_URL`.
+  - `create_app` validates production settings: no default Razorpay webhook secret,
+    explicit CORS/allowed-hosts, and configured JWT keys.
+  - Added security headers middleware (CSP, HSTS in prod, X-Frame-Options, etc.).
+  - Added `HTTPSRedirectMiddleware` and `TrustedHostMiddleware` in production.
+  - Split health endpoint: `GET /api/health` is public and minimal; `GET /api/health/details`
+    exposes module/capability metadata and is gated by auth (super-admin in production,
+    authenticated in non-production, public when auth is disabled).
+  - Updated affected tests to use `/api/health/details`.
+- **TS-084** — Auth session/MFA hardening:
+  - Refresh tokens are now returned as `httpOnly`, `Secure` (prod), `SameSite=Lax`
+    cookies named `refresh_token`; `/api/auth/refresh` and `/logout` read them from
+    cookies. The JSON response no longer contains `refresh_token`.
+  - Added `/api/auth/mfa/challenge`; when `User.mfa_totp_secret` is set, `/login` returns
+    `mfa_required` and a short-lived `mfa_token` instead of final tokens.
+  - Added `/api/auth/workspaces/{id}/switch` to rotate refresh and reissue access for the
+    selected workspace.
+  - Added password policy: ≥8 chars, uppercase, lowercase, digit, symbol, and a blocklist
+    of trivial passwords.
+  - Added account lockout: 5 failed login attempts within 15 minutes lock the account for
+    15 minutes, stored in new `users.failed_login_attempts` and `users.locked_until` columns.
+  - Migration `64f9e4b70eda` adds the lockout columns.
+  - Updated test suite to use strong passwords and cookie-based refresh flow.
+
+### Done — 2026-07-29 (production readiness audit fixes: TS-086..TS-087)
+
+- **TS-086** — File upload/storage hardening:
+  - Added `app.core.storage` with MIME/magic/size validation, extension blocklist,
+    and per-file-type limits. BOQ uploads are capped at 10 MB.
+  - Added `LocalStorage` (default dev) and `S3Storage` (credential-gated) adapters;
+    `TS_STORAGE_TYPE=s3` activates S3 with fallback to local on failure.
+  - Added stub virus-scan hook (`_scan_stub`) so a real scanner/ClamAV integration can
+    be swapped in later.
+  - Wired `validate_and_store` into `ingestion` and `boq` upload routes.
+- **TS-087** — Risk/export quality:
+  - `RiskService.run_opportunity` now passes `validated_only=True` to rule-packs when
+    the workspace is on a paid plan (`pro`, `enterprise`, `paygo`, `team`).
+  - `ExportService.export` pulls the last reviewer from the audit log and includes
+    `reviewed_by_email` and `reviewed_at` in the pack stamp.
+  - Added tamper-evident SHA-256 integrity hash to the export stamp.
+  - Replaced `datetime.utcnow()` in `comparison/service.py` with timezone-safe logic.
+
+### Done — 2026-07-29 (production readiness audit fixes: TS-089..TS-090)
+
+- **TS-089** — Deployment/DevEx:
+  - Added `.env.local`, `.env.dev`, and `.env.prod` templates covering all `TS_*`
+    settings (database, CORS, allowed hosts, auth keys, storage/S3, billing, Redis, OCR/LLM).
+  - Updated `.env.example` to match the new settings.
+  - `docker-compose.yml` now uses `.env.local`, mounts `backend_storage`, and sets
+    `TS_STORAGE_DIR` to `/app/storage`.
+  - `backend/Dockerfile` installs `storage` + `redis` extras.
+- **TS-090** — CI/tooling:
+  - Backend CI now runs `ruff`, `mypy`, `pip-audit`, `pytest`, and Alembic up/down checks.
+  - Frontend CI now runs `npm run lint`, `npm run typecheck`, `npm audit`, and `npm run build`.
+  - Added `mypy` config to `pyproject.toml` (permissive baseline to avoid existing noise).
+  - Added ESLint config and `lint` / `typecheck` scripts to `frontend/package.json`.
+  - Resolved `postcss`/`sharp`/`brace-expansion` npm audit warnings via `overrides`.
+
+### Done — 2026-07-29 (production readiness audit fixes: TS-091)
+
+- **TS-091** — Notification/payment adapter skeletons:
+  - Added `app.modules.notifications.adapters` with `SesSender` and `Msg91Sender`
+    that fall back to console logging when credentials are absent.
+  - Added `app.modules.billing.providers` with `RazorpayProvider` and `StripeProvider`
+    that return mock handles without live keys.
+  - Added `app.core.scheduler` (APScheduler optional) and wired it into `create_app`
+    lifespan; `notifications` registers a daily digest stub job.
+  - Added provider/notification settings to `app.core.config`.
+  - Added `billing` and `scheduler` optional extras to `pyproject.toml`.
+
+### Done — 2026-07-29 (production readiness audit fixes: TS-085, TS-088, TS-092)
+
+- **TS-085** — Workspace switcher:
+  - `SessionProvider` now fetches `/auth/workspaces` and exposes `switchWorkspace`.
+  - Header includes a workspace dropdown when the user belongs to multiple workspaces.
+- **TS-088** — Frontend cleanup:
+  - Removed hardcoded `SAMPLE` tender and `SAMPLE_BOQ` from the opportunity workbench.
+  - Replaced the sample tender button with a real file upload (`<input type="file">`) wired to
+    `/ingestion/opportunities/{id}/upload`.
+  - Replaced the sample BOQ button with a CSV textarea.
+  - Removed the unverified "Hosted in India" claim from the landing page.
+  - Added `/billing` page (plan/usage, invoices, checkout) and `/admin` link.
+  - `api.ts` now sends `credentials: "include"` so httpOnly cookies travel with every request.
+- **TS-092** — Admin console and analytics UI:
+  - Added `/admin` superadmin page listing users and workspaces, with a superadmin toggle.
+  - Added per-opportunity **Audit** tab on the workbench using `/review/opportunities/{id}/audit`.
+  - Added `/analytics` dashboard showing opportunity risk counts, BOQ defects, and export readiness.
+
+### Next
+
 ### Done — 2026-07-26 (real web validation + invitation fix: TS-080..TS-081)
 
 - **TS-080** — Ran end-to-end browser validation against the local frontend + backend:

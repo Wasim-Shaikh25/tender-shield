@@ -14,10 +14,13 @@ invoicing, and the append-only `payment_log`.
 
 - **Capabilities published:**
   - `billing.service_factory` → `BillingService(session)` with `authorize_review`,
-    `record_usage`, `list_invoices`, and `create_invoice`.
+    `record_usage`, `list_invoices`, `create_invoice`, and `checkout`.
   - `billing.record_usage(session, org_id, event, ref_id=None)` — direct capability
     for modules that only need to log usage without pulling in the full service.
   - `billing.metering.authorize_review(org) -> Grant` (legacy alias via service).
+  - `billing.provider_factory` → `BillingProvider` with `RazorpayProvider` and
+    `StripeProvider` implementations; falls back to the deterministic dev notes
+    when no live keys are configured.
 - **Events emitted:** `billing.plan_activated`, `billing.payment_applied`,
   `billing.paywall_hit`.
 - **API routes:**
@@ -51,6 +54,11 @@ intents, webhook-dedup records, plan state on `orgs`.
   free review complete but watermarked.
 - **B8 (dunning):** past_due → banner + retries + grace; never delete data on
   non-payment.
+- **B9 (provider checkout):** `POST /api/billing/checkout` calls the configured
+  `BillingProvider` to create a real order/session when keys are present; in dev
+  it returns the deterministic notes object used by manual activation.
+- **B10 (no activation on redirect):** client-side success redirects or callbacks
+  never change plan state; only verified webhooks do.
 
 ## Acceptance criteria
 
@@ -59,6 +67,7 @@ intents, webhook-dedup records, plan state on `orgs`.
 - A2: duplicate webhook event id is a no-op; tampered signature → 400 and a
   `webhook_verify_failed` payment_log row.
 - A3: nothing activates on the redirect path in integration tests.
+- A4: checkout with Razorpay/Stripe keys configured creates a real provider order/session.
 
 ## Out of scope
 

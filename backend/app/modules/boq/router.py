@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
+from app.core.storage import BOQ_MAX_UPLOAD_SIZE, StorageError, ValidationError, validate_and_store
 from app.modules.boq.service import BoqRunner
 
 router = APIRouter()
@@ -68,6 +69,20 @@ async def upload_boq(
     if to_csv is None:
         raise HTTPException(503, "ingestion_unavailable")
     data = await file.read()
+    try:
+        await validate_and_store(
+            request.app.state.ctx.settings,
+            file.filename,
+            file.content_type,
+            data,
+            max_size=BOQ_MAX_UPLOAD_SIZE,
+            workspace_id=str(principal.workspace_id),
+            scan=False,  # BOQ CSV text is generated locally; no user-executable upload here
+        )
+    except ValidationError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except StorageError as exc:
+        raise HTTPException(500, str(exc)) from exc
     csv_text = to_csv(file.filename, data)
     # Digital tables failed on a PDF → fall back to offline scanned-table OCR
     # (rapid-table) if enabled. Still no cloud.

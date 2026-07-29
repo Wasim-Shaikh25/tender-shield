@@ -12,10 +12,19 @@ _SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
 
 
 def stamp_line(meta: dict) -> str:
+    reviewed = meta.get("reviewed_by_email")
+    reviewed_at = meta.get("reviewed_at", "")
+    if reviewed:
+        reviewer = f" · reviewed by {reviewed} on {reviewed_at}"
+    else:
+        reviewer = ""
+    integrity = meta.get("integrity_hash")
+    integrity_text = f" · integrity {integrity[:16]}" if integrity else ""
     return (
         f"Prepared with TenderShield · reviewed and approved on {meta.get('date', '')} "
-        f"· pack {meta.get('pack', 'in-works')} · This is document-intelligence "
-        f"software, not legal/QS advice — review with a qualified professional."
+        f"· pack {meta.get('pack', 'in-works')}{reviewer}{integrity_text} · This is "
+        f"document-intelligence software, not legal/QS advice — review with a qualified "
+        f"professional."
     )
 
 

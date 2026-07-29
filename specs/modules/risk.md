@@ -52,6 +52,10 @@ provenance and deterministic severity.
   else pack default, keyed by employer family.
 - **B7 (validation display rule):** unvalidated-pattern findings are excluded or
   badged per rulepacks B2.
+- **B8 (validated-only for paid/internal):** `POST /opportunities/{id}/run` filters
+  patterns by `validated_only=True` when the workspace plan is `pro`, `scale`,
+  `paygo`, or `internal`. Free/internal demo workspaces may include unvalidated
+  patterns with a visible confidence badge.
 
 ## Acceptance criteria
 
@@ -60,6 +64,7 @@ provenance and deterministic severity.
 - A3: a finding whose quote fails verification persists as low-confidence.
 - A4: every risk finding returned by `run_pattern` includes a non-null
   `explanation` with `matched_pattern.id` equal to the pattern id.
+- A5: paid workspace `run` excludes `confidence: unvalidated` patterns.
 
 ## Out of scope
 

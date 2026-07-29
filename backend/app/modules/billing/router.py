@@ -5,7 +5,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
-from app.modules.billing.plans import PaywallError
+from app.core.ratelimit import RateLimitDep
+from app.modules.billing.plans import PAYGO_PRICE_INR_PAISE, PaywallError
 from app.modules.billing.service import BillingService
 
 router = APIRouter()
@@ -16,10 +17,18 @@ def _service(request: Request, session: Session) -> BillingService:
     return BillingService(session, workspace_factory=reg.get("auth.workspace_factory"))
 
 
+SUBSCRIPTION_PRICES_INR_PAISE: dict[str, int] = {
+    "pro": 4_999_00,
+    "scale": 14_999_00,
+}
+
+
 class CheckoutBody(BaseModel):
+    provider: str = "razorpay"  # razorpay | stripe
     kind: str  # paygo | subscription
     plan: str | None = None
     opportunity_id: str | None = None
+    amount_minor: int | None = None
 
 
 @router.get("/status")
@@ -31,7 +40,7 @@ def status(
     return _service(request, session).status(principal.workspace_id)
 
 
-@router.post("/checkout")
+@router.post("/checkout", dependencies=[Depends(RateLimitDep(10, 60))])
 def checkout(
     body: CheckoutBody,
     request: Request,
@@ -40,19 +49,28 @@ def checkout(
 ):
     """Creates a provider order/subscription handle for the client SDK.
     Activates NOTHING — only the verified webhook does (Doc §15.1)."""
-    # Live Razorpay order creation requires provider keys; without them we return
-    # a deterministic handle carrying the notes the webhook will echo back.
+    if body.kind == "paygo":
+        amount = body.amount_minor or PAYGO_PRICE_INR_PAISE
+    elif body.kind == "subscription":
+        amount = body.amount_minor or SUBSCRIPTION_PRICES_INR_PAISE.get(body.plan or "", 0)
+        if not amount:
+            raise HTTPException(400, "unknown_subscription_plan")
+    else:
+        raise HTTPException(400, "unknown_checkout_kind")
+
     notes = {"workspace_id": str(principal.workspace_id), "kind": body.kind}
     if body.opportunity_id:
         notes["opportunity_id"] = body.opportunity_id
     if body.plan:
         notes["plan"] = body.plan
-    return {
-        "provider": "razorpay",
-        "kind": body.kind,
-        "notes": notes,
-        "note": "activation happens via the signed webhook, never this response",
-    }
+
+    provider = request.app.state.ctx.registry.get("billing.provider_factory")(body.provider)
+    if body.provider == "stripe":
+        result = provider.create_session(amount, "INR", notes)
+    else:
+        result = provider.create_order(amount, "INR", notes)
+    result["note"] = "activation happens via the signed webhook, never this response"
+    return result
 
 
 @router.post("/authorize-review")
@@ -95,7 +113,7 @@ def list_invoices(
     }
 
 
-@router.post("/webhooks/razorpay")
+@router.post("/webhooks/razorpay", dependencies=[Depends(RateLimitDep(50, 60))])
 async def razorpay_webhook(request: Request, session: Session = Depends(get_session)):
     raw = await request.body()
     sig = request.headers.get("X-Razorpay-Signature", "")

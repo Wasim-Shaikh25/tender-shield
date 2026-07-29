@@ -65,7 +65,7 @@ class ComparisonService:
         submission_due = self._submission_due(workspace_id, opportunity_id)
         days_to_submission = None
         if submission_due:
-            ref = datetime.utcnow() if submission_due.tzinfo is None else datetime.now(UTC)
+            ref = datetime.now(UTC) if submission_due.tzinfo else datetime.now()
             delta = submission_due - ref
             days_to_submission = max(0, delta.days)
 

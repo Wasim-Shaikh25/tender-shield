@@ -54,6 +54,10 @@ class AuthService:
         self, email: str, password: str, workspace_name: str | None = None, country: str = "IN"
     ) -> dict:
         email = email.strip().lower()
+        try:
+            sec.validate_password(password)
+        except ValueError as exc:
+            raise AuthError(str(exc)) from exc
         if self.s.scalar(select(User).where(User.email == email)):
             raise AuthError("email_taken")
         user = User(email=email, password_hash=sec.hash_password(password))
@@ -68,16 +72,49 @@ class AuthService:
         return {"user_id": str(user.id), "workspace_id": str(workspace.id)}
 
     # ---- login ------------------------------------------------------------
-    def login(self, email: str, password: str) -> dict:
+    def login(self, email: str, password: str) -> dict | None:
         email = email.strip().lower()
         user = self.s.scalar(select(User).where(User.email == email))
+
+        now = datetime.now(UTC)
+        if user and user.locked_until and user.locked_until > now:
+            raise AuthError("account_locked")
+
         if (
             not user
             or not user.password_hash
             or not sec.verify_password(password, user.password_hash)
         ):
+            if user:
+                user.failed_login_attempts += 1
+                if user.failed_login_attempts >= 5:
+                    user.locked_until = now + timedelta(minutes=15)
+                    user.failed_login_attempts = 0
+                self.s.commit()
             raise AuthError("invalid_credentials")
+
+        # success: clear any lockout/failed-attempt counters
+        user.failed_login_attempts = 0
+        user.locked_until = None
+
         member = self.s.scalar(select(WorkspaceMember).where(WorkspaceMember.user_id == user.id))
+        workspace_id = member.workspace_id if member else None
+        role = member.role if member else "owner"
+
+        # If MFA is enrolled, do not issue tokens yet.
+        if user.mfa_totp_secret:
+            return {
+                "mfa_required": True,
+                "mfa_token": sec.mint_mfa_token(
+                    self.keys,
+                    user_id=str(user.id),
+                    workspace_id=str(workspace_id) if workspace_id else self._NO_WORKSPACE,
+                    role=role,
+                    is_superadmin=user.is_superadmin,
+                    ttl=timedelta(minutes=5),
+                ),
+            }
+
         if not member:
             if user.is_superadmin:
                 return self._issue_tokens(
@@ -486,6 +523,68 @@ class AuthService:
             raise AuthError("mfa_not_enrolled")
         return mfa.verify(user.mfa_totp_secret, code)
 
+    def mfa_challenge(self, mfa_token: str, code: str) -> dict:
+        """Complete MFA login with a short-lived token and a TOTP/SMS/Email code."""
+        try:
+            claims = sec.decode_mfa_token(mfa_token, self.keys.public_pem)
+        except sec.AuthError as exc:
+            raise AuthError("invalid_mfa_token") from exc
+        user_id = uuid.UUID(claims["sub"])
+        if claims["workspace"] != self._NO_WORKSPACE:
+            workspace_id = uuid.UUID(claims["workspace"])
+        else:
+            workspace_id = None
+        role = claims["role"]
+        is_superadmin = claims.get("is_superadmin", False)
+        user = self.s.get(User, user_id)
+        if not user or not user.mfa_totp_secret:
+            raise AuthError("mfa_not_enrolled")
+        if not mfa.verify(user.mfa_totp_secret, code):
+            raise AuthError("mfa_invalid")
+        return self._issue_tokens(
+            user_id,
+            workspace_id,
+            role,
+            is_superadmin=is_superadmin,
+            new_family=True,
+        )
+
+    def switch_workspace(self, user_id, workspace_id: str | uuid.UUID, raw_token: str) -> dict:
+        """Rotate the refresh token and issue an access token for a different workspace."""
+        row = self.s.scalar(
+            select(RefreshToken).where(RefreshToken.token_hash == rf.hash_token(raw_token))
+        )
+        verdict = rf.evaluate_refresh(row, datetime.now(UTC))
+        if verdict == rf.RefreshVerdict.REUSE:
+            self._revoke_family(row.family_id)
+            self.s.commit()
+            raise AuthError("reuse_detected")
+        if verdict == rf.RefreshVerdict.INVALID:
+            raise AuthError("invalid_refresh")
+
+        user = self.s.get(User, uuid.UUID(str(user_id)))
+        if not user:
+            raise AuthError("no_such_user")
+
+        workspace_uuid = uuid.UUID(str(workspace_id))
+        member = self.s.scalar(
+            select(WorkspaceMember).where(
+                WorkspaceMember.workspace_id == workspace_uuid,
+                WorkspaceMember.user_id == user.id,
+            )
+        )
+        if not member and not user.is_superadmin:
+            raise AuthError("not_workspace_member")
+
+        row.used_at = datetime.now(UTC)
+        return self._issue_tokens(
+            user.id,
+            workspace_uuid,
+            member.role if member else "owner",
+            is_superadmin=user.is_superadmin,
+            family_id=row.family_id,
+        )
+
     # ---- password reset ----------------------------------------------------
 
     def forgot_password(self, email: str) -> dict:
@@ -501,8 +600,10 @@ class AuthService:
         return {"ok": True, "token": raw}
 
     def reset_password(self, token: str, new_password: str) -> dict:
-        if len(new_password) < 8:
-            raise AuthError("password_too_short")
+        try:
+            sec.validate_password(new_password)
+        except ValueError as exc:
+            raise AuthError(str(exc)) from exc
         row = self.s.scalar(
             select(PasswordReset).where(PasswordReset.token_hash == rf.hash_token(token))
         )
@@ -548,6 +649,10 @@ class AuthService:
 
     def create_superadmin(self, email: str, password: str) -> dict:
         email = email.strip().lower()
+        try:
+            sec.validate_password(password)
+        except ValueError as exc:
+            raise AuthError(str(exc)) from exc
         if self.s.scalar(select(User).where(User.email == email)):
             raise AuthError("email_taken")
         user = User(email=email, password_hash=sec.hash_password(password), is_superadmin=True)

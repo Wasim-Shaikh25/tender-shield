@@ -98,3 +98,26 @@ class ReviewService:
     def audit_trail(self, workspace_id, opportunity_id=None) -> list[AuditLog]:
         stmt = select(AuditLog).where(AuditLog.workspace_id == uuid.UUID(str(workspace_id)))
         return list(self.s.scalars(stmt.order_by(AuditLog.id.desc())))
+
+    def last_reviewer(self, workspace_id, opportunity_id) -> dict | None:
+        """Return the most recent reviewer user id and timestamp for an opportunity."""
+        store = self._store()
+        rows = store.list(workspace_id, opportunity_id)
+        if not rows:
+            return None
+        finding_ids = {r.id for r in rows}
+        log = self.s.scalar(
+            select(AuditLog)
+            .where(
+                AuditLog.workspace_id == uuid.UUID(str(workspace_id)),
+                AuditLog.object_type == "finding",
+                AuditLog.object_id.in_(finding_ids),
+            )
+            .order_by(AuditLog.at.desc())
+        )
+        if log is None:
+            return None
+        return {
+            "reviewer_id": str(log.actor_user_id) if log.actor_user_id else None,
+            "reviewed_at": log.at,
+        }

@@ -3,7 +3,16 @@
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
 
-export type Tokens = { access_token: string; refresh_token: string; role: string; workspace_id: string; is_superadmin?: boolean };
+export type Tokens = {
+  access_token: string;
+  role: string;
+  workspace_id: string;
+  is_superadmin?: boolean;
+  mfa_required?: boolean;
+  mfa_token?: string;
+};
+export type Workspace = { id: string; name: string; plan: string; country: string; role: string };
+export type User = { id: string; email: string; role: string; is_superadmin: boolean };
 export type Opportunity = { id: string; title: string; status: string; submission_due?: string | null };
 export type MissingDocs = { present: string[]; missing: string[]; expected: string[] };
 export type Clause = { id: string; clause_ref: string | null; heading: string | null; page_from: number | null };
@@ -31,13 +40,19 @@ export type Finding = {
 };
 
 async function req<T>(path: string, opts: RequestInit = {}, token?: string): Promise<T> {
+  const headers: Record<string, string> = { ...(opts.headers as Record<string, string> ?? {}) };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const bodyIsJson =
+    opts.body && typeof opts.body === "string" &&
+    !headers["Content-Type"] &&
+    (opts.body.startsWith("{") || opts.body.startsWith("["));
+  if (bodyIsJson && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
   const res = await fetch(`${API_BASE}${path}`, {
     ...opts,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(opts.headers ?? {}),
-    },
+    credentials: "include",
+    headers,
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -64,6 +79,24 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ token, new_password }),
     }),
+  refresh: () => req<Tokens>("/auth/refresh", { method: "POST" }),
+  mfaChallenge: (mfa_token: string, code: string) =>
+    req<Tokens>("/auth/mfa/challenge", {
+      method: "POST",
+      body: JSON.stringify({ mfa_token, code }),
+    }),
+  me: (token: string) => req<{ user_id: string; workspace_id: string; role: string; is_superadmin?: boolean }>("/auth/me", {}, token),
+  listWorkspaces: (token: string) => req<{ workspaces: Workspace[] }>("/auth/workspaces", {}, token),
+  switchWorkspace: (token: string, workspace_id: string) =>
+    req<Tokens>(`/auth/workspaces/${workspace_id}/switch`, { method: "POST" }, token),
+  billingStatus: (token: string) => req<{ plan: string; reviews_used: number; reviews_limit: number | null; seats: number }>("/billing/status", {}, token),
+  listInvoices: (token: string) => req<{ invoices: { id: string; invoice_number: string; amount_minor: number; currency: string; status: string; provider: string; paid_at: string | null; created_at: string }[] }>("/billing/invoices", {}, token),
+  checkout: (token: string, body: { provider?: string; kind: string; plan?: string; amount_minor?: number }) =>
+    req<{ provider: string; order_id?: string; session_id?: string; mock: boolean; note: string }>("/billing/checkout", { method: "POST", body: JSON.stringify(body) }, token),
+  adminUsers: (token: string) => req<{ users: User[] }>("/auth/admin/users", {}, token),
+  adminWorkspaces: (token: string) => req<{ workspaces: Workspace[] }>("/auth/admin/workspaces", {}, token),
+  adminSetSuperadmin: (token: string, user_id: string, is_superadmin: boolean) =>
+    req<{ ok: boolean }>(`/auth/admin/users/${user_id}/superadmin`, { method: "POST", body: JSON.stringify({ is_superadmin }) }, token),
   listOpportunities: (token: string) =>
     req<{ opportunities: Opportunity[] }>("/ingestion/opportunities", {}, token).catch(
       // list endpoint may 404 until implemented; treat as empty
@@ -83,6 +116,15 @@ export const api = {
       { method: "POST", body: JSON.stringify({ filename, sample_text }) },
       token
     ),
+  uploadDocument: (token: string, id: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return req<{ id: string; filename: string; kind: string; chars: number; ocr_status: string }>(
+      `/ingestion/opportunities/${id}/upload`,
+      { method: "POST", body: form, headers: {} },
+      token
+    );
+  },
   missingDocs: (token: string, id: string) =>
     req<MissingDocs>(`/ingestion/opportunities/${id}/missing-docs`, {}, token),
   deadlines: (token: string, id: string) =>
@@ -123,6 +165,10 @@ export const api = {
     ),
   gate: (token: string, id: string) =>
     req<Gate>(`/review/opportunities/${id}/gate`, {}, token),
+  auditTrail: (token: string, id: string) =>
+    req<{ audit: { id: string; action: string; actor_email: string | null; created_at: string; meta: Record<string, unknown> }[] }>(`/review/opportunities/${id}/audit`, {}, token),
+  listComparison: (token: string) =>
+    req<{ opportunities: { id: string; title: string; submission_due: string | null; days_to_submission: number | null; risk_counts: Record<string, number>; qualification_gaps: number; boq_defects: number; export_ready: boolean }[] }>("/comparison/opportunities", {}, token),
   generateArtifact: (token: string, id: string, kind: string) =>
     req<Artifact>(
       `/drafting/opportunities/${id}/artifacts`,

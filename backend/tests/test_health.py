@@ -20,19 +20,25 @@ def client():
     return TestClient(app)
 
 
-def test_health_returns_ok_and_modules(client):
+def test_health_returns_ok_and_version(client):
     r = client.get("/api/health")
     assert r.status_code == 200
     data = r.json()
     assert data["status"] == "ok"
-    names = {m["name"] for m in data["modules"]}
+    assert "version" in data
+
+
+def test_health_details_list_modules(client):
+    r = client.get("/api/health/details")
+    assert r.status_code == 200
+    names = {m["name"] for m in r.json()["modules"]}
     assert "health" in names
     assert "auth" in names
     assert "findings" in names
 
 
-def test_health_lists_capabilities(client):
-    r = client.get("/api/health")
+def test_health_details_lists_capabilities(client):
+    r = client.get("/api/health/details")
     caps = r.json()["capabilities"]
     assert "findings.store_factory" in caps
     assert "auth.authenticate" in caps

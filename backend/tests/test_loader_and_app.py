@@ -21,7 +21,7 @@ def test_broken_module_is_isolated():
 def test_app_boots_with_explicit_module_subset():
     app = create_app(Settings(enabled_modules="health"))
     client = TestClient(app)
-    body = client.get("/api/health").json()
+    body = client.get("/api/health/details").json()
     assert body["status"] == "ok"
     assert [m["name"] for m in body["modules"]] == ["health"]
 
@@ -29,7 +29,7 @@ def test_app_boots_with_explicit_module_subset():
 def test_app_boots_with_broken_module_enabled():
     app = create_app(Settings(enabled_modules="_broken,health"))
     client = TestClient(app)
-    body = client.get("/api/health").json()
+    body = client.get("/api/health/details").json()
     assert body["status"] == "ok"
     assert "_broken" in body["failed_modules"]
 

@@ -61,15 +61,24 @@ payloads in the BOQ run endpoint (`TS-I05`), a frontend session provider that ke
 workspace state after switching (`TS-F02`), and a brittle LLM-response parser in the risk
 classifier (`TS-R01`).
 
+A fifth-round pass (§10) re-scanned the same branch for previously overlooked gaps in
+notifications, review/drafting, timeline export, risk/assistant LLM adapters, and ingestion
+async/direct routes. It identified eight additional gaps, the most significant being an invalid
+default Anthropic model name in both the risk classifier and the assistant agent (`TS-R02`,
+`TS-A14`), a notifications scheduler tick that calls a method missing from the
+`auth.workspace_factory` capability (`TS-N02`), and an async document-processing task that
+does not classify documents, segment clauses, update the opportunity submission deadline, or
+use the configured OCR provider (`TS-I08`).
+
 ### 1.2 Finding count by severity
 
 | Severity | Count | Release-blocking | IDs |
 |---|---|---|---|
 | **Critical** | 5 | 5 | TS-A01, TS-A02, TS-A03, TS-B01, TS-P02 |
-| **High** | 14 | 12 | TS-A04, TS-A05, TS-I01, TS-I02, TS-B02, TS-F01, TS-O01, TS-A06, TS-A07, TS-O04, TS-A10, TS-I04, TS-I05, TS-F02 |
-| **Medium** | 20 | 0 | TS-O02, TS-I03, TS-N01, TS-P01, TS-S01, TS-X01, TS-B03, TS-S02, TS-O03, TS-A08, TS-A09, TS-R01, TS-D02, TS-Q01, TS-X02, TS-A11, TS-I06, TS-B05, TS-S03, TS-A13 |
+| **High** | 15 | 13 | TS-A04, TS-A05, TS-I01, TS-I02, TS-B02, TS-F01, TS-O01, TS-A06, TS-A07, TS-O04, TS-A10, TS-I04, TS-I05, TS-F02, TS-R02 |
+| **Medium** | 27 | 0 | TS-O02, TS-I03, TS-N01, TS-P01, TS-S01, TS-X01, TS-B03, TS-S02, TS-O03, TS-A08, TS-A09, TS-R01, TS-D02, TS-Q01, TS-X02, TS-A11, TS-I06, TS-B05, TS-S03, TS-A13, TS-N02, TS-I07, TS-I08, TS-A14, TS-A15, TS-B06, TS-D03 |
 | **Low** | 4 | 0 | TS-L01, TS-L02, TS-L03, TS-L04 |
-| **Total** | **43** | **17** | |
+| **Total** | **51** | **18** | |
 
 Product-completeness gaps are tracked separately in §3.5 (they are capability gaps, not
 defects, and are not counted above).
@@ -92,6 +101,7 @@ defects, and are not counted above).
 | Synchronous extraction blocks the async event loop on upload | `ingestion/router.py:164` calls `extract_upload` directly from an `async def` route (§9 TS-I04) | High |
 | BOQ run accepts unbounded CSV payloads | `boq/router.py:47` `RunBody.csv` has no max length; parsed entirely in memory (§9 TS-I05) | High |
 | Session provider keeps stale workspace list after switch | `frontend/components/session.tsx:52` refuses to overwrite a non-empty workspace list (§9 TS-F02) | High |
+| Risk classifier uses an invalid Anthropic model name | `risk/classifier.py:33` default is `claude-sonnet-5`; `risk/module.py:15` instantiates without override (§10 TS-R02) | High |
 
 ### 1.4 Major product risks
 
@@ -143,7 +153,7 @@ Stated up front so the recommendation is read against what was actually tested:
 
 ### 1.7 Release conditions
 
-Ship only when **all seventeen** release-blocking findings in §5.1, §5.2, §7.3, and §9.4 are fixed,
+Ship only when **all eighteen** release-blocking findings in §5.1, §5.2, §7.3, §9.4, and §10.3 are fixed,
 each with a regression test, **and** the RLS behaviour in TS-A03 has been verified against a real
 PostgreSQL instance using a non-owner application role (§6.2). Fixing the application-layer
 checks without fixing RLS leaves the product one missing `if` statement away from the same
@@ -3250,3 +3260,715 @@ timeframe as the auth blockers, but the product should not ship until all sevent
 and verified.
 
 
+## 10. Fifth-round re-audit
+
+### 10.1 Summary
+
+The fifth round focused on paths that were not covered by prior rounds or were only lightly
+touched: the notifications scheduler, the review audit trail, drafting version generation,
+timeline ICS export, the risk and assistant Anthropic adapters, and the ingestion async task
+and direct `register_document` route. All previously documented `TS-*` findings were
+re-verified and still present. This round adds **eight new findings** (`TS-N02`, `TS-I08`,
+`TS-I07`, `TS-R02`, `TS-A14`, `TS-A15`, `TS-B06`, `TS-D03`).
+
+### 10.2 New findings
+
+#### TS-N02 — Notifications deadline-alert scheduler calls a missing `WorkspaceAdmin` method
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection — requires APScheduler to be enabled) |
+| **Severity** | **Medium** |
+| **Category** | Cross-Module Contract / Operational Defect |
+| **Release-blocking** | No |
+| **Affected roles** | All workspace members who should receive deadline alerts |
+
+**Location** — `backend/app/modules/notifications/module.py:47-48`; `backend/app/modules/auth/module.py:36`; `backend/app/modules/auth/workspaces.py:18-41`
+
+**Evidence**
+
+The notification scheduler tick uses the `auth.workspace_factory` capability to enumerate workspaces:
+
+```python
+# backend/app/modules/notifications/module.py
+admin = workspace_factory(session)
+for workspace in admin.list_all_workspaces():
+```
+
+But the `auth` module publishes `auth.workspace_factory` as `WorkspaceAdmin(session)`:
+
+```python
+# backend/app/modules/auth/module.py:36
+ctx.registry.provide("auth.workspace_factory", lambda session: WorkspaceAdmin(session))
+```
+
+`WorkspaceAdmin` does not implement `list_all_workspaces()`:
+
+```python
+class WorkspaceAdmin:
+    ...
+    def get(self, workspace_id) -> Workspace | None: ...
+    def is_paying(self, workspace_id) -> bool: ...
+    def get_user(self, user_id) -> dict | None: ...
+    def list_members(self, workspace_id) -> list[dict]: ...
+    def mark_free_review_used(self, workspace_id) -> None: ...
+    def set_plan(self, workspace_id, plan: str) -> None: ...
+```
+
+The method exists on `AuthService` (`backend/app/modules/auth/service.py`), not on `WorkspaceAdmin`.
+
+**Root cause**
+
+The `auth.workspace_factory` capability contract is overloaded. Billing and export consume `WorkspaceAdmin` operations (`is_paying`, `get_user`, `set_plan`, `mark_free_review_used`), but notifications expects an admin list-workspaces operation. The wrong class is bound to the slot for this consumer.
+
+**Impact**
+
+When APScheduler is enabled, every `deadline_alert_tick` raises `AttributeError: 'WorkspaceAdmin' object has no attribute 'list_all_workspaces'`. The exception is caught by APScheduler and the job continues, but no alert emails are sent. In the default Docker build APScheduler is not installed (`TS-O04`), so this is a latent failure that will surface as soon as the `scheduler` extra is installed.
+
+**Recommended solution**
+
+Add `list_all_workspaces()` to `WorkspaceAdmin` so the existing registry binding works:
+
+```python
+class WorkspaceAdmin:
+    ...
+    def list_all_workspaces(self) -> list[dict]:
+        rows = self.s.execute(select(Workspace.id, Workspace.name, Workspace.plan))
+        return [{"workspace_id": str(r[0]), "name": r[1], "plan": r[2]} for r in rows]
+```
+
+Or, if `WorkspaceAdmin` is intended to be a narrow billing/admin interface, publish `AuthService` under a separate `auth.admin_factory` capability and have notifications consume that.
+
+**Regression risks**
+
+Low. Billing/export use existing `WorkspaceAdmin` methods that are unchanged.
+
+**Tests to add**
+
+1. `test_deadline_alert_tick_sends_email` — with APScheduler mocked, schedule the tick for a workspace with an upcoming deadline and verify at least one `Message` is queued.
+2. `test_workspace_admin_list_all_workspaces` — assert `WorkspaceAdmin` exposes the method notifications expects.
+
+**Similar locations** — `billing/service.py` and `export/service.py` consume `auth.workspace_factory` but only call methods that exist on `WorkspaceAdmin`.
+
+---
+
+#### TS-I08 — Async `process_document` Celery task does not classify, segment clauses, update the submission deadline, or run OCR
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Ingestion / Async Pipeline |
+| **Release-blocking** | No |
+| **Affected roles** | All users uploading documents with `?async=1` |
+
+**Location** — `backend/app/modules/ingestion/tasks.py:52-99`; `backend/app/modules/ingestion/service.py:90-109`
+
+**Evidence**
+
+The synchronous `upload_document` path calls `register_document` with extracted text:
+
+```python
+# backend/app/modules/ingestion/service.py:90-109
+def register_document(
+    self, workspace_id, opportunity_id, filename: str, sample_text: str = "", **fields
+) -> Document:
+    kind = classify_text(sample_text, self._anchors()) or "other"
+    doc = Document(...)
+    ...
+    if sample_text.strip():
+        self._segment(doc, sample_text)
+        self._extract_deadlines(doc, sample_text)
+        persist_chunks(...)
+```
+
+`classify_text` sets `doc.kind`, `_segment` creates `Clause` rows, and `_extract_deadlines` both creates `Deadline` rows and updates `Opportunity.submission_due` from the earliest submission deadline.
+
+The async Celery task only loads the file, extracts text, persists chunks, and extracts deadlines:
+
+```python
+# backend/app/modules/ingestion/tasks.py:52-99 (condensed)
+@app.task(bind=True, name="ingestion.process_document")
+def process_document(self, document_id: str, workspace_id: str, opportunity_id: str):
+    ...
+    text, ocr_status = extract_upload(doc.filename, data, ocr=None)
+    ...
+    doc.ocr_status = ocr_status
+    session.commit()
+    persist_chunks(session, workspace_id, opportunity_id, document_id, text)
+    for ex in extract_deadlines(text):
+        session.add(Deadline(...))
+    session.commit()
+    return {"status": "done", ...}
+```
+
+It does not:
+- call `classify_text` or set `doc.kind`,
+- segment clauses into `Clause` rows,
+- update `Opportunity.submission_due`,
+- use the configured OCR provider (`ocr=None` is hardcoded, so scanned PDFs are permanently marked `needs_ocr`).
+
+The route docstring says `?async=1` enqueues Celery processing, but the task does not complete the pipeline.
+
+**Root cause**
+
+The async task was written as a minimal text-and-deadline extractor and not kept in sync with the synchronous `register_document` pipeline. It also does not receive the registry, so it cannot resolve the configured OCR provider.
+
+**Impact**
+
+Any document uploaded with `?async=1` is left with `kind="other"` and no `Clause` rows. The deadline wall may miss the `submission_due` update. Scanned PDFs uploaded asynchronously never get OCR applied. Downstream modules (risk, crossref, drafting, assistant) see an empty or incomplete corpus.
+
+**Recommended solution**
+
+Refactor the async task to reuse the same pipeline as `register_document`:
+
+```python
+# backend/app/modules/ingestion/tasks.py
+def process_document(self, document_id, workspace_id, opportunity_id):
+    with session_scope() as session:
+        doc = get_document(session, workspace_id, document_id)
+        ...
+        svc = IngestionService(session, loader_provider=..., publish=_noop)
+        svc._classify_and_segment(doc, text)   # new helper shared with register_document
+        svc._extract_deadlines(doc, text)
+        persist_chunks(...)
+```
+
+Pass the OCR provider to `extract_upload` (or import it from `ingestion.ocr` using the `TS_OCR_ENABLED` setting). Ensure `doc.kind`, `doc.pages`, and `opp.submission_due` are updated.
+
+**Regression risks**
+
+Medium. The async task is currently only exercised by `?async=1` uploads; the sync path is the default. The refactor should share the same helpers so behavior converges.
+
+**Tests to add**
+
+1. `test_process_document_sets_kind_and_clauses` — enqueue the task and assert the resulting document has `kind != "other"` and `Clause` rows.
+2. `test_process_document_updates_submission_due` — assert `Opportunity.submission_due` is set from a submission deadline in the text.
+3. `test_process_document_uses_ocr_provider` — with a fake OCR provider, verify scanned PDFs are OCR'd instead of `needs_ocr`.
+
+**Similar locations** — `upload_document` sync path handles this correctly; the divergence is in `process_document`.
+
+---
+
+#### TS-I07 — `register_document` accepts unbounded `sample_text` and processes it synchronously
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Denial of Service / Input Validation |
+| **Release-blocking** | No |
+| **Affected roles** | Any authenticated `estimator` |
+
+**Location** — `backend/app/modules/ingestion/router.py:35-37`; `backend/app/modules/ingestion/service.py:90-109`
+
+**Evidence**
+
+The `register_document` body has no maximum length on `sample_text`:
+
+```python
+class RegisterDocumentBody(BaseModel):
+    filename: str = Field(min_length=1)
+    sample_text: str = ""
+    supersedes: str | None = None
+```
+
+The service then runs the text through several CPU/memory-intensive operations in the request cycle:
+
+```python
+def register_document(
+    self, workspace_id, opportunity_id, filename: str, sample_text: str = "", **fields
+) -> Document:
+    kind = classify_text(sample_text, self._anchors()) or "other"
+    ...
+    if sample_text.strip():
+        self._segment(doc, sample_text)
+        self._extract_deadlines(doc, sample_text)
+        persist_chunks(...)
+```
+
+`classify_text` runs a regex search over the full string for each doc-type anchor. `_segment` splits on lines and applies header/xref regexes. `_extract_deadlines` scans every line for date patterns. `persist_chunks` inserts one `DocChunk` row per page. There is no truncation or chunking before this work.
+
+The synchronous `upload_document` path extracts text from a file and passes it to `register_document`; while the file size is capped, the resulting text can still be tens of megabytes.
+
+**Root cause**
+
+The `sample_text` field has no `max_length`, and the ingestion service assumes the input is reasonably sized. The synchronous route does not degrade large inputs to an async worker or stream.
+
+**Impact**
+
+A single `POST /api/ingestion/opportunities/{id}/documents` with a multi-megabyte `sample_text` will hold a worker thread for a long time, perform many regex searches, and insert many rows. This is a straightforward CPU/memory DoS against the backend.
+
+**Recommended solution**
+
+1. Cap `sample_text` in the request body:
+
+```python
+class RegisterDocumentBody(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
+    sample_text: str = Field("", max_length=1_000_000)
+    supersedes: str | None = Field(None, max_length=36)
+```
+
+2. For the sync `upload_document` path, pass extracted text through a `DocChunk` generator and only classify/segment the first N characters (e.g. 200 KB) in the request; schedule the rest for the Celery worker (which must be fixed per `TS-I08`).
+
+**Regression risks**
+
+Low. Legitimate tender documents rarely exceed a few hundred kilobytes of extracted text.
+
+**Tests to add**
+
+1. `test_register_document_rejects_oversized_sample_text` — `422` when `sample_text` exceeds the cap.
+2. `test_upload_document_large_text_does_not_block` — assert a 50 MB extracted text is either rejected or offloaded to the worker.
+
+**Similar locations** — `boq/router.py:RunBody.csv` has the same unbounded-text problem (`TS-I05`); fix both with a single input-size policy.
+
+---
+
+#### TS-R02 — Risk classifier uses an invalid default Anthropic model name
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **High** |
+| **Category** | ML/LLM Integration / Product Functionality |
+| **Release-blocking** | **YES** |
+| **Affected roles** | Paying users running risk review |
+
+**Location** — `backend/app/modules/risk/classifier.py:33-34`; `backend/app/modules/risk/module.py:15`
+
+**Evidence**
+
+`AnthropicClassifier` defaults to a non-existent model:
+
+```python
+class AnthropicClassifier:
+    def __init__(self, model: str = "claude-sonnet-5", max_tokens: int = 900):
+        self.model = model
+        self.max_tokens = max_tokens
+```
+
+The `risk` module instantiates it without override when `ANTHROPIC_API_KEY` is set:
+
+```python
+if os.environ.get("ANTHROPIC_API_KEY"):
+    ctx.registry.provide("risk.classifier", AnthropicClassifier())
+```
+
+`claude-sonnet-5` is not a valid Anthropic model identifier. The Anthropic SDK will raise a model-not-found error, which is caught here:
+
+```python
+try:
+    msg = client.messages.create(
+        model=self.model,
+        ...
+    )
+except Exception:
+    logger.exception("AnthropicClassifier failed for pattern %s", pattern.id)
+    return []
+```
+
+So every pattern classification silently returns `[]`. The risk engine (`risk/engine.py:run_pattern`) then produces no presence findings for patterns that have candidate clauses, only absence findings for patterns with no candidates. The core risk-review feature is effectively disabled whenever an Anthropic key is configured.
+
+**Root cause**
+
+A placeholder model name was hardcoded and never replaced with a real default or a configurable setting.
+
+**Impact**
+
+Paying workspaces with an Anthropic key configured get empty risk findings. This breaks the product's primary value proposition and, combined with `TS-P02` (paid workspaces see only `validated` patterns), can leave users with zero risk output.
+
+**Recommended solution**
+
+Add a `TS_ANTHROPIC_MODEL` setting and pass it through the module:
+
+```python
+# backend/app/core/config.py
+class Settings(BaseSettings):
+    ...
+    anthropic_model: str = "claude-3-5-sonnet-20241022"
+
+# backend/app/modules/risk/module.py
+ctx.registry.provide(
+    "risk.classifier",
+    AnthropicClassifier(model=s.anthropic_model, max_tokens=s.anthropic_max_tokens),
+)
+```
+
+Validate the model name against a known-good allow-list and fail fast on startup if it is not recognized, rather than silently returning empty lists at runtime.
+
+**Regression risks**
+
+Low. The change only affects deployments with `ANTHROPIC_API_KEY` set, which are currently broken.
+
+**Tests to add**
+
+1. `test_risk_classifier_with_invalid_model_fails_fast` — startup fails or the call raises a clear `ConfigurationError`.
+2. `test_risk_classifier_valid_model_returns_findings` — with a mocked Anthropic client, `run_patterns` returns the expected findings.
+
+**Similar locations** — `assistant/agent.py` has the same invalid default (`TS-A14`); fix both together and share the model setting.
+
+---
+
+#### TS-A14 — Assistant agent uses an invalid default Anthropic model name
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | ML/LLM Integration / Product Functionality |
+| **Release-blocking** | No |
+| **Affected roles** | All users of the assistant chat |
+
+**Location** — `backend/app/modules/assistant/agent.py:22-23`; `backend/app/modules/assistant/module.py:16`
+
+**Evidence**
+
+`AnthropicAgent` also defaults to `claude-sonnet-5`:
+
+```python
+class AnthropicAgent:
+    def __init__(self, model: str = "claude-sonnet-5", max_tokens: int = 700):
+        self.model = model
+        self.max_tokens = max_tokens
+```
+
+The assistant module instantiates it without override:
+
+```python
+if os.environ.get("ANTHROPIC_API_KEY"):
+    from app.modules.assistant.agent import AnthropicAgent
+    ctx.registry.provide("assistant.agent", AnthropicAgent())
+```
+
+When the model name fails, the exception is caught and the agent returns a fallback string:
+
+```python
+except Exception:
+    logger.exception("AnthropicAgent failed")
+    return "I couldn't complete that request just now — please try a specific query."
+```
+
+**Root cause**
+
+Same as `TS-R02`: a placeholder model name hardcoded in the LLM adapter and never wired to a setting.
+
+**Impact**
+
+The assistant silently degrades to a generic error message for every free-form query when an Anthropic key is configured. Users may not realize the assistant is broken because there is no HTTP error.
+
+**Recommended solution**
+
+Share the `TS_ANTHROPIC_MODEL` setting introduced for `TS-R02`:
+
+```python
+ctx.registry.provide(
+    "assistant.agent",
+    AnthropicAgent(model=s.anthropic_model, max_tokens=s.anthropic_max_tokens),
+)
+```
+
+Fail fast on startup for unrecognized model names.
+
+**Regression risks**
+
+Low. No currently working assistant path is affected.
+
+**Tests to add**
+
+1. `test_assistant_with_invalid_model_returns_error` — the agent returns a clear error rather than silently swallowing.
+2. `test_assistant_valid_model_uses_shared_setting` — the module passes the configured model to `AnthropicAgent`.
+
+**Similar locations** — `risk/classifier.py` (`TS-R02`).
+
+---
+
+#### TS-A15 — Review audit trail endpoint ignores `opportunity_id`
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Data Isolation / Audit |
+| **Release-blocking** | No |
+| **Affected roles** | `reviewer`, `admin`, `owner` |
+
+**Location** — `backend/app/modules/review/router.py:83-90`; `backend/app/modules/review/service.py:98-100`; `backend/app/modules/review/models.py:19-29`
+
+**Evidence**
+
+The route is scoped to an opportunity:
+
+```python
+@router.get("/opportunities/{opportunity_id}/audit")
+def audit_trail(
+    opportunity_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("reviewer")),
+):
+    rows = _service(request, session).audit_trail(principal.workspace_id, opportunity_id)
+```
+
+But the service ignores the `opportunity_id`:
+
+```python
+def audit_trail(self, workspace_id, opportunity_id=None) -> list[AuditLog]:
+    stmt = select(AuditLog).where(AuditLog.workspace_id == uuid.UUID(str(workspace_id)))
+    return list(self.s.scalars(stmt.order_by(AuditLog.id.desc())))
+```
+
+And the `AuditLog` model has no `opportunity_id` column:
+
+```python
+class AuditLog(Base, WorkspaceScopedMixin):
+    _tablename_ = "audit_log"
+    id: Mapped[int] = mapped_column(_BigId, primary_key=True, autoincrement=True)
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    action: Mapped[str] = mapped_column(String, nullable=False)
+    object_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    object_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+```
+
+So `/opportunities/{opportunity_id}/audit` returns every `AuditLog` row in the workspace, not just the ones for that opportunity.
+
+**Root cause**
+
+The audit log schema was built workspace-scoped but not opportunity-scoped, and the service signature accepts an `opportunity_id` parameter that it never uses.
+
+**Impact**
+
+A reviewer for one opportunity can see audit entries for every other opportunity in the workspace (e.g., findings accepted/rejected, notes added). This is a workspace-internal data-leakage and compliance issue. It also makes the per-opportunity audit UI useless.
+
+**Recommended solution**
+
+1. Add `opportunity_id` to `AuditLog` (nullable for workspace-level events) and backfill from `object_id` where `object_type="finding"` by joining to `FindingRow`.
+2. Update `ReviewService.audit` to accept and store `opportunity_id`.
+3. Filter `audit_trail` by `opportunity_id` when provided:
+
+```python
+def audit_trail(self, workspace_id, opportunity_id=None) -> list[AuditLog]:
+    stmt = select(AuditLog).where(AuditLog.workspace_id == uuid.UUID(str(workspace_id)))
+    if opportunity_id:
+        stmt = stmt.where(AuditLog.opportunity_id == uuid.UUID(str(opportunity_id)))
+    return list(self.s.scalars(stmt.order_by(AuditLog.id.desc())))
+```
+
+**Regression risks**
+
+Low. Requires a migration, but opportunity-level audit is the intended behavior.
+
+**Tests to add**
+
+1. `test_audit_trail_filters_by_opportunity` — create audit entries for two opportunities and assert the endpoint returns only the requested one.
+2. `test_audit_log_stores_opportunity_id` — after `review_finding`, the `AuditLog` row has the finding's `opportunity_id`.
+
+**Similar locations** — `ReviewService.last_reviewer` already filters `AuditLog` by the opportunity's finding IDs, which is a workaround for the same missing column.
+
+---
+
+#### TS-B06 — `Artifact.version` uses a non-atomic read-modify-write increment
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Concurrency / Data Integrity |
+| **Release-blocking** | No |
+| **Affected roles** | Users generating artifacts concurrently |
+
+**Location** — `backend/app/modules/drafting/service.py:136-154`; `backend/app/modules/drafting/models.py:16`
+
+**Evidence**
+
+`DraftingService.generate` computes the next artifact version like this:
+
+```python
+opp = uuid.UUID(str(opportunity_id))
+next_version = (
+    self.s.scalar(
+        select(func.coalesce(func.max(Artifact.version), 0)).where(
+            Artifact.opportunity_id == opp, Artifact.kind == kind
+        )
+    )
+    + 1
+)
+artifact = Artifact(
+    workspace_id=uuid.UUID(str(workspace_id)),
+    opportunity_id=opp,
+    kind=kind,
+    version=next_version,
+    body=body,
+    model_meta={"generator": "deterministic", "findings": len(findings)},
+)
+self.s.add(artifact)
+self.s.commit()
+```
+
+This is a classic read-modify-write race: two concurrent requests can read the same `max(version)`, both compute the same `next_version`, and both try to insert. The `Artifact` model has a unique constraint:
+
+```python
+__table_args__ = (UniqueConstraint("opportunity_id", "kind", "version"),)
+```
+
+So one request succeeds and the other raises an `IntegrityError` (HTTP 500). The data is not corrupted, but the API is not concurrency-safe.
+
+**Root cause**
+
+The version increment is not serialized. SQLAlchemy's `func.max` read and the subsequent insert are not an atomic single statement.
+
+**Impact**
+
+Concurrent artifact generation (e.g., two reviewers clicking "Generate" at the same time, or the UI retrying a slow request) can fail with 500 errors.
+
+**Recommended solution**
+
+Use an advisory lock or a single atomic insert with `INSERT ... ON CONFLICT DO NOTHING` and retry:
+
+```python
+from sqlalchemy import text
+def _next_version_atomic(self, opp, kind) -> int:
+    # PostgreSQL example
+    self.s.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key)::bigint)"), {"key": f"artifact:{opp}:{kind}"})
+    return self.s.scalar(select(func.coalesce(func.max(Artifact.version), 0)).where(...)) + 1
+```
+
+For SQLite, use an application-level `threading.Lock` or move the operation to the worker. Long-term, add a unique constraint and a retry loop around the insert.
+
+**Regression risks**
+
+Low. The fix only changes the version-assignment path; artifact content and ordering are unchanged.
+
+**Tests to add**
+
+1. `test_generate_artifact_concurrent` — two concurrent `generate` calls for the same opportunity/kind produce versions `1` and `2` without 500s.
+2. `test_generate_artifact_no_duplicate_versions` — assert the unique constraint is never violated under load.
+
+**Similar locations** — `baseline/service.py` has the same pattern with `Baseline.version` (`TS-B05`); fix both with the same locking strategy.
+
+---
+
+#### TS-D03 — Timeline ICS export appends `Z` to naive or local datetimes; synthetic `tender_published` uses `created_at`
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Date/Time / Calendar Export |
+| **Release-blocking** | No |
+| **Affected roles** | Users exporting deadlines to a calendar |
+
+**Location** — `backend/app/modules/timeline/router.py:65-68`; `backend/app/modules/timeline/service.py:103-115`; `backend/app/modules/ingestion/deadlines.py:65-72`
+
+**Evidence**
+
+The ICS export always appends a literal `Z` to `due_at`:
+
+```python
+@router.get("/opportunities/{opportunity_id}/timeline.ics", response_class=PlainTextResponse)
+def export_ics(...):
+    for e in events:
+        if e.due_at is None:
+            continue
+        dt = e.due_at.strftime("%Y%m%dT%H%M%SZ")
+```
+
+`due_at` can be:
+1. A **naive** `datetime` produced by `extract_deadlines.parse_date` (`strptime` with no timezone):
+
+```python
+def parse_date(text: str) -> datetime | None:
+    for fmt in _FORMATS:
+        try:
+            return datetime.strptime(cleaned, fmt)
+        except ValueError:
+            continue
+    return None
+```
+
+2. `opp.created_at`, which is created with `DateTime(timezone=True)` but may be stored as naive depending on the backend.
+
+Appending `Z` claims the time is UTC. A naive `datetime` formatted as `20260729T153000Z` is ambiguous or wrong. A local timezone-aware `datetime` would be emitted in local wall-clock time with a `Z` suffix, which is also wrong.
+
+Additionally, the synthetic `tender_published` event falls back to `opp.created_at` when no published deadline is extracted:
+
+```python
+if not has_published and opp.created_at is not None:
+    events.append(
+        TimelineEvent(
+            kind="tender_published",
+            ...
+            due_at=opp.created_at,
+            ...
+            source="synthetic",
+        )
+    )
+```
+
+This is the date the opportunity was recorded, not the tender's actual publication date, and it may be wrong by hours due to the `Z` suffix.
+
+**Root cause**
+
+The ICS exporter does not normalize timestamps to UTC before formatting, and the fallback publisher date is not a real extracted fact.
+
+**Impact**
+
+Calendar entries are offset from the real deadline, which can mislead users into missing a submission or showing up at the wrong time. The synthetic publication date is misleading.
+
+**Recommended solution**
+
+1. Convert all `due_at` values to UTC before ICS formatting:
+
+```python
+from datetime import UTC
+
+def _ics_datetime(dt: datetime) -> str:
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
+```
+
+2. Store extracted deadlines with an explicit timezone (UTC) in the database, or at least document that the application treats them as UTC.
+3. For `tender_published`, either require an extracted publication date or clearly label the event as "Tender recorded" rather than "Tender published".
+
+**Regression risks**
+
+Low. Consumers of the ICS feed will get correct UTC timestamps.
+
+**Tests to add**
+
+1. `test_export_ics_uses_utc` — a naive `due_at` of `2026-07-29 15:30:00` is emitted as `20260729T153000Z`, and a local timezone `due_at` is converted to the correct UTC time.
+2. `test_export_ics_rejects_unzoned_created_at` — the synthetic `tender_published` event carries a UTC timestamp if `created_at` is naive.
+
+**Similar locations** — `_event_json` in `timeline/router.py` emits `due_at.isoformat()` which is at least honest about timezone awareness, but it too should normalize to UTC for API consistency.
+
+---
+
+### 10.3 Updated remediation plan
+
+Add to the P0/P1 remediation lists from §5, §7.4, §8.4, and §9.4:
+
+- **P0 (release-blocking, new)**
+  - **TS-R02**: replace the invalid Anthropic model default with a real, configurable model and fail fast on startup.
+- **P1 (pre-release)**
+  - **TS-N02**: fix the `auth.workspace_factory` capability contract used by the notifications scheduler.
+  - **TS-I08**: complete the async `process_document` task (classification, segmentation, `submission_due`, OCR).
+  - **TS-I07**: cap `sample_text` and large extracted-text sizes before synchronous processing.
+  - **TS-A14**: wire the assistant agent to the same configurable Anthropic model setting.
+  - **TS-A15**: add `opportunity_id` to `AuditLog` and filter `audit_trail` by it.
+  - **TS-B06**: serialize `Artifact.version` increments with advisory locks or a single atomic insert.
+  - **TS-D03**: normalize `due_at` to UTC for ICS export and fix the `tender_published` fallback.
+
+### 10.4 Updated final recommendation
+
+**NO-GO** for public launch and for any deployment holding more than one customer's data.
+
+The fifth round re-confirmed every prior release blocker and identified eight additional gaps,
+one of which is release-blocking (`TS-R02`). There are now **51 findings** (5 Critical, 15 High,
+27 Medium, 4 Low) with **18 release-blocking** items. The new release blocker is a broken
+core feature (risk review silently fails when an Anthropic key is configured) and must be
+resolved before any paying user can rely on the product.

@@ -67,6 +67,25 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   - Baseline recorded: `ruff` clean, `mypy` clean (143 files), 145 backend tests passing,
     frontend lint/typecheck/build clean, `npm audit` 0 vulnerabilities, `pip-audit` 0.
 
+### Done — 2026-07-29 (TS-130: fifth-round production readiness audit rerun)
+
+- **TS-130** — Fifth-round end-to-end re-audit of trunk (`claude/dev-workflow-modules-58dpqw`) per
+  `END_TO_END_PRODUCTION_AUDIT_PROMPT.md`. **Audit only — no source files were changed.**
+  `PRODUCTION_READINESS_AUDIT.md` updated with:
+  - All prior `TS-*` findings re-verified and still present.
+  - Eight new findings: `TS-N02` (notifications scheduler calls missing `WorkspaceAdmin` method),
+    `TS-I08` (async `process_document` does not classify/segment or use OCR),
+    `TS-I07` (`register_document` accepts unbounded `sample_text` with synchronous processing),
+    `TS-R02` (risk classifier default Anthropic model name is invalid),
+    `TS-A14` (assistant agent default Anthropic model name is invalid),
+    `TS-A15` (`review` audit trail ignores `opportunity_id` and `AuditLog` lacks the column),
+    `TS-B06` (`Artifact.version` read-modify-write race), and
+    `TS-D03` (timeline ICS export appends `Z` to naive/local datetimes).
+  - Updated counts: **51 findings (5 Critical, 15 High, 27 Medium, 4 Low), 18 release-blocking**.
+  - Updated remediation plan and final recommendation remains **NO-GO**.
+  - Baseline recorded: `ruff` clean, `mypy` clean (143 files), 145 backend tests passing,
+    frontend lint/typecheck/build clean, `npm audit` 0 vulnerabilities, `pip-audit` 0.
+
 ### Next
 
 Fix in order — the four blockers first (`TS-095` cross-workspace member add, `TS-096`

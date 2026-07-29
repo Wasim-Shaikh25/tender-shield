@@ -80,11 +80,25 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   - Added provider/notification settings to `app.core.config`.
   - Added `billing` and `scheduler` optional extras to `pyproject.toml`.
 
-### Next
+### Done — 2026-07-29 (production readiness audit fixes: TS-085, TS-088, TS-092)
 
-- TS-085 — Workspace switcher frontend and backend polish.
-- TS-088 — Frontend cleanup (remove demo data), workspace switcher, billing/admin pages.
-- TS-092 — Admin console and analytics UI.
+- **TS-085** — Workspace switcher:
+  - `SessionProvider` now fetches `/auth/workspaces` and exposes `switchWorkspace`.
+  - Header includes a workspace dropdown when the user belongs to multiple workspaces.
+- **TS-088** — Frontend cleanup:
+  - Removed hardcoded `SAMPLE` tender and `SAMPLE_BOQ` from the opportunity workbench.
+  - Replaced the sample tender button with a real file upload (`<input type="file">`) wired to
+    `/ingestion/opportunities/{id}/upload`.
+  - Replaced the sample BOQ button with a CSV textarea.
+  - Removed the unverified "Hosted in India" claim from the landing page.
+  - Added `/billing` page (plan/usage, invoices, checkout) and `/admin` link.
+  - `api.ts` now sends `credentials: "include"` so httpOnly cookies travel with every request.
+- **TS-092** — Admin console and analytics UI:
+  - Added `/admin` superadmin page listing users and workspaces, with a superadmin toggle.
+  - Added per-opportunity **Audit** tab on the workbench using `/review/opportunities/{id}/audit`.
+  - Added `/analytics` dashboard showing opportunity risk counts, BOQ defects, and export readiness.
+
+### Next
 
 ### Done — 2026-07-26 (real web validation + invitation fix: TS-080..TS-081)
 

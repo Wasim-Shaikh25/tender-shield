@@ -154,11 +154,11 @@ staying inside the tender-review domain. Full requirements and tracker:
 |---|---|---|---|---|
 | TS-083 | Security hardening: CORS restrictions, security headers, default-secret guard, rate limiting, public health split | audit F01/F02/F08/F10/F23 | `specs/900-production-readiness-audit-fixes.md`, `specs/modules/core.md`, `specs/modules/health.md` | done |
 | TS-084 | Auth session/MFA: httpOnly refresh cookies, MFA enforcement at login, password policy + lockout | audit F04/F05/F22 | `specs/900-production-readiness-audit-fixes.md`, `specs/modules/auth.md` | done |
-| TS-085 | Workspace/tenant: multi-workspace selection and switcher | audit F06 | `specs/900-production-readiness-audit-fixes.md`, `specs/modules/auth.md` | in-progress |
+| TS-085 | Workspace/tenant: multi-workspace selection and switcher | audit F06 | `specs/900-production-readiness-audit-fixes.md`, `specs/modules/auth.md` | done |
 | TS-086 | File upload/storage: MIME/magic/size validation, S3 adapter, virus-scan stub, BOQ size cap | audit F09/F11/F20 | `specs/900-production-readiness-audit-fixes.md`, `specs/modules/ingestion.md`, `specs/modules/boq.md` | done |
 | TS-087 | Risk/export quality: `validated_only` filter for paying users, reviewer stamp in exports, `datetime.utcnow` cleanup | audit F03/F17/F25 | `specs/900-production-readiness-audit-fixes.md`, `specs/modules/risk.md`, `specs/modules/export.md` | done |
-| TS-088 | Frontend cleanup and admin/billing UI: remove demo data, workspace switcher, billing/admin pages | audit F16 | `specs/900-production-readiness-audit-fixes.md`, `specs/frontend.md` | todo |
+| TS-088 | Frontend cleanup and admin/billing UI: remove demo data, workspace switcher, billing/admin pages | audit F16 | `specs/900-production-readiness-audit-fixes.md`, `specs/frontend.md` | done |
 | TS-089 | Deployment/DevEx: `.env.*` templates, `run.sh`/`docker-compose` fixes, CHANGELOG updates | audit F14 | `specs/900-production-readiness-audit-fixes.md` | done |
 | TS-090 | CI/tooling: ESLint, `mypy`, `pip-audit`, `npm audit` in CI | audit F18 | `specs/900-production-readiness-audit-fixes.md` | done |
 | TS-091 | Notification/payment adapter skeletons: SES/MSG91 senders, Razorpay/Stripe providers, scheduler stubs (credential-gated) | audit F07/F12/F15, TS-035/TS-037/TS-079 | `specs/900-production-readiness-audit-fixes.md`, `specs/modules/notifications.md`, `specs/modules/billing.md` | done |
-| TS-092 | Admin console and analytics UI: superadmin dashboard, audit log viewer, accuracy dashboard | audit F21 | `specs/900-production-readiness-audit-fixes.md`, `specs/frontend.md` | todo |
+| TS-092 | Admin console and analytics UI: superadmin dashboard, audit log viewer, accuracy dashboard | audit F21 | `specs/900-production-readiness-audit-fixes.md`, `specs/frontend.md` | done |

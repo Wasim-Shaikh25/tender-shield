@@ -19,37 +19,12 @@ import { useSession } from "@/components/session";
 import { SeverityBadge, SourceBadge } from "@/components/badges";
 import { artifactLabel, categoryLabel, deadlineLabel, statusLabel } from "@/lib/labels";
 
-const SAMPLE = `[p1]
-NOTICE INVITING TENDER (NIT No. TS/DEMO/2026/001)
-Construction of an office building with one basement, deep excavation adjacent to an existing structure, on a site with high sub-soil water. Completion: 30 months.
-Last date of submission of bid: 25/07/2026 up to 15:00 hrs.
-Pre-bid meeting shall be held on 24/07/2026.
-Last date for seeking clarifications: 24/07/2026.
-[p2]
-Clause 14 — Price basis. The contract shall be on a firm price basis and no escalation whatsoever shall be payable.
-[p4]
-Clause 33 — Compensation for delay. Liquidated damages at the rate of 1% of the contract value shall be levied for each week of delay.
-[p6]
-Clause 52 — Termination. The Employer may terminate the contract for its convenience at any time, and the contractor shall have no claim for compensation.`;
-
-const SAMPLE_BOQ = `src_sheet,src_row,item_code,description,unit_raw,qty,rate,amount
-BOQ,1,1.1,Earthwork in excavation for foundation in ordinary soil,Cum,1200,250,300000
-BOQ,2,1.2,Earthwork in excavation for foundation in ordinary soil,cum,1200,250,300000
-BOQ,3,2.1,Providing and laying plain cement concrete 1:4:8,Cum,300,4500,1350000
-BOQ,4,2.2,Reinforced cement concrete M25 in foundations,cum,450,6800,3060000
-BOQ,5,3.1,Thermo-mechanically treated steel reinforcement,MT,85,65000,5525000
-BOQ,6,4.1,Brick masonry in cement mortar 1:6,Cum,220,5200,1140000
-BOQ,7,5.1,Cement plaster 12mm thick,Sqm,3000,180,540000
-BOQ,8,6.1,Supplying and fixing MS railing,Rmt,500,0,0
-BOQ,9,7.1,Waterproofing treatment to foundation raft,Sqm,800,950,760000
-`;
-
 export default function OpportunityDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { session } = useSession();
-  const [tab, setTab] = useState<"overview" | "risks" | "boq" | "artifacts" | "handover">(
-    "overview"
-  );
+  const [tab, setTab] = useState<
+    "overview" | "risks" | "boq" | "artifacts" | "handover" | "audit"
+  >("overview");
   const [title, setTitle] = useState("Opportunity");
   const [missing, setMissing] = useState<MissingDocs | null>(null);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
@@ -64,6 +39,8 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
   const [compareData, setCompareData] = useState<BaselineCompare | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [boqCsv, setBoqCsv] = useState("");
+  const [auditLog, setAuditLog] = useState<{ id: string; action: string; actor_email: string | null; created_at: string; meta: Record<string, unknown> }[]>([]);
 
   const refresh = useCallback(async () => {
     if (!session) return;
@@ -84,6 +61,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
       .catch(() => {});
     api.handover(session.token, id).then(setHandoverPack).catch(() => setHandoverPack(null));
     api.compareBaselines(session.token, id).then(setCompareData).catch(() => setCompareData(null));
+    api.auditTrail(session.token, id).then((d) => setAuditLog(d.audit)).catch(() => setAuditLog([]));
   }, [session, id]);
 
   useEffect(() => {
@@ -92,13 +70,15 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
 
   if (!session) return <p className="text-sm text-slate-500">Sign in to view this opportunity.</p>;
 
-  async function loadConditions() {
+  async function uploadFile(file: File) {
     setBusy(true);
     setNote(null);
     try {
-      await api.registerDocument(session!.token, id, "nit-and-conditions.md", SAMPLE);
+      const doc = await api.uploadDocument(session!.token, id, file);
       await refresh();
-      setNote("Uploaded — classified, segmented into clauses, deadlines extracted.");
+      setNote(`Uploaded ${doc.filename} (${doc.chars} chars, OCR ${doc.ocr_status}).`);
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setBusy(false);
     }
@@ -161,7 +141,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
     setBusy(true);
     setNote(null);
     try {
-      await api.runBoq(session!.token, id, SAMPLE_BOQ);
+      await api.runBoq(session!.token, id, boqCsv);
       await refresh();
       setNote("BOQ checked — defects added to the register.");
     } finally {
@@ -192,13 +172,19 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-ink">{title}</h1>
         <div className="flex gap-2">
-          <button
-            onClick={loadConditions}
-            disabled={busy}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-white disabled:opacity-50"
-          >
-            Upload sample tender
-          </button>
+          <label className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-white disabled:opacity-50">
+            <input
+              type="file"
+              className="hidden"
+              accept=".pdf,.doc,.docx,.txt,.md,.csv,.xlsx,.xls"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) uploadFile(file);
+              }}
+              disabled={busy}
+            />
+            Upload tender file
+          </label>
           <button
             onClick={runRisk}
             disabled={busy}
@@ -212,7 +198,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
       {note && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{note}</p>}
 
       <div className="flex gap-1 border-b border-slate-200">
-        {(["overview", "risks", "boq", "artifacts", "handover"] as const).map((t) => (
+        {(["overview", "risks", "boq", "artifacts", "handover", "audit"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -324,21 +310,29 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
 
       {tab === "boq" && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="space-y-2">
             <p className="text-sm text-slate-500">
-              Deterministic BOQ checks — arithmetic, duplicates, blank rates, scope gaps. Zero LLM.
+              Deterministic BOQ checks — arithmetic, duplicates, blank rates, scope gaps. Paste a
+              CSV with columns src_sheet,src_row,item_code,description,unit_raw,qty,rate,amount.
             </p>
+            <textarea
+              value={boqCsv}
+              onChange={(e) => setBoqCsv(e.target.value)}
+              rows={6}
+              placeholder="src_sheet,src_row,item_code,description,unit_raw,qty,rate,amount"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono outline-none focus:border-ink"
+            />
             <button
               onClick={runBoq}
-              disabled={busy}
+              disabled={busy || !boqCsv.trim()}
               className="rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
             >
-              {busy ? "Checking…" : "Load sample BOQ & check"}
+              {busy ? "Checking…" : "Check BOQ"}
             </button>
           </div>
           {boqFindings.length === 0 ? (
             <p className="text-sm text-slate-500">
-              No BOQ defects yet — run a check above (defects also feed the export register).
+              No BOQ defects yet — paste a CSV and run a check (defects also feed the export register).
             </p>
           ) : (
             boqFindings.map((f, i) => (
@@ -443,6 +437,29 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
           busy={busy}
           onFreeze={freeze}
         />
+      )}
+
+      {tab === "audit" && (
+        <div className="space-y-3">
+          {auditLog.length === 0 ? (
+            <p className="text-sm text-slate-500">No audit entries yet.</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {auditLog.map((a) => (
+                <li key={a.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium capitalize text-ink">{a.action.replace(/_/g, " ")}</span>
+                    <span className="text-xs text-slate-400">{new Date(a.created_at).toLocaleString()}</span>
+                  </div>
+                  {a.actor_email && <p className="text-slate-500">by {a.actor_email}</p>}
+                  {Object.keys(a.meta).length > 0 && (
+                    <pre className="mt-2 rounded bg-slate-50 p-2 text-xs text-slate-600">{JSON.stringify(a.meta, null, 2)}</pre>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
     </div>
   );

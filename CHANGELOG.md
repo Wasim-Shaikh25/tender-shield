@@ -103,6 +103,21 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   - Baseline recorded: `ruff` clean, `mypy` clean (143 files), 145 backend tests passing,
     frontend lint/typecheck/build clean, `npm audit` 0 vulnerabilities, `pip-audit` 0.
 
+### Done — 2026-07-29 (TS-132: seventh-round production readiness audit rerun)
+
+- **TS-132** — Seventh-round end-to-end re-audit of trunk (`claude/dev-workflow-modules-58dpqw`) per
+  `END_TO_END_PRODUCTION_AUDIT_PROMPT.md`. **Audit only — no source files were changed.**
+  `PRODUCTION_READINESS_AUDIT.md` updated with:
+  - All prior `TS-*` findings re-verified and still present.
+  - Four new findings: `TS-C01` (monetary amounts represented as `float` / `Numeric(16,2)` major units),
+    `TS-I10` (XLSX/CSV ingestion loses page provenance), `TS-A17` (email/password login selects an
+    arbitrary workspace for multi-workspace users), and `TS-R03` (severity evaluator silently defaults
+    missing facts to `0`).
+  - Updated counts: **61 findings (5 Critical, 15 High, 37 Medium, 4 Low), 18 release-blocking**.
+  - Updated remediation plan and final recommendation remains **NO-GO**.
+  - Baseline recorded: `ruff` clean, `mypy` clean (143 files), 145 backend tests passing,
+    frontend lint/typecheck/build clean, `npm audit` 0 vulnerabilities, `pip-audit` 0.
+
 ### Next
 
 Fix in order — the four blockers first (`TS-095` cross-workspace member add, `TS-096`

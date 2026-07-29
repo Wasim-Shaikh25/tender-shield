@@ -79,15 +79,25 @@ swallows all exceptions (`TS-B08`), tus routes block the event loop with synchro
 return an empty, non-compliant `OPTIONS` response (`TS-I09`), and `POST /api/review/findings/{finding_id}`
 does not scope by opportunity (`TS-A16`).
 
+A seventh-round pass (§12) re-scanned the codebase for violations of the product invariants
+declared in `CLAUDE.md` §4 and the build doc, concentrating on money representation, source-page
+provenance for non-PDF documents, deterministic risk severity, and multi-workspace auth. All
+previously documented `TS-*` findings were re-verified and still present. It identified four
+additional gaps: the shared `Finding` contract and several downstream modules store/extract
+monetary amounts as `float` / `Numeric(16,2)` major units instead of minor units (`TS-C01`),
+XLSX/CSV text extraction does not emit page markers so spreadsheet-derived facts lose page
+provenance (`TS-I10`), email/password login selects an arbitrary workspace for multi-workspace
+users (`TS-A17`), and the severity evaluator silently defaults missing facts to `0` (`TS-R03`).
+
 ### 1.2 Finding count by severity
 
 | Severity | Count | Release-blocking | IDs |
 |---|---|---|---|
 | **Critical** | 5 | 5 | TS-A01, TS-A02, TS-A03, TS-B01, TS-P02 |
 | **High** | 15 | 13 | TS-A04, TS-A05, TS-I01, TS-I02, TS-B02, TS-F01, TS-O01, TS-A06, TS-A07, TS-O04, TS-A10, TS-I04, TS-I05, TS-F02, TS-R02 |
-| **Medium** | 33 | 0 | TS-O02, TS-I03, TS-N01, TS-P01, TS-S01, TS-X01, TS-B03, TS-S02, TS-O03, TS-A08, TS-A09, TS-R01, TS-D02, TS-Q01, TS-X02, TS-A11, TS-I06, TS-B05, TS-S03, TS-A13, TS-N02, TS-I07, TS-I08, TS-A14, TS-A15, TS-B06, TS-D03, TS-S04, TS-O05, TS-B07, TS-B08, TS-I09, TS-A16 |
+| **Medium** | 37 | 0 | TS-O02, TS-I03, TS-N01, TS-P01, TS-S01, TS-X01, TS-B03, TS-S02, TS-O03, TS-A08, TS-A09, TS-R01, TS-D02, TS-Q01, TS-X02, TS-A11, TS-I06, TS-B05, TS-S03, TS-A13, TS-N02, TS-I07, TS-I08, TS-A14, TS-A15, TS-B06, TS-D03, TS-S04, TS-O05, TS-B07, TS-B08, TS-I09, TS-A16, TS-C01, TS-I10, TS-A17, TS-R03 |
 | **Low** | 4 | 0 | TS-L01, TS-L02, TS-L03, TS-L04 |
-| **Total** | **57** | **18** | |
+| **Total** | **61** | **18** | |
 
 Product-completeness gaps are tracked separately in §3.5 (they are capability gaps, not
 defects, and are not counted above).
@@ -114,6 +124,11 @@ defects, and are not counted above).
 | Production CORS/allowed-hosts guard bypassed by comma-separated wildcard | `main.py:66-69` checks the exact string `"*"` while `config.py` splits on commas (§11 TS-O05) | Medium |
 | LocalStorage async methods block the event loop with synchronous I/O | `core/storage.py:104-119` `read`/`write`/`delete` call sync `pathlib` without `asyncio.to_thread` (§11 TS-S04) | Medium |
 | Review finding endpoint does not scope by opportunity | `review/router.py:50-70` and `findings/store.py:49-83` query by `workspace_id` and `finding_id` only (§11 TS-A16) | Medium |
+| Monetary amounts are represented as `float` / `Numeric(16,2)` major units | `core/contracts/findings.py:64`, `findings/models.py:60`, `drafting/validators.py:25`, `boq/engine.py:96-99`, `standards/service.py:25-29` (§12 TS-C01) | Medium |
+| Spreadsheet ingestion loses page provenance because `[sheet:...]` markers are not recognised | `ingestion/extract.py:56-77`, `ingestion/doc_text.py:27-45`, `ingestion/segment.py:41-68`, `ingestion/deadlines.py:83-105` (§12 TS-I10) | Medium |
+| Email/password login picks the first workspace for a user with no ordering | `auth/service.py:160-162` (§12 TS-A17) | Medium |
+| Severity rules silently treat missing facts as `0` | `risk/severity.py:41-45` (§12 TS-R03) | Medium |
+
 
 ### 1.4 Major product risks
 
@@ -138,7 +153,9 @@ Stated plainly so the NO-GO is not read as a verdict on the whole codebase:
 - **The product's core invariants are implemented properly.** BOQ arithmetic, date arithmetic,
   and severity scoring are deterministic code with no LLM involvement. The three artifact
   validators (`drafting/validators.py`) genuinely enforce no-invented-quotes,
-  no-uncited-clauses, no-invented-numbers. Money is in minor units throughout.
+  no-uncited-clauses, no-invented-numbers. Money is intended to be in minor units, but the
+  shared `Finding` contract and several downstream modules still use major-unit `float` /
+  `Numeric(16,2)` representations (§12 TS-C01).
 - **Webhook signature verification is correct and fails closed** — HMAC over the raw body with
   `hmac.compare_digest`, and an unset secret returns `False` rather than skipping the check.
 - **Auth primitives are well built** — Argon2id, RS256 with `iss`/`aud` verification, refresh
@@ -165,7 +182,7 @@ Stated up front so the recommendation is read against what was actually tested:
 
 ### 1.7 Release conditions
 
-Ship only when **all eighteen** release-blocking findings in §5.1, §5.2, §7.3, §9.4, and §10.3 are fixed,
+Ship only when **all eighteen** release-blocking findings in §5.1, §5.2, §7.3, §9.4, §10.3, §11.3, and §12.3 are fixed,
 each with a regression test, **and** the RLS behaviour in TS-A03 has been verified against a real
 PostgreSQL instance using a non-owner application role (§6.2). Fixing the application-layer
 checks without fixing RLS leaves the product one missing `if` statement away from the same
@@ -4431,3 +4448,308 @@ The sixth round re-confirmed every prior release blocker and identified six addi
 There are now **57 findings** (5 Critical, 15 High, 33 Medium, 4 Low) with **18 release-blocking**
 items. The new gaps are infrastructure, configuration, payment-flow, and authz hardening issues;
 they do not add new release blockers, but they should be fixed and verified before launch.
+
+## 12. Seventh-round re-audit
+
+### 12.1 Summary
+
+The seventh round concentrated on the product invariants in `CLAUDE.md` §4 and the build doc that
+had not been explicitly audited in prior passes: money in minor units, every extracted fact
+carrying page/quote provenance, deterministic severity evaluation, and correct workspace selection on
+login. All previously documented `TS-*` findings were re-verified and remain present. This round
+adds **four new findings** (`TS-C01`, `TS-I10`, `TS-A17`, `TS-R03`).
+
+### 12.2 New findings
+
+#### TS-C01 — `Finding.amount_exposure` and monetary thresholds are stored/extracted as `float` major units, violating the minor-units invariant
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Data Integrity / Product Invariant / Money |
+| **Release-blocking** | No |
+| **Affected roles** | All users viewing risk, BOQ, baseline, drafting, or standards findings |
+
+**Location** — `backend/app/core/contracts/findings.py:64`; `backend/app/modules/findings/models.py:60`;
+`backend/app/modules/drafting/validators.py:18-44`; `backend/app/modules/drafting/service.py` and
+`backend/app/modules/baseline/service.py` (amount casts); `backend/app/modules/boq/engine.py:96-99`;
+`backend/app/modules/standards/service.py:25-29` and `models.py`; `backend/app/modules/standards/service.py:_extract_number`
+
+**Evidence** The shared `Finding` contract exposes money as an optional `float`:
+
+```python
+class Finding(BaseModel):
+    ...
+    amount_exposure: float | None = None
+```
+
+The DB model maps it as `Numeric(16, 2)`:
+
+```python
+class FindingRow(Base, WorkspaceScopedMixin):
+    ...
+    amount_exposure: Mapped[float | None] = mapped_column(Numeric(16, 2), nullable=True)
+```
+
+The drafting `FactTable` stores extracted amounts as `float` with a major-unit regex and a 0.5 tolerance:
+
+```python
+@dataclass
+class FactTable:
+    amounts: list[float] = field(default_factory=list)
+
+    def has_amount(self, value: float, tol: float = 0.5) -> bool:
+        return any(abs(value - a) <= tol for a in self.amounts)
+
+_AMOUNT_RE = re.compile(r"(?:₹|Rs\.?|INR)\s*([\d,]+(?:\.\d+)?)", re.IGNORECASE)
+...
+for m in _AMOUNT_RE.finditer(grounded):
+    value = float(m.group(1).replace(",", ""))
+    if value not in amounts:
+        amounts.append(value)
+```
+
+The BOQ engine uses `float` arithmetic and `round(..., 2)`:
+
+```python
+df["amount_calc"] = (
+    pd.to_numeric(df["qty"], errors="coerce") * pd.to_numeric(df["rate"], errors="coerce")
+).round(2)
+```
+
+Standards thresholds are `float` and the amount extractor returns `float`:
+
+```python
+class PolicyBody(BaseModel):
+    threshold: float = Field(ge=0)
+...
+def _extract_number(finding: dict, unit: str) -> float | None:
+    ...
+    return float(raw)
+```
+
+**Root cause** The product invariant "Money in minor units (paise), never float" is documented but not
+enforced in the shared contract, the database schema, or the consumers. Major-unit `float` values
+propagate through risk, drafting, baseline, BOQ, and standards, carrying rounding errors and breaking
+cross-currency consistency.
+
+**Impact** Small rounding discrepancies in BOQ totals and amount comparisons; risk/standards/baseline
+findings can expose or compare amounts at the wrong scale; monetary fields cannot safely represent
+non-INR currencies or sub-rupee figures in minor units.
+
+**Recommended solution** 1) Change `Finding.amount_exposure` to `int | None` (paise/minor units).
+2) Change `FindingRow.amount_exposure` to `BigInteger` and migrate existing data. 3) Update
+`FactTable` to parse amounts into integer paise and compare integer values with no tolerance. 4)
+Reimplement BOQ engine with `Decimal`/minor-unit arithmetic. 5) Update standards `PolicyBody.threshold`
+to `int` and `_extract_number` to return minor units. 6) Update `_rupees()` formatting to divide by 100.
+
+**Regression risks** Moderate — the `amount_exposure` JSON field and DB column change type; any client
+rendering the value must format it as currency. Existing tests that expect float comparisons will need
+updates.
+
+**Tests to add** `test_finding_amount_exposure_is_minor_units`;
+`test_fact_table_rejects_major_unit_float`; `test_boq_amount_calc_no_float_rounding`;
+`test_standards_threshold_minor_units`.
+
+**Similar locations** `backend/app/modules/drafting/service.py` and
+`backend/app/modules/baseline/service.py` cast `amount_exposure` to `float`;
+`backend/app/modules/standards/models.py` maps `threshold` to `Numeric(12, 4)`;
+`backend/app/modules/boq/engine.py` computes `amount`/`amount_calc` with `float` and `round`.
+
+---
+
+#### TS-I10 — XLSX/CSV text extraction does not emit page markers, so spreadsheet-derived deadlines and clauses lose page provenance
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Ingestion / Provenance / Product Invariant |
+| **Release-blocking** | No |
+| **Affected roles** | All users uploading spreadsheet tender documents |
+
+**Location** — `backend/app/modules/ingestion/extract.py:56-77`;
+`backend/app/modules/ingestion/doc_text.py:27-45`; `backend/app/modules/ingestion/segment.py:41-68`;
+`backend/app/modules/ingestion/deadlines.py:83-105`
+
+**Evidence** XLSX extraction emits `[sheet:<name>]` separators:
+
+```python
+def _xlsx_to_text(data: bytes) -> str:
+    ...
+    lines.append(f"[sheet:{ws.title}]\n" + "\n".join(out))
+    return "\n".join(lines)
+```
+
+CSV extraction does the same:
+
+```python
+def _csv_to_text(data: bytes) -> str:
+    ...
+    return "\n".join(f"[sheet:{filename}]\n" + text for ...)
+```
+
+PDF extraction emits `[pN]` markers via `_join_pages`. The page splitter, clause segmenter, and
+deadline extractor all key off `[pN]`:
+
+```python
+_PAGE_MARKER = re.compile(r"^\s*\[p(\d+)\]\s*$", re.MULTILINE)
+
+
+def segment_clauses(text: str) -> list[ClauseSeg]:
+    page = 1
+    for line in text.splitlines():
+        pm = _PAGE.match(line)
+        if pm:
+            page = int(pm.group(1))
+            continue
+        ...
+```
+
+**Root cause** Spreadsheet text is normalised to "sheet" markers instead of page markers, and the
+downstream page-aware pipeline only understands `[pN]`. No component maps sheets to synthetic page
+numbers.
+
+**Impact** Every deadline or clause extracted from an XLSX/CSV document gets `source_page=1` and is
+stored as a single "Preamble" segment with `clause_ref=None`, violating the "every extracted fact has
+`source_page`" invariant and making it impossible to cite the source sheet/page for
+spreadsheet-derived facts.
+
+**Recommended solution** Emit `[pN]` markers in `_xlsx_to_text`/`_csv_to_text` (e.g., `[p1]` for each
+sheet or `[pN]` per logical page), or update `_PAGE_MARKER`, `segment_clauses`, and `extract_deadlines`
+to treat `[sheet:<name>]` as a page boundary and derive a `source_page` from the sheet index. Also
+update `DocChunk` and `Clause` `page`/`page_from` accordingly.
+
+**Regression risks** Low — changes only the text normalisation for spreadsheets. PDF extraction
+remains unchanged.
+
+**Tests to add** `test_xlsx_extraction_emits_page_markers`;
+`test_csv_deadline_carries_correct_source_page`;
+`test_xlsx_clause_segmentation_not_single_preamble`.
+
+**Similar locations** `backend/app/modules/ingestion/doc_text.py:extract_pages` is the other consumer
+of `[pN]` markers; `backend/app/modules/ingestion/tasks.py` calls `extract_upload` and should be
+included in regression tests.
+
+---
+
+#### TS-A17 — Email/password login selects an arbitrary workspace for multi-workspace users
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Auth / Tenant Isolation |
+| **Release-blocking** | No |
+| **Affected roles** | Users who are members of more than one workspace |
+
+**Location** — `backend/app/modules/auth/service.py:160-162`
+
+**Evidence** `login()` resolves the user's workspace with an unqualified `scalar()`:
+
+```python
+member = self.s.scalar(select(WorkspaceMember).where(WorkspaceMember.user_id == user.id))
+workspace_id = member.workspace_id if member else None
+role = member.role if member else "owner"
+```
+
+There is no `ORDER BY`, `LIMIT 1`, or primary-workspace flag, so the returned row is whichever row
+the database happens to return first.
+
+**Root cause** The query assumes a user has at most one workspace, or that the first row is
+deterministic. The codebase has no concept of a primary/default workspace, and the login flow has no
+workspace-selection step.
+
+**Impact** A multi-workspace user may be logged into the wrong workspace on every login, with the
+access token pointing at a different tenant's data. The `switch_workspace` endpoint exists, but the
+initial session is non-deterministic.
+
+**Recommended solution** Add `ORDER BY WorkspaceMember.created_at` (or `is_primary DESC`) and
+`LIMIT 1` to the query; better, return a list of workspaces and require explicit selection when there
+are multiple. Persist the choice in the token or session.
+
+**Regression risks** Low — single-workspace users are unaffected. Multi-workspace users get a stable
+workspace.
+
+**Tests to add** `test_login_multi_workspace_selects_oldest_or_primary`;
+`test_login_multi_workspace_reproducible`.
+
+**Similar locations** `backend/app/modules/auth/service.py:switch_workspace` already supports
+explicit workspace selection; the login path should reuse the same membership check.
+
+---
+
+#### TS-R03 — Severity evaluator silently defaults missing facts to `0`
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect (by inspection) |
+| **Severity** | **Medium** |
+| **Category** | Risk / Deterministic Logic / Product Invariant |
+| **Release-blocking** | No |
+| **Affected roles** | All users reviewing risk findings |
+
+**Location** — `backend/app/modules/risk/severity.py:41-45`
+
+**Evidence** The evaluator looks up referenced facts in the context and returns `0` when absent:
+
+```python
+if isinstance(node, ast.Name):
+    if node.id in _VALID_SEVERITIES:
+        return node.id
+    return ctx.get(node.id, 0)  # missing facts default to 0/falsy
+```
+
+This means a missing fact (e.g., `rate_percent_per_week` not returned by the classifier) becomes
+`0` in comparisons. A rule like `"critical if rate_percent_per_week > 0.5 else medium"` would
+incorrectly evaluate to `medium` when the fact is missing, instead of failing closed or defaulting.
+
+**Root cause** The evaluator treats absent facts as falsy/`0` rather than as an error.
+`evaluate_severity` catches malformed rules but not missing variables.
+
+**Impact** Severity can be systematically under- or over-rated when the classifier omits a fact or
+`OppFacts` does not include a value the rule expects. This undermines the "numbers never come from
+the LLM" guarantee because the downstream severity computation silently invents a numeric default.
+
+**Recommended solution** Change `_ev` to raise `KeyError` for missing names, and have
+`evaluate_severity` catch it and return the `default` severity while logging a warning. Alternatively,
+return a sentinel `None` and propagate it so comparisons short-circuit to the `default`. Document
+required facts per pattern and validate the classifier output against them.
+
+**Regression risks** Low — the change only affects the severity of findings produced by rules
+referencing missing facts. Existing tests with complete fact sets continue to pass.
+
+**Tests to add** `test_evaluate_severity_missing_fact_returns_default`;
+`test_evaluate_severity_missing_fact_logs_warning`.
+
+**Similar locations** `backend/app/modules/risk/classifier.py` builds the `facts` dict;
+`backend/app/modules/risk/service.py:_opp_facts` controls which opportunity-level facts are
+available.
+
+### 12.3 Updated remediation plan
+
+Add to the P0/P1 remediation lists from §5, §7.4, §8.4, §9.4, §10.3, and §11.3:
+
+- **P0 (release-blocking, new)**
+  - None.
+- **P1 (pre-release)**
+  - **TS-C01**: move all monetary amounts to integer minor units (paise); update
+    `Finding.amount_exposure`, `FindingRow.amount_exposure`, `FactTable`, the BOQ engine, and
+    standards threshold/extraction.
+  - **TS-I10**: emit `[pN]` markers for XLSX/CSV sheets or teach `doc_text.py`,
+    `segment_clauses`, and `extract_deadlines` to treat `[sheet:<name>]` as a page boundary.
+  - **TS-A17**: order `WorkspaceMember` by `created_at` (or add `is_primary`) in `login()` and
+    surface workspace selection for multi-workspace users.
+  - **TS-R03**: fail closed in `evaluate_severity` when a referenced fact is missing instead of
+    defaulting to `0`.
+
+### 12.4 Updated final recommendation
+
+**NO-GO** for public launch and for any deployment holding more than one customer's data.
+
+The seventh round re-confirmed every prior release blocker and identified four additional gaps.
+There are now **61 findings** (5 Critical, 15 High, 37 Medium, 4 Low) with **18 release-blocking**
+items. The new gaps are product-invariant violations (money representation, provenance,
+deterministic severity) and an auth workspace-selection issue; they do not add new release blockers,
+but they should be fixed and verified before launch.

@@ -4,6 +4,7 @@ findings, drafting, ingestion, rulepacks purely via registry capabilities."""
 
 from __future__ import annotations
 
+import hashlib
 from datetime import date
 
 from app.modules.export.render import render_docx, render_pdf, render_xlsx
@@ -30,6 +31,7 @@ class ExportService:
         findings_factory=None,
         drafting_factory=None,
         ingestion_factory=None,
+        workspace_factory=None,
         pack_version="in-works",
     ):
         self.s = session
@@ -37,6 +39,7 @@ class ExportService:
         self._findings_factory = findings_factory
         self._drafting_factory = drafting_factory
         self._ingestion_factory = ingestion_factory
+        self._workspace_factory = workspace_factory
         self._pack_version = pack_version
 
     def _gate_ok(self, workspace_id, opportunity_id) -> bool:
@@ -74,6 +77,30 @@ class ExportService:
         opp = self._ingestion_factory(self.s).get_opportunity(workspace_id, opportunity_id)
         return opp.title if opp else "this tender"
 
+    def _reviewer_meta(self, workspace_id, opportunity_id) -> dict[str, str]:
+        if self._review_factory is None:
+            return {}
+        last = self._review_factory(self.s).last_reviewer(workspace_id, opportunity_id)
+        if not last:
+            return {}
+        reviewed_at = last["reviewed_at"]
+        reviewed_at_str = reviewed_at.isoformat() if reviewed_at else ""
+        meta = {"reviewed_at": reviewed_at_str}
+        reviewer_id = last.get("reviewer_id")
+        if reviewer_id and self._workspace_factory:
+            user = self._workspace_factory(self.s).get_user(reviewer_id)
+            if user:
+                meta["reviewed_by_email"] = user["email"]
+        return meta
+
+    def _render(self, fmt: str, title: str, workspace_id, opportunity_id, meta: dict) -> bytes:
+        findings = self._findings(workspace_id, opportunity_id)
+        if fmt == "xlsx":
+            return render_xlsx(title, findings, meta)
+        if fmt == "pdf":
+            return render_pdf(title, self._artifacts(workspace_id, opportunity_id), findings, meta)
+        return render_docx(title, self._artifacts(workspace_id, opportunity_id), findings, meta)
+
     def export(self, workspace_id, opportunity_id, fmt: str) -> tuple[str, str, bytes]:
         if fmt not in FORMATS:
             raise ExportError("bad_format")
@@ -81,16 +108,16 @@ class ExportService:
             raise ExportError("review_incomplete")  # Doc §11.4 — the export gate
 
         title = self._title(workspace_id, opportunity_id)
-        findings = self._findings(workspace_id, opportunity_id)
-        meta = {"date": date.today().isoformat(), "pack": self._pack_version}
-        media_type, ext = FORMATS[fmt]
+        meta = {
+            "date": date.today().isoformat(),
+            "pack": self._pack_version,
+        }
+        meta.update(self._reviewer_meta(workspace_id, opportunity_id))
 
-        if fmt == "xlsx":
-            data = render_xlsx(title, findings, meta)
-        elif fmt == "pdf":
-            data = render_pdf(title, self._artifacts(workspace_id, opportunity_id), findings, meta)
-        else:
-            data = render_docx(title, self._artifacts(workspace_id, opportunity_id), findings, meta)
+        media_type, ext = FORMATS[fmt]
+        draft = self._render(fmt, title, workspace_id, opportunity_id, meta)
+        meta["integrity_hash"] = hashlib.sha256(draft).hexdigest()
+        data = self._render(fmt, title, workspace_id, opportunity_id, meta)
 
         filename = f"bid-review-pack-{opportunity_id}.{ext}"
         return filename, media_type, data

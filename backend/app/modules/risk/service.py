@@ -22,6 +22,7 @@ class RiskService:
         loader=None,
         classifier=None,
         store_factory=None,
+        workspace_factory=None,
         pack_id="in-works",
     ):
         self.session = session
@@ -29,7 +30,13 @@ class RiskService:
         self._loader = loader
         self._classifier = classifier or NullClassifier()
         self._store_factory = store_factory
+        self._workspace_factory = workspace_factory
         self._pack_id = pack_id
+
+    def _is_paying(self, workspace_id) -> bool:
+        if not self._workspace_factory:
+            return False
+        return self._workspace_factory(self.session).is_paying(workspace_id)
 
     def _clauses(self, workspace_id, opportunity_id) -> list[dict]:
         if not self._ingestion_factory:
@@ -54,7 +61,8 @@ class RiskService:
     def run_opportunity(self, workspace_id, opportunity_id) -> list[Finding]:
         if not self._loader:
             return []
-        patterns = self._loader.list_patterns(self._pack_id)
+        validated_only = self._is_paying(workspace_id)
+        patterns = self._loader.list_patterns(self._pack_id, validated_only=validated_only)
         clauses = self._clauses(workspace_id, opportunity_id)
         facts = self._opp_facts(workspace_id, opportunity_id)
         findings = run_patterns(patterns, clauses, self._classifier, facts)

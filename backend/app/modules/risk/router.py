@@ -17,6 +17,7 @@ def _service(request: Request, session: Session) -> RiskService:
         loader=reg.get("rulepacks.loader"),
         classifier=reg.get("risk.classifier"),
         store_factory=reg.get("findings.store_factory"),
+        workspace_factory=reg.get("auth.workspace_factory"),
     )
 
 

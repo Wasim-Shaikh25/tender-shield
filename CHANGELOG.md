@@ -34,11 +34,27 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   - Migration `64f9e4b70eda` adds the lockout columns.
   - Updated test suite to use strong passwords and cookie-based refresh flow.
 
+### Done — 2026-07-29 (production readiness audit fixes: TS-086..TS-087)
+
+- **TS-086** — File upload/storage hardening:
+  - Added `app.core.storage` with MIME/magic/size validation, extension blocklist,
+    and per-file-type limits. BOQ uploads are capped at 10 MB.
+  - Added `LocalStorage` (default dev) and `S3Storage` (credential-gated) adapters;
+    `TS_STORAGE_TYPE=s3` activates S3 with fallback to local on failure.
+  - Added stub virus-scan hook (`_scan_stub`) so a real scanner/ClamAV integration can
+    be swapped in later.
+  - Wired `validate_and_store` into `ingestion` and `boq` upload routes.
+- **TS-087** — Risk/export quality:
+  - `RiskService.run_opportunity` now passes `validated_only=True` to rule-packs when
+    the workspace is on a paid plan (`pro`, `enterprise`, `paygo`, `team`).
+  - `ExportService.export` pulls the last reviewer from the audit log and includes
+    `reviewed_by_email` and `reviewed_at` in the pack stamp.
+  - Added tamper-evident SHA-256 integrity hash to the export stamp.
+  - Replaced `datetime.utcnow()` in `comparison/service.py` with timezone-safe logic.
+
 ### Next
 
 - TS-085 — Workspace switcher frontend and backend polish.
-- TS-086 — File upload validation, S3 adapter, BOQ size cap, virus-scan stub.
-- TS-087 — Risk `validated_only` filtering, export reviewer stamp, `datetime.utcnow` cleanup.
 - TS-088 — Frontend cleanup (remove demo data), workspace switcher, billing/admin pages.
 - TS-089 — `.env.*` templates, `run.sh` and `docker-compose` fixes.
 - TS-090 — ESLint, `mypy`, `pip-audit`, `npm audit` in CI.

@@ -10,7 +10,9 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.modules.auth.models import Workspace
+from app.modules.auth.models import User, Workspace
+
+PAID_PLANS = {"pro", "enterprise", "paygo", "team"}
 
 
 class WorkspaceAdmin:
@@ -19,6 +21,16 @@ class WorkspaceAdmin:
 
     def get(self, workspace_id) -> Workspace | None:
         return self.s.scalar(select(Workspace).where(Workspace.id == uuid.UUID(str(workspace_id))))
+
+    def is_paying(self, workspace_id) -> bool:
+        ws = self.get(workspace_id)
+        return ws is not None and ws.plan.lower() in PAID_PLANS
+
+    def get_user(self, user_id) -> dict | None:
+        user = self.s.scalar(select(User).where(User.id == uuid.UUID(str(user_id))))
+        if user is None:
+            return None
+        return {"id": str(user.id), "email": user.email, "is_superadmin": user.is_superadmin}
 
     def mark_free_review_used(self, workspace_id) -> None:
         workspace = self.get(workspace_id)

@@ -3,7 +3,7 @@
 **Status:** implemented
 **Requirement refs:** Doc §0.1 (Baseline lock P2 stage), §10 (Phase 2/3),
 §1.2 (feature matrix — "Baseline lock + handover pack")
-**Task refs:** TS-041, TS-042
+**Task refs:** TS-041, TS-042, TS-043, TS-044, TS-045
 
 ## Purpose
 
@@ -40,6 +40,8 @@ boots and every other feature works with `baseline` disabled.
   - `GET  /opportunities/{id}/compare` (viewer) — latest tender vs latest award
     baseline delta (added / removed / changed findings).
   - `GET  /opportunities/{id}/handover` (estimator) — commercial handover pack.
+  - `POST /opportunities/{id}/award-document` (estimator) — upload/parse negotiated contract or award letter
+  - `GET  /opportunities/{id}/handover/export` (estimator) — download handover pack as `docx`/`pdf`/`xlsx`
 
 ## Data owned
 
@@ -47,6 +49,9 @@ boots and every other feature works with `baseline` disabled.
   content_sha256, snapshot (JSON), note, sealed_by, sealed_at`. One row per seal;
   `(opportunity_id, version)` is unique. **Append-only in practice** — rows are
   never updated after insert (B3).
+- `award_documents` (org-scoped, RLS): `id, org_id, opportunity_id, filename, text,
+  sha256, uploaded_by, created_at`. Stores the extracted text of the negotiated
+  contract / award letter used to seal the `source="award"` baseline.
 
 No other module's tables are touched; findings/deadlines/opportunity are read via
 capabilities and copied into the frozen snapshot by value.
@@ -79,13 +84,18 @@ capabilities and copied into the frozen snapshot by value.
   baseline against the latest `source="award"` baseline by finding identity
   (category + title), reporting `added`, `removed`, and `changed`
   (severity/detail/exposure differences). Deterministic; no LLM.
-- **B6 — Handover pack.** A structured pack assembled from the latest sealed
+- **B6 — Award-document ingestion.** An uploaded award letter or negotiated contract
+  is stored, text-extracted, and the resulting `text` is used when sealing an
+  `source="award"` baseline so the award baseline reflects the real signed contract.
+- **B7 — Handover pack.** A structured pack assembled from the latest sealed
   baseline: header (opportunity + seal hash), critical/high obligations, the
   notice register, and the confirmed deadline calendar. Requires a sealed
   baseline (`no_baseline` otherwise).
-- **B7 — Org isolation.** Every query is filtered by `org_id` explicitly
+- **B8 — Handover-pack export.** `export_handover` renders the pack to DOCX, PDF,
+  or XLSX using the `export` renderer; returns filename, media type, and bytes.
+- **B9 — Org isolation.** Every query is filtered by `org_id` explicitly
   (defence in depth alongside RLS), like every other module.
-- **B8 — Standards-aware register + gap detection.** When `rulepacks` is present,
+- **B10 — Standards-aware register + gap detection.** When `rulepacks` is present,
   the notice register is analysed against the merged notice standard for the
   opportunity's jurisdiction (universal base + regional overlay, spec rulepacks
   B7). Each extracted window is classified into a semantic category by keyword
@@ -107,19 +117,16 @@ capabilities and copied into the frozen snapshot by value.
 - **A4:** editing/rejecting a finding then re-freezing as `award` yields a new
   version; `compare` reports the difference against the tender seal.
 - **A5:** the handover pack lists the sealed hash and the critical obligations.
-- **A6:** the app boots and Phase-1 flows pass with `baseline` disabled.
+- **A6:** `POST /award-document` extracts text, and a subsequent `freeze(source="award")` includes the award text preview.
+- **A7:** `GET /handover/export?format=docx|pdf|xlsx` returns non-empty bytes for a sealed baseline.
+- **A8:** the app boots and Phase-1 flows pass with `baseline` disabled.
 
 ## Out of scope
 
-- Award-document ingestion / negotiated-contract parsing (the award baseline is
-  sealed from the reviewed state; automated award-vs-tender clause parsing is
-  Phase 3).
 - BOQ item-level freeze (BOQ is persisted as findings today; a dedicated
   `boq_items` table is a later data-model task).
-- Notice-deadline **countdowns/alerts** and notice-draft generation — Phase 3
-  (this module only registers the rules).
-- File rendering (DOCX/PDF) of the handover pack — returned as structured JSON;
-  file export is a follow-up that can reuse the export renderer.
+- Notice-draft generation — Phase 3.
+- Automated clause-level award-vs-tender parsing beyond the extracted text preview.
 
 ## Assumptions
 

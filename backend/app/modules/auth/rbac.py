@@ -14,7 +14,13 @@ class Principal:
     workspace_id: str
     role: str
     is_superadmin: bool = False
+    email_verified: bool = False
 
 
 def role_at_least(role: str, min_role: str) -> bool:
     return ROLE_RANK.get(role, -1) >= ROLE_RANK[min_role]
+
+
+def principal_requires_verified(principal: Principal) -> bool:
+    """Sensitive actions require a verified email or explicit super-admin override."""
+    return principal.is_superadmin or principal.email_verified

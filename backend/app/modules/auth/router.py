@@ -10,7 +10,7 @@ from app.modules.auth.apple import AppleClient
 from app.modules.auth.deps import require_superadmin
 from app.modules.auth.google import GoogleClient
 from app.modules.auth.models import User
-from app.modules.auth.rbac import Principal
+from app.modules.auth.rbac import Principal, principal_requires_verified
 from app.modules.auth.service import AuthError, AuthService
 
 router = APIRouter()
@@ -25,6 +25,7 @@ def _service(request: Request, session: Session) -> AuthService:
     return AuthService(
         session,
         keys,
+        settings=settings,
         access_ttl_min=settings.access_ttl_minutes,
         refresh_ttl_days=settings.refresh_ttl_days,
         apple_client=apple_client,
@@ -127,6 +128,10 @@ class ResetPasswordBody(BaseModel):
         return _validate_password_field(v)
 
 
+class VerifyEmailBody(BaseModel):
+    token: str = Field(min_length=8)
+
+
 class AddMemberBody(BaseModel):
     email: str
     role: str
@@ -204,6 +209,8 @@ _STATUS = {
     "invitation_used": 400,
     "invitation_email_mismatch": 400,
     "invalid_reset_token": 400,
+    "invalid_verification_token": 400,
+    "email_not_configured": 503,
     "account_locked": 429,
     "password_too_short": 400,
     "password_missing_uppercase": 400,
@@ -294,6 +301,7 @@ def me(principal: Principal = Depends(current_principal)):
         "workspace_id": principal.workspace_id,
         "role": principal.role,
         "is_superadmin": principal.is_superadmin,
+        "email_verified": principal.email_verified,
     }
 
 
@@ -314,6 +322,26 @@ def reset_password(
 ):
     return _handle(
         lambda: _service(request, session).reset_password(body.token, body.new_password)
+    )
+
+
+@router.post("/verify-email")
+def verify_email(
+    body: VerifyEmailBody,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    return _handle(lambda: _service(request, session).verify_email(body.token))
+
+
+@router.post("/resend-verification", dependencies=_LOGIN_LIMIT)
+def resend_verification(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(current_principal),
+):
+    return _handle(
+        lambda: _service(request, session).create_email_verification(principal.user_id)
     )
 
 
@@ -371,6 +399,8 @@ def add_workspace_member(
     session: Session = Depends(get_session),
     principal: Principal = Depends(require("admin")),
 ):
+    if not principal_requires_verified(principal):
+        raise HTTPException(403, "email_not_verified")
     return _handle(
         lambda: _service(request, session).add_workspace_member(workspace_id, body.email, body.role)
     )
@@ -419,6 +449,8 @@ def add_project_member(
     session: Session = Depends(get_session),
     principal: Principal = Depends(require("admin")),
 ):
+    if not principal_requires_verified(principal):
+        raise HTTPException(403, "email_not_verified")
     # project membership is scoped to the active workspace from the token
     return _handle(
         lambda: _service(request, session).add_project_member(
@@ -444,6 +476,8 @@ def create_invitation(
     session: Session = Depends(get_session),
     principal: Principal = Depends(require("admin")),
 ):
+    if not principal_requires_verified(principal):
+        raise HTTPException(403, "email_not_verified")
     return _handle(
         lambda: _service(request, session).create_invitation(
             principal.workspace_id, body.email, body.role, body.project_id
@@ -517,6 +551,8 @@ def add_member(
     session: Session = Depends(get_session),
     principal: Principal = Depends(require("admin")),
 ):
+    if not principal_requires_verified(principal):
+        raise HTTPException(403, "email_not_verified")
     return _handle(
         lambda: _service(request, session).add_workspace_member(
             principal.workspace_id, body.email, body.role

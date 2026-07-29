@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_session, require
 from app.core.ratelimit import RateLimitDep
 from app.modules.billing.plans import PAYGO_PRICE_INR_PAISE, PaywallError
+from app.modules.billing.providers import BillingError
 from app.modules.billing.service import BillingService
 
 router = APIRouter()
@@ -23,8 +24,22 @@ SUBSCRIPTION_PRICES_INR_PAISE: dict[str, int] = {
 }
 
 
+COUNTRY_CURRENCY: dict[str, str] = {
+    "IN": "inr",
+    "AE": "aed",
+    "SA": "sar",
+    "QA": "qar",
+    "GB": "gbp",
+}
+DEFAULT_COUNTRY = "IN"
+
+
+def _currency_for_country(country: str | None) -> str:
+    return COUNTRY_CURRENCY.get((country or DEFAULT_COUNTRY).upper(), "inr")
+
+
 class CheckoutBody(BaseModel):
-    provider: str = "razorpay"  # razorpay | stripe
+    provider: str | None = None  # razorpay | stripe; defaults by country
     kind: str  # paygo | subscription
     plan: str | None = None
     opportunity_id: str | None = None
@@ -49,6 +64,9 @@ def checkout(
 ):
     """Creates a provider order/subscription handle for the client SDK.
     Activates NOTHING — only the verified webhook does (Doc §15.1)."""
+    if not (principal.is_superadmin or principal.email_verified):
+        raise HTTPException(403, "email_not_verified")
+
     if body.kind == "paygo":
         amount = body.amount_minor or PAYGO_PRICE_INR_PAISE
     elif body.kind == "subscription":
@@ -64,11 +82,27 @@ def checkout(
     if body.plan:
         notes["plan"] = body.plan
 
-    provider = request.app.state.ctx.registry.get("billing.provider_factory")(body.provider)
-    if body.provider == "stripe":
-        result = provider.create_session(amount, "INR", notes)
-    else:
-        result = provider.create_order(amount, "INR", notes)
+    svc = _service(request, session)
+    workspace = svc._workspaces().get(principal.workspace_id)
+    country = getattr(workspace, "country", None) or DEFAULT_COUNTRY
+    currency = _currency_for_country(country)
+
+    chosen_provider = body.provider
+    if not chosen_provider:
+        # India defaults to Razorpay; all other supported countries default to Stripe.
+        chosen_provider = "razorpay" if country.upper() == "IN" else "stripe"
+
+    try:
+        provider = request.app.state.ctx.registry.get("billing.provider_factory")(chosen_provider)
+        if chosen_provider == "stripe":
+            result = provider.create_session(amount, currency, notes)
+        else:
+            result = provider.create_order(amount, currency, notes)
+    except BillingError as exc:
+        raise HTTPException(
+            503, detail={"code": str(exc), "message": "payment_provider_unavailable"}
+        ) from exc
+
     result["note"] = "activation happens via the signed webhook, never this response"
     return result
 

@@ -16,6 +16,11 @@ from app.core.config import Settings
 logger = logging.getLogger(__name__)
 
 
+class BillingError(Exception):
+    """Raised when a live payment provider cannot be used in production."""
+
+
+
 class RazorpayProvider:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -32,6 +37,8 @@ class RazorpayProvider:
 
     def create_order(self, amount_minor: int, currency: str, notes: dict) -> dict:
         if not self._client:
+            if self.settings.is_prod():
+                raise BillingError("razorpay_not_configured")
             logger.info(
                 "[razorpay-mock] order for %s %s with notes %s", amount_minor, currency, notes
             )
@@ -75,6 +82,8 @@ class StripeProvider:
 
     def create_session(self, amount_minor: int, currency: str, metadata: dict) -> dict:
         if not self._client:
+            if self.settings.is_prod():
+                raise BillingError("stripe_not_configured")
             logger.info(
                 "[stripe-mock] session for %s %s with metadata %s",
                 amount_minor,

@@ -37,6 +37,7 @@ def authenticate(request: Request, session: Session) -> Principal:
         workspace_id=claims["workspace"],
         role=claims["role"],
         is_superadmin=claims.get("is_superadmin", False),
+        email_verified=claims.get("email_verified", False),
     )
 
 

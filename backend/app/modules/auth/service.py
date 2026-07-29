@@ -3,7 +3,9 @@ session. This is the only place that touches auth tables."""
 
 from __future__ import annotations
 
+import hashlib
 import json
+import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
@@ -18,6 +20,7 @@ from app.modules.auth import security as sec
 from app.modules.auth.apple import AppleClient
 from app.modules.auth.google import GoogleClient
 from app.modules.auth.models import (
+    EmailVerification,
     Invitation,
     PasswordReset,
     Project,
@@ -42,6 +45,7 @@ class AuthService:
         session: Session,
         keys: sec.KeyPair,
         *,
+        settings=None,
         access_ttl_min=15,
         refresh_ttl_days=30,
         apple_client: AppleClient | None = None,
@@ -50,6 +54,7 @@ class AuthService:
     ):
         self.s = session
         self.keys = keys
+        self.settings = settings
         self.access_ttl = timedelta(minutes=access_ttl_min)
         self.refresh_ttl = timedelta(days=refresh_ttl_days)
         self._apple = apple_client
@@ -76,7 +81,17 @@ class AuthService:
         self.s.flush()
         self.s.add(WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role="owner"))
         self.s.commit()
-        return {"user_id": str(user.id), "workspace_id": str(workspace.id)}
+        verification_token = self.create_email_verification(user.id, email=email)
+        result = {
+            "user_id": str(user.id),
+            "workspace_id": str(workspace.id),
+            "email_verified": user.email_verified,
+        }
+        # In production the token is sent by email; in dev/tests it is returned so
+        # verification flows can be exercised without a real mailer.
+        if verification_token and (not self.settings or not self.settings.is_prod()):
+            result["verification_token"] = verification_token
+        return result
 
     def google_login(self, id_token: str) -> dict:
         if not self._google or not self._google.is_configured():
@@ -164,6 +179,7 @@ class AuthService:
                     workspace_id=str(workspace_id) if workspace_id else self._NO_WORKSPACE,
                     role=role,
                     is_superadmin=user.is_superadmin,
+                    email_verified=user.email_verified,
                     ttl=timedelta(minutes=5),
                 ),
             }
@@ -319,14 +335,26 @@ class AuthService:
     _NO_WORKSPACE = "00000000-0000-0000-0000-000000000000"
 
     def _issue_tokens(
-        self, user_id, workspace_id, role, *, is_superadmin=False, new_family=False, family_id=None
+        self,
+        user_id,
+        workspace_id,
+        role,
+        *,
+        is_superadmin=False,
+        email_verified: bool | None = None,
+        new_family=False,
+        family_id=None,
     ) -> dict:
+        if email_verified is None:
+            user = self.s.get(User, uuid.UUID(str(user_id)))
+            email_verified = user.email_verified if user else False
         access = sec.mint_access(
             self.keys,
             user_id=str(user_id),
             workspace_id=str(workspace_id) if workspace_id else self._NO_WORKSPACE,
             role=role,
             is_superadmin=is_superadmin,
+            email_verified=email_verified,
             ttl=self.access_ttl,
         )
         raw, token_hash = rf.new_refresh()
@@ -502,7 +530,23 @@ class AuthService:
         )
         self.s.add(invitation)
         self.s.commit()
-        # TODO: wire email/SMS delivery; for now the token is returned directly.
+        if self._sender and self._sender.__class__.__name__ != "ConsoleSender":
+            self._sender.send(
+                SimpleNamespace(
+                    channel="email",
+                    to=invitation.email,
+                    subject="You have been invited to a TenderShield workspace",
+                    body=(
+                        f"You have been invited as {role}. Use this invitation token:\n\n"
+                        f"{token}\n\nIt expires in 7 days."
+                    ),
+                )
+            )
+            return {"ok": True, "expires_at": expires_at.isoformat()}
+        # In production invitations must be delivered by email/SMS.
+        if self.settings and self.settings.is_prod():
+            raise AuthError("email_not_configured")
+        # dev/test fallback: return the token so UI tests can proceed without email
         return {"token": token, "expires_at": expires_at.isoformat()}
 
     def accept_invitation(self, user_id, token: str) -> dict:
@@ -700,6 +744,60 @@ class AuthService:
             family_id=row.family_id,
         )
 
+    # ---- email verification ------------------------------------------------
+
+    def create_email_verification(self, user_id, email: str | None = None) -> str | None:
+        """Create an email-verification token and send it. Returns the raw token for dev/tests."""
+        user = self.s.get(User, uuid.UUID(str(user_id)))
+        if not user:
+            raise AuthError("no_such_user")
+        if user.email_verified:
+            return None
+        target_email = (email or user.email).strip().lower()
+        raw = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(raw.encode()).hexdigest()
+        expires_at = datetime.now(UTC) + timedelta(hours=24)
+        self.s.add(
+            EmailVerification(
+                user_id=user.id, token_hash=token_hash, expires_at=expires_at, used_at=None
+            )
+        )
+        self.s.commit()
+        if self._sender:
+            self._sender.send(
+                SimpleNamespace(
+                    channel="email",
+                    to=target_email,
+                    subject="Verify your TenderShield email",
+                    body=(
+                        "Welcome to TenderShield. "
+                        "Please verify your email by posting this token:\n\n"
+                        f"{raw}\n\nIt expires in 24 hours."
+                    ),
+                )
+            )
+        return raw
+
+    def verify_email(self, token: str) -> bool:
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        row = self.s.scalar(
+            select(EmailVerification).where(EmailVerification.token_hash == token_hash)
+        )
+        if not row or row.used_at:
+            raise AuthError("invalid_verification_token")
+        expires_at = row.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        if expires_at < datetime.now(UTC):
+            raise AuthError("invalid_verification_token")
+        user = self.s.get(User, row.user_id)
+        if not user:
+            raise AuthError("no_such_user")
+        user.email_verified = True
+        row.used_at = datetime.now(UTC)
+        self.s.commit()
+        return True
+
     # ---- password reset ----------------------------------------------------
 
     def forgot_password(self, email: str) -> dict:
@@ -724,6 +822,9 @@ class AuthService:
                 )
             )
             return {"ok": True}
+        # In production we must not expose password-reset tokens in API responses.
+        if self.settings and self.settings.is_prod():
+            raise AuthError("email_not_configured")
         # dev/test fallback: return the token so UI tests can proceed without email
         return {"ok": True, "token": raw}
 

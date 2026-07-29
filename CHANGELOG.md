@@ -123,12 +123,29 @@ application role. Six product questions (§3.6 of the report) need answers befor
   - Added `ExportService.export_handover` and `GET /api/baseline/opportunities/{id}/handover/export?format=...`.
   - Exports include the sealed hash, key obligations, notice register, gaps, and deadlines.
 
+### Done — 2026-07-29 (TS-128: third-round production readiness audit rerun)
+
+- **TS-128** — Third-round end-to-end re-audit of trunk (`d651d00`) per
+  `END_TO_END_PRODUCTION_AUDIT_PROMPT.md`, run from scratch on a fresh branch.
+  **Audit only — no source files were changed.** `PRODUCTION_READINESS_AUDIT.md` updated with:
+  - All prior `TS-*` findings re-verified and still present.
+  - One new finding: `TS-A10` (`create_invitation` / `accept_invitation` accepts an
+    arbitrary `project_id` and adds the invitee as a member of a project in a foreign
+    workspace, granting cross-tenant project read access).
+  - Updated counts: **31 findings (5 Critical, 11 High, 11 Medium, 4 Low), 14 release-blocking**.
+  - Updated remediation plan and final recommendation remains **NO-GO**.
+  - Baseline recorded: `ruff` clean, `mypy` clean (143 files), 145 backend tests passing,
+    frontend lint/typecheck/build clean, `npm audit` 0 vulnerabilities, `pip-audit` 0.
+
 ### Next
 
-- Add Celery worker entrypoint and Redis-backed task result backend configuration to
-  `docs/deployment.md` / `docker-compose.yml`.
-- Configure live SES/MSG91/Razorpay/Stripe/Google credentials and run end-to-end
-  MFA/payment flows.
+- Add `TS-129` to the launch-critical fix list: `create_invitation` and
+  `accept_invitation` must verify that `project_id` belongs to the invitation's
+  workspace before persisting the `ProjectMember` row.
+- Fix in order — the four blockers first (`TS-095` cross-workspace member add, `TS-096`
+  Google role escalation, `TS-098` billing price validation, then `TS-097` RLS), followed
+  by High findings `TS-099`–`TS-105` and `TS-A10` (TS-129), and the launch-required
+  product gaps `TS-106` (team management) and `TS-107` (account settings).
 
 ### Done — 2026-07-29 (production readiness audit fixes: TS-083..TS-084)
 

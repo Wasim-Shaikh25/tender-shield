@@ -1,11 +1,11 @@
 # TenderShield — End-to-End Production Readiness Audit
 
 **Repository:** `Wasim-Shaikh25/tender-shield`
-**Commit audited:** `d651d00` — `feat(modules): post-audit quick wins (TS-093)`
+**Commit audited:** `0866bb7` — `Merge pull request #17 from Wasim-Shaikh25/devin/update-skills-1785346060`
 **Branch audited:** `claude/dev-workflow-modules-58dpqw` (the repository's trunk — see §2.0)
 **Audit date:** 2026-07-29
 **Roles applied:** Principal Software Engineer, Security Engineer, QA Engineer, DevOps/SRE, Database Architect, Product Manager, UX Designer, Accessibility Specialist, Performance Engineer.
-**Source changes made:** none. This report is the only file added or modified.
+**Source changes made:** none. This report, `tasks/backlog.md`, and `CHANGELOG.md` are the only files added or modified.
 
 > **This report supersedes the previous `PRODUCTION_READINESS_AUDIT.md`.** Several of that
 > report's findings no longer reproduce at this commit and are explicitly retired in §2.6
@@ -47,15 +47,20 @@ to boot the container or enable Celery, billing, scheduling, and OCR (`TS-O04`).
 medium-hardening auth items (`TS-A08`, `TS-A09`) and the unvalidated-rulepack product blocker
 (`TS-P02`) were also confirmed.
 
+A third-round pass (§8) re-ran the audit from scratch on a fresh branch, re-confirmed every
+previous finding, and discovered an additional cross-tenant write path: `POST /api/auth/invitations`
+accepts an arbitrary `project_id` and `POST /api/auth/invitations/{token}/accept` adds a
+`ProjectMember` row without verifying the project belongs to the invitation's workspace (`TS-A10`).
+
 ### 1.2 Finding count by severity
 
 | Severity | Count | Release-blocking | IDs |
 |---|---|---|---|
 | **Critical** | 5 | 5 | TS-A01, TS-A02, TS-A03, TS-B01, TS-P02 |
-| **High** | 10 | 8 | TS-A04, TS-A05, TS-I01, TS-I02, TS-B02, TS-F01, TS-O01, TS-A06, TS-A07, TS-O04 |
+| **High** | 11 | 9 | TS-A04, TS-A05, TS-I01, TS-I02, TS-B02, TS-F01, TS-O01, TS-A06, TS-A07, TS-O04, TS-A10 |
 | **Medium** | 11 | 0 | TS-O02, TS-I03, TS-N01, TS-P01, TS-S01, TS-X01, TS-B03, TS-S02, TS-O03, TS-A08, TS-A09 |
 | **Low** | 4 | 0 | TS-L01, TS-L02, TS-L03, TS-L04 |
-| **Total** | **30** | **13** | |
+| **Total** | **31** | **14** | |
 
 Product-completeness gaps are tracked separately in §3.5 (they are capability gaps, not
 defects, and are not counted above).
@@ -74,6 +79,7 @@ defects, and are not counted above).
 | Session broken after workspace switch | `auth/service.py` `switch_workspace` does not commit rotated refresh token (§7 TS-A06) | High |
 | Verification token leaked by resend endpoint | `auth/router.py` `resend_verification` returns raw token (§7 TS-A07) | High |
 | Container image missing runtime extras | `backend/Dockerfile` omits `celery`, `billing`, `scheduler`, `ocr` extras (§7 TS-O04) | High |
+| Arbitrary project_id in invitation adds member to any project | `auth/service.py` `create_invitation`/`accept_invitation` do not verify project ownership (§8 TS-A10) | High |
 
 ### 1.4 Major product risks
 
@@ -2377,3 +2383,191 @@ TS-A02, TS-A03, TS-B01 remain P0), but add new P0 items:
 The second round confirmed all original `TS-*` release blockers are still present and added three
 new release-blocking code defects (TS-A06, TS-A07, TS-O04) plus a product blocker (TS-P02). All
 thirteen release-blocking findings must be fixed before a public or multi-tenant launch.
+
+---
+
+## 8. Third-round re-audit (TS-128)
+
+### 8.1 Scope and evidence
+
+This re-audit was requested as a "rerun from scratch" using the same prompt. It ran from a fresh
+branch (`claude/production-readiness-audit-rerun-1785347883`) cut from the current trunk
+(`claude/dev-workflow-modules-58dpqw`, commit `0866bb7`).
+
+Baseline checks re-executed:
+
+| # | Command | Result |
+|---|---|---|
+| 1 | `ruff check .` | **PASS** — All checks passed |
+| 2 | `mypy app` | **PASS** — 143 files, no issues |
+| 3 | `pytest -q` | **PASS** — 145 passed, 1 skipped, 1 warning |
+| 4 | `npm run lint` | **PASS** — no ESLint errors |
+| 5 | `npm run typecheck` | **PASS** — `tsc --noEmit` |
+| 6 | `npm run build` | **PASS** — 12 routes compiled |
+| 7 | `npm audit` | **PASS** — 0 vulnerabilities |
+| 8 | `pip-audit` | **PASS** — No known vulnerabilities |
+| 9 | Custom security probes (`/home/ubuntu/audit_rerun_probes.py`) | **6 of 6 reproduced expected issues, plus 1 new exploit** |
+
+The probe script is an audit artifact and was **not committed** to the repository.
+
+### 8.2 Re-verification status of previous findings
+
+All previously reported `TS-*` findings were re-confirmed by code inspection and, where possible,
+by the probes:
+
+- **TS-A01, TS-A04** — Reproduced end-to-end in the probe script.
+- **TS-A06, TS-A07, TS-A09** — Reproduced end-to-end in the probe script.
+- **TS-A02, TS-A03, TS-A05, TS-B01, TS-B02, TS-I01, TS-I02, TS-F01, TS-O01, TS-O04, TS-P02,**
+  **TS-S01, TS-X01, and product gaps** — Confirmed by re-reading the same files and configuration.
+
+No previously reported finding was retired in this round.
+
+### 8.3 New finding
+
+#### TS-A10 — `create_invitation` accepts arbitrary `project_id`; `accept_invitation` does not verify project ownership
+
+| | |
+|---|---|
+| **Status** | Confirmed Defect — **reproduced end-to-end** |
+| **Severity** | **High** |
+| **Category** | Broken Access Control / Tenant Isolation |
+| **Release-blocking** | **YES** |
+| **Affected roles** | Any workspace `admin`/`owner` |
+
+**Location**
+
+- `backend/app/modules/auth/router.py:472-485` — `create_invitation`
+- `backend/app/modules/auth/service.py:514-550` — `create_invitation`
+- `backend/app/modules/auth/service.py:552-599` — `accept_invitation`
+
+**Evidence**
+
+`POST /api/auth/invitations` takes an optional `project_id` in the body and trusts it verbatim:
+
+```python
+def create_invitation(
+    self, workspace_id, email: str, role: str, project_id: str | None = None
+) -> dict:
+    ...
+    project_uuid = uuid.UUID(str(project_id)) if project_id else None
+    ...
+    invitation = Invitation(
+        workspace_id=workspace_id,
+        project_id=project_uuid,          # ← no check that this project belongs to workspace_id
+        ...
+    )
+```
+
+`accept_invitation` then adds a `ProjectMember` row using the invitation's `workspace_id` and
+`project_id`, again without verifying the project belongs to that workspace:
+
+```python
+if invitation.project_id:
+    existing_project = self.s.scalar(
+        select(ProjectMember).where(
+            ProjectMember.project_id == invitation.project_id,
+            ProjectMember.user_id == user_id,
+        )
+    )
+    if not existing_project:
+        self.s.add(
+            ProjectMember(
+                workspace_id=invitation.workspace_id,
+                project_id=invitation.project_id,
+                ...
+            )
+        )
+```
+
+**Reproduction** (new probe, verified):
+
+```text
+1. Victim B signs up → workspace B, creates project secret-proj
+2. Attacker A signs up → workspace A (owner)
+3. POST /api/auth/invitations
+   Authorization: Bearer <A token>
+   {"email": "attacker@example.com", "role": "viewer", "project_id": "<secret-proj UUID>"}
+
+   → HTTP 200 {"token": "..."}
+
+4. POST /api/auth/invitations/{token}/accept
+   Authorization: Bearer <A token>
+
+   → HTTP 200 {"workspace_id": "A", "role": "viewer"}
+
+5. GET /api/auth/projects/{secret-proj}/members
+   Authorization: Bearer <A token>
+
+   → HTTP 200 with victim B's project member list
+```
+
+The attacker is now a member of another tenant's project and can enumerate its membership.
+
+**Root cause**
+
+The same "role check without resource binding" pattern as TS-A01/A04: the service validates the
+caller's role in their own workspace but never checks that the `project_id` belongs to that
+workspace. `Project.workspace_id` exists and is already checked in `add_project_member`, so the
+correct pattern is available.
+
+**Impact**
+
+*Technical:* Cross-tenant project membership injection. An attacker who knows or guesses any
+project UUID can join that project and read its member list (which already has no workspace check
+— see TS-A04).
+
+*Business:* Compromises the confidentiality of project-team composition, which may reveal
+competitors, subcontractors, or bid-partner relationships. Corrupts the `project_members` table
+with rows whose `workspace_id` does not match the project they reference, creating a data-integrity
+and incident-response problem.
+
+**Recommended solution**
+
+In `create_invitation`, verify `project_id` belongs to the caller's workspace before creating the
+invitation. In `accept_invitation`, either re-verify or rely on a FK constraint that ties
+`project_id` to the same `workspace_id`. Minimal patch:
+
+```python
+def create_invitation(self, workspace_id, email, role, project_id=None):
+    ...
+    if project_id:
+        project = self.s.scalar(
+            select(Project).where(
+                Project.id == uuid.UUID(str(project_id)),
+                Project.workspace_id == workspace_id,
+            )
+        )
+        if not project:
+            raise AuthError("no_such_project")
+    ...
+```
+
+Add a regression test that attempts to invite to a foreign-project UUID and asserts 403/404.
+
+**Regression risks** Low — the invitation flow is self-contained.
+
+**Tests to add** `test_create_invitation_rejects_foreign_project`, `test_accept_invitation_preserves_workspace_project_binding`.
+
+---
+
+### 8.4 Updated remediation plan
+
+Add to the P0/P1 list from §5 and §7.4:
+
+- **P0 (release-blocking, new)**
+  - **TS-A10**: validate `project_id` in `create_invitation` and `accept_invitation` against the
+    caller's workspace.
+- **P1**
+  - Add `TS-A10` regression tests and extend the centralized resource-authorization check to
+    project-scoped invitation flows.
+
+### 8.5 Updated final recommendation
+
+**NO-GO** for public launch and for any deployment holding more than one customer's data.
+
+The third round re-confirmed every prior release blocker and discovered one additional
+release-blocking cross-tenant write path (TS-A10). There are now **31 findings** (5 Critical,
+11 High, 11 Medium, 4 Low) with **14 release-blocking** items. The defects remain concentrated
+in the auth module and are fixable, but the product should not ship until all fourteen blockers
+are resolved and verified.
+

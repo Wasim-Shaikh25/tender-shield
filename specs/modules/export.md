@@ -50,6 +50,8 @@ ingestion, and rulepack capabilities.
   exports; billing-driven tiered watermarking is a P2 refinement.)
 - **B5 — No numbers from the LLM:** All pack content comes from accepted
   findings and generated artifacts that have already passed the validators.
+- **B6 — Reviewer stamp:** the pack meta includes `reviewed_by_name`,
+  `reviewed_by_email`, `reviewed_at`, and a SHA-256 hash over the rendered bytes.
 
 ## Acceptance criteria
 
@@ -58,6 +60,7 @@ ingestion, and rulepack capabilities.
   title and the findings register.
 - A3: Export in `pdf` returns a valid PDF byte stream including accepted findings
   and artifact sections.
+- A4: Export meta contains reviewer name/email/date and a tamper hash.
 
 ## Out of scope
 

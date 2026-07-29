@@ -6,6 +6,32 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-29 (production readiness audit fixes: TS-083 in progress)
+
+- **TS-083** — Production security hardening (in progress):
+  - `Settings` now uses `SecretStr` for all secrets and adds `TS_ENV`, `TS_ALLOWED_HOSTS`,
+    `TS_CORS_ORIGINS` enforcement, `TS_STORAGE_TYPE`/`s3_*`, and `TS_REDIS_URL`.
+  - `create_app` validates production settings: no default Razorpay webhook secret,
+    explicit CORS/allowed-hosts, and configured JWT keys.
+  - Added security headers middleware (CSP, HSTS in prod, X-Frame-Options, etc.).
+  - Added `HTTPSRedirectMiddleware` and `TrustedHostMiddleware` in production.
+  - Split health endpoint: `GET /api/health` is public and minimal; `GET /api/health/details`
+    exposes module/capability metadata and is gated by auth (super-admin in production,
+    authenticated in non-production, public when auth is disabled).
+  - Updated affected tests to use `/api/health/details`.
+
+### Next
+
+- TS-084 — httpOnly refresh cookies, MFA enforcement, password policy + account lockout.
+- TS-085 — Workspace switcher and multi-workspace APIs.
+- TS-086 — File upload validation, S3 adapter, BOQ size cap, virus-scan stub.
+- TS-087 — Risk `validated_only` filtering, export reviewer stamp, `datetime.utcnow` cleanup.
+- TS-088 — Frontend cleanup (remove demo data), workspace switcher, billing/admin pages.
+- TS-089 — `.env.*` templates, `run.sh` and `docker-compose` fixes.
+- TS-090 — ESLint, `mypy`, `pip-audit`, `npm audit` in CI.
+- TS-091 — Notification/payment adapter skeletons (credential-gated).
+- TS-092 — Admin console and analytics UI.
+
 ### Done — 2026-07-26 (real web validation + invitation fix: TS-080..TS-081)
 
 - **TS-080** — Ran end-to-end browser validation against the local frontend + backend:

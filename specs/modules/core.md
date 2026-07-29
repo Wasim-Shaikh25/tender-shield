@@ -27,10 +27,16 @@ each other.
   payload)`; handlers isolated (one failing handler never breaks the publisher);
   sync in-process now, same interface later backed by Redis (Doc §3.1).
 - `app.core.config.Settings` — env-driven (`TS_` prefix), incl.
-  `TS_ENABLED_MODULES` (comma-separated; empty = all discovered).
-- `app.main.create_app()` — FastAPI factory: loads modules, calls `setup(ctx)`
-  with `ctx = AppContext(registry, events, settings)`, mounts routers under
-  `/api/<module>`, exposes `GET /api/health` listing loaded modules.
+  `TS_ENABLED_MODULES`, `TS_ENV` (`dev|prod`), `TS_CORS_ORIGINS`, `TS_ALLOWED_HOSTS`,
+  `TS_STORAGE_TYPE` (`local|s3`), S3 credentials (SecretStr), `TS_REDIS_URL`, and
+  all secrets as `SecretStr`.
+- `app.core.ratelimit.RateLimiter` — pluggable per-IP rate limiting (memory or Redis)
+  consumed by public routes.
+- `app.core.storage.Storage` protocol — `LocalStorage` and `S3Storage` adapters
+  selected by `TS_STORAGE_TYPE`.
+- `app.main.create_app()` — FastAPI factory: validates prod settings, loads modules,
+  mounts security / CORS / HTTPS / trusted-host middleware, and wires routers under
+  `/api/<module>`.
 
 ## Data owned
 
@@ -47,6 +53,15 @@ None (core owns no business tables).
   an error log; remaining modules still load.
 - **B4 (discovery):** modules are discovered from `app/modules/*` packages
   containing `module.py`; explicit `TS_ENABLED_MODULES` wins over discovery.
+- **B5 (production startup guard):** `create_app` raises if `TS_ENV=prod` and
+  required secrets (`TS_RAZORPAY_WEBHOOK_SECRET`, JWT keys) or wildcard
+  CORS/allowed-hosts are present.
+- **B6 (security headers):** every HTTP response carries `X-Content-Type-Options`,
+  `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and CSP.
+- **B7 (rate limiting):** public routes can declare per-IP limits; storage is
+  in-memory by default and Redis when `TS_REDIS_URL` is set.
+- **B8 (storage adapter):** `Storage` supports local files and S3 via
+  `TS_STORAGE_TYPE`; S3 uses per-workspace prefixes and presigned GET URLs.
 
 ## Acceptance criteria
 
@@ -55,6 +70,10 @@ None (core owns no business tables).
 - A3: `create_app` with `TS_ENABLED_MODULES=health` boots and `/api/health` lists it.
 - A4: a broken fixture module doesn't prevent other modules from loading.
 - A5: architecture test fails on any `app.modules.<a>` importing `app.modules.<b>`.
+- A6: production startup with default Razorpay webhook secret raises `RuntimeError`.
+- A7: response headers include `X-Frame-Options: DENY` and CSP.
+- A8: in-memory rate limiter blocks a 6th request within the limit window.
+- A9: `S3Storage` with `moto` stores and retrieves a file under a workspace prefix.
 
 ## Out of scope
 

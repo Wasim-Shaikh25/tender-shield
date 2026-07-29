@@ -90,8 +90,8 @@ def test_api_exposes_packs_and_patterns():
     body = client.get("/api/rulepacks/in-works/patterns").json()
     assert {p["id"] for p in body["patterns"]} == PHASE0_PATTERN_IDS
     assert client.get("/api/rulepacks/nope/patterns").status_code == 404
-    # capability is registered and visible via health
-    caps = client.get("/api/health").json()["capabilities"]
+    # capability is registered and visible via health details
+    caps = client.get("/api/health/details").json()["capabilities"]
     assert "rulepacks.loader" in caps
 
 

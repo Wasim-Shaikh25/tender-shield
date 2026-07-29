@@ -69,14 +69,21 @@ document is re-registered or re-uploaded.
   deadline wall lands < 3 min p95.
 - **B6 (untrusted input):** all document text is wrapped in data-only delimiters
   in every prompt (prompt-injection defense, Doc §11.3).
-- **B7 (uploads):** tus resumable, ZIP-aware, virus-scanned, magic-byte MIME
-  sniffing, 2GB cap; S3 per-org prefixes, SSE-KMS.
+- **B7 (uploads):** multipart upload with size cap, magic-byte/MIME validation,
+  allowed-extension set, virus-scan stub, and S3 per-workspace prefixes. LocalStorage
+  in dev/tests.
+- **B8 (upload limits):** ingestion cap 2 GB, BOQ cap 100 MB.
+- **B9 (no blind decoding):** unknown extensions are not decoded as text; they are
+  rejected as unsupported.
 
 ## Acceptance criteria
 
 - A1: anchor classifier labels fixture NIT/GCC/SCC/BOQ correctly, no LLM call.
 - A2: deadline rows without a verifiable quote are flagged low-confidence.
 - A3: missing-doc checklist flags an absent SCC referenced by the NIT fixture.
+- A4: oversized upload returns 413.
+- A5: invalid MIME/extension returns 415/422.
+- A6: S3-backed storage with `moto` stores files under the workspace prefix.
 
 ## Out of scope
 

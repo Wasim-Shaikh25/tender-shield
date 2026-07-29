@@ -54,7 +54,11 @@ SECRET = "dev-razorpay-secret"
 @pytest.fixture
 def client():
     app = create_app(
-        Settings(enabled_modules="health,auth,billing", database_url="sqlite:///:memory:")
+        Settings(
+            enabled_modules="health,auth,billing",
+            database_url="sqlite:///:memory:",
+            razorpay_webhook_secret=SECRET,
+        )
     )
     Base.metadata.create_all(app.state.ctx.registry.require("db.engine"))
     return TestClient(app)

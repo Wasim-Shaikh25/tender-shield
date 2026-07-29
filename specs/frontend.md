@@ -27,7 +27,9 @@ one repo (`apps/web` later; starts as `frontend/`).
     overview | risks | boq | artifacts | handover | export
   standards/                # org-custom notice standards editor (prevail / side-by-side)
   help/                     # static how-to + honest QS-lifecycle scope + disclaimer
-  billing/ team/ playbook/
+  billing/                  # plan selection, invoices, usage
+  admin/                    # super-admin: users, workspaces, audit-log
+  team/ playbook/
 ```
 
 ## Behavior (UX principles — binding)
@@ -41,8 +43,13 @@ one repo (`apps/web` later; starts as `frontend/`).
   are design-system components, not copy.
 - **B6:** empty states teach ("Upload the GCC too — 60% of traps live in
   conditions").
-- **B7:** access token in memory only; silent refresh on 401; API client
-  generated from OpenAPI.
+- **B7:** access token in memory only; refresh token in `httpOnly` cookie;
+  `credentials: "include"` on API calls; silent refresh on 401. API client is typed
+  by hand until an OpenAPI-generated client replaces it.
+- **B8:** workspace switcher in the nav lists the user's workspaces and calls
+  `/api/auth/workspaces/{id}/switch`.
+- **B9:** demo/sample data is removed from the main opportunity workbench;
+  sample loading is gated behind `NEXT_PUBLIC_DEMO_MODE`.
 
 - **B10:** the **Standards** page (`/standards`) lets an admin publish the
   firm's own notice regimes (key/label/typical-days/keywords/expected) with a
@@ -69,6 +76,11 @@ one repo (`apps/web` later; starts as `frontend/`).
 - A1: app skeleton renders board + opportunity tabs against the mock API.
 - A2: `/help` renders statically and states plainly that TenderShield covers the
   pre-bid slice, not the full QS lifecycle.
+- A3: access token is not stored in `localStorage`; `fetch` uses `credentials: "include"`.
+- A4: workspace switcher lists workspaces and switches tokens.
+- A5: `/opportunities/[id]` does not show sample-load buttons unless demo mode is on.
+- A6: `/billing` renders plan status and `/admin` lists workspaces for a super-admin.
+- A7: unverified hosting-region claims are removed from the landing page.
 
 ## Out of scope
 

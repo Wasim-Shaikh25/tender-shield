@@ -56,6 +56,6 @@ def test_app_publishes_db_capabilities():
     from app.main import create_app
 
     app = create_app(Settings(enabled_modules="health", database_url="sqlite:///:memory:"))
-    caps = TestClient(app).get("/api/health").json()["capabilities"]
+    caps = TestClient(app).get("/api/health/details").json()["capabilities"]
     assert "db.engine" in caps
     assert "db.sessionmaker" in caps

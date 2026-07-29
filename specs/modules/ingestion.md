@@ -3,10 +3,9 @@
 **Status:** implemented (Phase-1 core) — opportunities/documents + rules-first
 classification + missing-doc checklist (TS-014), clause segmentation (TS-016),
 and deterministic deadline extraction + deadline wall + confirm chips (TS-015).
-Real multipart upload + text extraction (PDF via pypdf, XLSX via openpyxl, CSV) feeds the pipeline (TS-026); LocalStorage dev backend, S3 in prod. OCR (TS-038): pluggable OcrProvider — RapidOCR (offline, ONNX) reads scanned PDFs when TS_OCR_ENABLED, else docs are flagged needs_ocr (honest degradation, Doc §12.4); pdfplumber extracts BOQ tables from digital PDFs (no cloud). Textract for hard scanned-table BOQs + tus resumable are TS-033. Relative-date formula resolution and LLM-assisted extraction for messy scans are
-follow-ups. API mounted under `/api/ingestion/opportunities`.
+Real multipart upload + text extraction (PDF via pypdf, XLSX via openpyxl, CSV) feeds the pipeline (TS-026); LocalStorage dev backend, S3 in prod. OCR (TS-038): pluggable OcrProvider — RapidOCR (offline, ONNX) reads scanned PDFs when TS_OCR_ENABLED, else docs are flagged needs_ocr (honest degradation, Doc §12.4); pdfplumber extracts BOQ tables from digital PDFs (no cloud). **tus resumable upload (TS-033)** and **Celery async page-streamed processing with SSE (TS-034)** are implemented. Relative-date formula resolution and LLM-assisted extraction for messy scans are follow-ups.
 **Requirement refs:** Doc §3.3, §6.1, §6.2
-**Task refs:** TS-014, TS-015, TS-016
+**Task refs:** TS-014, TS-015, TS-016, TS-026, TS-033, TS-034
 
 ## Purpose
 
@@ -44,6 +43,11 @@ Everything downstream (risk, BOQ, drafting) consumes its outputs.
   - `GET /opportunities/{id}/missing-docs` (viewer)
   - `GET /documents/{id}/text` (viewer) — page-level document text
     (`?page=N` returns a single page; no query returns all pages)
+  - `POST /opportunities/{id}/upload?async=1` (estimator) — enqueue async extraction; returns `task_id`
+  - `GET /opportunities/{id}/documents/{doc_id}/stream?task_id=...` (viewer) — SSE stream of async progress/done/error
+  - `POST /tus` (estimator) — tus creation (`Upload-Length`, `Upload-Metadata` headers)
+  - `PATCH /tus/{id}` (estimator) — tus chunk upload (`Upload-Offset` header)
+  - `HEAD /tus/{id}` (estimator) — tus offset query
 
 ## Data owned
 
@@ -75,6 +79,8 @@ document is re-registered or re-uploaded.
 - **B8 (upload limits):** ingestion cap 2 GB, BOQ cap 100 MB.
 - **B9 (no blind decoding):** unknown extensions are not decoded as text; they are
   rejected as unsupported.
+- **B10 (resumable upload):** tus endpoints support creation, PATCH chunking, and HEAD offset queries; completed uploads are validated, stored, and processed identically to multipart uploads.
+- **B11 (async extraction):** `?async=1` creates a pending document and enqueues a Celery task; the SSE endpoint streams `PROGRESS`/`done`/`error` events. Celery falls back to eager execution when Redis is not configured.
 
 ## Acceptance criteria
 

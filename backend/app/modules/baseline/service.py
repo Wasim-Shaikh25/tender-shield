@@ -15,7 +15,7 @@ from collections.abc import Callable
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.modules.baseline.models import Baseline
+from app.modules.baseline.models import AwardDocument, Baseline
 from app.modules.baseline.notices import extract_notice_rules
 
 _ACCEPTED = {"accepted", "edited"}
@@ -37,6 +37,7 @@ class BaselineService:
         ingestion_factory: Callable | None = None,
         loader_provider: Callable[[], object | None] = lambda: None,
         standards_factory: Callable | None = None,
+        export_factory: Callable | None = None,
         publish: Callable[[str, dict], object] = lambda event, payload: None,
         pack_id: str = "in-works",
     ):
@@ -46,6 +47,7 @@ class BaselineService:
         self._ingestion_factory = ingestion_factory
         self._loader_provider = loader_provider
         self._standards_factory = standards_factory
+        self._export_factory = export_factory
         self._publish = publish
         self._pack_id = pack_id
 
@@ -70,6 +72,32 @@ class BaselineService:
             }
             for r in rows
             if r.review_status in _ACCEPTED
+        ]
+
+    def _award_text(self, workspace_id, opportunity_id) -> str:
+        """Return the parsed text of the most recently uploaded award letter, if any."""
+        doc = self.s.scalar(
+            select(AwardDocument)
+            .where(
+                AwardDocument.workspace_id == uuid.UUID(str(workspace_id)),
+                AwardDocument.opportunity_id == uuid.UUID(str(opportunity_id)),
+            )
+            .order_by(AwardDocument.created_at.desc())
+        )
+        return doc.text if doc else ""
+
+    def _award_findings(self, award_text: str) -> list[dict]:
+        """Turn award text into a synthetic finding so notice extraction can run on it."""
+        if not award_text:
+            return []
+        return [
+            {
+                "category": "award",
+                "title": "Award letter",
+                "detail": award_text[:2000],
+                "source_quote": award_text[:200],
+                "source_page": None,
+            }
         ]
 
     def _confirmed_deadlines(self, workspace_id, opportunity_id) -> list[dict]:
@@ -242,14 +270,19 @@ class BaselineService:
             raise BaselineError("review_incomplete")
 
     # ---- snapshot + hashing ----------------------------------------------
-    def _build_snapshot(self, workspace_id, opportunity_id, source: str) -> dict:
+    def _build_snapshot(
+        self, workspace_id, opportunity_id, source: str, award_text: str = ""
+    ) -> dict:
         findings = self._accepted_findings(workspace_id, opportunity_id)
+        if source == "award":
+            award_text = award_text or self._award_text(workspace_id, opportunity_id)
+            findings = findings + self._award_findings(award_text)
         deadlines = self._confirmed_deadlines(workspace_id, opportunity_id)
         meta = self._opportunity_meta(workspace_id, opportunity_id)
         analysis = self._notice_analysis(
             workspace_id, opportunity_id, findings, meta.get("jurisdiction")
         )
-        return {
+        snapshot = {
             "source": source,
             "opportunity": meta,
             "findings": findings,
@@ -264,6 +297,28 @@ class BaselineService:
                 "notice_gaps": len(analysis["gaps"]),
             },
         }
+        if source == "award":
+            snapshot["award_text_preview"] = award_text[:500]
+        return snapshot
+
+    def store_award_document(
+        self, workspace_id, opportunity_id, filename: str, data: bytes, uploaded_by=None
+    ) -> AwardDocument:
+        """Parse an award letter and persist its text for the award baseline."""
+        if self._ingestion_factory is None:
+            raise BaselineError("ingestion_unavailable")
+        text = self._ingestion_factory(self.s).extract_text(filename, data)
+        doc = AwardDocument(
+            workspace_id=uuid.UUID(str(workspace_id)),
+            opportunity_id=uuid.UUID(str(opportunity_id)),
+            filename=filename,
+            text=text,
+            sha256=hashlib.sha256(data).hexdigest(),
+            uploaded_by=uuid.UUID(str(uploaded_by)) if uploaded_by else None,
+        )
+        self.s.add(doc)
+        self.s.commit()
+        return doc
 
     @staticmethod
     def _hash(snapshot: dict) -> str:
@@ -273,7 +328,9 @@ class BaselineService:
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
     # ---- freeze / read ----------------------------------------------------
-    def freeze(self, workspace_id, opportunity_id, *, source="tender", note=None, sealer_id=None):
+    def freeze(
+        self, workspace_id, opportunity_id, *, source="tender", note=None, sealer_id=None
+    ):
         if source not in {"tender", "award"}:
             raise BaselineError("bad_source")
         self._gate_ok(workspace_id, opportunity_id)
@@ -444,3 +501,10 @@ class BaselineService:
             "deadline_calendar": snap.get("deadlines", []),
             "counts": snap.get("counts", {}),
         }
+
+    def export_handover(self, workspace_id, opportunity_id, fmt: str) -> tuple[str, str, bytes]:
+        """Render the latest sealed handover pack to a file."""
+        if self._export_factory is None:
+            raise BaselineError("export_unavailable")
+        pack = self.handover(workspace_id, opportunity_id)
+        return self._export_factory(self.s).export_handover(str(opportunity_id), fmt, pack)

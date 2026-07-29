@@ -1,8 +1,8 @@
 # Billing & Metering — Spec
 
-**Status:** implemented — free-tier metering + paywall (pure), Razorpay webhook (HMAC-verified, idempotent, payment_log ledger), plan activation via webhook only; checkout returns a handle (live keys wire in later); GST invoice computation (CGST/SGST vs IGST + sequential numbering) done; Stripe + on-payment invoice issuance are follow-ups
+**Status:** implemented — free-tier metering + paywall (pure), Razorpay webhook (HMAC-verified, idempotent, payment_log ledger), plan activation via webhook only; checkout returns a handle (live keys wire in later); GST invoice computation (CGST/SGST vs IGST + sequential numbering) done; Stripe webhook verification and processing implemented (credential-gated); Razorpay/Stripe provider skeletons in place
 **Requirement refs:** Doc §7, §15, §16.5
-**Task refs:** TS-022
+**Task refs:** TS-022, TS-037
 
 ## Purpose
 
@@ -29,6 +29,7 @@ invoicing, and the append-only `payment_log`.
   - `POST /api/billing/authorize-review` (estimator)
   - `GET /api/billing/invoices` (viewer)
   - `POST /api/billing/webhooks/razorpay` (unauthenticated, HMAC-verified)
+  - `POST /api/billing/webhooks/stripe` (unauthenticated, signature-verified)
 
 ## Data owned
 

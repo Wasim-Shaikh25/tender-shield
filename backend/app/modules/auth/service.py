@@ -6,6 +6,8 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -14,6 +16,7 @@ from app.modules.auth import mfa
 from app.modules.auth import refresh as rf
 from app.modules.auth import security as sec
 from app.modules.auth.apple import AppleClient
+from app.modules.auth.google import GoogleClient
 from app.modules.auth.models import (
     Invitation,
     PasswordReset,
@@ -42,12 +45,16 @@ class AuthService:
         access_ttl_min=15,
         refresh_ttl_days=30,
         apple_client: AppleClient | None = None,
+        google_client: GoogleClient | None = None,
+        sender: Any | None = None,
     ):
         self.s = session
         self.keys = keys
         self.access_ttl = timedelta(minutes=access_ttl_min)
         self.refresh_ttl = timedelta(days=refresh_ttl_days)
         self._apple = apple_client
+        self._google = google_client
+        self._sender = sender
 
     # ---- registration -----------------------------------------------------
     def signup(
@@ -70,6 +77,44 @@ class AuthService:
         self.s.add(WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role="owner"))
         self.s.commit()
         return {"user_id": str(user.id), "workspace_id": str(workspace.id)}
+
+    def google_login(self, id_token: str) -> dict:
+        if not self._google or not self._google.is_configured():
+            raise AuthError("google_not_configured")
+        try:
+            claims = self._google.verify_id_token(id_token)
+        except Exception as exc:
+            raise AuthError("google_token_invalid") from exc
+        google_sub = claims.get("sub")
+        email = claims.get("email", "").strip().lower()
+        if not google_sub or not email:
+            raise AuthError("google_email_missing")
+        user = self.s.scalar(select(User).where(User.google_sub == google_sub))
+        if not user:
+            # First Google sign-in: create user and a personal workspace.
+            user = User(
+                email=email,
+                google_sub=google_sub,
+                email_verified=claims.get("email_verified", False),
+            )
+            self.s.add(user)
+            self.s.flush()
+            workspace = Workspace(owner_id=user.id, name="Personal", country="IN")
+            self.s.add(workspace)
+            self.s.flush()
+            self.s.add(WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role="owner"))
+        else:
+            user.email_verified = claims.get("email_verified", False)
+        self.s.commit()
+        return self._issue_tokens(
+            user.id,
+            self.s.scalar(
+                select(WorkspaceMember.workspace_id).where(WorkspaceMember.user_id == user.id)
+            ),
+            "owner",
+            is_superadmin=user.is_superadmin,
+            new_family=True,
+        )
 
     # ---- login ------------------------------------------------------------
     def login(self, email: str, password: str) -> dict | None:
@@ -102,7 +147,15 @@ class AuthService:
         role = member.role if member else "owner"
 
         # If MFA is enrolled, do not issue tokens yet.
-        if user.mfa_totp_secret:
+        if user.mfa_totp_secret or user.mfa_method in ("email", "sms"):
+            if user.mfa_method in ("email", "sms"):
+                code = mfa.new_otp_code()
+                user.mfa_otp_code = code
+                user.mfa_otp_expires_at = datetime.now(UTC) + timedelta(
+                    seconds=mfa.CODE_TTL_SECONDS
+                )
+                self.s.commit()
+                self._mfa_send_code(user, code, "login code")
             return {
                 "mfa_required": True,
                 "mfa_token": sec.mint_mfa_token(
@@ -502,6 +555,38 @@ class AuthService:
         return {"workspace_id": str(invitation.workspace_id), "role": invitation.role}
 
     # ---- MFA ---------------------------------------------------------------
+    def _mfa_send_code(self, user: User, code: str, purpose: str = "MFA code") -> None:
+        """Send an email or SMS one-time code if a sender is configured."""
+        if not self._sender:
+            return
+        if user.mfa_method == "email":
+            self._sender.send(
+                SimpleNamespace(
+                    channel="email",
+                    to=user.email,
+                    subject=purpose,
+                    body=f"Your TenderShield {purpose} is {code}. It expires in 5 minutes.",
+                )
+            )
+        elif user.mfa_method == "sms" and (user.mfa_phone or user.phone):
+            self._sender.send(
+                SimpleNamespace(
+                    channel="sms",
+                    to=user.mfa_phone or user.phone,
+                    subject=purpose,
+                    body=f"TenderShield {purpose}: {code}",
+                )
+            )
+
+    def _mfa_code_valid(self, user: User, code: str) -> bool:
+        now = datetime.now(UTC)
+        return bool(
+            user.mfa_otp_code
+            and user.mfa_otp_code == code
+            and user.mfa_otp_expires_at
+            and user.mfa_otp_expires_at > now
+        )
+
     def mfa_enroll(self, user_id, method: str, phone: str | None = None) -> dict:
         if method not in ("totp", "email", "sms"):
             raise AuthError("bad_mfa_method")
@@ -510,18 +595,41 @@ class AuthService:
             raise AuthError("no_such_user")
         user.mfa_method = method
         user.mfa_phone = phone
-        user.mfa_totp_secret = mfa.new_secret()
-        self.s.commit()
-        result: dict = {"method": method, "secret": user.mfa_totp_secret}
+        user.mfa_otp_code = None
+        user.mfa_otp_expires_at = None
         if method == "totp":
-            result["otpauth_uri"] = mfa.provisioning_uri(user.mfa_totp_secret, user.email)
-        return result
+            user.mfa_totp_secret = mfa.new_secret()
+            self.s.commit()
+            return {
+                "method": method,
+                "secret": user.mfa_totp_secret,
+                "otpauth_uri": mfa.provisioning_uri(user.mfa_totp_secret, user.email),
+            }
+        # email/sms: send a one-time code to verify enrolment
+        user.mfa_totp_secret = None
+        code = mfa.new_otp_code()
+        user.mfa_otp_code = code
+        user.mfa_otp_expires_at = datetime.now(UTC) + timedelta(seconds=mfa.CODE_TTL_SECONDS)
+        self.s.commit()
+        self._mfa_send_code(user, code, "MFA enrolment code")
+        return {"method": method, "ok": True}
 
     def mfa_verify(self, user_id, code: str) -> bool:
         user = self.s.get(User, uuid.UUID(str(user_id)))
-        if not user or not user.mfa_totp_secret:
+        if not user:
+            raise AuthError("no_such_user")
+        if user.mfa_method == "totp":
+            if not user.mfa_totp_secret:
+                raise AuthError("mfa_not_enrolled")
+            return mfa.verify(user.mfa_totp_secret, code)
+        if not user.mfa_otp_code:
             raise AuthError("mfa_not_enrolled")
-        return mfa.verify(user.mfa_totp_secret, code)
+        if not self._mfa_code_valid(user, code):
+            raise AuthError("mfa_invalid")
+        user.mfa_otp_code = None
+        user.mfa_otp_expires_at = None
+        self.s.commit()
+        return True
 
     def mfa_challenge(self, mfa_token: str, code: str) -> dict:
         """Complete MFA login with a short-lived token and a TOTP/SMS/Email code."""
@@ -537,10 +645,17 @@ class AuthService:
         role = claims["role"]
         is_superadmin = claims.get("is_superadmin", False)
         user = self.s.get(User, user_id)
-        if not user or not user.mfa_totp_secret:
-            raise AuthError("mfa_not_enrolled")
-        if not mfa.verify(user.mfa_totp_secret, code):
-            raise AuthError("mfa_invalid")
+        if not user:
+            raise AuthError("no_such_user")
+        if user.mfa_method == "totp":
+            if not user.mfa_totp_secret or not mfa.verify(user.mfa_totp_secret, code):
+                raise AuthError("mfa_invalid")
+        else:
+            if not self._mfa_code_valid(user, code):
+                raise AuthError("mfa_invalid")
+            user.mfa_otp_code = None
+            user.mfa_otp_expires_at = None
+            self.s.commit()
         return self._issue_tokens(
             user_id,
             workspace_id,
@@ -596,7 +711,20 @@ class AuthService:
         expires_at = datetime.now(UTC) + timedelta(minutes=15)
         self.s.add(PasswordReset(user_id=user.id, token_hash=token_hash, expires_at=expires_at))
         self.s.commit()
-        # TODO: wire email delivery; return token for dev/test until delivery exists
+        if self._sender and self._sender.__class__.__name__ != "ConsoleSender":
+            self._sender.send(
+                SimpleNamespace(
+                    channel="email",
+                    to=user.email,
+                    subject="Reset your TenderShield password",
+                    body=(
+                        f"Use this token to reset your password: {raw}\n\n"
+                        "It expires in 15 minutes."
+                    ),
+                )
+            )
+            return {"ok": True}
+        # dev/test fallback: return the token so UI tests can proceed without email
         return {"ok": True, "token": raw}
 
     def reset_password(self, token: str, new_password: str) -> dict:

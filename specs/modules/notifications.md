@@ -1,9 +1,10 @@
 # Notifications — Spec
 
 **Status:** implemented (core digest + `Sender` protocol); real adapters and
-periodic scheduler are skeletons gated by credentials.
+periodic scheduler are wired as a daily APScheduler/Celery job scanning all workspaces
+for 7-day deadlines and emailing members; SES/MSG91 adapters are credential-gated.
 **Requirement refs:** Doc §11.6, §11.7, `PRODUCTION_READINESS_AUDIT.md` F15/F07
-**Task refs:** TS-027, TS-035, TS-091
+**Task refs:** TS-027, TS-035, TS-043, TS-079, TS-091
 
 ## Purpose
 
@@ -44,9 +45,9 @@ None. `ConsoleSender.outbox` is an in-memory store used for testing.
 - **B5 — Adapters:** `SESSender` sends via AWS SES when `TS_SES_*` credentials
   are configured; `MSG91Sender` sends SMS via MSG91 when `TS_MSG91_*` is
   configured; otherwise `ConsoleSender` is used and logs a warning in production.
-- **B6 — Scheduler stub:** `NotificationScheduler.tick()` scans all workspaces and
-  sends deadline alerts at the configured windows. It requires Redis/cron for
-  production periodic execution.
+- **B6 — Scheduler integration:** The `notifications` module registers a daily job on
+  `core.scheduler` that scans all workspaces for unconfirmed deadlines within 7 days
+  and emails workspace members. Without Redis/APScheduler it degrades to a no-op.
 
 ## Acceptance criteria
 

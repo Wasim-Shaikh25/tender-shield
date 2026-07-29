@@ -1,10 +1,11 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
+from app.core.storage import StorageError, ValidationError, validate_and_store
 from app.modules.baseline.service import BaselineError, BaselineService
 
 router = APIRouter()
@@ -13,11 +14,13 @@ _ERROR_STATUS = {
     "review_incomplete": 403,
     "review_unavailable": 503,
     "findings_unavailable": 503,
+    "ingestion_unavailable": 503,
     "not_found": 404,
     "opportunity_not_found": 404,
     "no_baseline": 404,
     "need_two_baselines": 409,
     "bad_source": 400,
+    "export_unavailable": 503,
 }
 
 
@@ -74,6 +77,48 @@ def freeze(
     except BaselineError as exc:
         _raise(exc)
     return _baseline_dict(row)
+
+
+@router.post("/opportunities/{opportunity_id}/award-document")
+async def upload_award_document(
+    opportunity_id: str,
+    request: Request,
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("reviewer")),
+):
+    """Upload a negotiated contract / award letter so the award baseline seals from
+    real award text."""
+    data = await file.read()
+    try:
+        stored = await validate_and_store(
+            request.app.state.ctx.settings,
+            file.filename,
+            file.content_type,
+            data,
+            workspace_id=str(principal.workspace_id),
+        )
+    except ValidationError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except StorageError as exc:
+        raise HTTPException(500, str(exc)) from exc
+    try:
+        doc = _service(request, session).store_award_document(
+            principal.workspace_id,
+            opportunity_id,
+            file.filename,
+            data,
+            uploaded_by=principal.user_id,
+        )
+    except BaselineError as exc:
+        _raise(exc)
+    return {
+        "id": str(doc.id),
+        "filename": doc.filename,
+        "chars": len(doc.text),
+        "sha256": doc.sha256,
+        "s3_key": stored.get("key"),
+    }
 
 
 @router.get("/opportunities/{opportunity_id}/baselines")
@@ -150,3 +195,25 @@ def handover(
         return _service(request, session).handover(principal.workspace_id, opportunity_id)
     except BaselineError as exc:
         _raise(exc)
+
+
+@router.get("/opportunities/{opportunity_id}/handover/export")
+def handover_export(
+    opportunity_id: str,
+    format: str = "docx",
+    request: Request = None,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    """Download the sealed handover pack as a DOCX/PDF/XLSX file."""
+    try:
+        filename, media_type, data = _service(request, session).export_handover(
+            principal.workspace_id, opportunity_id, format
+        )
+    except BaselineError as exc:
+        _raise(exc)
+    return Response(
+        content=data,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

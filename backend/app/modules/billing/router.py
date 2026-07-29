@@ -122,3 +122,14 @@ async def razorpay_webhook(request: Request, session: Session = Depends(get_sess
     if not result.get("ok"):
         raise HTTPException(400, result.get("reason", "webhook_failed"))
     return result
+
+
+@router.post("/webhooks/stripe", dependencies=[Depends(RateLimitDep(50, 60))])
+async def stripe_webhook(request: Request, session: Session = Depends(get_session)):
+    raw = await request.body()
+    sig = request.headers.get("Stripe-Signature", "")
+    secret = request.app.state.ctx.settings.stripe_webhook_secret
+    result = _service(request, session).process_stripe_webhook(raw, sig, secret)
+    if not result.get("ok"):
+        raise HTTPException(400, result.get("reason", "webhook_failed"))
+    return result

@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     razorpay_key_secret: SecretStr | None = None
     stripe_secret_key: SecretStr | None = None
     stripe_publishable_key: str = ""
+    stripe_webhook_secret: SecretStr | None = None
 
     # Notifications (Doc §11.6/§11.7). SES/MSG91 are gated by credentials.
     email_from: str = ""
@@ -60,6 +61,11 @@ class Settings(BaseSettings):
     apple_key_id: str = ""
     apple_private_key: SecretStr | None = None
     apple_redirect_uri: str = ""
+
+    # Google OIDC (Doc §5). Client ID is enough for pure ID-token verification.
+    google_client_id: str = ""
+    google_client_secret: SecretStr | None = None
+    google_redirect_uri: str = ""
 
     # Rate limiting / async task broker. Redis is required for distributed rate
     # limiting in multi-instance deployments; falls back to in-memory when empty.

@@ -42,11 +42,15 @@ ocr = [
 ]
 # S3 storage and Redis rate limiting / task broker.
 storage = ["boto3>=1.34"]
-redis = ["redis[hiredis]>=5.0"]
+redis = ["redis[hiredis]>=5.0,<6.5"]
 # Payment-provider SDKs (credential-gated; imported lazily).
 billing = ["razorpay>=1.50", "stripe>=8.0"]
 # Async job scheduler for deadline alerts and recurring digests.
 scheduler = ["APScheduler>=3.10"]
+# Async task worker + broker; falls back to eager execution without Redis.
+celery = ["celery[redis]>=5.4", "redis[hiredis]>=5.0,<6.5"]
+# OIDC providers (credential-gated; imported lazily).
+auth = ["google-auth>=2.32"]
 
 [build-system]
 requires = ["setuptools>=68"]

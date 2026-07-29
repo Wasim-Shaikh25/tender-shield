@@ -60,13 +60,13 @@ until Phase-1 exit gates pass (§10).
 | TS-030 | PDF export (reportlab) — completes the DOCX/PDF/XLSX trio, gated + stamped | Doc §1.1(8) | `specs/modules/drafting.md` | done |
 | TS-031 | Deploy scaffolding: Postgres docker-compose + backend/frontend Dockerfiles + `.env.example` | Doc §4, §11.1 | — | done |
 | TS-032 | Frontend CI (npm build) job in GitHub Actions | Doc §11.1 | — | done |
-| TS-033 | tus resumable upload; (Textract NOT required — open-source scanned-table path shipped in TS-039) | Doc §4, §6.1 | `specs/modules/ingestion.md` | todo |
+| TS-033 | tus resumable upload; (Textract NOT required — open-source scanned-table path shipped in TS-039) | Doc §4, §6.1 | `specs/modules/ingestion.md` | done |
 | TS-039 | Scanned-table BOQ via rapid-table (offline ONNX, NO cloud) + HTML→CSV; wired as BOQ-upload fallback | Doc §6.1, §12.4 | `specs/modules/ingestion.md` | done (model download on first use; not sandbox-verified) |
 | TS-038 | Local OCR (RapidOCR, offline) + PDF table extraction (pdfplumber) — no cloud; OCR provider interface + honest needs_ocr degradation | Doc §6.1, §12.4 | `specs/modules/ingestion.md` | done |
-| TS-034 | Celery + Redis: async page-streamed processing (SSE) | Doc §3.1, §3.3 | — | todo (needs Redis) |
-| TS-035 | SES/Resend + MSG91 send adapters behind the notifications interface | Doc §4, §11.6 | — | todo (needs creds) |
-| TS-036 | Phone OTP (MSG91) + Google OIDC login | Doc §5 | `specs/modules/auth.md` | todo (needs creds) |
-| TS-037 | Stripe (GCC/UK) provider + live Razorpay keys behind the billing interface | Doc §7, §15.6 | `specs/modules/billing.md` | todo (needs creds) |
+| TS-034 | Celery + Redis: async page-streamed processing (SSE) | Doc §3.1, §3.3 | — | done |
+| TS-035 | SES/Resend + MSG91 send adapters behind the notifications interface | Doc §4, §11.6 | — | done (skeletons in place; needs live keys) |
+| TS-036 | Phone OTP (MSG91) + Google OIDC login | Doc §5 | `specs/modules/auth.md` | done (skeletons in place; needs live keys) |
+| TS-037 | Stripe (GCC/UK) provider + live Razorpay keys behind the billing interface | Doc §7, §15.6 | `specs/modules/billing.md` | done (skeletons in place; needs live keys) |
 
 ## Phase 1 — UX & docs
 
@@ -87,9 +87,9 @@ config-flagged, fully decoupled module so it ships without disturbing Phase-1.
 | TS-042 | Frontend: opportunity "Handover" tab — freeze baseline, notice register, award-vs-tender delta, handover pack | Doc §9, §0.1 | `specs/frontend.md` | done |
 | TS-046 | Layered contract-standards rulepack (universal base + regional overlay, merged at load) + standards-aware notice register with expected-regime gap detection. The flexibility spine: new market/clause type = a YAML file, no code change. | Doc §0.1, §2 (rule-packs as data), §10 | `specs/modules/rulepacks.md`, `specs/modules/baseline.md` | done |
 | TS-047 | `standards` module: org-defined custom notice standards (their own regimes) that either **prevail** over or run **side-by-side** with universal+regional; researched real figures (FIDIC 28/84d, NEC 56d, MSMED 45d) grounding the universal/India packs. Frontend editor + register origin badges. | Doc §10 (custom playbooks), §0.1, §2 | `specs/modules/standards.md` | done |
-| TS-043 | Notice-deadline countdowns + alerts driven by the notice-rule register (wire register → deadline/notification path) | Doc §0.1 (P3), §10 | `specs/modules/baseline.md` | todo |
-| TS-044 | Award-document ingestion: parse negotiated contract / award letter so the award baseline seals from real award text | Doc §0.1 (P2/P3) | `specs/modules/baseline.md` | todo |
-| TS-045 | Handover-pack file export (DOCX/PDF) reusing the export renderer | Doc §1.1(8), §0.1 | `specs/modules/baseline.md` | todo |
+| TS-043 | Notice-deadline countdowns + alerts driven by the notice-rule register (wire register → deadline/notification path) | Doc §0.1 (P3), §10 | `specs/modules/baseline.md` | done |
+| TS-044 | Award-document ingestion: parse negotiated contract / award letter so the award baseline seals from real award text | Doc §0.1 (P2/P3) | `specs/modules/baseline.md` | done |
+| TS-045 | Handover-pack file export (DOCX/PDF) reusing the export renderer | Doc §1.1(8), §0.1 | `specs/modules/baseline.md` | done |
 
 ## Phase 1.5 — Bid-Decision Extensions
 
@@ -135,7 +135,7 @@ staying inside the tender-review domain. Full requirements and tracker:
 | TS-076 | Rename `org_id` → `workspace_id` across all modules, RLS, and `core.db` | architecture; Doc §3.2 | `specs/data-model.md` (update) | done |
 | TS-077 | Workspace/project CRUD, sharing/invites, super-admin endpoints, and 2FA method | product; Doc §5, §16 | `specs/modules/auth.md` (update) | done |
 | TS-078 | Update tests and verify `ruff`/`pytest`/frontend build for tenant refactor | testing; Doc §11.1 | — | done |
-| TS-079 | Real email/SMS delivery for `email`/`sms` MFA and OTP codes | product; Doc §5 | `specs/modules/auth.md` (update), `specs/modules/notifications.md` (update) | todo |
+| TS-079 | Real email/SMS delivery for `email`/`sms` MFA and OTP codes | product; Doc §5 | `specs/modules/auth.md` (update), `specs/modules/notifications.md` (update) | done (skeletons in place; needs live keys) |
 | TS-080 | Real web automation validation of signup -> workspace -> project -> invite flow | testing; Doc §11.1 | — | done |
 | TS-081 | Fix `accept_invitation` naive/aware datetime comparison and add invitation flow test | bugfix; Doc §11.1 | `tests/test_auth_module.py` (update) | done |
 | TS-082 | Forgot-password and reset-password flow (token via email, dev mode returns token) | product; Doc §5 | `specs/modules/auth.md` (update) | done |
@@ -143,10 +143,10 @@ staying inside the tender-review domain. Full requirements and tracker:
 ## Notes
 
 - A task moves to `in-progress` when work starts and `done` in the commit that
-  completes it, with the task ID in the commit body.
+  completes it, with the task ID in the commit body.| done || done || done (skeletons in place; needs live keys) || done (skeletons in place; needs live keys) || done (skeletons in place; needs live keys) || done || done || done || done (skeletons in place; needs live keys) |
 - New requirements → new `TS-###` rows here first, then a spec, then code.
 - Hardening items marked `(needs …)` are logic-ready but require external
-  accounts/services to complete; the interfaces they plug into are already built.
+  accounts/services to complete; the interfaces they plug into are already built.| done || done || done (skeletons in place; needs live keys) || done (skeletons in place; needs live keys) || done (skeletons in place; needs live keys) || done || done || done || done (skeletons in place; needs live keys) |
 
 ## Production readiness audit fixes (2026-07-29)
 

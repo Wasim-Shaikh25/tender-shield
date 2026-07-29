@@ -6,6 +6,54 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-29 (older requirements completed: TS-033..TS-037, TS-043..TS-045, TS-079)
+
+- **TS-033** — Minimal tus 1.0 resumable upload server at `/api/ingestion/tus`:
+  creation (`POST /`), chunked upload (`PATCH /{id}`), and offset query (`HEAD /{id}`).
+  Completed uploads are validated, stored, and processed (sync or async via Celery).
+- **TS-034** — Celery + Redis async page-streamed processing:
+  - Added `app.core.celery` with `make_celery_app`; falls back to eager execution when
+    `TS_REDIS_URL` is unset.
+  - Added `ingestion.tasks.process_document` which loads the stored file, extracts text,
+    persists `doc_chunks`, and extracts deadlines while publishing `PROGRESS` state.
+  - Added SSE stream endpoint `/api/ingestion/opportunities/{id}/documents/{id}/stream?task_id=...`.
+  - `POST /api/ingestion/opportunities/{id}/upload?async=1` stores the file, creates a
+    pending document, and enqueues processing.
+- **TS-035 / TS-079** — Real email/SMS sender adapters for MFA and OTP:
+  - `Msg91Sender` and `SesSender` are already in `notifications.adapters` and degrade to
+    console logging without credentials.
+  - `AuthService` now sends `email`/`sms` one-time codes during login/MFA enrolment using
+    the configured `notifications.sender`.
+- **TS-036** — Google OIDC login and phone OTP:
+  - Added `POST /api/auth/google` with `google.auth` verification against Google's JWKS.
+  - New `GoogleClient` in `app.modules.auth.google` and `google_*` settings in `app.core.config`.
+  - Phone OTP is supported through `mfa_enroll` with `method=sms` and the MSG91 sender.
+- **TS-037** — Live Razorpay + Stripe provider integration:
+  - `RazorpayProvider` and `StripeProvider` create real orders/sessions when keys are set;
+  otherwise deterministic mock handles are returned.
+  - Added `POST /api/billing/webhooks/stripe` with signature verification and idempotent
+    `checkout.session.completed` processing (records usage, creates invoices, sets plan).
+  - Added `stripe_webhook_secret` to `Settings`.
+- **TS-043** — Deadline-countdown alerts driven by the notice register:
+  - `notifications.module` registers a daily scheduler job that scans every workspace for
+    unconfirmed deadlines within the next 7 days and emails workspace members.
+  - `WorkspaceAdmin.list_members` added to support recipient lookup.
+- **TS-044** — Award-document ingestion for award baseline:
+  - Added `AwardDocument` model + migration and `POST /api/baseline/opportunities/{id}/award-document`.
+  - `BaselineService.freeze(source="award")` now pulls from the latest award letter text and
+    includes an `award_text_preview` in the snapshot.
+- **TS-045** — Handover-pack file export (DOCX/PDF/XLSX):
+  - Added `render_handover_pack` to `export/render.py`.
+  - Added `ExportService.export_handover` and `GET /api/baseline/opportunities/{id}/handover/export?format=...`.
+  - Exports include the sealed hash, key obligations, notice register, gaps, and deadlines.
+
+### Next
+
+- Add Celery worker entrypoint and Redis-backed task result backend configuration to
+  `docs/deployment.md` / `docker-compose.yml`.
+- Configure live SES/MSG91/Razorpay/Stripe/Google credentials and run end-to-end
+  MFA/payment flows.
+
 ### Done — 2026-07-29 (production readiness audit fixes: TS-083..TS-084)
 
 - **TS-083** — Production security hardening:

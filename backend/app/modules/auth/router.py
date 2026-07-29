@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.deps import current_principal, get_session, require
+from app.core.ratelimit import RateLimitDep
 from app.modules.auth.apple import AppleClient
 from app.modules.auth.deps import require_superadmin
 from app.modules.auth.models import User
@@ -24,6 +25,14 @@ def _service(request: Request, session: Session) -> AuthService:
         refresh_ttl_days=settings.refresh_ttl_days,
         apple_client=apple_client,
     )
+
+
+# Public routes share a tight per-IP limit to slow credential stuffing.
+_LOGIN_LIMIT = [Depends(RateLimitDep(5, 60))]
+_SIGNUP_LIMIT = [Depends(RateLimitDep(5, 60))]
+_FORGOT_LIMIT = [Depends(RateLimitDep(5, 60))]
+_RESET_LIMIT = [Depends(RateLimitDep(5, 60))]
+_REFRESH_LIMIT = [Depends(RateLimitDep(20, 60))]
 
 
 class SignupBody(BaseModel):
@@ -120,7 +129,7 @@ def _handle(fn):
         raise HTTPException(_STATUS.get(exc.code, 400), exc.code) from exc
 
 
-@router.post("/signup")
+@router.post("/signup", dependencies=_SIGNUP_LIMIT)
 def signup(body: SignupBody, request: Request, session: Session = Depends(get_session)):
     return _handle(
         lambda: _service(request, session).signup(
@@ -129,17 +138,17 @@ def signup(body: SignupBody, request: Request, session: Session = Depends(get_se
     )
 
 
-@router.post("/login")
+@router.post("/login", dependencies=_LOGIN_LIMIT)
 def login(body: LoginBody, request: Request, session: Session = Depends(get_session)):
     return _handle(lambda: _service(request, session).login(body.email, body.password))
 
 
-@router.post("/refresh")
+@router.post("/refresh", dependencies=_REFRESH_LIMIT)
 def refresh(body: RefreshBody, request: Request, session: Session = Depends(get_session)):
     return _handle(lambda: _service(request, session).refresh(body.refresh_token))
 
 
-@router.post("/logout")
+@router.post("/logout", dependencies=_REFRESH_LIMIT)
 def logout(body: RefreshBody, request: Request, session: Session = Depends(get_session)):
     _service(request, session).logout(body.refresh_token)
     return {"ok": True}
@@ -155,7 +164,7 @@ def me(principal: Principal = Depends(current_principal)):
     }
 
 
-@router.post("/forgot-password")
+@router.post("/forgot-password", dependencies=_FORGOT_LIMIT)
 def forgot_password(
     body: ForgotPasswordBody,
     request: Request,
@@ -164,7 +173,7 @@ def forgot_password(
     return _handle(lambda: _service(request, session).forgot_password(body.email))
 
 
-@router.post("/reset-password")
+@router.post("/reset-password", dependencies=_RESET_LIMIT)
 def reset_password(
     body: ResetPasswordBody,
     request: Request,

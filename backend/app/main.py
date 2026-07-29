@@ -16,6 +16,7 @@ from app.core.db import make_engine, make_session_factory
 from app.core.events import EventBus
 from app.core.loader import LoadReport, load_modules
 from app.core.module import AppContext
+from app.core.ratelimit import default_rate_limiter
 from app.core.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         engine = make_engine(settings)
         ctx.registry.provide("db.engine", engine)
         ctx.registry.provide("db.sessionmaker", make_session_factory(engine))
+
+    # Rate limiter: memory by default, Redis when TS_REDIS_URL is set.
+    ctx.registry.provide("core.rate_limiter", default_rate_limiter(settings))
 
     report: LoadReport = load_modules(settings.enabled_module_names())
 

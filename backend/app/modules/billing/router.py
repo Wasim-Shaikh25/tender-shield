@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
+from app.core.ratelimit import RateLimitDep
 from app.modules.billing.plans import PaywallError
 from app.modules.billing.service import BillingService
 
@@ -31,7 +32,7 @@ def status(
     return _service(request, session).status(principal.workspace_id)
 
 
-@router.post("/checkout")
+@router.post("/checkout", dependencies=[Depends(RateLimitDep(10, 60))])
 def checkout(
     body: CheckoutBody,
     request: Request,
@@ -95,7 +96,7 @@ def list_invoices(
     }
 
 
-@router.post("/webhooks/razorpay")
+@router.post("/webhooks/razorpay", dependencies=[Depends(RateLimitDep(50, 60))])
 async def razorpay_webhook(request: Request, session: Session = Depends(get_session)):
     raw = await request.body()
     sig = request.headers.get("X-Razorpay-Signature", "")

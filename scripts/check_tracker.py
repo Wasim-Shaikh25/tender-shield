@@ -183,10 +183,15 @@ def main() -> int:
         for s in ("done", "in-progress", "blocked", "todo"):
             summary_lines.append(f"| {s} | {by_status.get(s, 0)} |")
         summary_lines.append("")
-        summary_lines.append(
-            f"**{len(missing_task_file)} task(s) still need a `tasks/specs/TS-###-*.md` "
-            "file** (retrofit in progress — see the list above from a plain run)."
-        )
+        if missing_task_file:
+            summary_lines.append(
+                f"**{len(missing_task_file)} task(s) still need a `tasks/specs/TS-###-*.md` "
+                "file** (see the list above from a plain run)."
+            )
+        else:
+            summary_lines.append(
+                "**Every task has a `tasks/specs/TS-###-*.md` file.**"
+            )
         new_summary = "\n".join(summary_lines)
         pattern = re.compile(r"<!-- STATUS:START -->.*?<!-- STATUS:END -->", re.DOTALL)
         replacement = f"<!-- STATUS:START -->\n{new_summary}\n<!-- STATUS:END -->"

@@ -10,6 +10,45 @@ they're a record of what was true in that session, not updated in place.
 
 ## [Unreleased]
 
+### Done — 2026-07-29 (Requirement → task-file → tracker restructure)
+
+Consolidated four separate tracker files (`backlog.md`,
+`gap_remediation_tracker.md`, `phase15_tracker.md`, `spec_audit_tracker.md`)
+into one master `tasks/TRACKER.md`, added a code-level task-file layer
+(`tasks/specs/TS-###-*.md`) separating "how" from the requirement docs'
+business-level "why/what", and added `scripts/check_tracker.py` so "what's
+done, what's left" is a command, not a manual grep. New `specs/SYSTEM.md`
+ties the previously-disconnected module specs together with a status-aware
+index. The same task-file/tracker format is enforced identically by
+`CLAUDE.md`, `.cursor/rules/`, and `.devin/rules/`+`DEVIN.md`.
+
+- **Backfilled a task file for all 126 tasks**, TS-001 through TS-125 (no
+  row exists for "TS-126" itself — it's referenced narratively as this
+  session's product-discovery audit, not a tracker row). TS-001 through
+  ~TS-081 were reconstructed from current ground-truth source (existing
+  code, `specs/modules/*.md`, the old `backlog.md` one-liners) since that
+  span predates commit-granular history (PR #10's bulk import). TS-082
+  onward draws on the R-docs' own Current/Target design detail — corrected
+  against the shipped implementation where an R-doc's draft and reality
+  diverged (e.g. R-001's RLS binding erratum: `set_config`/`after_begin`,
+  not the draft's `SET LOCAL`/`after_commit`; R-006's referral flow needing
+  a third, non-RLS-protected `ReferralCode` table).
+- Trimmed `specs/workspace-and-admin-refactor.md` into a stub pointing at
+  TS-074..078's task files, which now hold its content.
+- Added a **Task files** pointer line to every requirement doc R-001
+  through R-023, linking to the task file(s) that hold that requirement's
+  code-level detail, so it's findable without duplicating it in the R-doc.
+- `python scripts/check_tracker.py` now exits 0 with every one of the 126
+  rows carrying a resolvable task-file link (previously the whole point of
+  this session's first commit was that this list was 126 items long).
+
+### Next
+
+- TS-110 (document upload journey) remains the single highest-priority
+  gap: a customer still cannot upload their own tender through the UI.
+- 35 tasks remain `todo` — see `tasks/TRACKER.md`'s live summary block or
+  run `python scripts/check_tracker.py` for the current list.
+
 ### Done — 2026-07-28 (Product-discovery audit — capabilities never built: TS-126)
 
 `docs/GAP_ANALYSIS.md` (TS-083) audited what exists and found it defective, and

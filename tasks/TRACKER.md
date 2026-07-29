@@ -22,7 +22,7 @@ summary block below — never hand-edit it.
 | blocked | 0 |
 | todo | 35 |
 
-**126 task(s) still need a `tasks/specs/TS-###-*.md` file** (retrofit in progress — see the list above from a plain run).
+**Every task has a `tasks/specs/TS-###-*.md` file.**
 <!-- STATUS:END -->
 
 ## How to read this file

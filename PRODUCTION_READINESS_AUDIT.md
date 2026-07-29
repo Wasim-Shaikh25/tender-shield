@@ -1,9 +1,9 @@
 # TenderShield — End-to-End Production Readiness Audit
 
 **Repository:** `Wasim-Shaikh25/tender-shield`
-**Commit audited:** `0866bb7` — `Merge pull request #17 from Wasim-Shaikh25/devin/update-skills-1785346060`
+**Commit audited:** `4bca123` — `Merge pull request #18 from Wasim-Shaikh25/claude/production-readiness-audit-rerun-1785347883`
 **Branch audited:** `claude/dev-workflow-modules-58dpqw` (the repository's trunk — see §2.0)
-**Audit date:** 2026-07-29
+**Audit date:** 2026-07-29 (fourth-round update to `PRODUCTION_READINESS_AUDIT.md`)
 **Roles applied:** Principal Software Engineer, Security Engineer, QA Engineer, DevOps/SRE, Database Architect, Product Manager, UX Designer, Accessibility Specialist, Performance Engineer.
 **Source changes made:** none. This report, `tasks/backlog.md`, and `CHANGELOG.md` are the only files added or modified.
 
@@ -51,6 +51,13 @@ A third-round pass (§8) re-ran the audit from scratch on a fresh branch, re-con
 previous finding, and discovered an additional cross-tenant write path: `POST /api/auth/invitations`
 accepts an arbitrary `project_id` and `POST /api/auth/invitations/{token}/accept` adds a
 `ProjectMember` row without verifying the project belongs to the invitation's workspace (`TS-A10`).
+
+A fourth-round pass (§9) re-ran the `END_TO_END_PRODUCTION_AUDIT_PROMPT.md` procedure against
+the current trunk commit (`4bca123`). No application source files were modified between the
+third-round commit (`0866bb7`) and `4bca123`; all `TS-*` findings from §4, §7, and §8 were
+re-confirmed by code inspection, and seven key findings were reproduced end-to-end with
+`TestClient` probes. No new defects were discovered; the finding count remains 31 (5 Critical,
+11 High, 11 Medium, 4 Low), with 14 release-blocking items. The recommendation remains **NO-GO**.
 
 ### 1.2 Finding count by severity
 
@@ -2570,4 +2577,196 @@ release-blocking cross-tenant write path (TS-A10). There are now **31 findings**
 11 High, 11 Medium, 4 Low) with **14 release-blocking** items. The defects remain concentrated
 in the auth module and are fixable, but the product should not ship until all fourteen blockers
 are resolved and verified.
+
+---
+
+## 9. Fourth-round re-audit (TS-130)
+
+### 9.1 Scope and evidence
+
+This fourth pass re-ran the `END_TO_END_PRODUCTION_AUDIT_PROMPT.md` procedure against the
+current trunk commit (`4bca123` on `claude/dev-workflow-modules-58dpqw`). The merge commit
+`4bca123` is the result of integrating the third-round audit branch (`7776fc2`) into
+`0866bb7`; it contains **no changes to application source files** beyond the prior audit,
+so the re-audit concentrated on re-verifying that every previously reported `TS-*`
+finding remains present.
+
+Evidence came from:
+
+- Re-running the baseline checks listed in §8.1:
+
+| # | Command | Result |
+|---|---|---|
+| 1 | `ruff check .` | **PASS** — All checks passed |
+| 2 | `mypy app` | **PASS** — 143 files, no issues |
+| 3 | `pytest -q` | **PASS** — 146 passed, 1 skipped, 1291 warnings |
+| 4 | `npm run lint` | **PASS** — no ESLint errors |
+| 5 | `npm run typecheck` | **PASS** — `tsc --noEmit` |
+| 6 | `npm run build` | **PASS** — 13 routes compiled |
+| 7 | `npm audit` | **PASS** — 0 vulnerabilities |
+| 8 | `pip-audit` | **PASS** — No known vulnerabilities |
+| 9 | Custom security probes (`/home/ubuntu/audit_probes_ts130.py`) | **7 of 7 reproduced expected issues** |
+
+- Re-reading the same files from §7 and §8 (`auth/service.py`, `auth/router.py`,
+  `auth/models.py`, `auth/google.py`, `core/db.py`, `billing/router.py`, `billing/service.py`,
+  `Dockerfile`, `docker-compose.yml`, `pyproject.toml`, `core/ratelimit.py`,
+  `modules/assistant/agent.py`, `modules/notifications/module.py`, `modules/ingestion/tus.py`,
+  `modules/findings/models.py`, `modules/risk/service.py`, and `rulepacks/in-works/`).
+
+- Source inspection of the current `Dockerfile` and `docker-compose.yml` to confirm `TS-O04`
+  and `TS-A03`.
+
+The probe script is an audit artifact and was **not committed** to the repository.
+
+### 9.2 Re-verification status of previous findings
+
+All `TS-*` findings from §4, §7, and §8 remain present in `4bca123`. No previously reported
+finding was retired in this round.
+
+| ID | Severity | Status in `4bca123` |
+|---|---|---|
+| TS-A01 | Critical | Still present — reproduced end-to-end (see §9.3) |
+| TS-A02 | Critical | Still present — reproduced end-to-end (see §9.3) |
+| TS-A03 | Critical | Still present — confirmed by source inspection |
+| TS-B01 | Critical | Still present — confirmed by source inspection |
+| TS-P02 | Critical | Still present — confirmed by source inspection |
+| TS-A04 | High | Still present — confirmed by source inspection |
+| TS-A05 | High | Still present — reproduced end-to-end (see §9.3) |
+| TS-I01 | High | Still present — confirmed by source inspection |
+| TS-I02 | High | Still present — confirmed by source inspection |
+| TS-B02 | High | Still present — confirmed by source inspection |
+| TS-F01 | High | Still present — reproduced end-to-end (see §9.3) |
+| TS-O01 | High | Still present — confirmed by source inspection |
+| TS-A06 | High | Still present — reproduced end-to-end (see §9.3) |
+| TS-A07 | High | Still present — reproduced end-to-end (see §9.3) |
+| TS-O04 | High | Still present — confirmed by source inspection |
+| TS-A10 | High | Still present — reproduced end-to-end (see §9.3) |
+| Other Medium/Low TS-* | Medium/Low | Still present — confirmed by source inspection |
+
+### 9.3 Probe summary and key reproductions
+
+The following seven probes were executed with `fastapi.testclient.TestClient` against an
+in-memory SQLite copy of the app. They are grouped by the `TS-*` ID they demonstrate. None
+of the tested flows requires a browser or external services.
+
+#### TS-A01 — Cross-workspace owner takeover
+
+A user verified in workspace A can add themselves as `owner` to workspace B by calling
+`POST /api/auth/workspaces/{workspace_b}/members` with their own email and role `owner`.
+The `add_workspace_member` service does not verify that the caller is a member of the
+target workspace.
+
+```python
+# abbreviated from /home/ubuntu/audit_probes_ts130.py
+add = client.post(
+    f"/api/auth/workspaces/{victim_ws}/members",
+    json={"email": "attacker@example.com", "role": "owner"},
+    headers={"authorization": f"Bearer {atk_tok}"},
+)
+assert add.status_code == 200 and add.json()["role"] == "owner"
+```
+
+Result: **REPRODUCED**.
+
+#### TS-A02 — Google sign-in hardcodes `role="owner"`
+
+After linking a viewer's `google_sub` directly in the database (simulating an existing
+user who later uses Google SSO), the `google_login` code path issues tokens with a
+hardcoded `"owner"` string. The `TestClient` probe calls `POST /api/auth/google` with a
+monkey-patched `GoogleClient.verify_id_token` that returns the matching claims.
+
+Result: **REPRODUCED** — the viewer's `/api/auth/me` response shows `"role": "owner"`.
+
+#### TS-A05 — Google sign-in on an existing email raises `IntegrityError`
+
+Creating a password account for `dup@example.com` and then calling `POST /api/auth/google`
+with the same email (but a new `google_sub`) triggers an unhandled
+`sqlalchemy.exc.IntegrityError` because `google_login` attempts to insert a new user
+instead of linking the Google identity to the existing verified email. The `TestClient`
+caught the exception in the fourth-round probe.
+
+Result: **REPRODUCED** — unhandled `IntegrityError` (HTTP 500 class).
+
+#### TS-A06 — Workspace switch does not persist the rotated refresh token
+
+The `switch_workspace` endpoint returns a new access token and an `httpOnly` refresh cookie,
+but the new `RefreshToken` row is never committed. Calling `/api/auth/refresh` after a
+workspace switch returns `401`.
+
+Result: **REPRODUCED**.
+
+#### TS-A07 — `POST /api/auth/resend-verification` returns the raw verification token
+
+The router returns the value produced by `create_email_verification` directly in the HTTP
+response body. The fourth-round probe asserts that the response is a string token, not a
+neutral `{"ok": true}` envelope.
+
+Result: **REPRODUCED**.
+
+#### TS-A10 — Invitation `project_id` is not verified against the invitation workspace
+
+A workspace owner can create an invitation that names a project belonging to another
+workspace, and the accept flow adds a `ProjectMember` row for that foreign project. The
+probe creates a victim-owned project, then has an attacker from a different workspace issue
+and accept an invitation using that project's UUID, then successfully calls
+`GET /api/auth/projects/{project_id}/members`.
+
+Result: **REPRODUCED**.
+
+#### TS-F01 — `/auth/workspaces` response shape mismatch
+
+`GET /api/auth/workspaces` returns a bare list of objects keyed by `workspace_id`, while the
+frontend TypeScript client in `lib/api.ts` expects a wrapper object with an `id` field. The
+probe confirms the bare list shape.
+
+Result: **REPRODUCED**.
+
+### 9.4 Findings not reproduced end-to-end
+
+The following were not reproduced with live requests because they are environment-dependent,
+network-dependent, or require specific infrastructure; they were re-confirmed by source
+inspection of the same files identified in §4, §7, and §8:
+
+- **TS-A03** — PostgreSQL RLS in `core/db.py` lacks `FORCE ROW LEVEL SECURITY`, `WITH CHECK`,
+  and the missing-OK argument to `current_setting`.
+- **TS-B01** — `billing/router.py` accepts `amount_minor` from the client and `billing/service.py`
+  activates the plan without comparing the paid amount to the configured price.
+- **TS-B02** — Billing webhook idempotency marker is written in a separate transaction.
+- **TS-I01** — Ingestion buffers the uploaded file in memory before enforcing the size cap.
+- **TS-I02** — SSE stream generator has no `await asyncio.sleep`, disconnect check, or timeout.
+- **TS-O01** — Redis rate-limit scores use `time.monotonic()` and the client IP key ignores
+  `X-Forwarded-For`.
+- **TS-O04** — `backend/Dockerfile` installs only `[dev,storage,redis]` extras, omitting
+  `celery`, `billing`, `scheduler`, and `ocr`.
+- **TS-P02** — `rulepacks/in-works/` still contains only `confidence: unvalidated` patterns,
+  and `risk/service.py` sets `validated_only=True` for paying workspaces.
+
+### 9.5 New observations
+
+No new code defects were discovered in the fourth-round pass. The diff from `0866bb7` to
+`4bca123` is limited to the merge commit that introduced the third-round audit report
+(`7776fc2`), so no application source code changed.
+
+### 9.6 Updated remediation plan
+
+The remediation plan from §8.4 remains unchanged. The release-blocking fix order is:
+
+1. **P0 (release-blocking)**
+   - TS-A01, TS-A02, TS-A03, TS-B01, TS-P02 (original)
+   - TS-A06, TS-A07, TS-O04, TS-A10 (added in second/third rounds)
+2. **P1**
+   - TS-A04, TS-A05, TS-I01, TS-I02, TS-B02, TS-F01, TS-O01
+   - TS-A08, TS-A09
+3. **P2**
+   - Remaining Medium/Low TS-* and the product-completeness gaps in §3.5.
+
+### 9.7 Updated final recommendation
+
+**NO-GO** for public launch and for any deployment holding more than one customer's data.
+
+The fourth round re-confirmed all fourteen release-blocking findings. The count remains
+**31 findings** (5 Critical, 11 High, 11 Medium, 4 Low) with **14 release-blocking** items.
+No new blockers were added, and no previously identified blocker has been fixed. The
+defects are still concentrated in the `auth` module and are fixable, but the product should
+not ship until every P0 item is resolved and verified with regression tests.
 

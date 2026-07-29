@@ -137,6 +137,29 @@ application role. Six product questions (§3.6 of the report) need answers befor
   - Baseline recorded: `ruff` clean, `mypy` clean (143 files), 145 backend tests passing,
     frontend lint/typecheck/build clean, `npm audit` 0 vulnerabilities, `pip-audit` 0.
 
+### Done — 2026-07-29 (TS-130: fourth-round production readiness audit)
+
+- **TS-130** — Fourth-round end-to-end production readiness audit of trunk
+  (`claude/dev-workflow-modules-58dpqw`, commit `4bca123`) per
+  `END_TO_END_PRODUCTION_AUDIT_PROMPT.md`. **Audit only — no source files were changed.**
+  `PRODUCTION_READINESS_AUDIT.md` updated with:
+  - All prior `TS-*` findings re-verified and still present; no application source changed
+    since the third-round commit `0866bb7`.
+  - Seven security probes run end-to-end with `TestClient`:
+    `TS-A01` (cross-workspace owner takeover), `TS-A02` (Google sign-in hardcodes
+    `role="owner"`), `TS-A05` (Google login raises unhandled `IntegrityError` on duplicate
+    email), `TS-A06` (workspace switch does not persist refresh token), `TS-A07`
+    (`resend-verification` leaks raw token), `TS-A10` (invitation accepts a foreign
+    `project_id`), and `TS-F01` (`/auth/workspaces` response shape mismatch).
+  - Remaining release blockers (`TS-A03`, `TS-B01`, `TS-P02`, `TS-I01`, `TS-I02`, `TS-B02`,
+    `TS-O01`, `TS-O04`) re-confirmed by source inspection.
+  - No new code defects discovered.
+  - Updated counts: **31 findings (5 Critical, 11 High, 11 Medium, 4 Low), 14 release-blocking**.
+  - Final recommendation remains **NO-GO**.
+  - Baseline recorded: `ruff` clean, `mypy` clean (143 files), `pytest -q` 146 passed /
+    1 skipped, frontend lint/typecheck/build clean, `npm audit` 0 vulnerabilities,
+    `pip-audit` 0.
+
 ### Next
 
 - Add `TS-129` to the launch-critical fix list: `create_invitation` and

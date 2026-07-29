@@ -217,3 +217,9 @@ Audit only — no source changes. Findings and full remediation detail live in
 |---|---|---|---|---|
 | TS-128 | Third-round production readiness audit rerun from scratch: re-verify all `TS-*` findings, search for new auth/tenant/deployment/product issues, update `PRODUCTION_READINESS_AUDIT.md` | `END_TO_END_PRODUCTION_AUDIT_PROMPT.md` | `PRODUCTION_READINESS_AUDIT.md` | done |
 | TS-129 | **BLOCKER** `create_invitation` and `accept_invitation` must verify `project_id` belongs to the invitation's workspace before persisting `ProjectMember` | audit TS-A10; Doc §5 | `specs/modules/auth.md` (update) | todo |
+
+## Fourth-round production readiness audit (2026-07-29, commit `4bca123`)
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-130 | Fourth-round end-to-end production readiness audit: re-verify all `TS-*` findings using the `END_TO_END_PRODUCTION_AUDIT_PROMPT.md` procedure, run baseline checks and security probes, update `PRODUCTION_READINESS_AUDIT.md` | user request; `END_TO_END_PRODUCTION_AUDIT_PROMPT.md` | `PRODUCTION_READINESS_AUDIT.md` | done |

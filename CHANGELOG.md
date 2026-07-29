@@ -162,11 +162,20 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   - Moved S3 `put_object`/`get_object`/`delete_object`/`generate_presigned_url` calls to `asyncio.to_thread` to avoid blocking the event loop.
   - Added migration `df4721874c4d_add_email_verifications`.
 
+### Done — 2026-07-29 (E2E validation hardening: TS-095)
+
+- **TS-095** — Fixed integration bugs surfaced by the end-to-end test run:
+  - `Settings` now auto-loads `.env.local` from the repo root (overridable via `ENV_FILE`) so local dev CORS/DB config works without manual exports.
+  - `AuthService.list_workspaces` now returns `id`, `name`, `role`, `plan`, `country` (matching the frontend `Workspace` type), and the frontend `session.tsx` consumes the plain list instead of `{workspaces: [...]}`.
+  - `AuthService._issue_tokens` always commits the new refresh token, fixing `switch_workspace` followed by `/auth/refresh` returning `invalid_refresh`.
+  - `AuthService._issue_tokens` now includes `email_verified` in login/refresh/switch responses.
+  - Updated frontend `Tokens` and `/auth/me` types to include `email_verified`.
+
 ### Next
 
 - TS-094 — Replace `StorageError` in production with a real ClamAV/cloud virus-scan hook.
-- TS-095 — End-to-end browser validation of signup, email verification, file upload, and payment flows.
 - TS-096 — Rulepack validation by a QS/contracts expert against real tender sets (F27 remains open).
+- Re-run end-to-end browser validation after TS-095 fixes to confirm clean signup → verify → invite → upload → checkout flow.
 
 ### Done — 2026-07-26 (real web validation + invitation fix: TS-080..TS-081)
 

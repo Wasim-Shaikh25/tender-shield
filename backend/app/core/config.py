@@ -1,11 +1,26 @@
+import os
+from pathlib import Path
+
 from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Default to the committed .env.local at the repo root; ENV_FILE overrides it.
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_DEFAULT_ENV_FILE = _REPO_ROOT / ".env.local"
 
 
 class Settings(BaseSettings):
     """Environment-driven settings. All variables use the TS_ prefix."""
 
-    model_config = SettingsConfigDict(env_prefix="TS_", extra="ignore")
+    # Load .env.local by default so local dev works without manually exporting
+    # every variable. In containerized deployments TS_* env vars take precedence
+    # over the committed template. Set ENV_FILE to override the file path.
+    model_config = SettingsConfigDict(
+        env_prefix="TS_",
+        extra="ignore",
+        env_file=os.environ.get("ENV_FILE", _DEFAULT_ENV_FILE),
+        env_file_encoding="utf-8",
+    )
 
     env: str = "dev"
     # PostgreSQL 16 in all deployed environments; SQLite only for local tests.

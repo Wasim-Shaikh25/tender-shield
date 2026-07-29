@@ -55,7 +55,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const loadWorkspaces = async (token: string) => {
     try {
-      const { workspaces: list } = await api.listWorkspaces(token);
+      const list = await api.listWorkspaces(token);
       setWorkspaces(list);
       return list;
     } catch {

@@ -367,14 +367,14 @@ class AuthService:
                 expires_at=datetime.now(UTC) + self.refresh_ttl,
             )
         )
-        if new_family:
-            self.s.commit()
+        self.s.commit()
         return {
             "access_token": access,
             "refresh_token": raw,
             "role": role,
             "workspace_id": str(workspace_id) if workspace_id else self._NO_WORKSPACE,
             "is_superadmin": is_superadmin,
+            "email_verified": email_verified,
         }
 
     # ---- workspaces & projects ---------------------------------------------
@@ -395,7 +395,16 @@ class AuthService:
             .join(WorkspaceMember, Workspace.id == WorkspaceMember.workspace_id)
             .where(WorkspaceMember.user_id == uuid.UUID(str(user_id)))
         ).all()
-        return [{"workspace_id": str(ws.id), "name": ws.name, "role": m.role} for ws, m in rows]
+        return [
+            {
+                "id": str(ws.id),
+                "name": ws.name,
+                "role": m.role,
+                "plan": ws.plan,
+                "country": ws.country,
+            }
+            for ws, m in rows
+        ]
 
     def _workspace_member(self, workspace_id, user_id):
         return self.s.scalar(

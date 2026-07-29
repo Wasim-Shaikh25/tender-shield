@@ -20,12 +20,14 @@ services:
     environment:
       TS_DATABASE_URL: postgresql+psycopg://tendershield:tendershield@db:5432/tendershield
       TS_CORS_ORIGINS: "http://localhost:3000"
-      # TS_JWT_PRIVATE_KEY / TS_JWT_PUBLIC_KEY / ANTHROPIC_API_KEY from .env
-    env_file: [.env]
+      TS_STORAGE_DIR: /app/storage
+      # TS_JWT_PRIVATE_KEY / TS_JWT_PUBLIC_KEY / ANTHROPIC_API_KEY from .env.local
+    env_file: [.env.local]
     depends_on:
       db:
         condition: service_healthy
     ports: ["8000:8000"]
+    volumes: ["backend_storage:/app/storage"]
 
   frontend:
     build:
@@ -37,3 +39,4 @@ services:
 
 volumes:
   pgdata:
+  backend_storage:

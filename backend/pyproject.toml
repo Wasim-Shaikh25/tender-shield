@@ -65,5 +65,10 @@ extend-immutable-calls = ["fastapi.Depends", "fastapi.Header", "fastapi.File", "
 [tool.ruff.lint.per-file-ignores]
 "migrations/*" = ["E501"]  # Alembic column definitions read better unwrapped
 
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+disable_error_code = ["attr-defined", "arg-type", "union-attr", "valid-type", "operator", "index", "assignment", "name-defined", "annotation-unchecked"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

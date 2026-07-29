@@ -18,9 +18,15 @@ jobs:
           python-version: "3.11"
           cache: pip
       - name: Install
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev,storage,redis]"
       - name: Lint
         run: ruff check .
+      - name: Type check
+        run: mypy app
+      - name: Security audit
+        run: |
+          pip install --upgrade pip setuptools
+          pip-audit --desc --local
       - name: Test
         run: pytest -q
       - name: Alembic up/down check (scratch DB)
@@ -44,5 +50,11 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install
         run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Type check
+        run: npm run typecheck
+      - name: Security audit
+        run: npm audit --audit-level=high
       - name: Build
         run: npm run build

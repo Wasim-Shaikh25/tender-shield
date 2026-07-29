@@ -52,12 +52,26 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   - Added tamper-evident SHA-256 integrity hash to the export stamp.
   - Replaced `datetime.utcnow()` in `comparison/service.py` with timezone-safe logic.
 
+### Done — 2026-07-29 (production readiness audit fixes: TS-089..TS-090)
+
+- **TS-089** — Deployment/DevEx:
+  - Added `.env.local`, `.env.dev`, and `.env.prod` templates covering all `TS_*`
+    settings (database, CORS, allowed hosts, auth keys, storage/S3, billing, Redis, OCR/LLM).
+  - Updated `.env.example` to match the new settings.
+  - `docker-compose.yml` now uses `.env.local`, mounts `backend_storage`, and sets
+    `TS_STORAGE_DIR` to `/app/storage`.
+  - `backend/Dockerfile` installs `storage` + `redis` extras.
+- **TS-090** — CI/tooling:
+  - Backend CI now runs `ruff`, `mypy`, `pip-audit`, `pytest`, and Alembic up/down checks.
+  - Frontend CI now runs `npm run lint`, `npm run typecheck`, `npm audit`, and `npm run build`.
+  - Added `mypy` config to `pyproject.toml` (permissive baseline to avoid existing noise).
+  - Added ESLint config and `lint` / `typecheck` scripts to `frontend/package.json`.
+  - Resolved `postcss`/`sharp`/`brace-expansion` npm audit warnings via `overrides`.
+
 ### Next
 
 - TS-085 — Workspace switcher frontend and backend polish.
 - TS-088 — Frontend cleanup (remove demo data), workspace switcher, billing/admin pages.
-- TS-089 — `.env.*` templates, `run.sh` and `docker-compose` fixes.
-- TS-090 — ESLint, `mypy`, `pip-audit`, `npm audit` in CI.
 - TS-091 — Notification/payment adapter skeletons (credential-gated).
 - TS-092 — Admin console and analytics UI.
 

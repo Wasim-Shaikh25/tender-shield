@@ -158,7 +158,7 @@ staying inside the tender-review domain. Full requirements and tracker:
 | TS-086 | File upload/storage: MIME/magic/size validation, S3 adapter, virus-scan stub, BOQ size cap | audit F09/F11/F20 | `specs/900-production-readiness-audit-fixes.md`, `specs/modules/ingestion.md`, `specs/modules/boq.md` | done |
 | TS-087 | Risk/export quality: `validated_only` filter for paying users, reviewer stamp in exports, `datetime.utcnow` cleanup | audit F03/F17/F25 | `specs/900-production-readiness-audit-fixes.md`, `specs/modules/risk.md`, `specs/modules/export.md` | done |
 | TS-088 | Frontend cleanup and admin/billing UI: remove demo data, workspace switcher, billing/admin pages | audit F16 | `specs/900-production-readiness-audit-fixes.md`, `specs/frontend.md` | todo |
-| TS-089 | Deployment/DevEx: `.env.*` templates, `run.sh`/`docker-compose` fixes, CHANGELOG updates | audit F14 | `specs/900-production-readiness-audit-fixes.md` | todo |
-| TS-090 | CI/tooling: ESLint, `mypy`, `pip-audit`, `npm audit` in CI | audit F18 | `specs/900-production-readiness-audit-fixes.md` | todo |
+| TS-089 | Deployment/DevEx: `.env.*` templates, `run.sh`/`docker-compose` fixes, CHANGELOG updates | audit F14 | `specs/900-production-readiness-audit-fixes.md` | done |
+| TS-090 | CI/tooling: ESLint, `mypy`, `pip-audit`, `npm audit` in CI | audit F18 | `specs/900-production-readiness-audit-fixes.md` | done |
 | TS-091 | Notification/payment adapter skeletons: SES/MSG91 senders, Razorpay/Stripe providers, scheduler stubs (credential-gated) | audit F07/F12/F15, TS-035/TS-037/TS-079 | `specs/900-production-readiness-audit-fixes.md`, `specs/modules/notifications.md`, `specs/modules/billing.md` | todo |
 | TS-092 | Admin console and analytics UI: superadmin dashboard, audit log viewer, accuracy dashboard | audit F21 | `specs/900-production-readiness-audit-fixes.md`, `specs/frontend.md` | todo |

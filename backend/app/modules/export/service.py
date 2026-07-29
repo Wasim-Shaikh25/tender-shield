@@ -7,9 +7,15 @@ from __future__ import annotations
 import hashlib
 from datetime import date
 
-from app.modules.export.render import render_docx, render_pdf, render_xlsx
+from app.modules.export.render import render_docx, render_handover_pack, render_pdf, render_xlsx
 
 FORMATS = {
+    "xlsx": ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"),
+    "docx": ("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx"),
+    "pdf": ("application/pdf", "pdf"),
+}
+
+HANDOVER_FORMATS = {
     "xlsx": ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"),
     "docx": ("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx"),
     "pdf": ("application/pdf", "pdf"),
@@ -120,4 +126,24 @@ class ExportService:
         data = self._render(fmt, title, workspace_id, opportunity_id, meta)
 
         filename = f"bid-review-pack-{opportunity_id}.{ext}"
+        return filename, media_type, data
+
+    def export_handover(
+        self, opportunity_id: str, fmt: str, handover: dict
+    ) -> tuple[str, str, bytes]:
+        if fmt not in HANDOVER_FORMATS:
+            raise ExportError("bad_format")
+        title = handover.get("opportunity", {}).get("title") or "this tender"
+        meta = {
+            "date": date.today().isoformat(),
+            "pack": self._pack_version,
+            "integrity_hash": handover.get("sealed_hash", ""),
+        }
+        data = render_handover_pack(title, handover, fmt, meta)
+        # Re-render so the hash in the stamp is over the final bytes.
+        meta["integrity_hash"] = hashlib.sha256(data).hexdigest()
+        data = render_handover_pack(title, handover, fmt, meta)
+
+        media_type, ext = HANDOVER_FORMATS[fmt]
+        filename = f"handover-pack-{opportunity_id}.{ext}"
         return filename, media_type, data

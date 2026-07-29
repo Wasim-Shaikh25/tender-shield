@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -20,6 +20,7 @@ _ERROR_STATUS = {
     "no_baseline": 404,
     "need_two_baselines": 409,
     "bad_source": 400,
+    "export_unavailable": 503,
 }
 
 
@@ -194,3 +195,25 @@ def handover(
         return _service(request, session).handover(principal.workspace_id, opportunity_id)
     except BaselineError as exc:
         _raise(exc)
+
+
+@router.get("/opportunities/{opportunity_id}/handover/export")
+def handover_export(
+    opportunity_id: str,
+    format: str = "docx",
+    request: Request = None,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    """Download the sealed handover pack as a DOCX/PDF/XLSX file."""
+    try:
+        filename, media_type, data = _service(request, session).export_handover(
+            principal.workspace_id, opportunity_id, format
+        )
+    except BaselineError as exc:
+        _raise(exc)
+    return Response(
+        content=data,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

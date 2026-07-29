@@ -37,6 +37,7 @@ class BaselineService:
         ingestion_factory: Callable | None = None,
         loader_provider: Callable[[], object | None] = lambda: None,
         standards_factory: Callable | None = None,
+        export_factory: Callable | None = None,
         publish: Callable[[str, dict], object] = lambda event, payload: None,
         pack_id: str = "in-works",
     ):
@@ -46,6 +47,7 @@ class BaselineService:
         self._ingestion_factory = ingestion_factory
         self._loader_provider = loader_provider
         self._standards_factory = standards_factory
+        self._export_factory = export_factory
         self._publish = publish
         self._pack_id = pack_id
 
@@ -499,3 +501,10 @@ class BaselineService:
             "deadline_calendar": snap.get("deadlines", []),
             "counts": snap.get("counts", {}),
         }
+
+    def export_handover(self, workspace_id, opportunity_id, fmt: str) -> tuple[str, str, bytes]:
+        """Render the latest sealed handover pack to a file."""
+        if self._export_factory is None:
+            raise BaselineError("export_unavailable")
+        pack = self.handover(workspace_id, opportunity_id)
+        return self._export_factory(self.s).export_handover(str(opportunity_id), fmt, pack)

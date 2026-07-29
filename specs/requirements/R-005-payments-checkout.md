@@ -4,6 +4,8 @@
 **Severity:** P0 — no payment path exists; the webhook trusts client-supplied plan data
 **Requirement refs:** Doc §7, §15, §16.5
 **Task refs:** TS-089 (orders + binding), TS-097 (webhook coverage)
+**Task files:** code-level detail (current-vs-target snippets, file:line, files touched, tests) now lives per-task, split out by TS-126's restructure: [TS-089](../../tasks/specs/TS-089-payment-intents-server-binding.md), [TS-097](../../tasks/specs/TS-097-webhook-coverage.md). This document stays the business/behavior-level record (purpose, target behavior, acceptance criteria).
+
 **Gap refs:** `docs/GAP_ANALYSIS.md` §2.3, §2.4, §2.7, §2.8
 **Specs to update:** `specs/modules/billing.md`
 

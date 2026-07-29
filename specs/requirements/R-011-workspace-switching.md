@@ -9,6 +9,8 @@ rather than the draft's `/dashboard`, which doesn't exist.
 **Severity:** P1 — multi-workspace users cannot reach most of their workspaces
 **Requirement refs:** Doc §5, §16
 **Task refs:** TS-100
+**Task files:** code-level detail (current-vs-target snippets, file:line, files touched, tests) now lives per-task, split out by TS-126's restructure: [TS-100](../../tasks/specs/TS-100-workspace-switching.md). This document stays the business/behavior-level record (purpose, target behavior, acceptance criteria).
+
 **Gap refs:** `docs/GAP_ANALYSIS.md` §3.2
 **Specs to update:** `specs/modules/auth.md`, `specs/frontend.md`
 

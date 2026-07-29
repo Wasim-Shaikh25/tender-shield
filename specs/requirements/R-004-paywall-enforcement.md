@@ -4,6 +4,8 @@
 **Severity:** P0 — the product cannot charge for anything today
 **Requirement refs:** Doc §7, §15, §11.4
 **Task refs:** TS-087 (metering), TS-088 (watermark)
+**Task files:** code-level detail (current-vs-target snippets, file:line, files touched, tests) now lives per-task, split out by TS-126's restructure: [TS-087](../../tasks/specs/TS-087-meter-review-path.md), [TS-088](../../tasks/specs/TS-088-export-watermark.md). This document stays the business/behavior-level record (purpose, target behavior, acceptance criteria).
+
 **Gap refs:** `docs/GAP_ANALYSIS.md` §2.1, §2.2
 **Specs to update:** `specs/modules/billing.md`, `specs/modules/risk.md`, `specs/modules/export.md`
 

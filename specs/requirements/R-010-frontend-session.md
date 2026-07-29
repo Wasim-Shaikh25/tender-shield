@@ -6,6 +6,8 @@ separately under R-016).
 **Severity:** P0 — every session dies 15 minutes after login
 **Requirement refs:** Doc §5, §9
 **Task refs:** TS-092
+**Task files:** code-level detail (current-vs-target snippets, file:line, files touched, tests) now lives per-task, split out by TS-126's restructure: [TS-092](../../tasks/specs/TS-092-frontend-session-hardening.md). This document stays the business/behavior-level record (purpose, target behavior, acceptance criteria).
+
 **Gap refs:** `docs/GAP_ANALYSIS.md` §4.2, §4.3
 **Specs to update:** `specs/frontend.md`
 

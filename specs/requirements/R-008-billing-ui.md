@@ -11,6 +11,8 @@ Fixed two real backend bugs found while wiring this UI — see
 **Severity:** P0 — a user cannot give this product money through its own interface
 **Requirement refs:** Doc §7, §9, §15
 **Task refs:** TS-091
+**Task files:** code-level detail (current-vs-target snippets, file:line, files touched, tests) now lives per-task, split out by TS-126's restructure: [TS-091](../../tasks/specs/TS-091-billing-ui.md). This document stays the business/behavior-level record (purpose, target behavior, acceptance criteria).
+
 **Gap refs:** `docs/GAP_ANALYSIS.md` §4.1
 **Specs to update:** `specs/frontend.md`, `specs/modules/billing.md`
 

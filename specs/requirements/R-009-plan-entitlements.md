@@ -14,6 +14,8 @@ locked). See `specs/modules/billing.md` B13-B18 and A20-A25, and
 **Severity:** P1 — declared limits are unenforced; top-ups are unsellable
 **Requirement refs:** Doc §7
 **Task refs:** TS-098
+**Task files:** code-level detail (current-vs-target snippets, file:line, files touched, tests) now lives per-task, split out by TS-126's restructure: [TS-098](../../tasks/specs/TS-098-entitlement-service.md). This document stays the business/behavior-level record (purpose, target behavior, acceptance criteria).
+
 **Gap refs:** `docs/GAP_ANALYSIS.md` §2.9
 **Specs to update:** `specs/modules/billing.md`, `specs/modules/auth.md`
 

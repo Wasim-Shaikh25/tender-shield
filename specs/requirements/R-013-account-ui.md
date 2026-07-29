@@ -4,6 +4,8 @@
 **Severity:** P1 — implemented backend features are unreachable
 **Requirement refs:** Doc §5, §16
 **Task refs:** TS-103
+**Task files:** code-level detail (current-vs-target snippets, file:line, files touched, tests) now lives per-task, split out by TS-126's restructure: [TS-103](../../tasks/specs/TS-103-account-ui.md). This document stays the business/behavior-level record (purpose, target behavior, acceptance criteria).
+
 **Gap refs:** `docs/GAP_ANALYSIS.md` §4.5
 **Specs to update:** `specs/frontend.md`
 

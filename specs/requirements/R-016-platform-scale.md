@@ -4,6 +4,8 @@
 **Severity:** P1 (async, storage) / P2 (observability) / P1 (metrics)
 **Requirement refs:** Doc §1.3, §3.1, §3.3, §11.1, §11.2, §19
 **Task refs:** TS-105 (async), TS-106 (storage), TS-107 (observability), TS-108 (metrics)
+**Task files:** code-level detail (current-vs-target snippets, file:line, files touched, tests) now lives per-task, split out by TS-126's restructure: [TS-105](../../tasks/specs/TS-105-async-job-pipeline.md), [TS-106](../../tasks/specs/TS-106-s3-storage-adapter.md), [TS-107](../../tasks/specs/TS-107-observability.md), [TS-108](../../tasks/specs/TS-108-product-metrics.md), [TS-109](../../tasks/specs/TS-109-legal-commercial-surface.md). This document stays the business/behavior-level record (purpose, target behavior, acceptance criteria).
+
 **Gap refs:** `docs/GAP_ANALYSIS.md` §5.1, §5.2, §5.3, §6.1
 **Specs to update:** `specs/modules/ingestion.md`, `specs/modules/analytics.md`, `docs/deployment.md`
 

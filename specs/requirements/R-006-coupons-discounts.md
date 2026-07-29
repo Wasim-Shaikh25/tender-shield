@@ -8,6 +8,8 @@ amount (₹2,500/side) is a pricing placeholder, not specified here.
 **Severity:** P1 — no discounting mechanism exists; blocks pilot conversions
 **Requirement refs:** Doc §0.4, §7, §12.6, §706 (GTM)
 **Task refs:** TS-090
+**Task files:** code-level detail (current-vs-target snippets, file:line, files touched, tests) now lives per-task, split out by TS-126's restructure: [TS-090](../../tasks/specs/TS-090-coupons-discounts-referrals.md). This document stays the business/behavior-level record (purpose, target behavior, acceptance criteria).
+
 **Gap refs:** `docs/GAP_ANALYSIS.md` §2.5
 **Specs to update:** `specs/modules/billing.md`
 

@@ -4,6 +4,8 @@
 **Severity:** P1 — memory-exhaustion DoS, unbounded tenant storage
 **Requirement refs:** Doc §11.2, §6.1
 **Task refs:** TS-095
+**Task files:** code-level detail (current-vs-target snippets, file:line, files touched, tests) now lives per-task, split out by TS-126's restructure: [TS-095](../../tasks/specs/TS-095-upload-safety.md). This document stays the business/behavior-level record (purpose, target behavior, acceptance criteria).
+
 **Gap refs:** `docs/GAP_ANALYSIS.md` §1.9
 **Specs to update:** `specs/modules/ingestion.md`
 

@@ -4,6 +4,8 @@
 **Severity:** P0 (reset-token echo) / P1 (the rest)
 **Requirement refs:** Doc §5, §11.3
 **Task refs:** TS-085, TS-093, TS-094, TS-101
+**Task files:** code-level detail (current-vs-target snippets, file:line, files touched, tests) now lives per-task, split out by TS-126's restructure: [TS-085](../../tasks/specs/TS-085-gate-dev-token-echo.md), [TS-093](../../tasks/specs/TS-093-revoke-sessions-on-reset.md), [TS-094](../../tasks/specs/TS-094-rate-limiting-lockout.md), [TS-101](../../tasks/specs/TS-101-enforce-mfa-at-login.md). This document stays the business/behavior-level record (purpose, target behavior, acceptance criteria).
+
 **Gap refs:** `docs/GAP_ANALYSIS.md` §1.5–§1.8, §3.5
 **Specs to update:** `specs/modules/auth.md`
 

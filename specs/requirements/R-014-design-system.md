@@ -4,6 +4,8 @@
 **Severity:** P2 — quality and velocity; blocks nothing, slows everything
 **Requirement refs:** Doc §9
 **Task refs:** TS-104
+**Task files:** code-level detail (current-vs-target snippets, file:line, files touched, tests) now lives per-task, split out by TS-126's restructure: [TS-104](../../tasks/specs/TS-104-design-system-a11y-tests.md). This document stays the business/behavior-level record (purpose, target behavior, acceptance criteria).
+
 **Gap refs:** `docs/GAP_ANALYSIS.md` §4.6
 **Specs to update:** `specs/frontend.md`
 

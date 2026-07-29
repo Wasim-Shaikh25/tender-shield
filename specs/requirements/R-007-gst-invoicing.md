@@ -18,6 +18,8 @@ See `specs/modules/billing.md` B5 and A14-A19 for the full account.
 **Severity:** P1 — Indian B2B customers cannot claim input credit
 **Requirement refs:** Doc §15.8
 **Task refs:** TS-096
+**Task files:** code-level detail (current-vs-target snippets, file:line, files touched, tests) now lives per-task, split out by TS-126's restructure: [TS-096](../../tasks/specs/TS-096-gst-invoicing-wired.md). This document stays the business/behavior-level record (purpose, target behavior, acceptance criteria).
+
 **Gap refs:** `docs/GAP_ANALYSIS.md` §2.6
 **Specs to update:** `specs/modules/billing.md`
 

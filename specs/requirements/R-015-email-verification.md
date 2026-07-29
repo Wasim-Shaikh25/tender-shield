@@ -4,6 +4,8 @@
 **Severity:** P1 — free-tier abuse is open; no transactional email exists
 **Requirement refs:** Doc §5, §11.6, §706
 **Task refs:** TS-099 (verification + anti-abuse), TS-035 (delivery adapters)
+**Task files:** code-level detail (current-vs-target snippets, file:line, files touched, tests) now lives per-task, split out by TS-126's restructure: [TS-099](../../tasks/specs/TS-099-email-verification-anti-abuse.md). This document stays the business/behavior-level record (purpose, target behavior, acceptance criteria).
+
 **Gap refs:** `docs/GAP_ANALYSIS.md` §3.1, §2.9
 **Specs to update:** `specs/modules/auth.md`, `specs/modules/notifications.md`
 

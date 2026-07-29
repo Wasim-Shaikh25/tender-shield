@@ -5,6 +5,8 @@ where the shipped implementation differs from this draft)
 **Severity:** P0 — cross-tenant data leak and privilege escalation
 **Requirement refs:** Doc §3.2, §5; `CLAUDE.md` §4 ("cross-tenant leakage is company-ending")
 **Task refs:** TS-084 (authorization), TS-086 (RLS)
+**Task files:** code-level detail (current-vs-target snippets, file:line, files touched, tests) now lives per-task, split out by TS-126's restructure: [TS-084](../../tasks/specs/TS-084-membership-authorization.md), [TS-086](../../tasks/specs/TS-086-rls-hardening.md). This document stays the business/behavior-level record (purpose, target behavior, acceptance criteria).
+
 **Gap refs:** `docs/GAP_ANALYSIS.md` §1.1–§1.4
 **Specs updated:** `specs/modules/auth.md`, `specs/data-model.md`
 

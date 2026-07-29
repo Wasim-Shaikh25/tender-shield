@@ -159,19 +159,19 @@ Full sprint narrative preserved below under "Phase 1.5 sprint detail."
 
 | ID | Title | Requirement | Task file | Module(s) | Sev | Status |
 |---|---|---|---|---|---|---|
-| TS-071 | Sign in with Apple (OIDC /auth/apple/callback, link verified Apple ID to user) | Doc §5 | — | `auth` | P2 | done |
-| TS-072 | Provide .env.local/.env.dev/.env.prod, run script, and deployment instructions | Doc §11.1 | — | — | P2 | done |
-| TS-073 | Create Devin AI assistant rules mirroring Cursor/Claude rules | Doc §11.1 | — | — | P2 | done |
-| TS-074 | Spec for workspace/project tenant refactor + super admin | Doc §3.2, §5 | — | `auth` | P1 | done |
-| TS-075 | Auth model: remove `org`/`org_members`, add `User` + `Workspace`/`WorkspaceMember` + `Project`/`ProjectMember` + `Invitation`, super-admin flag | Doc §5 | — | `auth` | P0 | done |
-| TS-076 | Rename `org_id` → `workspace_id` across all modules, RLS, and `core.db` | Doc §3.2 | — | `core`, multiple | P0 | done |
-| TS-077 | Workspace/project CRUD, sharing/invites, super-admin endpoints, and 2FA method | Doc §5, §16 | — | `auth` | P0 | done |
-| TS-078 | Update tests and verify `ruff`/`pytest`/frontend build for tenant refactor | Doc §11.1 | — | — | P1 | done |
-| TS-079 | Real email/SMS delivery for `email`/`sms` MFA and OTP codes | Doc §5 | — | `auth`, `notifications` | P2 | todo (needs creds) |
-| TS-080 | Real web automation validation of signup → workspace → project → invite flow | Doc §11.1 | — | — | P2 | done |
-| TS-081 | Fix `accept_invitation` naive/aware datetime comparison and add invitation flow test | Doc §11.1 | — | `auth` | P1 | done |
-| TS-082 | Forgot-password and reset-password flow (token via email, dev mode returns token) | Doc §5 | — | `auth` | P1 | done |
-| TS-083 | Whole-project gap analysis (business, monetization/coupons, auth, security/multi-tenancy, architecture, frontend/UI) | Doc §0–§19 | — | `docs/GAP_ANALYSIS.md` | P1 | done |
+| TS-071 | Sign in with Apple (OIDC /auth/apple/callback, link verified Apple ID to user) | Doc §5 | [TS-071](specs/TS-071-sign-in-with-apple.md) | `auth` | P2 | done |
+| TS-072 | Provide .env.local/.env.dev/.env.prod, run script, and deployment instructions | Doc §11.1 | [TS-072](specs/TS-072-env-files-run-scripts.md) | — | P2 | done |
+| TS-073 | Create Devin AI assistant rules mirroring Cursor/Claude rules | Doc §11.1 | [TS-073](specs/TS-073-devin-rules.md) | — | P2 | done |
+| TS-074 | Spec for workspace/project tenant refactor + super admin | Doc §3.2, §5 | [TS-074](specs/TS-074-workspace-refactor-spec.md) | `auth` | P1 | done |
+| TS-075 | Auth model: remove `org`/`org_members`, add `User` + `Workspace`/`WorkspaceMember` + `Project`/`ProjectMember` + `Invitation`, super-admin flag | Doc §5 | [TS-075](specs/TS-075-workspace-auth-models.md) | `auth` | P0 | done |
+| TS-076 | Rename `org_id` → `workspace_id` across all modules, RLS, and `core.db` | Doc §3.2 | [TS-076](specs/TS-076-rename-org-id-workspace-id.md) | `core`, multiple | P0 | done |
+| TS-077 | Workspace/project CRUD, sharing/invites, super-admin endpoints, and 2FA method | Doc §5, §16 | [TS-077](specs/TS-077-workspace-project-crud-admin.md) | `auth` | P0 | done |
+| TS-078 | Update tests and verify `ruff`/`pytest`/frontend build for tenant refactor | Doc §11.1 | [TS-078](specs/TS-078-verify-tenant-refactor.md) | — | P1 | done |
+| TS-079 | Real email/SMS delivery for `email`/`sms` MFA and OTP codes | Doc §5 | [TS-079](specs/TS-079-real-mfa-delivery.md) | `auth`, `notifications` | P2 | todo (needs creds) |
+| TS-080 | Real web automation validation of signup → workspace → project → invite flow | Doc §11.1 | [TS-080](specs/TS-080-web-automation-validation.md) | — | P2 | done |
+| TS-081 | Fix `accept_invitation` naive/aware datetime comparison and add invitation flow test | Doc §11.1 | [TS-081](specs/TS-081-fix-accept-invitation-datetime.md) | `auth` | P1 | done |
+| TS-082 | Forgot-password and reset-password flow (token via email, dev mode returns token) | Doc §5 | [TS-082](specs/TS-082-forgot-reset-password.md) | `auth` | P1 | done |
+| TS-083 | Whole-project gap analysis (business, monetization/coupons, auth, security/multi-tenancy, architecture, frontend/UI) | Doc §0–§19 | [TS-083](specs/TS-083-whole-project-gap-analysis.md) | `docs/GAP_ANALYSIS.md` | P1 | done |
 
 ---
 

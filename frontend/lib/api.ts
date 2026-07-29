@@ -8,6 +8,7 @@ export type Tokens = {
   role: string;
   workspace_id: string;
   is_superadmin?: boolean;
+  email_verified?: boolean;
   mfa_required?: boolean;
   mfa_token?: string;
 };
@@ -85,8 +86,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ mfa_token, code }),
     }),
-  me: (token: string) => req<{ user_id: string; workspace_id: string; role: string; is_superadmin?: boolean }>("/auth/me", {}, token),
-  listWorkspaces: (token: string) => req<{ workspaces: Workspace[] }>("/auth/workspaces", {}, token),
+  me: (token: string) =>
+    req<{ user_id: string; workspace_id: string; role: string; is_superadmin?: boolean; email_verified?: boolean }>(
+      "/auth/me",
+      {},
+      token
+    ),
+  listWorkspaces: (token: string) => req<Workspace[]>("/auth/workspaces", {}, token),
   switchWorkspace: (token: string, workspace_id: string) =>
     req<Tokens>(`/auth/workspaces/${workspace_id}/switch`, { method: "POST" }, token),
   billingStatus: (token: string) => req<{ plan: string; reviews_used: number; reviews_limit: number | null; seats: number }>("/billing/status", {}, token),

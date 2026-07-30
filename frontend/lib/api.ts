@@ -1,25 +1,17 @@
 // Typed client for the TenderShield API. Base URL from env; every mutating call
 // is workspace-scoped server-side (RLS) — the client just carries the bearer token.
+//
+// Auth contract types are generated from the backend OpenAPI spec (`lib/api-types.ts`)
+// so the frontend cannot drift from the backend response shape.
+import type { components } from "./api-types";
+
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
 
-export type Tokens = {
-  access_token: string;
-  refresh_token?: string;
-  role: string;
-  workspace_id: string;
-  is_superadmin?: boolean;
-  mfa_required?: boolean;
-  mfa_token?: string;
-};
-export type Workspace = {
-  workspace_id: string;
-  name: string;
-  role?: string;
-  country?: string;
-  plan?: string;
-  owner_id?: string;
-};
+export type Tokens = components["schemas"]["TokenResponse"];
+export type LoginResponse = components["schemas"]["LoginResponse"];
+export type Workspace = components["schemas"]["WorkspaceResponse"];
+export type AccountSettings = components["schemas"]["AccountSettingsResponse"];
 export type User = { user_id: string; email: string; role?: string; is_superadmin?: boolean };
 export type Opportunity = { id: string; title: string; status: string; submission_due?: string | null };
 export type MissingDocs = { present: string[]; missing: string[]; expected: string[] };
@@ -48,15 +40,16 @@ export type Finding = {
   disclaimer?: string | null;
 };
 
-export type AccountSettings = {
-  email: string;
-  phone: string;
-  org_name: string;
-  city: string;
-  dob?: string | null;
-  email_verified: boolean;
-  mobile_verified: boolean;
-};
+type SignupResponse = components["schemas"]["SignupResponse"];
+type ForgotPasswordResponse = components["schemas"]["ForgotPasswordResponse"];
+type OkResponse = components["schemas"]["OkResponse"];
+type MeResponse = components["schemas"]["MeResponse"];
+type WorkspaceCreateResponse = components["schemas"]["WorkspaceCreateResponse"];
+type MemberResponse = components["schemas"]["MemberResponse"];
+type ChangeRoleResponse = components["schemas"]["ChangeRoleResponse"];
+type InvitationResponse = components["schemas"]["InvitationResponse"];
+type InvitationCreateResponse = components["schemas"]["InvitationCreateResponse"];
+type AcceptInvitationResponse = components["schemas"]["AcceptInvitationResponse"];
 
 async function req<T>(path: string, opts: RequestInit = {}, token?: string): Promise<T> {
   const headers: Record<string, string> = { ...(opts.headers as Record<string, string> ?? {}) };
@@ -90,26 +83,19 @@ export const api = {
     city: string;
     dob?: string;
   }) =>
-    req<{
-      user_id: string;
-      status: string;
-      email_verified: boolean;
-      mobile_verified: boolean;
-      email_verification_token?: string;
-      mobile_verification_token?: string;
-    }>("/auth/signup", {
+    req<SignupResponse>("/auth/signup", {
       method: "POST",
       body: JSON.stringify(body),
     }),
   login: (email: string, password: string) =>
-    req<Tokens>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
+    req<LoginResponse>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
   forgotPassword: (email: string) =>
-    req<{ ok: boolean; token?: string }>("/auth/forgot-password", {
+    req<ForgotPasswordResponse>("/auth/forgot-password", {
       method: "POST",
       body: JSON.stringify({ email }),
     }),
   resetPassword: (token: string, new_password: string) =>
-    req<{ ok: boolean }>("/auth/reset-password", {
+    req<OkResponse>("/auth/reset-password", {
       method: "POST",
       body: JSON.stringify({ token, new_password }),
     }),
@@ -129,20 +115,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ token }),
     }),
-  me: (token: string) =>
-    req<{
-      user_id: string;
-      workspace_id: string;
-      role: string;
-      is_superadmin?: boolean;
-      email: string;
-      phone: string;
-      org_name: string;
-      city: string;
-      dob?: string | null;
-      email_verified: boolean;
-      mobile_verified: boolean;
-    }>("/auth/me", {}, token),
+  me: (token: string) => req<MeResponse>("/auth/me", {}, token),
   listWorkspaces: (token: string) => req<Workspace[]>("/auth/workspaces", {}, token),
   switchWorkspace: (token: string, workspace_id: string) =>
     req<Tokens>(`/auth/workspaces/${workspace_id}/switch`, { method: "POST" }, token),
@@ -150,23 +123,25 @@ export const api = {
   updateSettings: (token: string, body: Partial<Omit<AccountSettings, "email" | "email_verified" | "mobile_verified">>) =>
     req<AccountSettings>("/auth/settings", { method: "PUT", body: JSON.stringify(body) }, token),
   changePassword: (token: string, body: { current_password: string; new_password: string; confirm_password: string }) =>
-    req<{ ok: boolean }>("/auth/settings/password", { method: "POST", body: JSON.stringify(body) }, token),
+    req<OkResponse>("/auth/settings/password", { method: "POST", body: JSON.stringify(body) }, token),
   listWorkspaceMembers: (token: string, workspace_id: string) =>
-    req<{ user_id: string; email: string; role: string }[]>(`/auth/workspaces/${workspace_id}/members`, {}, token),
+    req<MemberResponse[]>(`/auth/workspaces/${workspace_id}/members`, {}, token),
   addWorkspaceMember: (token: string, workspace_id: string, body: { email: string; role: string }) =>
-    req<{ user_id: string; email: string; role: string }>(`/auth/workspaces/${workspace_id}/members`, { method: "POST", body: JSON.stringify(body) }, token),
+    req<MemberResponse>(`/auth/workspaces/${workspace_id}/members`, { method: "POST", body: JSON.stringify(body) }, token),
   changeWorkspaceMemberRole: (token: string, workspace_id: string, user_id: string, role: string) =>
-    req<{ user_id: string; role: string }>(`/auth/workspaces/${workspace_id}/members/${user_id}`, { method: "PUT", body: JSON.stringify({ role }) }, token),
+    req<ChangeRoleResponse>(`/auth/workspaces/${workspace_id}/members/${user_id}`, { method: "PUT", body: JSON.stringify({ role }) }, token),
   removeWorkspaceMember: (token: string, workspace_id: string, user_id: string) =>
-    req<{ ok: boolean }>(`/auth/workspaces/${workspace_id}/members/${user_id}`, { method: "DELETE" }, token),
+    req<OkResponse>(`/auth/workspaces/${workspace_id}/members/${user_id}`, { method: "DELETE" }, token),
   listInvitations: (token: string) =>
-    req<{ invitation_id: string; email: string; role: string; project_id?: string | null; expires_at: string }[]>("/auth/invitations", {}, token),
+    req<InvitationResponse[]>("/auth/invitations", {}, token),
   createInvitation: (token: string, body: { email: string; role: string; project_id?: string }) =>
-    req<{ token?: string; expires_at: string; ok?: boolean }>("/auth/invitations", { method: "POST", body: JSON.stringify(body) }, token),
+    req<InvitationCreateResponse>("/auth/invitations", { method: "POST", body: JSON.stringify(body) }, token),
   revokeInvitation: (token: string, invitation_id: string) =>
-    req<{ ok: boolean }>(`/auth/invitations/${invitation_id}`, { method: "DELETE" }, token),
+    req<OkResponse>(`/auth/invitations/${invitation_id}`, { method: "DELETE" }, token),
+  acceptInvitation: (token: string, tokenStr: string) =>
+    req<AcceptInvitationResponse>(`/auth/invitations/${tokenStr}/accept`, { method: "POST" }, token),
   createWorkspace: (token: string, body: { name: string; country?: string }) =>
-    req<{ workspace_id: string; name: string }>("/auth/workspaces", {
+    req<WorkspaceCreateResponse>("/auth/workspaces", {
       method: "POST",
       body: JSON.stringify(body),
     }, token),
@@ -177,7 +152,7 @@ export const api = {
   adminUsers: (token: string) => req<User[]>("/auth/admin/users", {}, token),
   adminWorkspaces: (token: string) => req<Workspace[]>("/auth/admin/workspaces", {}, token),
   adminSetSuperadmin: (token: string, user_id: string, is_superadmin: boolean) =>
-    req<{ ok: boolean }>(`/auth/admin/users/${user_id}/superadmin`, { method: "POST", body: JSON.stringify({ is_superadmin }) }, token),
+    req<User>(`/auth/admin/users/${user_id}/superadmin`, { method: "POST", body: JSON.stringify({ is_superadmin }) }, token),
   listOpportunities: (token: string) =>
     req<{ opportunities: Opportunity[] }>("/ingestion/opportunities", {}, token).catch(
       // list endpoint may 404 until implemented; treat as empty

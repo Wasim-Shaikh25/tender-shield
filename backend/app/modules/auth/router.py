@@ -211,6 +211,123 @@ class SetSuperadminBody(BaseModel):
     is_superadmin: bool
 
 
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str | None = None
+    role: str
+    workspace_id: str
+    is_superadmin: bool = False
+    mfa_required: bool | None = None
+    mfa_token: str | None = None
+
+
+class LoginResponse(BaseModel):
+    mfa_required: bool = True
+    mfa_token: str
+    mfa_code: str | None = None
+
+
+class SignupResponse(BaseModel):
+    user_id: str
+    status: str
+    email_verified: bool
+    mobile_verified: bool
+    email_verification_token: str | None = None
+    mobile_verification_token: str | None = None
+
+
+class WorkspaceResponse(BaseModel):
+    workspace_id: str
+    name: str
+    role: str
+    country: str | None = None
+    plan: str | None = None
+
+
+class WorkspaceCreateResponse(BaseModel):
+    workspace_id: str
+    name: str
+
+
+class MemberResponse(BaseModel):
+    user_id: str
+    email: str
+    role: str
+
+
+class ChangeRoleResponse(BaseModel):
+    user_id: str
+    role: str
+
+
+class InvitationResponse(BaseModel):
+    invitation_id: str
+    email: str
+    role: str
+    project_id: str | None = None
+    expires_at: str
+
+
+class InvitationCreateResponse(BaseModel):
+    token: str | None = None
+    ok: bool | None = None
+    expires_at: str
+
+
+class AcceptInvitationResponse(BaseModel):
+    workspace_id: str
+    role: str
+
+
+class AccountSettingsResponse(BaseModel):
+    email: str
+    phone: str
+    org_name: str
+    city: str
+    dob: str | None = None
+    email_verified: bool
+    mobile_verified: bool
+
+
+class MeResponse(BaseModel):
+    user_id: str
+    workspace_id: str
+    role: str
+    is_superadmin: bool = False
+    email: str
+    phone: str
+    org_name: str
+    city: str
+    dob: str | None = None
+    email_verified: bool
+    mobile_verified: bool
+
+
+class AdminUserResponse(BaseModel):
+    user_id: str
+    email: str
+    is_superadmin: bool = False
+    email_verified: bool
+    mobile_verified: bool | None = None
+
+
+class AdminWorkspaceResponse(BaseModel):
+    workspace_id: str
+    name: str
+    owner_id: str
+    plan: str | None = None
+    country: str | None = None
+
+
+class OkResponse(BaseModel):
+    ok: bool = True
+
+
+class ForgotPasswordResponse(BaseModel):
+    ok: bool = True
+    token: str | None = None
+
+
 _STATUS = {
     "email_taken": 409,
     "phone_taken": 409,
@@ -255,7 +372,7 @@ def _handle(fn):
         raise HTTPException(_STATUS.get(exc.code, 400), exc.code) from exc
 
 
-@router.post("/signup", dependencies=_SIGNUP_LIMIT)
+@router.post("/signup", dependencies=_SIGNUP_LIMIT, response_model=SignupResponse)
 def signup(body: SignupBody, request: Request, session: Session = Depends(get_session)):
     return _handle(
         lambda: _service(request, session).signup(
@@ -270,7 +387,7 @@ def signup(body: SignupBody, request: Request, session: Session = Depends(get_se
     )
 
 
-@router.post("/login", dependencies=_LOGIN_LIMIT)
+@router.post("/login", dependencies=_LOGIN_LIMIT, response_model=LoginResponse)
 def login(
     body: LoginBody,
     response: Response,
@@ -282,7 +399,7 @@ def login(
     )
 
 
-@router.post("/refresh", dependencies=_REFRESH_LIMIT)
+@router.post("/refresh", dependencies=_REFRESH_LIMIT, response_model=TokenResponse)
 def refresh(
     response: Response,
     request: Request,
@@ -298,7 +415,7 @@ def refresh(
     return _call_and_issue(request, response, session, lambda svc: svc.refresh(raw))
 
 
-@router.post("/logout", dependencies=_REFRESH_LIMIT)
+@router.post("/logout", dependencies=_REFRESH_LIMIT, response_model=OkResponse)
 def logout(
     response: Response,
     request: Request,
@@ -315,7 +432,7 @@ def logout(
     return {"ok": True}
 
 
-@router.get("/me")
+@router.get("/me", response_model=MeResponse)
 def me(
     request: Request,
     session: Session = Depends(get_session),
@@ -339,7 +456,12 @@ def me(
     }
 
 
-@router.post("/forgot-password", dependencies=_FORGOT_LIMIT)
+@router.post(
+    "/forgot-password",
+    dependencies=_FORGOT_LIMIT,
+    response_model=ForgotPasswordResponse,
+    response_model_exclude_none=True,
+)
 def forgot_password(
     body: ForgotPasswordBody,
     request: Request,
@@ -348,7 +470,7 @@ def forgot_password(
     return _handle(lambda: _service(request, session).forgot_password(body.email))
 
 
-@router.post("/reset-password", dependencies=_RESET_LIMIT)
+@router.post("/reset-password", dependencies=_RESET_LIMIT, response_model=OkResponse)
 def reset_password(
     body: ResetPasswordBody,
     request: Request,
@@ -359,7 +481,7 @@ def reset_password(
     )
 
 
-@router.post("/verify-email")
+@router.post("/verify-email", response_model=bool)
 def verify_email(
     body: VerifyEmailBody,
     request: Request,
@@ -368,7 +490,7 @@ def verify_email(
     return _handle(lambda: _service(request, session).verify_email(body.token))
 
 
-@router.post("/verify-mobile")
+@router.post("/verify-mobile", response_model=bool)
 def verify_mobile(
     body: VerifyMobileBody,
     request: Request,
@@ -377,7 +499,7 @@ def verify_mobile(
     return _handle(lambda: _service(request, session).verify_mobile(body.token))
 
 
-@router.get("/settings")
+@router.get("/settings", response_model=AccountSettingsResponse)
 def get_settings(
     request: Request,
     session: Session = Depends(get_session),
@@ -397,7 +519,7 @@ def get_settings(
     }
 
 
-@router.put("/settings")
+@router.put("/settings", response_model=AccountSettingsResponse)
 def update_settings(
     body: AccountSettingsBody,
     request: Request,
@@ -435,7 +557,7 @@ def update_settings(
     return _handle(_do)
 
 
-@router.post("/settings/password")
+@router.post("/settings/password", response_model=OkResponse)
 def change_password(
     body: ChangePasswordBody,
     request: Request,
@@ -461,7 +583,7 @@ def change_password(
 # ---- workspaces & projects ---------------------------------------------
 
 
-@router.post("/workspaces")
+@router.post("/workspaces", response_model=WorkspaceCreateResponse)
 def create_workspace(
     body: CreateWorkspaceBody,
     request: Request,
@@ -475,7 +597,7 @@ def create_workspace(
     )
 
 
-@router.get("/workspaces")
+@router.get("/workspaces", response_model=list[WorkspaceResponse])
 def list_workspaces(
     request: Request,
     session: Session = Depends(get_session),
@@ -484,7 +606,7 @@ def list_workspaces(
     return _service(request, session).list_workspaces(principal.user_id)
 
 
-@router.post("/workspaces/{workspace_id}/switch")
+@router.post("/workspaces/{workspace_id}/switch", response_model=TokenResponse)
 def switch_workspace(
     workspace_id: str,
     response: Response,
@@ -504,7 +626,7 @@ def switch_workspace(
     )
 
 
-@router.post("/workspaces/{workspace_id}/members")
+@router.post("/workspaces/{workspace_id}/members", response_model=MemberResponse)
 def add_workspace_member(
     workspace_id: str,
     body: AddMemberBody,
@@ -521,7 +643,7 @@ def add_workspace_member(
     )
 
 
-@router.get("/workspaces/{workspace_id}/members")
+@router.get("/workspaces/{workspace_id}/members", response_model=list[MemberResponse])
 def list_workspace_members(
     workspace_id: str,
     request: Request,
@@ -533,7 +655,7 @@ def list_workspace_members(
     )
 
 
-@router.put("/workspaces/{workspace_id}/members/{user_id}")
+@router.put("/workspaces/{workspace_id}/members/{user_id}", response_model=ChangeRoleResponse)
 def change_workspace_member_role(
     workspace_id: str,
     user_id: str,
@@ -551,7 +673,7 @@ def change_workspace_member_role(
     )
 
 
-@router.delete("/workspaces/{workspace_id}/members/{user_id}")
+@router.delete("/workspaces/{workspace_id}/members/{user_id}", response_model=OkResponse)
 def remove_workspace_member(
     workspace_id: str,
     user_id: str,
@@ -623,7 +745,7 @@ def list_project_members(
     )
 
 
-@router.post("/invitations")
+@router.post("/invitations", response_model=InvitationCreateResponse)
 def create_invitation(
     body: CreateInvitationBody,
     request: Request,
@@ -639,7 +761,7 @@ def create_invitation(
     )
 
 
-@router.post("/invitations/{token}/accept")
+@router.post("/invitations/{token}/accept", response_model=AcceptInvitationResponse)
 def accept_invitation(
     token: str,
     request: Request,
@@ -649,7 +771,7 @@ def accept_invitation(
     return _handle(lambda: _service(request, session).accept_invitation(principal.user_id, token))
 
 
-@router.get("/invitations")
+@router.get("/invitations", response_model=list[InvitationResponse])
 def list_invitations(
     request: Request,
     session: Session = Depends(get_session),
@@ -662,7 +784,7 @@ def list_invitations(
     )
 
 
-@router.delete("/invitations/{invitation_id}")
+@router.delete("/invitations/{invitation_id}", response_model=OkResponse)
 def revoke_invitation(
     invitation_id: str,
     request: Request,
@@ -712,7 +834,7 @@ def mfa_verify(
     return _handle(lambda: _service(request, session).mfa_verify(principal.user_id, body.code))
 
 
-@router.post("/mfa/challenge", dependencies=_LOGIN_LIMIT)
+@router.post("/mfa/challenge", dependencies=_LOGIN_LIMIT, response_model=TokenResponse)
 def mfa_challenge(
     body: MfaChallengeBody,
     response: Response,
@@ -746,7 +868,7 @@ def add_member(
 # ---- super-admin (application owner) -------------------------------------
 
 
-@router.get("/admin/users")
+@router.get("/admin/users", response_model=list[AdminUserResponse])
 def admin_list_users(
     request: Request,
     session: Session = Depends(get_session),
@@ -755,7 +877,7 @@ def admin_list_users(
     return _service(request, session).list_users()
 
 
-@router.get("/admin/workspaces")
+@router.get("/admin/workspaces", response_model=list[AdminWorkspaceResponse])
 def admin_list_workspaces(
     request: Request,
     session: Session = Depends(get_session),
@@ -764,7 +886,7 @@ def admin_list_workspaces(
     return _service(request, session).list_all_workspaces()
 
 
-@router.post("/admin/users")
+@router.post("/admin/users", response_model=TokenResponse)
 def admin_create_superadmin(
     body: CreateSuperadminBody,
     request: Request,
@@ -776,7 +898,7 @@ def admin_create_superadmin(
     )
 
 
-@router.post("/admin/users/{user_id}/superadmin")
+@router.post("/admin/users/{user_id}/superadmin", response_model=AdminUserResponse)
 def admin_set_superadmin(
     user_id: str,
     body: SetSuperadminBody,

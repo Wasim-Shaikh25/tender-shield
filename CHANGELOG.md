@@ -118,6 +118,18 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   typed API client; added `AccountSettings` type.
 - Updated `specs/frontend.md` with `/settings` structure, behavior B9, and acceptance A8.
 
+### Done — 2026-07-30 (TS-103: align `/auth/workspaces` response and generate TS client)
+
+- `AuthService.list_workspaces` now returns `country` and `plan` alongside `workspace_id`,
+  `name`, and `role`.
+- Auth router endpoints now declare Pydantic `response_model` classes (tokens, workspaces,
+  members, invitations, settings, MFA) so the OpenAPI schema is complete.
+- Added `openapi-typescript` to the frontend and generated `frontend/lib/api-types.ts`.
+- `frontend/lib/api.ts` now imports auth response types from `lib/api-types.ts`, removing
+  hand-rolled mismatches for `/auth` endpoints.
+- Added `npm run generate:api` to regenerate the typed client from a running backend.
+- Updated `specs/frontend.md` and `specs/modules/auth.md`.
+
 ### Done — 2026-07-30 (TS-109: enforce plan seat limits)
 
 - `AuthService` now enforces workspace seat caps in `add_workspace_member`,

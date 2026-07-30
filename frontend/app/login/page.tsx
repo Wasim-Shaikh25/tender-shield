@@ -63,12 +63,8 @@ export default function LoginPage() {
           setMfaToken(login.mfa_token);
           setStep("otp");
         } else {
-          await signIn(login);
-          if (isNoWorkspace(login.workspace_id)) {
-            setStep("workspace");
-          } else {
-            router.push("/opportunities");
-          }
+          // The account-first flow always returns an MFA challenge from /login.
+          setError("Unexpected login response");
         }
       }
     } catch (err) {

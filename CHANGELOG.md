@@ -118,12 +118,23 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   typed API client; added `AccountSettings` type.
 - Updated `specs/frontend.md` with `/settings` structure, behavior B9, and acceptance A8.
 
+### Done — 2026-07-30 (TS-109: enforce plan seat limits)
+
+- `AuthService` now enforces workspace seat caps in `add_workspace_member`,
+  `create_invitation`, and `accept_invitation`.
+- A pending invitation reserves a seat; acceptance swaps it for an active member seat.
+- Billing module publishes `billing.seat_limits` from `plans.py` through the registry;
+  auth falls back to a hard-coded map if billing is disabled.
+- Fixed `accept_invitation` under account-level sessions by prefixing the dev/test token
+  with `workspace_id:<random>` so RLS can be bound to the invitation's workspace
+  before lookup.
+- Updated `specs/modules/auth.md` and `specs/modules/billing.md`.
+
 ### Next
 
 - TS-103 — regenerate the TypeScript API client from the updated OpenAPI schema and
   remove hand-rolled API response mismatches.
 - TS-108 — Observability (metrics, health probes, backup/rollback docs).
-- TS-109 — Enforce plan seat limits in `add_workspace_member` / `accept_invitation`.
 - TS-133..TS-162 — remaining medium/low audit follow-ups.
 
 ### Done — 2026-07-29 (TS-132: 61-finding implementation tracker)

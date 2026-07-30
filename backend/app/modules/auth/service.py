@@ -10,9 +10,10 @@ from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.db import bind_workspace_context
 from app.modules.auth import mfa
 from app.modules.auth import refresh as rf
 from app.modules.auth import security as sec
@@ -29,6 +30,9 @@ from app.modules.auth.models import (
     WorkspaceMember,
 )
 from app.modules.auth.rbac import ROLES, role_at_least
+
+# Fallback seat limits; billing module provides the canonical mapping via registry.
+_SEAT_LIMITS = {"free": 2, "paygo": 3, "pro": 10, "scale": 25}
 
 
 def _as_utc(dt: datetime | None) -> datetime | None:
@@ -56,6 +60,7 @@ class AuthService:
         access_ttl_min=15,
         refresh_ttl_days=30,
         sender: Any | None = None,
+        seat_limits: dict[str, int] | None = None,
     ):
         self.s = session
         self.keys = keys
@@ -63,6 +68,7 @@ class AuthService:
         self.access_ttl = timedelta(minutes=access_ttl_min)
         self.refresh_ttl = timedelta(days=refresh_ttl_days)
         self._sender = sender
+        self._seat_limits = seat_limits or _SEAT_LIMITS
 
     # ---- registration -----------------------------------------------------
     def signup(
@@ -324,6 +330,38 @@ class AuthService:
             )
         )
 
+    def _seat_limit(self, workspace_id) -> int | None:
+        workspace = self.s.get(Workspace, uuid.UUID(str(workspace_id)))
+        if not workspace:
+            raise AuthError("no_such_workspace")
+        return self._seat_limits.get(workspace.plan)
+
+    def _member_count(self, workspace_id) -> int:
+        return self.s.scalar(
+            select(func.count())
+            .select_from(WorkspaceMember)
+            .where(WorkspaceMember.workspace_id == uuid.UUID(str(workspace_id)))
+        ) or 0
+
+    def _pending_invitation_count(self, workspace_id) -> int:
+        return self.s.scalar(
+            select(func.count())
+            .select_from(Invitation)
+            .where(
+                Invitation.workspace_id == uuid.UUID(str(workspace_id)),
+                Invitation.used_at.is_(None),
+                Invitation.expires_at > datetime.now(UTC),
+            )
+        ) or 0
+
+    def _assert_seats_available(self, workspace_id, count: int = 1) -> None:
+        limit = self._seat_limit(workspace_id)
+        if limit is None:
+            return
+        used = self._member_count(workspace_id) + self._pending_invitation_count(workspace_id)
+        if used + count > limit:
+            raise AuthError("seat_limit_exceeded")
+
     def add_workspace_member(self, workspace_id, email: str, role: str) -> dict:
         if role not in ROLES:
             raise AuthError("bad_role")
@@ -340,6 +378,7 @@ class AuthService:
         if existing:
             existing.role = role
         else:
+            self._assert_seats_available(workspace_id)
             self.s.add(WorkspaceMember(workspace_id=workspace_id, user_id=user.id, role=role))
         self.s.commit()
         return {"workspace_id": str(workspace_id), "user_id": str(user.id), "role": role}
@@ -572,6 +611,7 @@ class AuthService:
             project = self.s.get(Project, project_uuid)
             if not project or project.workspace_id != workspace_id:
                 raise AuthError("no_such_project")
+        self._assert_seats_available(workspace_id)
         token = secrets.token_urlsafe(32)
         token_hash = hashlib.sha256(token.encode()).hexdigest()
         expires_at = datetime.now(UTC) + timedelta(days=7)
@@ -601,15 +641,30 @@ class AuthService:
         # In production invitations must be delivered by email/SMS.
         if self.settings and self.settings.is_prod():
             raise AuthError("email_not_configured")
-        # dev/test fallback: return the token so UI tests can proceed without email
-        return {"token": token, "expires_at": expires_at.isoformat()}
+        # dev/test fallback: return the token so UI tests can proceed without email.
+        # Prefix with workspace_id so the accept endpoint can bind RLS before lookup.
+        return {"token": f"{workspace_id}:{token}", "expires_at": expires_at.isoformat()}
 
     def accept_invitation(self, user_id, token: str) -> dict:
         user_id = uuid.UUID(str(user_id))
-        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        raw_token = token
+        workspace_id = None
+        if ":" in token:
+            try:
+                workspace_id = uuid.UUID(token.split(":", 1)[0])
+                raw_token = token.split(":", 1)[1]
+            except ValueError as exc:
+                raise AuthError("invalid_invitation") from exc
+        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+        # Bind to the invitation's workspace so RLS allows the lookup and member writes.
+        # For legacy tokens we rely on the caller's already-selected workspace context.
         invitation = self.s.scalar(select(Invitation).where(Invitation.token_hash == token_hash))
         if not invitation:
             raise AuthError("invalid_invitation")
+        if workspace_id and workspace_id != invitation.workspace_id:
+            raise AuthError("invalid_invitation")
+        workspace_id = invitation.workspace_id
+        bind_workspace_context(self.s, workspace_id, str(user_id))
         expires_at = invitation.expires_at
         if expires_at.tzinfo is None:
             expires_at = expires_at.replace(tzinfo=UTC)
@@ -631,6 +686,7 @@ class AuthService:
             )
         )
         if not existing:
+            self._assert_seats_available(invitation.workspace_id, count=0)
             self.s.add(
                 WorkspaceMember(
                     workspace_id=invitation.workspace_id,

@@ -8,13 +8,14 @@ import logging
 import secrets
 import uuid
 from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app.core.db import bind_workspace_context
+from app.core.db import Base, bind_workspace_context
 from app.modules.auth import mfa
 from app.modules.auth import refresh as rf
 from app.modules.auth import security as sec
@@ -1212,3 +1213,116 @@ class AuthService:
     def _revoke_family(self, family_id) -> None:
         for row in self.s.scalars(select(RefreshToken).where(RefreshToken.family_id == family_id)):
             row.revoked = True
+
+    # ---- data export / erasure (GDPR/DPDP) ----------------------------------
+
+    def _user_workspaces(self, user_id: uuid.UUID) -> set[uuid.UUID]:
+        """All workspace IDs this user owns or is a member of."""
+        ws_ids: set[uuid.UUID] = set()
+        for w in self.s.scalars(select(Workspace).where(Workspace.owner_id == user_id)):
+            ws_ids.add(w.id)
+        for m in self.s.scalars(select(WorkspaceMember).where(WorkspaceMember.user_id == user_id)):
+            ws_ids.add(m.workspace_id)
+        for m in self.s.scalars(select(ProjectMember).where(ProjectMember.user_id == user_id)):
+            ws_ids.add(m.workspace_id)
+        return ws_ids
+
+    def _export_value(self, value):
+        if isinstance(value, uuid.UUID):
+            return str(value)
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if isinstance(value, Decimal):
+            return float(value)
+        return value
+
+    def export_account_data(self, user_id: str) -> dict:
+        """Return a machine-readable account export for GDPR/DPDP portability."""
+        uid = uuid.UUID(str(user_id))
+        user = self.s.get(User, uid)
+        if not user:
+            raise AuthError("user_not_found")
+
+        export = {
+            "user": {
+                "id": str(user.id),
+                "email": user.email,
+                "phone": user.phone,
+                "org_name": user.org_name,
+                "dob": user.dob.isoformat() if user.dob else None,
+                "city": user.city,
+                "email_verified": user.email_verified,
+                "mobile_verified": user.mobile_verified,
+                "is_superadmin": user.is_superadmin,
+                "created_at": user.created_at.isoformat(),
+            },
+            "tables": {},
+        }
+
+        ws_ids = list(self._user_workspaces(uid))
+
+        for name, table in Base.metadata.tables.items():
+            if name == "users":
+                continue
+            rows: list[dict] = []
+            if "workspace_id" in table.columns:
+                stmt = select(table).where(table.c.workspace_id.in_(ws_ids))
+                for row in self.s.execute(stmt).mappings():
+                    rows.append({k: self._export_value(v) for k, v in row.items()})
+            if "user_id" in table.columns and name not in (
+                "workspace_members",
+                "project_members",
+            ):
+                stmt = select(table).where(table.c.user_id == uid)
+                for row in self.s.execute(stmt).mappings():
+                    rows.append({k: self._export_value(v) for k, v in row.items()})
+            if rows:
+                export["tables"][name] = rows
+
+        export["workspaces"] = [str(w) for w in ws_ids]
+        return export
+
+    def delete_account(self, user_id: str, password: str) -> None:
+        """Erase an account and all workspace-scoped data the user owns or can access.
+
+        Raises `AuthError("invalid_password")` if the password is wrong.
+        """
+        uid = uuid.UUID(str(user_id))
+        user = self.s.get(User, uid)
+        if not user:
+            raise AuthError("user_not_found")
+        if not sec.verify_password(password, user.password_hash):
+            raise AuthError("invalid_password")
+
+        ws_ids = self._user_workspaces(uid)
+        if ws_ids:
+            # Nullify self-referential foreign keys inside the workspace tables to avoid
+            # FK violations (e.g. documents.supersedes references another document).
+            for _name, table in Base.metadata.tables.items():
+                if "workspace_id" not in table.columns:
+                    continue
+                self_fks = [
+                    fk for fk in table.foreign_key_constraints
+                    if fk.referred_table is table
+                ]
+                for fk in self_fks:
+                    for col in fk.columns:
+                        self.s.execute(
+                            table.update()
+                            .where(table.c.workspace_id.in_(list(ws_ids)))
+                            .values({col.name: None})
+                        )
+
+            # RLS is workspace-scoped; set each workspace context and delete its rows.
+            for ws_id in ws_ids:
+                bind_workspace_context(self.s, ws_id, uid)
+                for _name, table in Base.metadata.tables.items():
+                    if "workspace_id" not in table.columns:
+                        continue
+                    self.s.execute(
+                        delete(table).where(table.c.workspace_id == ws_id)
+                    )
+
+        # The auth tables have ON DELETE CASCADE to users. Deleting the user row
+        # removes workspaces, projects, memberships, refresh tokens, etc.
+        self.s.delete(user)

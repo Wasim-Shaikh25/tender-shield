@@ -28,6 +28,8 @@ application-owner endpoints under `/api/auth/admin/*`.
   - `/api/auth/login`, `/api/auth/mfa/challenge`, `/api/auth/refresh`, `/api/auth/logout`, `/api/auth/me`
   - `/api/auth/forgot-password`, `/api/auth/reset-password`
   - `/api/auth/settings` (GET/PUT profile), `/api/auth/settings/password` (POST change password)
+  - `/api/auth/export` (POST) — GDPR/DPDP data portability export
+  - `/api/auth/account` (DELETE) — GDPR/DPDP account erasure
   - `/api/auth/workspaces` (create/list)
   - `/api/auth/workspaces/{id}/members` (add/list/change-role/remove)
   - `/api/auth/workspaces/{id}/projects` (create/list)
@@ -155,6 +157,13 @@ application-owner endpoints under `/api/auth/admin/*`.
   `/api/auth/workspaces` and `/api/auth/workspaces` create.
 - A28: `add_workspace_member`, `create_invitation`, and `accept_invitation` reject
   requests that would exceed the workspace plan's seat limit with `seat_limit_exceeded`.
+- A29: `POST /api/auth/export` returns a portable, machine-readable JSON export of the
+  caller's profile plus every workspace-scoped row they own or are a member of, and all
+  user-owned auth rows (refresh tokens, password resets, verifications). Used for GDPR/DPDP
+  portability requests.
+- A30: `DELETE /api/auth/account` requires the caller's password and `confirm=true`. It
+  deletes the user row and, before cascading, explicitly erases all workspace-scoped rows
+  in any workspace the user belongs to. This implements the GDPR/DPDP right to erasure.
 
 ## Out of scope
 

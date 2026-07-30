@@ -55,6 +55,7 @@ export default function AdminUserDetailPage() {
           <div><p className="text-xs text-slate-500">Phone</p><p className="text-sm font-medium">{user.phone} {user.mobile_verified && "(verified)"}</p></div>
           <div><p className="text-xs text-slate-500">Organisation</p><p className="text-sm font-medium">{user.org_name}</p></div>
           <div><p className="text-xs text-slate-500">City</p><p className="text-sm font-medium">{user.city}</p></div>
+          <div><p className="text-xs text-slate-500">Plan</p><p className="text-sm font-medium capitalize">{user.plan || "free"}</p></div>
           <div><p className="text-xs text-slate-500">DOB</p><p className="text-sm font-medium">{user.dob ?? "—"}</p></div>
           <div><p className="text-xs text-slate-500">Created</p><p className="text-sm font-medium">{user.created_at ?? "—"}</p></div>
         </div>

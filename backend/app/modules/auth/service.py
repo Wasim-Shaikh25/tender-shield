@@ -347,6 +347,8 @@ class AuthService:
         return {"workspace_id": str(workspace.id), "name": workspace.name}
 
     def list_workspaces(self, user_id) -> list[dict]:
+        user = self.s.get(User, uuid.UUID(str(user_id)))
+        plan = user.plan if user else "free"
         rows = self.s.execute(
             select(Workspace, WorkspaceMember)
             .join(WorkspaceMember, Workspace.id == WorkspaceMember.workspace_id)
@@ -358,7 +360,7 @@ class AuthService:
                 "name": ws.name,
                 "role": m.role,
                 "country": ws.country,
-                "plan": ws.plan,
+                "plan": plan,
             }
             for ws, m in rows
         ]
@@ -375,7 +377,8 @@ class AuthService:
         workspace = self.s.get(Workspace, uuid.UUID(str(workspace_id)))
         if not workspace:
             raise AuthError("no_such_workspace")
-        return self._seat_limits.get(workspace.plan)
+        owner = self.s.get(User, workspace.owner_id)
+        return self._seat_limits.get(owner.plan if owner else "free")
 
     def _member_count(self, workspace_id) -> int:
         return self.s.scalar(
@@ -1225,7 +1228,11 @@ class AuthService:
                 "workspace_id": str(w.id),
                 "name": w.name,
                 "owner_id": str(w.owner_id),
-                "plan": w.plan,
+                "plan": (
+                    self.s.get(User, w.owner_id).plan
+                    if self.s.get(User, w.owner_id)
+                    else "free"
+                ),
                 "country": w.country,
             }
             for w in self.s.scalars(select(Workspace)).all()
@@ -1332,7 +1339,7 @@ class AuthService:
             "slug": ws.slug,
             "owner_id": str(ws.owner_id),
             "owner_email": owner.email if owner else None,
-            "plan": ws.plan,
+            "plan": owner.plan if owner else "free",
             "country": ws.country,
             "billing_provider": ws.billing_provider,
             "member_count": len(members),
@@ -1343,8 +1350,11 @@ class AuthService:
         ws = self.s.get(Workspace, uuid.UUID(str(workspace_id)))
         if not ws:
             raise AuthError("no_such_workspace")
-        old = ws.plan
-        ws.plan = plan
+        owner = self.s.get(User, ws.owner_id)
+        if not owner:
+            raise AuthError("no_workspace_owner")
+        old = owner.plan
+        owner.plan = plan
         self.s.commit()
         self._audit(
             workspace_id=ws.id,
@@ -1352,7 +1362,7 @@ class AuthService:
             action="admin.workspace_plan_changed",
             object_type="workspace",
             object_id=ws.id,
-            detail={"old_plan": old, "new_plan": plan},
+            detail={"old_plan": old, "new_plan": plan, "owner_id": str(owner.id)},
         )
         return self.get_workspace_detail(workspace_id)
 
@@ -1390,6 +1400,7 @@ class AuthService:
             "email_verified": user.email_verified,
             "mobile_verified": user.mobile_verified,
             "is_superadmin": user.is_superadmin,
+            "plan": user.plan,
             "suspended_at": user.suspended_at.isoformat() if user.suspended_at else None,
             "created_at": user.created_at.isoformat() if user.created_at else None,
         }
@@ -1400,7 +1411,7 @@ class AuthService:
         for w in self.s.scalars(select(Workspace).where(Workspace.owner_id == user.id)):
             seen.add(w.id)
             workspaces.append(
-                {"workspace_id": str(w.id), "name": w.name, "role": "owner", "plan": w.plan}
+                {"workspace_id": str(w.id), "name": w.name, "role": "owner", "plan": user.plan}
             )
         for m in self.s.scalars(
             select(WorkspaceMember).where(WorkspaceMember.user_id == user.id)
@@ -1410,12 +1421,13 @@ class AuthService:
             ws = self.s.get(Workspace, m.workspace_id)
             if ws:
                 seen.add(ws.id)
+                owner = self.s.get(User, ws.owner_id)
                 workspaces.append(
                     {
                         "workspace_id": str(ws.id),
                         "name": ws.name,
                         "role": m.role,
-                        "plan": ws.plan,
+                        "plan": owner.plan if owner else "free",
                     }
                 )
         return {

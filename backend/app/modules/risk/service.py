@@ -39,7 +39,11 @@ class RiskService:
     def _is_paying(self, workspace_id) -> bool:
         if not self._workspace_factory:
             return False
-        return self._workspace_factory(self.session).is_paying(workspace_id)
+        admin = self._workspace_factory(self.session)
+        owner_id = admin.get_owner(workspace_id)
+        if owner_id is None:
+            return False
+        return admin.is_paying(owner_id)
 
     def _clauses(self, workspace_id, opportunity_id) -> list[dict]:
         if not self._ingestion_factory:

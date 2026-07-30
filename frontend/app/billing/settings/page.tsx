@@ -9,6 +9,7 @@ export default function BillingSettingsPage() {
   const { session, activeWorkspace } = useSession();
   const router = useRouter();
   const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
+  const [status, setStatus] = useState<{ plan: string } | null>(null);
   const [form, setForm] = useState({
     gstin: "",
     pan: "",
@@ -22,6 +23,7 @@ export default function BillingSettingsPage() {
 
   useEffect(() => {
     if (!session) return;
+    api.billingStatus(session.token).then((s) => setStatus(s)).catch(() => setStatus(null));
     api.getBillingSettings(session.token)
       .then((s) => {
         setSettings(s);
@@ -73,7 +75,7 @@ export default function BillingSettingsPage() {
       {message && <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">{message}</p>}
 
       <section className="rounded-xl border border-slate-200 bg-white p-6">
-        <p className="mb-4 text-sm text-slate-500">Workspace: {activeWorkspace?.name ?? "—"} (plan: {String(settings?.plan ?? "free")})</p>
+        <p className="mb-4 text-sm text-slate-500">Workspace: {activeWorkspace?.name ?? "—"} (plan: {status?.plan || "free"})</p>
         <form onSubmit={save} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>

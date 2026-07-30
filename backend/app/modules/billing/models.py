@@ -74,11 +74,12 @@ class Invoice(Base, WorkspaceScopedMixin):
     )
 
 
-class PlanHistory(Base, WorkspaceScopedMixin):
-    """Audit of workspace plan changes so users and admins can see billing history."""
+class PlanHistory(Base):
+    """Audit of user account plan changes so users and admins can see billing history."""
 
-    _tablename_ = "plan_history"
+    __tablename__ = "plan_history"
     id: Mapped[int] = mapped_column(_BigId, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
     old_plan: Mapped[str] = mapped_column(String, nullable=False)
     new_plan: Mapped[str] = mapped_column(String, nullable=False)
     changed_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)

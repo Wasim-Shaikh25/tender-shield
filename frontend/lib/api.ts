@@ -382,6 +382,7 @@ export type UserDetail = {
   email_verified: boolean;
   mobile_verified: boolean;
   is_superadmin: boolean;
+  plan: string;
   suspended_at: string | null;
   created_at: string | null;
   dob: string | null;

@@ -183,7 +183,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-103 | Align `/auth/workspaces` response contract with the frontend client; generate the TS client from OpenAPI | audit TS-F01; Doc §9 | `specs/frontend.md` (update) | todo |
 | TS-104 | Rate limiting: wall-clock Redis scores, unique members, `X-Forwarded-For` with configured hop count | audit TS-O01; Doc §11.3 | `specs/modules/core.md` (update) | done |
 | TS-105 | Webhook atomicity: claim the idempotency marker first, single transaction, unique constraint | audit TS-B02; Doc §15.5 | `specs/modules/billing.md` (update) | done |
-| TS-106 | Team-management UI: invite, list, change role, remove member; member removal + invitation revocation API | audit §3.5 items 1, 3; Doc §5, §9 | `specs/frontend.md`, `specs/modules/auth.md` (update) | todo |
+| TS-106 | Team-management UI: invite, list, change role, remove member; member removal + invitation revocation API | audit §3.5 items 1, 3; Doc §5, §9 | `specs/frontend.md`, `specs/modules/auth.md` (update) | done |
 | TS-107 | Account & security settings UI: change password, MFA enrolment, resend verification, session list | audit §3.5 item 2; Doc §5, §9 | `specs/frontend.md` (update) | done |
 | TS-108 | Observability: metrics, error tracking, dependency-checking health probes, documented backup/rollback | audit TS-O02; Doc §16 | `specs/modules/health.md` (update) | todo |
 | TS-109 | Enforce plan seat limits in `add_workspace_member` and `accept_invitation` | audit TS-B03; Doc §7 | `specs/modules/billing.md` (update) | todo |

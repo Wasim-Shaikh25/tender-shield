@@ -36,6 +36,7 @@ export function HeaderActions() {
       {session.is_superadmin && (
         <Link href="/admin" className="text-slate-600 hover:text-ink">Admin</Link>
       )}
+      <Link href="/team" className="text-slate-600 hover:text-ink">Team</Link>
       <Link href="/settings" className="text-slate-600 hover:text-ink">Settings</Link>
       <Link href="/billing" className="text-slate-600 hover:text-ink">Billing</Link>
       <button

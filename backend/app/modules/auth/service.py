@@ -28,7 +28,7 @@ from app.modules.auth.models import (
     Workspace,
     WorkspaceMember,
 )
-from app.modules.auth.rbac import ROLES
+from app.modules.auth.rbac import ROLES, role_at_least
 
 
 def _as_utc(dt: datetime | None) -> datetime | None:
@@ -358,6 +358,125 @@ class AuthService:
             {"user_id": str(user.id), "email": user.email, "role": member.role}
             for member, user in rows
         ]
+
+    def _assert_can_manage_member(
+        self,
+        workspace_id,
+        actor_user_id,
+        target_user_id,
+        target_role: str | None = None,
+    ) -> User:
+        workspace_uuid = uuid.UUID(str(workspace_id))
+        actor = self.s.get(User, uuid.UUID(str(actor_user_id)))
+        if not actor or not (
+            actor.is_superadmin or self._workspace_member(workspace_uuid, actor_user_id)
+        ):
+            raise AuthError("not_workspace_member")
+        actor_member = self.s.scalar(
+            select(WorkspaceMember).where(
+                WorkspaceMember.workspace_id == workspace_uuid,
+                WorkspaceMember.user_id == actor.id,
+            )
+        )
+        actor_role = (
+            actor_member.role
+            if actor_member
+            else ("owner" if actor.is_superadmin else "viewer")
+        )
+        if actor.is_superadmin:
+            return actor
+        if not role_at_least(actor_role, "admin"):
+            raise AuthError("insufficient_role")
+        if target_role is not None and not role_at_least(actor_role, target_role):
+            raise AuthError("insufficient_role")
+        if str(actor_user_id) == str(target_user_id):
+            raise AuthError("cannot_manage_self")
+        return actor
+
+    def change_workspace_member_role(
+        self, workspace_id, member_user_id, new_role: str, actor_user_id
+    ) -> dict:
+        if new_role not in ROLES:
+            raise AuthError("bad_role")
+        self._assert_can_manage_member(workspace_id, actor_user_id, member_user_id, new_role)
+        workspace_uuid = uuid.UUID(str(workspace_id))
+        member = self.s.scalar(
+            select(WorkspaceMember).where(
+                WorkspaceMember.workspace_id == workspace_uuid,
+                WorkspaceMember.user_id == uuid.UUID(str(member_user_id)),
+            )
+        )
+        if not member:
+            raise AuthError("no_such_user")
+        member.role = new_role
+        self.s.commit()
+        return {"user_id": str(member.user_id), "role": new_role}
+
+    def remove_workspace_member(self, workspace_id, member_user_id, actor_user_id) -> dict:
+        self._assert_can_manage_member(workspace_id, actor_user_id, member_user_id)
+        workspace_uuid = uuid.UUID(str(workspace_id))
+        member = self.s.scalar(
+            select(WorkspaceMember).where(
+                WorkspaceMember.workspace_id == workspace_uuid,
+                WorkspaceMember.user_id == uuid.UUID(str(member_user_id)),
+            )
+        )
+        if not member:
+            raise AuthError("no_such_user")
+        self.s.delete(member)
+        self.s.commit()
+        return {"ok": True}
+
+    def list_invitations(self, workspace_id, actor_user_id) -> list[dict]:
+        workspace_uuid = uuid.UUID(str(workspace_id))
+        actor = self.s.get(User, uuid.UUID(str(actor_user_id)))
+        if not actor or not (
+            actor.is_superadmin or self._workspace_member(workspace_uuid, actor_user_id)
+        ):
+            raise AuthError("not_workspace_member")
+        rows = self.s.scalars(
+            select(Invitation).where(
+                Invitation.workspace_id == workspace_uuid,
+                Invitation.used_at.is_(None),
+                Invitation.expires_at > datetime.now(UTC),
+            )
+        ).all()
+        return [
+            {
+                "invitation_id": str(row.id),
+                "email": row.email,
+                "role": row.role,
+                "project_id": str(row.project_id) if row.project_id else None,
+                "expires_at": row.expires_at.isoformat(),
+            }
+            for row in rows
+        ]
+
+    def revoke_invitation(self, invitation_id, actor_user_id) -> dict:
+        invitation = self.s.get(Invitation, uuid.UUID(str(invitation_id)))
+        if not invitation:
+            raise AuthError("invalid_invitation")
+        actor = self.s.get(User, uuid.UUID(str(actor_user_id)))
+        if not actor or not (
+            actor.is_superadmin or self._workspace_member(invitation.workspace_id, actor_user_id)
+        ):
+            raise AuthError("not_workspace_member")
+        actor_member = self.s.scalar(
+            select(WorkspaceMember).where(
+                WorkspaceMember.workspace_id == invitation.workspace_id,
+                WorkspaceMember.user_id == actor.id,
+            )
+        )
+        actor_role = (
+            actor_member.role
+            if actor_member
+            else ("owner" if actor.is_superadmin else "viewer")
+        )
+        if not actor.is_superadmin and not role_at_least(actor_role, "admin"):
+            raise AuthError("insufficient_role")
+        self.s.delete(invitation)
+        self.s.commit()
+        return {"ok": True}
 
     def create_project(self, user_id, workspace_id, name: str, status: str = "planning") -> dict:
         workspace_id = uuid.UUID(str(workspace_id))

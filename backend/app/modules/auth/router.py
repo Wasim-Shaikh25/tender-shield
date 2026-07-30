@@ -177,6 +177,10 @@ class CreateInvitationBody(BaseModel):
     project_id: str | None = None
 
 
+class ChangeRoleBody(BaseModel):
+    role: str
+
+
 class MfaEnrollBody(BaseModel):
     method: str = Field(default="totp", pattern="^(totp|email|sms)$")
     phone: str | None = None
@@ -219,6 +223,8 @@ _STATUS = {
     "no_such_project": 400,
     "bad_role": 400,
     "not_workspace_member": 403,
+    "insufficient_role": 403,
+    "cannot_manage_self": 400,
     "bad_mfa_method": 400,
     "mfa_not_enrolled": 400,
     "mfa_invalid": 401,
@@ -524,6 +530,41 @@ def list_workspace_members(
     )
 
 
+@router.put("/workspaces/{workspace_id}/members/{user_id}")
+def change_workspace_member_role(
+    workspace_id: str,
+    user_id: str,
+    body: ChangeRoleBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require("admin")),
+):
+    if not principal_requires_verified(principal):
+        raise HTTPException(403, "email_not_verified")
+    return _handle(
+        lambda: _service(request, session).change_workspace_member_role(
+            workspace_id, user_id, body.role, principal.user_id
+        )
+    )
+
+
+@router.delete("/workspaces/{workspace_id}/members/{user_id}")
+def remove_workspace_member(
+    workspace_id: str,
+    user_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require("admin")),
+):
+    if not principal_requires_verified(principal):
+        raise HTTPException(403, "email_not_verified")
+    return _handle(
+        lambda: _service(request, session).remove_workspace_member(
+            workspace_id, user_id, principal.user_id
+        )
+    )
+
+
 @router.post("/workspaces/{workspace_id}/projects")
 def create_project(
     workspace_id: str,
@@ -603,6 +644,35 @@ def accept_invitation(
     principal: Principal = Depends(current_principal),
 ):
     return _handle(lambda: _service(request, session).accept_invitation(principal.user_id, token))
+
+
+@router.get("/invitations")
+def list_invitations(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require("admin")),
+):
+    return _handle(
+        lambda: _service(request, session).list_invitations(
+            principal.workspace_id, principal.user_id
+        )
+    )
+
+
+@router.delete("/invitations/{invitation_id}")
+def revoke_invitation(
+    invitation_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require("admin")),
+):
+    if not principal_requires_verified(principal):
+        raise HTTPException(403, "email_not_verified")
+    return _handle(
+        lambda: _service(request, session).revoke_invitation(
+            invitation_id, principal.user_id
+        )
+    )
 
 
 # ---- MFA -----------------------------------------------------------------

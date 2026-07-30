@@ -151,6 +151,20 @@ export const api = {
     req<AccountSettings>("/auth/settings", { method: "PUT", body: JSON.stringify(body) }, token),
   changePassword: (token: string, body: { current_password: string; new_password: string; confirm_password: string }) =>
     req<{ ok: boolean }>("/auth/settings/password", { method: "POST", body: JSON.stringify(body) }, token),
+  listWorkspaceMembers: (token: string, workspace_id: string) =>
+    req<{ user_id: string; email: string; role: string }[]>(`/auth/workspaces/${workspace_id}/members`, {}, token),
+  addWorkspaceMember: (token: string, workspace_id: string, body: { email: string; role: string }) =>
+    req<{ user_id: string; email: string; role: string }>(`/auth/workspaces/${workspace_id}/members`, { method: "POST", body: JSON.stringify(body) }, token),
+  changeWorkspaceMemberRole: (token: string, workspace_id: string, user_id: string, role: string) =>
+    req<{ user_id: string; role: string }>(`/auth/workspaces/${workspace_id}/members/${user_id}`, { method: "PUT", body: JSON.stringify({ role }) }, token),
+  removeWorkspaceMember: (token: string, workspace_id: string, user_id: string) =>
+    req<{ ok: boolean }>(`/auth/workspaces/${workspace_id}/members/${user_id}`, { method: "DELETE" }, token),
+  listInvitations: (token: string) =>
+    req<{ invitation_id: string; email: string; role: string; project_id?: string | null; expires_at: string }[]>("/auth/invitations", {}, token),
+  createInvitation: (token: string, body: { email: string; role: string; project_id?: string }) =>
+    req<{ token?: string; expires_at: string; ok?: boolean }>("/auth/invitations", { method: "POST", body: JSON.stringify(body) }, token),
+  revokeInvitation: (token: string, invitation_id: string) =>
+    req<{ ok: boolean }>(`/auth/invitations/${invitation_id}`, { method: "DELETE" }, token),
   createWorkspace: (token: string, body: { name: string; country?: string }) =>
     req<{ workspace_id: string; name: string }>("/auth/workspaces", {
       method: "POST",

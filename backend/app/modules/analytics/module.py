@@ -1,3 +1,4 @@
+import app.modules.analytics.models  # noqa: F401
 from app.core.module import AppContext, ModuleSpec
 from app.modules.analytics.router import router
 from app.modules.analytics.service import AnalyticsService

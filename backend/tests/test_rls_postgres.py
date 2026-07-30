@@ -9,7 +9,7 @@ import uuid
 
 import pytest
 from sqlalchemy import select, text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.config import Settings
@@ -91,7 +91,7 @@ def test_rls_blocks_cross_workspace_write(pg_engine):
     with factory() as s:
         bind_workspace_context(s, ws_a)
         s.add(_RlsSample(id=uuid.uuid4(), workspace_id=ws_b, label="x"))
-        with pytest.raises(IntegrityError):  # WITH CHECK violation
+        with pytest.raises((IntegrityError, ProgrammingError)):  # WITH CHECK / RLS violation
             s.commit()
 
 

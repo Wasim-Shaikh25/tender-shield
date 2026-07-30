@@ -29,6 +29,13 @@ def setup(ctx: AppContext) -> None:
             if "seats" in limits
         },
     )
+    # Let auth/admin record plan changes in billing's plan_history ledger.
+    reg.provide(
+        "billing.set_workspace_plan",
+        lambda session, workspace_id, new_plan, changed_by, reason=None: BillingService(
+            session, workspace_factory=reg.get("auth.workspace_factory")
+        ).set_workspace_plan(workspace_id, new_plan, changed_by, reason=reason),
+    )
     # Payment-provider adapters are selected by name; live keys are credential-gated.
     reg.provide("billing.provider_factory", lambda provider: get_provider(ctx.settings, provider))
 

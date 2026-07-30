@@ -85,9 +85,10 @@ export default function AdminDashboardPage() {
         </ul>
       </section>
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <Link href="/admin/users" className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white">All users</Link>
         <Link href="/admin/audit-log" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Audit log</Link>
+        <Link href="/admin/coupons" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Coupons</Link>
       </div>
     </div>
   );

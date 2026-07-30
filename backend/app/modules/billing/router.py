@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -5,7 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core import audit as audit_log
-from app.core.deps import get_session, require
+from app.core.deps import current_principal, get_session, require
 from app.core.pagination import PaginationParams, paginated_list_response
 from app.core.ratelimit import RateLimitDep
 from app.modules.billing.plans import PAYGO_PRICE_INR_PAISE, SUBSCRIPTION_PRICES, PaywallError
@@ -13,6 +14,12 @@ from app.modules.billing.providers import BillingError
 from app.modules.billing.service import BillingService
 
 router = APIRouter()
+
+
+def _superadmin(principal: Any = Depends(current_principal)) -> Any:
+    if not principal.is_superadmin:
+        raise HTTPException(403, "superadmin_required")
+    return principal
 
 
 def _service(request: Request, session: Session) -> BillingService:
@@ -40,6 +47,18 @@ class CheckoutBody(BaseModel):
     plan: str | None = None
     opportunity_id: str | None = None
     amount_minor: int | None = None
+    coupon_code: str | None = None
+
+
+class CouponBody(BaseModel):
+    code: str
+    discount_type: str  # percent | fixed
+    discount_value: int
+    currency: str | None = "INR"
+    max_uses: int | None = None
+    valid_from: str | None = None
+    valid_until: str | None = None
+    active: bool = True
 
 
 class BillingSettingsBody(BaseModel):
@@ -85,15 +104,30 @@ def checkout(
     else:
         raise HTTPException(400, "unknown_checkout_kind")
 
-    if body.amount_minor is not None and body.amount_minor != expected:
-        raise HTTPException(400, "amount_mismatch")
     amount = expected
+    if body.coupon_code:
+        try:
+            amount, _ = svc.apply_coupon(body.coupon_code.upper().strip(), expected, currency)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        if amount <= 0:
+            raise HTTPException(400, "coupon_makes_amount_zero")
 
-    notes = {"workspace_id": str(principal.workspace_id), "kind": body.kind}
+    if body.amount_minor is not None and body.amount_minor != amount:
+        raise HTTPException(400, "amount_mismatch")
+
+    notes = {
+        "workspace_id": str(principal.workspace_id),
+        "kind": body.kind,
+        "original_amount_minor": expected,
+        "amount_minor": amount,
+    }
     if body.opportunity_id:
         notes["opportunity_id"] = body.opportunity_id
     if body.plan:
         notes["plan"] = body.plan
+    if body.coupon_code:
+        notes["coupon_code"] = body.coupon_code.upper().strip()
 
     chosen_provider = body.provider
     if not chosen_provider:
@@ -126,6 +160,7 @@ def checkout(
             "plan": body.plan,
             "amount_minor": amount,
             "currency": currency,
+            "coupon_code": body.coupon_code,
         },
     )
     return result
@@ -170,6 +205,121 @@ def list_invoices(
         for inv in _service(request, session).list_invoices(principal.workspace_id)
     ]
     return {"invoices": paginated_list_response(items, page, response)}
+
+
+@router.get("/payments")
+def list_payments(
+    request: Request,
+    response: Response,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+    page: PaginationParams = Depends(),
+):
+    items = [
+        {
+            "id": p.id,
+            "provider": p.provider,
+            "provider_event_id": p.provider_event_id,
+            "event_type": p.event_type,
+            "amount_minor": p.amount_minor,
+            "currency": p.currency,
+            "status": p.status,
+            "created_at": p.at.isoformat(),
+        }
+        for p in _service(request, session).list_payments(principal.workspace_id)
+    ]
+    return {"payments": paginated_list_response(items, page, response)}
+
+
+@router.get("/plan-history")
+def list_plan_history(
+    request: Request,
+    response: Response,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+    page: PaginationParams = Depends(),
+):
+    items = [
+        {
+            "id": h.id,
+            "old_plan": h.old_plan,
+            "new_plan": h.new_plan,
+            "changed_by": str(h.changed_by) if h.changed_by else None,
+            "reason": h.reason,
+            "created_at": h.created_at.isoformat(),
+        }
+        for h in _service(request, session).list_plan_history(principal.workspace_id)
+    ]
+    return {"history": paginated_list_response(items, page, response)}
+
+
+@router.get("/coupons")
+def list_coupons(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(_superadmin),
+):
+    return {
+        "coupons": [
+            {
+                "id": str(c.id),
+                "code": c.code,
+                "discount_type": c.discount_type,
+                "discount_value": c.discount_value,
+                "currency": c.currency,
+                "max_uses": c.max_uses,
+                "uses_count": c.uses_count,
+                "valid_from": c.valid_from.isoformat() if c.valid_from else None,
+                "valid_until": c.valid_until.isoformat() if c.valid_until else None,
+                "active": c.active,
+                "created_at": c.created_at.isoformat(),
+            }
+            for c in _service(request, session).list_coupons()
+        ]
+    }
+
+
+@router.post("/coupons")
+def create_coupon(
+    body: CouponBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(_superadmin),
+):
+    def _parse(dt: str | None) -> datetime | None:
+        if not dt:
+            return None
+        parsed = datetime.fromisoformat(dt.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        return parsed
+
+    try:
+        coupon = _service(request, session).create_coupon(
+            {
+                **body.model_dump(exclude_none=True),
+                "valid_from": _parse(body.valid_from),
+                "valid_until": _parse(body.valid_until),
+            },
+            created_by=principal.user_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"id": str(coupon.id), "code": coupon.code}
+
+
+@router.delete("/coupons/{code}")
+def delete_coupon(
+    code: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(_superadmin),
+):
+    try:
+        _service(request, session).delete_coupon(code)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"ok": True}
 
 
 @router.get("/settings")

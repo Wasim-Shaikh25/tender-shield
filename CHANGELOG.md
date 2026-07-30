@@ -6,6 +6,25 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-30 (TS-183: billing/payment UI and admin/billing API mapping)
+
+- Added `Coupon` and `PlanHistory` models, Alembic migration, and RLS policy for
+  `plan_history`.
+- New billing endpoints:
+  - `GET /api/billing/payments`, `GET /api/billing/plan-history`
+  - `GET /api/billing/coupons`, `POST /api/billing/coupons`,
+    `DELETE /api/billing/coupons/{code}`
+  - `POST /api/billing/checkout` now accepts `coupon_code` and applies the discount
+    to the server-owned price; coupon is re-validated on Razorpay/Stripe webhooks.
+- `BillingService.set_workspace_plan` records every plan change in `plan_history`;
+  registered as `billing.set_workspace_plan` capability for auth/admin plan updates.
+- Webhook plan changes (subscription charged/activated/halted/cancelled) write
+  `plan_history` rows.
+- Frontend: `/billing` page now has tabs for Overview, Invoices, Payments, and Plan
+  History with a coupon input on the dashboard card; added `/admin/coupons` page.
+- Updated `specs/modules/billing.md` with coupon, plan history, and payment history
+  acceptance criteria.
+
 ### Done — 2026-07-30 (TS-182: persistent logs with Loki + Grafana)
 
 - Write JSON access logs and application logs to rotating files via

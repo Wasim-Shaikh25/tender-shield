@@ -72,6 +72,8 @@ None (core owns no business tables).
   and falls back to the transport peer.
 - **B8 (storage adapter):** `Storage` supports local files and S3 via
   `TS_STORAGE_TYPE`; S3 uses per-workspace prefixes and presigned GET URLs.
+  `LocalStorage` reads/writes/deletes run in the default executor so they do not
+  block the async event loop.
 - **B9 (filename sanitization):** uploaded filenames are reduced to their basename,
   stripped of control characters, path separators, quotes, and other dangerous
   punctuation before being used as a storage key or in a `Content-Disposition`

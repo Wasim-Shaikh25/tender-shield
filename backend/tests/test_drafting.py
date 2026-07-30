@@ -71,6 +71,7 @@ def client():
 def _auth(client):
     return auth_headers(client, "dr@x.com")
 
+
 def _opp_with_findings(client, headers):
     opp_id = client.post(
         "/api/ingestion/opportunities", json={"title": "Bridge"}, headers=headers
@@ -104,7 +105,9 @@ def test_generate_bid_decision(client):
         "findings"
     ]:
         client.post(
-            f"/api/review/findings/{f['id']}", json={"decision": "accepted"}, headers=headers
+            f"/api/review/findings/{f['id']}",
+            json={"opportunity_id": opp_id, "decision": "accepted"},
+            headers=headers,
         )
 
     resp = client.post(
@@ -130,7 +133,9 @@ def test_generate_after_accept_and_version_bump(client):
         "findings"
     ]:
         client.post(
-            f"/api/review/findings/{f['id']}", json={"decision": "accepted"}, headers=headers
+            f"/api/review/findings/{f['id']}",
+            json={"opportunity_id": opp_id, "decision": "accepted"},
+            headers=headers,
         )
 
     a1 = client.post(

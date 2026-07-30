@@ -50,7 +50,15 @@ class ReviewService:
         return self._store().list(workspace_id, opportunity_id)
 
     def review_finding(
-        self, workspace_id, finding_id, *, decision, note=None, review_reason=None, reviewer_id=None
+        self,
+        workspace_id,
+        finding_id,
+        *,
+        decision,
+        note=None,
+        review_reason=None,
+        reviewer_id=None,
+        opportunity_id=None,
     ) -> object:
         if decision not in DECISIONS:
             raise ReviewError("bad_decision")
@@ -61,6 +69,7 @@ class ReviewService:
             note=note,
             review_reason=review_reason,
             reviewer_id=reviewer_id,
+            opportunity_id=opportunity_id,
         )
         if row is None:
             raise ReviewError("not_found")
@@ -96,7 +105,17 @@ class ReviewService:
         }
 
     def audit_trail(self, workspace_id, opportunity_id=None) -> list[AuditLog]:
+        opp = uuid.UUID(str(opportunity_id)) if opportunity_id else None
         stmt = select(AuditLog).where(AuditLog.workspace_id == uuid.UUID(str(workspace_id)))
+        if opp is not None:
+            # Audit logs for an opportunity are those whose finding object is in
+            # the opportunity. We load the finding IDs via the findings store.
+            rows = self._store().list(workspace_id, opportunity_id)
+            finding_ids = {r.id for r in rows}
+            stmt = stmt.where(
+                AuditLog.object_type == "finding",
+                AuditLog.object_id.in_(finding_ids),
+            )
         return list(self.s.scalars(stmt.order_by(AuditLog.id.desc())))
 
     def last_reviewer(self, workspace_id, opportunity_id) -> dict | None:

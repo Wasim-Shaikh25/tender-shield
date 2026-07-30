@@ -34,6 +34,7 @@ def client():
 def _auth(client):
     return auth_headers(client, "cmp@x.com")
 
+
 def _opp_with_bid_decision(client, headers, title, due_date_text):
     opp_id = client.post(
         "/api/ingestion/opportunities", json={"title": title}, headers=headers
@@ -55,7 +56,7 @@ def _opp_with_bid_decision(client, headers, title, due_date_text):
     ]:
         client.post(
             f"/api/review/findings/{f['id']}",
-            json={"decision": "accepted"},
+            json={"opportunity_id": opp_id, "decision": "accepted"},
             headers=headers,
         )
     client.post(

@@ -213,10 +213,10 @@ export const api = {
       { method: "POST", body: JSON.stringify({ opportunity_id: opportunityId, message }) },
       token
     ),
-  reviewFinding: (token: string, findingId: string, decision: string, note?: string) =>
+  reviewFinding: (token: string, opportunityId: string, findingId: string, decision: string, note?: string) =>
     req<{ id: string; review_status: string }>(
       `/review/findings/${findingId}`,
-      { method: "POST", body: JSON.stringify({ decision, note }) },
+      { method: "POST", body: JSON.stringify({ opportunity_id: opportunityId, decision, note }) },
       token
     ),
   gate: (token: string, id: string) =>

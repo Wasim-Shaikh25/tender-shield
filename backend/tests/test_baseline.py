@@ -70,6 +70,7 @@ def client():
 def _auth(client):
     return auth_headers(client, "b@x.com")
 
+
 def _opp_with_findings(client, headers):
     opp_id = client.post(
         "/api/ingestion/opportunities", json={"title": "Metro Depot"}, headers=headers
@@ -88,7 +89,11 @@ def _accept_all(client, headers, opp_id, decision="accepted"):
         "findings"
     ]
     for f in queue:
-        client.post(f"/api/review/findings/{f['id']}", json={"decision": decision}, headers=headers)
+        client.post(
+            f"/api/review/findings/{f['id']}",
+            json={"opportunity_id": opp_id, "decision": decision},
+            headers=headers,
+        )
     return queue
 
 

@@ -120,20 +120,20 @@ class LocalStorage:
 
     async def write(self, key: str, data: bytes, content_type: str) -> str:
         path = self.root / key
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(data)
+        await asyncio.to_thread(path.parent.mkdir, parents=True, exist_ok=True)
+        await asyncio.to_thread(path.write_bytes, data)
         return str(path.relative_to(self.root))
 
     async def read(self, key: str) -> bytes:
         path = self.root / key
-        if not path.exists():
+        if not await asyncio.to_thread(path.exists):
             raise StorageError("file_not_found")
-        return path.read_bytes()
+        return await asyncio.to_thread(path.read_bytes)
 
     async def delete(self, key: str) -> None:
         path = self.root / key
-        if path.exists():
-            path.unlink()
+        if await asyncio.to_thread(path.exists):
+            await asyncio.to_thread(path.unlink)
 
     async def url(self, key: str, *, expiry_seconds: int = 3600) -> str | None:
         return None

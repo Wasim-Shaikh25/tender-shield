@@ -60,8 +60,9 @@ None (core owns no business tables).
 - **B4 (discovery):** modules are discovered from `app/modules/*` packages
   containing `module.py`; explicit `TS_ENABLED_MODULES` wins over discovery.
 - **B5 (production startup guard):** `create_app` raises if `TS_ENV=prod` and
-  required secrets (`TS_RAZORPAY_WEBHOOK_SECRET`, JWT keys) or wildcard
-  CORS/allowed-hosts are present.
+  required secrets (`TS_RAZORPAY_WEBHOOK_SECRET`, JWT keys) are missing or if
+  any CORS origin or allowed host is a wildcard (`*` ), including values hidden in
+  a comma-separated list.
 - **B6 (security headers):** every HTTP response carries `X-Content-Type-Options`,
   `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and CSP.
 - **B7 (rate limiting):** public routes can declare per-IP limits; storage is
@@ -71,6 +72,10 @@ None (core owns no business tables).
   and falls back to the transport peer.
 - **B8 (storage adapter):** `Storage` supports local files and S3 via
   `TS_STORAGE_TYPE`; S3 uses per-workspace prefixes and presigned GET URLs.
+- **B9 (filename sanitization):** uploaded filenames are reduced to their basename,
+  stripped of control characters, path separators, quotes, and other dangerous
+  punctuation before being used as a storage key or in a `Content-Disposition`
+  header. File downloads quote the filename and escape embedded quotes.
 
 ## Acceptance criteria
 

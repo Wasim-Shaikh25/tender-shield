@@ -252,7 +252,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-141 | Cross-reference search loads all clauses regardless of limit | audit TS-A11; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/crossref.md` (update) | todo |
 | TS-142 | Confirm_deadline does not verify the deadline belongs to the opportunity | audit TS-I06; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | todo |
 | TS-143 | Baseline freeze has a race condition on version numbering | audit TS-B05; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/baseline.md` (update) | todo |
-| TS-144 | Uploaded filename can inject Content-Disposition header in file download | audit TS-S03; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/core.md` (update) | todo |
+| TS-144 | Uploaded filename can inject Content-Disposition header in file download | audit TS-S03; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/core.md` (update) | done |
 | TS-145 | Assistant agent has no output guard and includes user prompt verbatim | audit TS-A13; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/assistant.md` (update) | todo |
 | TS-146 | Notifications deadline-alert scheduler calls a missing WorkspaceAdmin method | audit TS-N02; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/notifications.md` (update) | todo |
 | TS-147 | Register_document accepts unbounded sample_text and processes it synchronously | audit TS-I07; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | todo |
@@ -262,7 +262,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-151 | Artifact.version uses a non-atomic read-modify-write increment | audit TS-B06; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/drafting.md` (update) | todo |
 | TS-152 | Timeline ICS export appends Z to naive or local datetimes; synthetic tender_published uses created_at | audit TS-D03; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/timeline.md` (update) | todo |
 | TS-153 | LocalStorage async methods perform synchronous file I/O | audit TS-S04; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/core.md` (update) | todo |
-| TS-154 | Production guard for CORS and allowed hosts can be bypassed with a comma-separated wildcard | audit TS-O05; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/core.md` (update) | todo |
+| TS-154 | Production guard for CORS and allowed hosts can be bypassed with a comma-separated wildcard | audit TS-O05; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/core.md` (update) | done |
 | TS-155 | Stripe checkout uses hardcoded example.com redirect URLs | audit TS-B07; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/billing.md` (update) | todo |
 | TS-156 | Stripe webhook verifier swallows all exceptions and returns None | audit TS-B08; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/billing.md` (update) | todo |
 | TS-157 | Tus endpoints perform synchronous file I/O and OPTIONS returns a non-compliant empty body | audit TS-I09; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | todo |

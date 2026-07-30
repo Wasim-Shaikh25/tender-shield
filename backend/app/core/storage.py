@@ -11,11 +11,28 @@ import hashlib
 import logging
 import mimetypes
 import pathlib
+import re
 from typing import Any, Protocol
 
 from app.core.config import Settings
 
 logger = logging.getLogger(__name__)
+
+
+def sanitize_filename(name: str) -> str:
+    """Return a filename safe for storage keys and HTTP Content-Disposition.
+
+    Removes path separators, control characters, CR/LF, quotes, and semicolons to
+    prevent response-splitting / header-injection attacks.
+    """
+    # Take only the basename; collapse path traversal attempts.
+    base = pathlib.Path(name).name
+    # Remove control characters and known dangerous punctuation.
+    base = re.sub(r"[\x00-\x1f\x7f\"';%?#&=\\]", "", base)
+    # Collapse whitespace and ensure the result is non-empty.
+    base = base.strip() or "file"
+    return base
+
 
 ALLOWED_UPLOAD_EXTENSIONS = {
     ".pdf",
@@ -264,9 +281,7 @@ async def validate_and_store(
 
     # Derive a safe key: workspace-scoped to avoid collisions/exposure.
     digest = hashlib.sha256(data).hexdigest()
-    safe_name = pathlib.Path(filename).name
-    # strip any leading dots / path traversal
-    safe_name = pathlib.Path(safe_name).name
+    safe_name = sanitize_filename(filename)
     prefix = f"workspace/{workspace_id}/" if workspace_id else "uploads/"
     key = f"{prefix}{digest[:16]}-{safe_name}"
 

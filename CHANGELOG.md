@@ -154,9 +154,21 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Updated `specs/modules/notifications.md`, `tasks/backlog.md`, and added
   `tests/test_notifications.py`.
 
+### Done — 2026-07-30 (TS-112: shared prompt-injection guard for LLM call sites)
+
+- Added `app.core.prompt_guard` with `looks_like_injection`, `sanitize_message`,
+  and `delimit_untrusted` helpers used by all LLM call sites.
+- `assistant/agent.py` now sanitizes user input and wraps both the user query and
+  tool results in XML-style delimiters before calling Anthropic.
+- `risk/classifier.py` skips classification when a rulepack pattern prompt
+  matches common override/jailbreak patterns, and wraps all tender clause text
+  in `<clauses>` delimiters.
+- Added `tests/test_prompt_guard.py` with adversarial test fixtures.
+- Updated `specs/modules/core.md`, `specs/modules/assistant.md`, `specs/modules/risk.md`,
+  and `tasks/backlog.md`.
+
 ### Next
 
-- TS-112 — broader prompt-injection hardening and adversarial eval fixtures.
 - TS-114 — remove cross-module FK `findings.opportunity_id → opportunities`; add a
   metadata architecture test.
 - TS-116 — complete audit-log events for auth, membership, billing, and data-export actions.

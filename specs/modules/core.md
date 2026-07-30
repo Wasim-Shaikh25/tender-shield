@@ -84,6 +84,10 @@ None (core owns no business tables).
   daemon when `TS_CLAMD_SOCKET` is configured; detected files are quarantined to
   `TS_QUARANTINE_DIR` and rejected with a `ValidationError`. When no scanner is
   configured the step is skipped and a warning is logged.
+- **B11 (prompt guard):** `app.core.prompt_guard` provides shared helpers for
+  sanitizing free-form LLM input, detecting common prompt-injection/jailbreak
+  patterns, and wrapping untrusted data in XML-style delimiters so the LLM is
+  instructed to ignore any commands inside the tender text.
 
 ## Acceptance criteria
 
@@ -106,6 +110,8 @@ None (core owns no business tables).
   blocked and unbound sessions see no rows.
 - A14: a simulated virus signature in an uploaded file is quarantined and rejected
   when `TS_CLAMD_SOCKET` is configured.
+- A15: `prompt_guard` detects common prompt-injection patterns, caps message length,
+  strips delimiter mimicry, and wraps untrusted text in XML-style tags.
 
 ## Out of scope
 

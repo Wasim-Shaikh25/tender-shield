@@ -6,6 +6,11 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### In progress — 2026-07-30 (TS-179: testing skill observability demo notes)
+
+- Add Jaeger/Grafana Docker network note, OTLP backend command, and anonymous
+  Grafana access tip to `.agents/skills/testing-tendershield/SKILL.md`.
+
 ### Done — 2026-07-30 (TS-178: OpenTelemetry tracing and self-hosted observability)
 
 - Add OpenTelemetry instrumentation to the FastAPI backend.

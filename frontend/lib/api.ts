@@ -244,8 +244,8 @@ export const api = {
     ),
   askAssistant: (
     token: string,
-    opportunityId: string,
-    message: string
+    message: string,
+    opportunityId?: string
   ) =>
     req<{
       type?: string;
@@ -254,7 +254,7 @@ export const api = {
       dashboard?: PlanDashboard;
     }>(
       `/assistant/chat`,
-      { method: "POST", body: JSON.stringify({ opportunity_id: opportunityId, message }) },
+      { method: "POST", body: JSON.stringify({ ...(opportunityId ? { opportunity_id: opportunityId } : {}), message }) },
       token
     ),
   reviewFinding: (token: string, opportunityId: string, findingId: string, decision: string, note?: string) =>

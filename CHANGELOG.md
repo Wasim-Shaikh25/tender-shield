@@ -6,6 +6,22 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-30 (TS-195: workspace-scoped AI Assistant)
+
+- `ChatSession.opportunity_id` is now optional; the AI Assistant works across the
+  whole workspace by default instead of requiring a tender dropdown.
+- Updated `AssistantService.answer`, `answer_and_store`, `answer_stream`, and
+  `admin_answer` so `opportunity_id` is optional.
+- Assistant tools (`list_deadlines`, `filter_findings`, `missing_docs`) now aggregate
+  across workspace opportunities when no `opportunity_id` is provided.
+- Plan-dashboard intent picks the first workspace opportunity when none is supplied.
+- Updated `POST /api/assistant/chat`, `/sessions`, `/sessions/{id}/chat`, `/stream`,
+  and `/admin/chat` schemas to make `opportunity_id` optional.
+- Removed the opportunity dropdown from `/assistant`; the page now sends workspace-level
+  chat requests.
+- Updated `specs/modules/assistant.md` with workspace-scope behavior and acceptance
+  criteria; added migration `0c2f0e860d39`.
+
 ### Done — 2026-07-30 (TS-192: user-facing plan upgrade/downgrade)
 
 - Added `GET /api/billing/plans` public catalog and `POST /api/billing/change-plan`

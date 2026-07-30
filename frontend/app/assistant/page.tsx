@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, Opportunity, PlanDashboard } from "@/lib/api";
+import { api, PlanDashboard } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { DashboardView } from "@/components/plan-dashboard";
 
@@ -19,8 +19,6 @@ type Message = {
 export default function AssistantPage() {
   const { session } = useSession();
   const router = useRouter();
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [opportunityId, setOpportunityId] = useState("");
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
@@ -28,18 +26,6 @@ export default function AssistantPage() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelDashboard, setPanelDashboard] = useState<PlanDashboard | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!session) return;
-    api.listOpportunities(session.token)
-      .then((res) => {
-        setOpportunities(res.opportunities);
-        if (res.opportunities.length && !opportunityId) {
-          setOpportunityId(res.opportunities[0].id);
-        }
-      })
-      .catch((e) => console.error("opportunities error", e));
-  }, [session, opportunityId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -52,7 +38,7 @@ export default function AssistantPage() {
 
   const sendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!opportunityId || !input.trim() || loading) return;
+    if (!input.trim() || loading) return;
     const text = input.trim();
     const userMsg: Message = {
       id: `u-${Date.now()}`,
@@ -70,7 +56,7 @@ export default function AssistantPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.askAssistant(session.token, opportunityId, text);
+      const data = await api.askAssistant(session.token, text);
       const assistantMsg: Message = {
         id: assistantId,
         role: "assistant",
@@ -104,29 +90,14 @@ export default function AssistantPage() {
         <div className="border-b border-slate-100 p-4">
           <h1 className="text-xl font-bold text-ink">AI Assistant</h1>
           <p className="text-sm text-slate-600">
-            Ask anything about the selected tender. The assistant can answer questions, show findings and deadlines, and generate dashboards on demand.
+            Ask anything about your workspace — deadlines, risks, BOQ defects, documents, or request a dashboard across all tenders.
           </p>
-        </div>
-
-        <div className="p-4">
-          <label htmlFor="opportunity" className="block text-sm font-medium text-slate-700">Opportunity</label>
-          <select
-            id="opportunity"
-            value={opportunityId}
-            onChange={(e) => setOpportunityId(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-ink"
-          >
-            <option value="">Select an opportunity</option>
-            {opportunities.map((opp) => (
-              <option key={opp.id} value={opp.id}>{opp.title}</option>
-            ))}
-          </select>
         </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
           {messages.length === 0 && (
             <div className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
-              Try: “What are the critical risks?” or “Show a risk severity dashboard with a deadline mind map.”
+              Try: “What are the critical risks across my tenders?” or “Show a risk severity dashboard.”
             </div>
           )}
           {messages.map((m) => (
@@ -180,13 +151,13 @@ export default function AssistantPage() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            disabled={loading || !opportunityId}
-            placeholder="Ask about this tender…"
+            disabled={loading}
+            placeholder="Ask about your workspace…"
             className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm text-ink disabled:opacity-50"
           />
           <button
             type="submit"
-            disabled={loading || !opportunityId || !input.trim()}
+            disabled={loading || !input.trim()}
             className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             Send

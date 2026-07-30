@@ -94,6 +94,15 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Updated `tests/test_risk.py` to expect fallback behavior.
 - Added `specs/modules/risk.md` A7.
 
+### Done — 2026-07-29 (TS-104: rate limiting hardening)
+
+- `RedisRateLimitStorage` now uses wall-clock `time.time()` scores (comparable
+  across workers), atomic add-only-under-limit Lua scripts, and unique members
+  per attempt.
+- `RateLimitDep` prefers the rightmost `X-Forwarded-For` entry and falls back to
+  the transport peer.
+- Added `specs/modules/core.md` B7/A10.
+
 ### Done — 2026-07-29 (TS-101 / TS-102: upload size cap + SSE hardening)
 
 - `POST /api/ingestion/opportunities/{id}/upload` now reads at most

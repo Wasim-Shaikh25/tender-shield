@@ -207,7 +207,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-122 | **BLOCKER** `switch_workspace` must commit the rotated refresh-token session | audit TS-A06; Doc §5 | `specs/modules/auth.md` (update) | done |
 | TS-123 | **BLOCKER** `resend-verification` must not return the raw verification token; send via email only | audit TS-A07; Doc §5 | `specs/modules/auth.md` (update) | done |
 | TS-124 | **BLOCKER** `backend/Dockerfile` must install runtime extras (`celery`, `billing`, `scheduler`, `ocr`) and boot in CI | audit TS-O04; Doc §16 | `specs/deployment.md` (create) | done |
-| TS-125 | **PRODUCT BLOCKER** Complete rulepack QS validation or add a beta/disclaimer flag so paid workspaces see unvalidated patterns | audit TS-P02; Doc §14 | `specs/modules/rulepacks.md` (update) | todo |
+| TS-125 | **PRODUCT BLOCKER** Complete rulepack QS validation or add a beta/disclaimer flag so paid workspaces see unvalidated patterns | audit TS-P02; Doc §14 | `specs/modules/rulepacks.md` (update) | done |
 | TS-126 | Hash `Invitation.token` instead of storing it plaintext | audit TS-A08; Doc §5 | `specs/modules/auth.md` (update) | done |
 | TS-127 | Require TOTP verification before committing `mfa_method=totp` | audit TS-A09; Doc §5 | `specs/modules/auth.md` (update) | done |
 

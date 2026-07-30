@@ -64,7 +64,11 @@ def _build_explanation(pattern, quote: str | None, *, absence: bool = False) -> 
     }
 
 
-def _absence_finding(pattern, opp_facts: dict) -> Finding:
+def _pattern_disclaimer(pattern, disclaimer: str | None) -> str | None:
+    return disclaimer if getattr(pattern, "confidence", None) == "unvalidated" else None
+
+
+def _absence_finding(pattern, opp_facts: dict, disclaimer: str | None = None) -> Finding:
     return Finding(
         kind=FindingKind.RISK_CLAUSE,
         category=pattern.category,
@@ -79,16 +83,25 @@ def _absence_finding(pattern, opp_facts: dict) -> Finding:
         affected_trades=list(pattern.affected_trades),
         pattern_id=pattern.id,
         explanation=_build_explanation(pattern, None, absence=True),
+        disclaimer=_pattern_disclaimer(pattern, disclaimer),
     )
 
 
 def run_pattern(
-    pattern, clauses: list[Clause], classifier: Classifier, opp_facts: dict | None = None
+    pattern,
+    clauses: list[Clause],
+    classifier: Classifier,
+    opp_facts: dict | None = None,
+    disclaimer: str | None = None,
 ) -> list[Finding]:
     opp_facts = opp_facts or {}
     candidates = retrieve_candidates(clauses, list(pattern.anchor_queries))
     if not candidates:
-        return [_absence_finding(pattern, opp_facts)] if pattern.absence_is_finding else []
+        return (
+            [_absence_finding(pattern, opp_facts, disclaimer=disclaimer)]
+            if pattern.absence_is_finding
+            else []
+        )
 
     findings: list[Finding] = []
     for result in classifier.classify(pattern, candidates):
@@ -115,15 +128,20 @@ def run_pattern(
                 affected_trades=list(pattern.affected_trades),
                 pattern_id=pattern.id,
                 explanation=_build_explanation(pattern, quote[:200] if verified else quote),
+                disclaimer=_pattern_disclaimer(pattern, disclaimer),
             )
         )
     return findings
 
 
 def run_patterns(
-    patterns, clauses: list[Clause], classifier: Classifier, opp_facts: dict | None = None
+    patterns,
+    clauses: list[Clause],
+    classifier: Classifier,
+    opp_facts: dict | None = None,
+    disclaimer: str | None = None,
 ) -> list[Finding]:
     findings: list[Finding] = []
     for pattern in patterns:
-        findings.extend(run_pattern(pattern, clauses, classifier, opp_facts))
+        findings.extend(run_pattern(pattern, clauses, classifier, opp_facts, disclaimer=disclaimer))
     return findings

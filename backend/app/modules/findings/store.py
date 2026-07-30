@@ -104,4 +104,5 @@ class FindingStore:
             review_status=f.review_status.value,
             review_reason=f.review_reason,
             explanation=f.explanation,
+            disclaimer=f.disclaimer,
         )

@@ -61,7 +61,7 @@ class Finding(BaseModel):
     suggested_action: str | None = None
     pattern_id: str | None = None
     pattern_version: str | None = None
-    amount_exposure: float | None = None
+    amount_exposure: int | None = None
     review_status: ReviewStatus = ReviewStatus.PROPOSED
     review_reason: str | None = None
     explanation: dict | None = None

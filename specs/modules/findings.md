@@ -39,7 +39,7 @@ Columns:
 - `source_page`, `source_quote` (verbatim, ≤200 chars)
 - `affected_trades` (JSON list), `suggested_action`
 - `pattern_id`, `pattern_version`
-- `amount_exposure` (Numeric 16,2)
+- `amount_exposure` (BigInteger) — monetary exposure in minor units (paise)
 - `review_status` (`proposed` | `accepted` | `edited` | `rejected` |
   `false_positive` | `needs_clarification`)
 - `review_note`, `review_reason`, `reviewed_by`

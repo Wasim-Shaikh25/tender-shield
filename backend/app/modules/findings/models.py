@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import JSON, Integer, Numeric, String, Uuid
+from sqlalchemy import JSON, BigInteger, Integer, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base, WorkspaceScopedMixin
@@ -30,7 +30,7 @@ class FindingRow(Base, WorkspaceScopedMixin):
     suggested_action: Mapped[str | None] = mapped_column(String, nullable=True)
     pattern_id: Mapped[str | None] = mapped_column(String, nullable=True)
     pattern_version: Mapped[str | None] = mapped_column(String, nullable=True)
-    amount_exposure: Mapped[float | None] = mapped_column(Numeric(16, 2), nullable=True)
+    amount_exposure: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     # review state (Doc §11.4) — driven by the review module later (TS-021).
     review_status: Mapped[str] = mapped_column(String, nullable=False, default="proposed")
     review_note: Mapped[str | None] = mapped_column(String, nullable=True)

@@ -340,9 +340,11 @@ def resend_verification(
     session: Session = Depends(get_session),
     principal: Principal = Depends(current_principal),
 ):
-    return _handle(
-        lambda: _service(request, session).create_email_verification(principal.user_id)
-    )
+    def _do():
+        _service(request, session).create_email_verification(principal.user_id)
+        return {"status": "ok"}
+
+    return _handle(_do)
 
 
 # ---- workspaces & projects ---------------------------------------------

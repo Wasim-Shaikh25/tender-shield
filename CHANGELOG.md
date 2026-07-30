@@ -28,6 +28,14 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   any admin of one workspace from joining or adding members to another workspace.
 - Added `specs/modules/auth.md` acceptance criterion A14 covering workspace binding.
 
+### Done — 2026-07-29 (TS-123: resend-verification no longer leaks token)
+
+- `POST /api/auth/resend-verification` now returns `{"status": "ok"}` and no longer
+  echoes the raw verification token.
+- Updated `tests/test_auth_module.py` `_login` helper to mark test users verified
+  directly in the DB since the route no longer exposes the token.
+- Added `specs/modules/auth.md` acceptance criterion A15.
+
 ### Done — 2026-07-29 (TS-094: end-to-end production readiness audit)
 
 - **TS-094** — Full end-to-end production readiness audit of trunk

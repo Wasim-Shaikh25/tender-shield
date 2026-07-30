@@ -99,6 +99,8 @@ endpoints under `/api/auth/admin/*`.
   `owner`) and raises `no_workspace` for non-super-admins with no membership.
 - A14: `POST /api/auth/workspaces/{id}/members` rejects principals whose workspace does not match
   `{id}` (super-admins excepted).
+- A15: `POST /api/auth/resend-verification` returns a generic status and never exposes the raw
+  verification token.
 
 ## Out of scope
 

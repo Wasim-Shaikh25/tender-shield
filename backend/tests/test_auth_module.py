@@ -4,12 +4,15 @@ from datetime import timedelta
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 import app.modules.auth.models  # noqa: F401 — register auth tables on Base.metadata
 from app.core.config import Settings
 from app.core.db import Base
 from app.main import create_app
 from app.modules.auth import security as sec
+from app.modules.auth.models import User
 
 
 @pytest.fixture
@@ -154,12 +157,14 @@ def _login(client, email="a@example.com"):
     tokens = r.json()
     # Verify the email address so gated flows (billing, invitations) can be tested.
     if not tokens.get("email_verified"):
-        resend = client.post(
-            "/api/auth/resend-verification",
-            headers={"authorization": f"Bearer {tokens['access_token']}"},
-        )
-        if resend.status_code == 200 and resend.json():
-            client.post("/api/auth/verify-email", json={"token": resend.json()})
+        # The resend-verification endpoint no longer leaks the raw token, so mark
+        # the address verified directly in the test DB.
+        engine = client.app.state.ctx.registry.require("db.engine")
+        with Session(engine) as s:
+            user = s.scalar(select(User).where(User.email == email))
+            if user:
+                user.email_verified = True
+                s.commit()
         r = client.post("/api/auth/login", json={"email": email, "password": TEST_PASSWORD})
         assert r.status_code == 200, r.text
         tokens = r.json()

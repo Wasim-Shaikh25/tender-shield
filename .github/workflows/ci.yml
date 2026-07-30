@@ -106,3 +106,5 @@ jobs:
         run: npm audit --audit-level=high
       - name: Build
         run: npm run build
+      - name: Accessibility audit (WCAG 2.1 AA)
+        run: npm run a11y

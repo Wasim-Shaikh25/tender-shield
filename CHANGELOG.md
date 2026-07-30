@@ -233,9 +233,18 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Added `specs/modules/auth.md` acceptance criteria A29 and A30 and tests in
   `tests/test_auth_module.py`.
 
+### Done — 2026-07-30 (TS-119: accessibility linting + WCAG 2.1 AA assessment)
+
+- Extended `.eslintrc.json` with `plugin:jsx-a11y/recommended` and fixed label
+  associations in `app/settings/page.tsx`.
+- Added `axe-core`, `jsdom`, and `scripts/axe-ci.mjs` / `scripts/axe-one.mjs` to
+  audit every server-rendered route in `.next/server/app` against WCAG 2.1 AA.
+- Added `npm run a11y` and a CI job that runs it after the build.
+- Updated `specs/frontend.md` acceptance criteria.
+
 ### Next
 
-- TS-119 — accessibility linting + WCAG assessment.
+- No open audit follow-ups in this batch.
 
 ### Done — 2026-07-30 (TS-110 / TS-157 / TS-160: tus and spreadsheet page markers)
 

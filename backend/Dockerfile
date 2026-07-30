@@ -6,7 +6,8 @@ ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 
 COPY pyproject.toml ./
 RUN pip install --upgrade pip && \
-    pip install -e ".[dev,storage,redis]" || pip install -e ".[storage,redis]"
+    pip install uvicorn && \
+    pip install -e ".[storage,redis,celery,billing,scheduler,ocr,auth]"
 COPY . .
 
 EXPOSE 8000

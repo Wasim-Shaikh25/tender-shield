@@ -55,6 +55,13 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   be a member of the target workspace (or super-admin) before returning emails/roles.
 - Added `specs/modules/auth.md` acceptance criterion A18.
 
+### Done — 2026-07-29 (TS-124: Dockerfile runtime extras)
+
+- `backend/Dockerfile` now installs all runtime extras (`storage`, `redis`,
+  `celery`, `billing`, `scheduler`, `ocr`, `auth`) plus `uvicorn`, instead of
+  only `dev`/`storage`/`redis`.
+- Created `specs/deployment.md` covering production image requirements.
+
 ### Done — 2026-07-29 (TS-094: end-to-end production readiness audit)
 
 - **TS-094** — Full end-to-end production readiness audit of trunk

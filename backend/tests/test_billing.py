@@ -13,7 +13,7 @@ import app.modules.billing.models  # noqa: F401
 from app.core.config import Settings
 from app.core.db import Base
 from app.main import create_app
-from app.modules.billing.plans import PaywallError, authorize
+from app.modules.billing.plans import PAYGO_PRICE_INR_PAISE, PaywallError, authorize
 from app.modules.billing.webhook import verify_signature
 
 # ---- pure ----------------------------------------------------------------
@@ -130,7 +130,7 @@ def test_order_paid_creates_invoice_and_list_returns_it(client):
             "payment": {
                 "entity": {
                     "id": "pay_1",
-                    "amount": 100000,
+                    "amount": PAYGO_PRICE_INR_PAISE,
                     "notes": {"workspace_id": workspace_id},
                 }
             }
@@ -144,7 +144,7 @@ def test_order_paid_creates_invoice_and_list_returns_it(client):
 
     invoices = client.get("/api/billing/invoices", headers=headers).json()["invoices"]
     assert len(invoices) == 1
-    assert invoices[0]["amount_minor"] == 100000
+    assert invoices[0]["amount_minor"] == PAYGO_PRICE_INR_PAISE
     assert invoices[0]["status"] == "paid"
     assert invoices[0]["invoice_number"].startswith("INV-")
 

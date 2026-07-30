@@ -70,6 +70,16 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   a `ProjectMember`.
 - Added `specs/modules/auth.md` acceptance criterion A19.
 
+### Done — 2026-07-29 (TS-098: server-owned billing prices + webhook validation)
+
+- `POST /api/billing/checkout` no longer trusts the client `amount_minor`; it
+  uses the server price table in `plans.py` and rejects mismatches.
+- `process_razorpay_webhook` and `process_stripe_webhook` validate the paid
+  amount against the server price table before activating a plan or crediting
+  a paygo review.
+- Added `SUBSCRIPTION_PRICES` currency/plan table and `PAYGO_PRICE_INR_PAISE`.
+- Added `specs/modules/billing.md` B11 and A5.
+
 ### Done — 2026-07-29 (TS-094: end-to-end production readiness audit)
 
 - **TS-094** — Full end-to-end production readiness audit of trunk

@@ -60,6 +60,9 @@ intents, webhook-dedup records, plan state on `orgs`.
   it returns the deterministic notes object used by manual activation.
 - **B10 (no activation on redirect):** client-side success redirects or callbacks
   never change plan state; only verified webhooks do.
+- **B11 (server-owned prices):** `POST /api/billing/checkout` ignores any client
+  `amount_minor` and uses the server price table (`plans.py`). The webhook rejects
+  payments whose amount does not match the expected price for the `kind`/`plan`/`currency`.
 
 ## Acceptance criteria
 
@@ -69,6 +72,8 @@ intents, webhook-dedup records, plan state on `orgs`.
   `webhook_verify_failed` payment_log row.
 - A3: nothing activates on the redirect path in integration tests.
 - A4: checkout with Razorpay/Stripe keys configured creates a real provider order/session.
+- A5: client-provided `amount_minor` is rejected if it does not match the server
+  price; webhook processing rejects mismatched amounts before plan activation.
 
 ## Out of scope
 

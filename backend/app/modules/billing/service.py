@@ -12,7 +12,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.modules.billing.models import Invoice, PaymentLog, UsageEvent, WebhookEvent
-from app.modules.billing.plans import Grant, PaywallError, authorize
+from app.modules.billing.plans import (
+    PAYGO_PRICE_INR_PAISE,
+    SUBSCRIPTION_PRICES,
+    Grant,
+    PaywallError,
+    authorize,
+)
 from app.modules.billing.webhook import verify_signature, verify_stripe_signature
 
 
@@ -144,9 +150,24 @@ class BillingService:
         ):
             return {"ok": True, "duplicate": True}
 
-        # 3) apply effect
+        # 3) validate amount against server-owned price table
         typ = evt.get("event")
         amount = _extract_amount(evt)
+        currency = _extract_currency(evt)
+        kind = notes.get("kind", "paygo")
+        plan = notes.get("plan")
+        if amount is not None and not _valid_amount(currency, kind, plan, amount):
+            self._log(
+                workspace_id,
+                "razorpay",
+                event_id,
+                typ or "unknown",
+                status="amount_mismatch",
+                raw=evt,
+            )
+            return {"ok": False, "reason": "amount_mismatch"}
+
+        # 4) apply effect
         if typ == "order.paid" and workspace_id:
             self.record_usage(workspace_id, "review_paid", ref_id=notes.get("opportunity_id"))
             if amount:
@@ -209,6 +230,17 @@ class BillingService:
             amount = obj.get("amount_total")
             currency = obj.get("currency", "INR").upper()
             kind = metadata.get("kind", "paygo")
+            plan = metadata.get("plan")
+            if amount is not None and not _valid_amount(currency, kind, plan, int(amount)):
+                self._log(
+                    workspace_id,
+                    "stripe",
+                    event_id,
+                    event_type,
+                    status="amount_mismatch",
+                    raw=evt,
+                )
+                return {"ok": False, "reason": "amount_mismatch"}
             if kind == "paygo":
                 self.record_usage(
                     workspace_id, "review_paid", ref_id=metadata.get("opportunity_id")
@@ -224,7 +256,7 @@ class BillingService:
                         status="paid",
                     )
             elif kind == "subscription":
-                self._workspaces().set_plan(workspace_id, metadata.get("plan", "pro"))
+                self._workspaces().set_plan(workspace_id, plan or "pro")
                 if amount:
                     self.create_invoice(
                         workspace_id,
@@ -283,3 +315,26 @@ def _extract_amount(evt: dict) -> int | None:
             except ValueError:
                 continue
     return None
+
+
+def _extract_currency(evt: dict) -> str:
+    """Best-effort currency from a Razorpay payment event; defaults to INR."""
+    payload = evt.get("payload", {})
+    for wrapper in payload.values():
+        entity = wrapper.get("entity", {}) if isinstance(wrapper, dict) else {}
+        currency = entity.get("currency")
+        if isinstance(currency, str):
+            return currency.upper()
+    return "INR"
+
+
+def _valid_amount(currency: str, kind: str, plan: str | None, amount: int) -> bool:
+    """Return True if the paid amount matches the server-owned price for the currency."""
+    currency = currency.upper()
+    if kind == "paygo":
+        expected = PAYGO_PRICE_INR_PAISE
+    elif kind == "subscription" and plan:
+        expected = SUBSCRIPTION_PRICES.get(currency, {}).get(plan)
+    else:
+        return True
+    return expected is None or amount == expected

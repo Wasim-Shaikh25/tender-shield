@@ -17,6 +17,11 @@ PLAN_LIMITS: dict[str, dict] = {
 PAYGO_PRICE_INR_PAISE = 750_000  # ₹7,500
 OVERAGE_PRICE_INR_PAISE = {"pro": 499_900, "scale": 349_900}
 
+# Server-owned subscription prices in the smallest unit of each supported currency.
+SUBSCRIPTION_PRICES: dict[str, dict[str, int]] = {
+    "inr": {"pro": 4_999_00, "scale": 14_999_00},
+}
+
 
 class PaywallError(Exception):
     def __init__(self, code: str, upsell: dict | None = None):

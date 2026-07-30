@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { api, type Tokens, type Workspace } from "@/lib/api";
 
 const NO_WORKSPACE = "00000000-0000-0000-0000-000000000000";
@@ -44,11 +44,13 @@ function isNoWorkspace(id: string | undefined) {
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session>(null);
+  const tokenRef = useRef<string | null>(null);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loading, setLoading] = useState(true);
 
   const applyTokens = (t: Tokens, all?: Workspace[]) => {
     if (t.mfa_required) return; // handled by login page
+    tokenRef.current = t.access_token;
     setSession({
       token: t.access_token,
       role: t.role,
@@ -103,20 +105,23 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore
     }
+    tokenRef.current = null;
     setSession(null);
     setWorkspaces([]);
   };
 
   const switchWorkspace = async (workspace_id: string) => {
-    if (!session) return;
-    const t = await api.switchWorkspace(session.token, workspace_id);
+    const token = tokenRef.current;
+    if (!token) return;
+    const t = await api.switchWorkspace(token, workspace_id);
     const all = await loadWorkspaces(t.access_token);
     applyTokens(t, all);
   };
 
   const createWorkspace = async (name: string, country = "IN") => {
-    if (!session) throw new Error("not_signed_in");
-    const created = await api.createWorkspace(session.token, { name, country });
+    const token = tokenRef.current;
+    if (!token) throw new Error("not_signed_in");
+    const created = await api.createWorkspace(token, { name, country });
     const workspaceId = created.workspace_id;
     await switchWorkspace(workspaceId);
     return workspaceId;

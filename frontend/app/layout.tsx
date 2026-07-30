@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import { SessionProvider } from "@/components/session";
+import { AuthGate } from "@/components/auth-gate";
 import { HeaderActions } from "@/components/header-actions";
 
 export const metadata: Metadata = {
@@ -31,7 +32,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </nav>
             </div>
           </header>
-          <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+          <main className="mx-auto max-w-6xl px-6 py-8">
+            <AuthGate>{children}</AuthGate>
+          </main>
         </SessionProvider>
       </body>
     </html>

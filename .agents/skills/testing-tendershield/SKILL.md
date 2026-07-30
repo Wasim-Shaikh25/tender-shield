@@ -111,6 +111,16 @@ description: |
   when the GUC is unset, so casting it directly to `uuid` can raise
   `invalid input syntax for type uuid: ""`. Use `nullif(..., '')::uuid` to fail closed.
 
+## New UI routes (PR #54 and later)
+
+- **Navigation:** Use `window.next.router.push('/path')` for normal transitions. `AuthGate` now protects all pages at the layout level, so a hard reload (`window.location.href = '/settings'`) will briefly show "Loading session…" and then render the protected page instead of redirecting to `/login`.
+- **MFA / verification codes:** In dev, `POST /api/auth/signup` returns `email_verification_token` and `mobile_verification_token`, and `POST /api/auth/login` returns `mfa_code` in the JSON body. These values are NOT printed to the backend log. For a manual walkthrough, read the code from the network response (or temporarily pre-fill the UI input for testing and revert).
+- **Cancel subscription:** The billing settings page calls `window.confirm("Cancel subscription? ...")`. Override `window.confirm = () => true` in the browser console to test the flow without a system dialog. On a `free` plan the backend returns `already_free`; change the workspace plan to `pro` first (via `/admin/workspaces/{id}`) to see a successful cancel.
+- **Document upload:** The tender upload button hides a real `<input type="file">`. The system file dialog cannot be automated, so seed the document and run BOQ via the API, then refresh the opportunity detail page to verify the tabs populate.
+- **Analytics export:** Fixed in PR #54 — `api.exportReport` now appends `?format=csv&filter=all` (or `xlsx`). CSV and XLSX downloads succeed in the UI; PDF still correctly fails because the backend only supports `csv` and `xlsx`.
+- **Admin user search:** Fixed in commit `7a2cb80` — user list/search works and user detail now includes the `workspaces` list. Note: the UI currently duplicates the same workspace twice in the Workspaces list for single-workspace users (minor rendering issue, not a blocker).
+- **Login workspace flow:** Fixed in commit `79ee819` — `SessionProvider` now keeps the access token in a `useRef` (`tokenRef`), so `switchWorkspace` and `createWorkspace` can be called immediately after `signIn` and the returning-user login correctly binds to the first workspace. Returning users now see the workspace name in the header and workspace-scoped pages work without a manual switch.
+
 ## UI testing tips
 
 - The dev server uses `next dev` and can be confused by a stale `.next` folder
@@ -137,5 +147,5 @@ CURL="curl -s -c cookies.txt -b cookies.txt"
 Expected local baseline:
 - `ruff check .` clean
 - `mypy app` clean
-- `pytest -q` 147 passed, 4 skipped
+- `pytest -q` 184 passed, 4 skipped
 - `npm run lint`, `npm run typecheck`, `npm run build` clean

@@ -1,0 +1,54 @@
+groups:
+  - name: tendershield
+    interval: 30s
+    rules:
+      - alert: ErrorRateCritical
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "TenderShield 5xx rate is above 1%"
+          runbook_url: "https://github.com/Wasim-Shaikh25/tender-shield/blob/main/docs/runbooks/alerting.md"
+
+      - alert: ErrorRateHigh
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) > 0.001
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "TenderShield 5xx rate is above 0.1%"
+
+      - alert: DeadlineDigestFailing
+        expr: time() - deadline_alert_tick_last_success_seconds > 90000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Deadline digest scheduler has not completed in 25 hours"
+
+      - alert: StorageHigh
+        expr: node_filesystem_avail_bytes / node_filesystem_size_bytes < 0.15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk usage is above 85%"
+
+      - alert: DBPoolSaturation
+        expr: sqlalchemy_pool_checkedin_size / sqlalchemy_pool_size < 0.2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database connection pool is near saturation"

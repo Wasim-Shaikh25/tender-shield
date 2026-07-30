@@ -1053,6 +1053,52 @@ class AuthService:
         self.s.commit()
         return True
 
+    def request_email_change(self, user_id, new_email: str) -> str | None:
+        """Request a change to a new email. Returns a raw token for dev/tests."""
+        user = self.s.get(User, uuid.UUID(str(user_id)))
+        if not user:
+            raise AuthError("no_such_user")
+        new_email = new_email.strip().lower()
+        if new_email == user.email:
+            raise AuthError("same_email")
+        if self.s.scalar(select(User).where(User.email == new_email)):
+            raise AuthError("email_taken")
+        if self.s.scalar(select(User).where(User.pending_email == new_email)):
+            raise AuthError("email_taken")
+        raw = secrets.token_urlsafe(32)
+        user.pending_email = new_email
+        user.pending_email_token_hash = hashlib.sha256(raw.encode()).hexdigest()
+        self.s.commit()
+        if self._sender:
+            self._sender.send(
+                SimpleNamespace(
+                    channel="email",
+                    to=new_email,
+                    subject="Confirm your TenderShield email change",
+                    body=(
+                        "Confirm your new TenderShield email by posting this token:\n\n"
+                        f"{raw}\n\nIt expires in 24 hours."
+                    ),
+                )
+            )
+        return raw
+
+    def verify_email_change(self, token: str) -> bool:
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        user = self.s.scalar(
+            select(User).where(User.pending_email_token_hash == token_hash)
+        )
+        if not user or not user.pending_email:
+            raise AuthError("invalid_verification_token")
+        if self.s.scalar(select(User).where(User.email == user.pending_email)):
+            raise AuthError("email_taken")
+        user.email = user.pending_email
+        user.email_verified = True
+        user.pending_email = None
+        user.pending_email_token_hash = None
+        self.s.commit()
+        return True
+
     def create_mobile_verification(self, user_id, phone: str | None = None) -> str | None:
         """Create a mobile-verification token and send it. Returns the raw token for dev/tests."""
         user = self.s.get(User, uuid.UUID(str(user_id)))
@@ -1229,7 +1275,7 @@ class AuthService:
         users = list(
             self.s.scalars(stmt.order_by(User.created_at.desc()).limit(limit).offset(offset))
         )
-        return {"total": total, "items": [self._user_summary(u) for u in users]}
+        return {"total": total, "items": [self._user_detail(u) for u in users]}
 
     def get_user(self, user_id) -> dict:
         user = self.s.get(User, uuid.UUID(str(user_id)))
@@ -1349,15 +1395,19 @@ class AuthService:
         }
 
     def _user_detail(self, user: User) -> dict:
-        workspaces = [
-            {"workspace_id": str(w.id), "name": w.name, "role": "owner"}
-            for w in self.s.scalars(select(Workspace).where(Workspace.owner_id == user.id))
-        ]
+        seen: set[uuid.UUID] = set()
+        workspaces = []
+        for w in self.s.scalars(select(Workspace).where(Workspace.owner_id == user.id)):
+            seen.add(w.id)
+            workspaces.append({"workspace_id": str(w.id), "name": w.name, "role": "owner"})
         for m in self.s.scalars(
             select(WorkspaceMember).where(WorkspaceMember.user_id == user.id)
         ):
+            if m.workspace_id in seen:
+                continue
             ws = self.s.get(Workspace, m.workspace_id)
             if ws:
+                seen.add(ws.id)
                 workspaces.append(
                     {"workspace_id": str(ws.id), "name": ws.name, "role": m.role}
                 )

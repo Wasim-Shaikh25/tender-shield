@@ -1,65 +1,76 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useSession } from "@/components/session";
 
 export default function AnalyticsPage() {
   const { session } = useSession();
-  const [rows, setRows] = useState<{
-    id: string;
-    title: string;
-    submission_due: string | null;
-    days_to_submission: number | null;
-    risk_counts: Record<string, number>;
-    qualification_gaps: number;
-    boq_defects: number;
-    export_ready: boolean;
-  }[]>([]);
+  const router = useRouter();
+  const [risk, setRisk] = useState<Record<string, unknown> | null>(null);
+  const [deadline, setDeadline] = useState<Record<string, unknown> | null>(null);
+  const [boq, setBoq] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!session) return;
-    api.listComparison(session.token)
-      .then((d) => setRows(d.opportunities))
-      .catch((e) => setError(e.message));
+    api.riskSummary(session.token).then(setRisk).catch(() => {});
+    api.deadlineDashboard(session.token).then(setDeadline).catch(() => {});
+    api.boqDefectSummary(session.token).then(setBoq).catch(() => {});
   }, [session]);
 
-  if (!session) return <p className="text-sm text-slate-500">Sign in to view analytics.</p>;
+  if (!session) {
+    if (typeof window !== "undefined") router.replace("/login");
+    return null;
+  }
+
+  const exportReport = async (format: string) => {
+    if (!session) return;
+    setExporting(true);
+    setError(null);
+    try {
+      const blob = await api.exportReport(session.token, format, "all");
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `report.${format === "xlsx" ? "xlsx" : format}`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-ink">Analytics</h1>
-      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-      {rows.length === 0 ? (
-        <p className="text-sm text-slate-500">No opportunities to compare.</p>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {rows.map((o) => (
-            <div key={o.id} className="rounded-xl border border-slate-200 bg-white p-5">
-              <div className="mb-2 flex items-center justify-between">
-                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${o.export_ready ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>
-                  {o.export_ready ? "Export ready" : "Review pending"}
-                </span>
-                <span className="text-xs text-slate-400">
-                  {o.days_to_submission != null ? `${o.days_to_submission}d to submission` : "—"}
-                </span>
-              </div>
-              <h3 className="font-semibold text-ink">{o.title}</h3>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                <div className="rounded bg-slate-50 p-2">
-                  <p className="text-xs text-slate-500">Critical/High</p>
-                  <p className="font-semibold">{(o.risk_counts.critical ?? 0) + (o.risk_counts.high ?? 0)}</p>
-                </div>
-                <div className="rounded bg-slate-50 p-2">
-                  <p className="text-xs text-slate-500">BOQ defects</p>
-                  <p className="font-semibold">{o.boq_defects}</p>
-                </div>
-              </div>
-            </div>
-          ))}
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-ink">Analysis & reports</h1>
+        <div className="flex gap-2">
+          <button onClick={() => exportReport("csv")} disabled={exporting} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">CSV</button>
+          <button onClick={() => exportReport("xlsx")} disabled={exporting} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">XLSX</button>
+          <button onClick={() => exportReport("pdf")} disabled={exporting} className="rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">PDF</button>
         </div>
-      )}
+      </div>
+      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+
+      <section className="rounded-xl border border-slate-200 bg-white p-6">
+        <h2 className="mb-3 text-lg font-semibold text-ink">Risk summary</h2>
+        <pre className="max-h-60 overflow-auto rounded-md bg-slate-50 p-3 text-xs">{JSON.stringify(risk, null, 2) ?? "Loading..."}</pre>
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-6">
+        <h2 className="mb-3 text-lg font-semibold text-ink">Deadline dashboard</h2>
+        <pre className="max-h-60 overflow-auto rounded-md bg-slate-50 p-3 text-xs">{JSON.stringify(deadline, null, 2) ?? "Loading..."}</pre>
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-6">
+        <h2 className="mb-3 text-lg font-semibold text-ink">BOQ defect summary</h2>
+        <pre className="max-h-60 overflow-auto rounded-md bg-slate-50 p-3 text-xs">{JSON.stringify(boq, null, 2) ?? "Loading..."}</pre>
+      </section>
     </div>
   );
 }

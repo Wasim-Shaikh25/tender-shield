@@ -22,6 +22,9 @@ class NotificationPreference(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, nullable=False)
     email_deadlines: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     sms_deadlines: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    email_digest: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    sms_alerts: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    marketing: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     quiet_hours_start: Mapped[int | None] = mapped_column(Integer, nullable=True)
     quiet_hours_end: Mapped[int | None] = mapped_column(Integer, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(

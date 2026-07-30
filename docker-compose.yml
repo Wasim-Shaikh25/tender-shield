@@ -1,5 +1,14 @@
-# Local Postgres-backed stack (Doc §4). RLS org-isolation is active on Postgres
-# (a no-op on SQLite), so this is the closest local mirror of production.
+# Local Postgres + Redis + MinIO stack. This is the closest local mirror of
+# production without cloud credentials.
+#
+#   cp .env.dev .env.local
+#   docker compose --env-file .env.local up --build
+#
+# Default credentials:
+#   Postgres  postgres://tendershield:tendershield@localhost:5432/tendershield
+#   Redis     redis://localhost:6379/0
+#   MinIO     http://localhost:9000  (minio / minio123)
+#   MinIO console http://localhost:9001
 services:
   db:
     image: postgres:16
@@ -15,11 +24,42 @@ services:
       timeout: 3s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    volumes: ["redisdata:/data"]
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes: ["miniodata:/data"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   backend:
     build: ./backend
     env_file: [.env.dev]
     depends_on:
       db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     ports: ["8000:8000"]
     volumes: ["backend_storage:/app/storage"]
@@ -34,4 +74,6 @@ services:
 
 volumes:
   pgdata:
+  redisdata:
+  miniodata:
   backend_storage:

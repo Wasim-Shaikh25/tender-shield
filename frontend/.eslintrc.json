@@ -1,4 +1,12 @@
 {
   "extends": ["next/core-web-vitals", "plugin:jsx-a11y/recommended"],
-  "rules": {}
+  "rules": {},
+  "overrides": [
+    {
+      "files": ["e2e/**/*"],
+      "rules": {
+        "react-hooks/rules-of-hooks": "off"
+      }
+    }
+  ]
 }

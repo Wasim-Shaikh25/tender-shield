@@ -22,11 +22,15 @@ class _Metrics:
 
     def __init__(self) -> None:
         self._counters: dict[str, float] = defaultdict(float)
+        self._gauges: dict[str, float] = {}
         self._histograms: dict[str, list[float]] = defaultdict(list)
         self._histogram_max_buckets = 10000
 
     def inc(self, name: str, value: float = 1.0) -> None:
         self._counters[name] += value
+
+    def set(self, name: str, value: float) -> None:
+        self._gauges[name] = value
 
     def observe(self, name: str, value: float) -> None:
         bucket = self._histograms[name]
@@ -55,10 +59,16 @@ class _Metrics:
         lines.append(f"{name}_count{suffix} {count}")
         return "\n".join(lines) + "\n"
 
+    def _gauge_line(self, name: str, value: float, labels: str = "") -> str:
+        suffix = "{" + labels + "}" if labels else ""
+        return f"# HELP {name} gauge\n# TYPE {name} gauge\n{name}{suffix} {value}\n"
+
     def exposition(self) -> str:
         parts = []
         for name, value in self._counters.items():
             parts.append(self._counter_line(name, value))
+        for name, value in self._gauges.items():
+            parts.append(self._gauge_line(name, value))
         for name, values in self._histograms.items():
             parts.append(self._histogram_lines(name, values))
         return "".join(parts)
@@ -69,6 +79,10 @@ METRICS = _Metrics()
 
 def inc_counter(name: str, value: float = 1.0) -> None:
     METRICS.inc(name, value)
+
+
+def set_gauge(name: str, value: float) -> None:
+    METRICS.set(name, value)
 
 
 def observe_histogram(name: str, value: float) -> None:

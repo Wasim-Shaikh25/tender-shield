@@ -10,7 +10,7 @@ type Mode = "login" | "signup";
 type Step = "credentials" | "verify" | "otp" | "workspace";
 
 export default function LoginPage() {
-  const { signIn, createWorkspace } = useSession();
+  const { signIn, createWorkspace, switchWorkspace } = useSession();
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("signup");
   const [step, setStep] = useState<Step>("credentials");
@@ -98,10 +98,15 @@ export default function LoginPage() {
     setBusy(true);
     try {
       const tokens = await api.mfaChallenge(mfaToken, otp);
-      await signIn(tokens);
-      if (isNoWorkspace(tokens.workspace_id)) {
+      const all = await signIn(tokens);
+      if (all.length === 0) {
         setStep("workspace");
+      } else if (tokens.workspace_id && !isNoWorkspace(tokens.workspace_id)) {
+        router.push("/opportunities");
       } else {
+        // MFA challenge returns the sentinel account workspace; switch to the
+        // first available workspace so workspace-scoped pages work immediately.
+        await switchWorkspace(all[0].workspace_id);
         router.push("/opportunities");
       }
     } catch (err) {

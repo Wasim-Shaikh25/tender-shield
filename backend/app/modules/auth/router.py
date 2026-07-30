@@ -2,7 +2,7 @@ import uuid
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -10,7 +10,7 @@ from app.core import audit as audit_log
 from app.core.config import Settings
 from app.core.db import bind_workspace_context
 from app.core.deps import current_principal, get_session, require
-from app.core.pagination import PaginationParams, paginated_list_response
+from app.core.pagination import PaginationParams, paginated_list_response, set_pagination_headers
 from app.core.ratelimit import RateLimitDep
 from app.modules.auth.deps import require_superadmin
 from app.modules.auth.models import User
@@ -166,6 +166,14 @@ class ChangePasswordBody(BaseModel):
 class DeleteAccountBody(BaseModel):
     password: str
     confirm: bool = False
+
+
+class ChangeEmailBody(BaseModel):
+    new_email: EmailStr
+
+
+class VerifyEmailChangeBody(BaseModel):
+    token: str = Field(min_length=8)
 
 
 class AddMemberBody(BaseModel):
@@ -324,9 +332,14 @@ class AdminUserResponse(BaseModel):
 class AdminWorkspaceResponse(BaseModel):
     workspace_id: str
     name: str
+    slug: str | None = None
     owner_id: str
+    owner_email: str | None = None
     plan: str | None = None
     country: str | None = None
+    billing_provider: str | None = None
+    member_count: int = 0
+    members: list[dict] = []
 
 
 class AdminUserDetailResponse(BaseModel):
@@ -363,6 +376,11 @@ class AdminSearchResponse(BaseModel):
 
 class OkResponse(BaseModel):
     ok: bool = True
+
+
+class EmailChangeResponse(BaseModel):
+    ok: bool = True
+    token: str | None = None
 
 
 class ForgotPasswordResponse(BaseModel):
@@ -637,6 +655,53 @@ def change_password(
             workspace_id=principal.workspace_id,
             actor_user_id=principal.user_id,
             action="account.password_changed",
+            object_type="user",
+            object_id=principal.user_id,
+        )
+        return {"ok": True}
+
+    return _handle(_do)
+
+
+@router.post("/settings/email", response_model=EmailChangeResponse)
+def request_email_change(
+    body: ChangeEmailBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(current_principal),
+):
+    def _do():
+        token = _service(request, session).request_email_change(principal.user_id, body.new_email)
+        audit_log.log(
+            request,
+            session,
+            workspace_id=principal.workspace_id,
+            actor_user_id=principal.user_id,
+            action="account.email_change_requested",
+            object_type="user",
+            object_id=principal.user_id,
+            detail={"new_email": body.new_email},
+        )
+        return {"ok": True, "token": token}
+
+    return _handle(_do)
+
+
+@router.post("/settings/email/verify", response_model=OkResponse)
+def verify_email_change(
+    body: VerifyEmailChangeBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(current_principal),
+):
+    def _do():
+        _service(request, session).verify_email_change(body.token)
+        audit_log.log(
+            request,
+            session,
+            workspace_id=principal.workspace_id,
+            actor_user_id=principal.user_id,
+            action="account.email_changed",
             object_type="user",
             object_id=principal.user_id,
         )
@@ -1050,10 +1115,10 @@ def admin_search_users(
     page: PaginationParams = Depends(),
 ):
     result = _service(request, session).search_users(
-        q, limit=page.size, offset=page.offset
+        q, limit=page.limit, offset=page.offset
     )
-    items = paginated_list_response(result["items"], page, response)
-    return {"total": result["total"], "items": items}
+    set_pagination_headers(response, page, result["total"])
+    return {"total": result["total"], "items": result["items"]}
 
 
 @router.get("/admin/users/{user_id}", response_model=AdminUserDetailResponse)

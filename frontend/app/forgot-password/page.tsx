@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
-  const [result, setResult] = useState<{ ok: boolean; token?: string } | null>(null);
+  const [result, setResult] = useState<{ ok: boolean; token?: string | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 

@@ -46,10 +46,13 @@ one repo (`apps/web` later; starts as `frontend/`).
 - **B6:** empty states teach ("Upload the GCC too — 60% of traps live in
   conditions").
 - **B7:** access token in memory only; refresh token in `httpOnly` cookie;
-  `credentials: "include"` on API calls; silent refresh on 401. API client is typed
-  by hand until an OpenAPI-generated client replaces it.
+  `credentials: "include"` on API calls; silent refresh on 401. The auth response
+  types are generated from the backend OpenAPI spec (`lib/api-types.ts` via
+  `npm run generate:api`); non-auth endpoints keep hand-rolled types until their
+  response models are added.
 - **B8:** workspace switcher in the nav lists the user's workspaces and calls
-  `/api/auth/workspaces/{id}/switch`.
+  `/api/auth/workspaces/{id}/switch`. The `/api/auth/workspaces` response includes
+  `workspace_id`, `name`, `role`, `country`, and `plan`.
 - **B9:** demo/sample data is removed from the main opportunity workbench;
   sample loading is gated behind `NEXT_PUBLIC_DEMO_MODE`.
 
@@ -95,6 +98,9 @@ one repo (`apps/web` later; starts as `frontend/`).
   allows changing the password via `/api/auth/settings/password`.
 - A9: `/team` lists members and pending invitations, lets admin+ users invite,
   change role, remove members, and revoke invitations through the typed API client.
+- A10: `npm run generate:api` regenerates `lib/api-types.ts` from the running
+  backend OpenAPI spec; `lib/api.ts` uses the generated types for all `/auth`
+  responses (tokens, workspaces, members, invitations, settings).
 
 ## Out of scope
 

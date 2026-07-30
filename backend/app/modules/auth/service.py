@@ -320,7 +320,16 @@ class AuthService:
             .join(WorkspaceMember, Workspace.id == WorkspaceMember.workspace_id)
             .where(WorkspaceMember.user_id == uuid.UUID(str(user_id)))
         ).all()
-        return [{"workspace_id": str(ws.id), "name": ws.name, "role": m.role} for ws, m in rows]
+        return [
+            {
+                "workspace_id": str(ws.id),
+                "name": ws.name,
+                "role": m.role,
+                "country": ws.country,
+                "plan": ws.plan,
+            }
+            for ws, m in rows
+        ]
 
     def _workspace_member(self, workspace_id, user_id):
         return self.s.scalar(
@@ -1068,6 +1077,7 @@ class AuthService:
                 "name": w.name,
                 "owner_id": str(w.owner_id),
                 "plan": w.plan,
+                "country": w.country,
             }
             for w in self.s.scalars(select(Workspace)).all()
         ]
@@ -1091,7 +1101,13 @@ class AuthService:
             raise AuthError("no_such_user")
         user.is_superadmin = is_superadmin
         self.s.commit()
-        return {"user_id": str(user.id), "is_superadmin": user.is_superadmin}
+        return {
+            "user_id": str(user.id),
+            "email": user.email,
+            "is_superadmin": user.is_superadmin,
+            "email_verified": user.email_verified,
+            "mobile_verified": user.mobile_verified,
+        }
 
     def _revoke_family(self, family_id) -> None:
         for row in self.s.scalars(select(RefreshToken).where(RefreshToken.family_id == family_id)):

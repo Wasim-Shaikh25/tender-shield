@@ -121,12 +121,22 @@ class AuthService:
         else:
             user.email_verified = claims.get("email_verified", False)
         self.s.commit()
+        member = self.s.scalar(
+            select(WorkspaceMember)
+            .where(WorkspaceMember.user_id == user.id)
+            .order_by(WorkspaceMember.workspace_id)
+            .limit(1)
+        )
+        if not member:
+            if user.is_superadmin:
+                return self._issue_tokens(
+                    user.id, None, "owner", is_superadmin=True, new_family=True
+                )
+            raise AuthError("no_workspace")
         return self._issue_tokens(
             user.id,
-            self.s.scalar(
-                select(WorkspaceMember.workspace_id).where(WorkspaceMember.user_id == user.id)
-            ),
-            "owner",
+            member.workspace_id,
+            member.role,
             is_superadmin=user.is_superadmin,
             new_family=True,
         )

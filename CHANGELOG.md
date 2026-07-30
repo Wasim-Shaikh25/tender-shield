@@ -6,6 +6,21 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-29 (TS-132: 61-finding implementation tracker)
+
+- Generated `tasks/audit_fix_tracker.md` mapping every `TS-*` finding to its requirement,
+  recommended solution, and task ID.
+- Added 30 implementation task rows (TS-133..TS-162) to `tasks/backlog.md` for findings
+  that did not already have a fix task.
+- Added `scripts/build_audit_tracker.py` to regenerate the tracker from
+  `PRODUCTION_READINESS_AUDIT.md`.
+
+### Done — 2026-07-29 (TS-096: Google OIDC role fix)
+
+- `AuthService.google_login` now issues tokens with the user's actual workspace role
+  (queried from `WorkspaceMember`) instead of the hardcoded `"owner"` literal.
+- Added `specs/modules/auth.md` acceptance criterion A13 covering OIDC role binding.
+
 ### Done — 2026-07-29 (TS-094: end-to-end production readiness audit)
 
 - **TS-094** — Full end-to-end production readiness audit of trunk

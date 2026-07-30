@@ -95,6 +95,8 @@ endpoints under `/api/auth/admin/*`.
 - A10: `/auth/workspaces` lists all user memberships; switching workspace issues tokens for it.
 - A11: weak passwords (`password`) are rejected at signup and reset.
 - A12: 5 failed logins lock the account for 15 minutes.
+- A13: Google OIDC login issues tokens with the user's existing workspace role (not a hardcoded
+  `owner`) and raises `no_workspace` for non-super-admins with no membership.
 
 ## Out of scope
 

@@ -80,6 +80,20 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Added `SUBSCRIPTION_PRICES` currency/plan table and `PAYGO_PRICE_INR_PAISE`.
 - Added `specs/modules/billing.md` B11 and A5.
 
+### Done — 2026-07-29 (TS-136 / TS-149: valid Anthropic model identifiers)
+
+- Replaced the invalid `claude-sonnet-5` default with `claude-3-5-sonnet-20241022`
+  in both `AnthropicClassifier` and `AnthropicAgent`.
+- Added `specs/modules/risk.md` A6 and `specs/modules/assistant.md` A3.
+
+### Done — 2026-07-29 (TS-162: severity evaluator missing-fact safety)
+
+- `severity.evaluate_severity` now raises on missing facts instead of silently
+  defaulting to `0`/`False`; the top-level `try/except` falls back to the safe
+  `default` severity.
+- Updated `tests/test_risk.py` to expect fallback behavior.
+- Added `specs/modules/risk.md` A7.
+
 ### Done — 2026-07-29 (TS-094: end-to-end production readiness audit)
 
 - **TS-094** — Full end-to-end production readiness audit of trunk

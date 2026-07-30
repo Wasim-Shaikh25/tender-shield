@@ -42,7 +42,9 @@ def _ev(node: ast.AST, ctx: dict):
         # Bare severity keywords are their own value; everything else is a fact.
         if node.id in _VALID_SEVERITIES:
             return node.id
-        return ctx.get(node.id, 0)  # missing facts default to 0/falsy
+        if node.id not in ctx:
+            raise NameError(f"missing severity fact: {node.id}")
+        return ctx[node.id]
     if isinstance(node, ast.Constant):
         return node.value
     raise ValueError(f"unsupported severity expression node: {type(node).__name__}")

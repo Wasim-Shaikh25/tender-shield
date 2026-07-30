@@ -19,7 +19,7 @@ _SYSTEM = (
 
 
 class AnthropicAgent:
-    def __init__(self, model: str = "claude-sonnet-5", max_tokens: int = 700):
+    def __init__(self, model: str = "claude-3-5-sonnet-20241022", max_tokens: int = 700):
         self.model = model
         self.max_tokens = max_tokens
 

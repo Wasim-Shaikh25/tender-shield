@@ -1,10 +1,11 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
+from app.core.pagination import PaginationParams, paginated_list_response
 from app.modules.review.service import ReviewError, ReviewService
 
 router = APIRouter()
@@ -86,18 +87,19 @@ def gate(
 def audit_trail(
     opportunity_id: str,
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     principal: Any = Depends(require("reviewer")),
+    page: PaginationParams = Depends(),
 ):
     rows = _service(request, session).audit_trail(principal.workspace_id, opportunity_id)
-    return {
-        "audit": [
-            {
-                "id": r.id,
-                "action": r.action,
-                "object_id": str(r.object_id) if r.object_id else None,
-                "at": r.at.isoformat() if r.at else None,
-            }
-            for r in rows
-        ]
-    }
+    items = [
+        {
+            "id": r.id,
+            "action": r.action,
+            "object_id": str(r.object_id) if r.object_id else None,
+            "at": r.at.isoformat() if r.at else None,
+        }
+        for r in rows
+    ]
+    return {"audit": paginated_list_response(items, page, response)}

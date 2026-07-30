@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core import audit as audit_log
 from app.core.config import Settings
 from app.core.deps import current_principal, get_session, require
+from app.core.pagination import PaginationParams, paginated_list_response
 from app.core.ratelimit import RateLimitDep
 from app.modules.auth.deps import require_superadmin
 from app.modules.auth.models import User
@@ -625,10 +626,13 @@ def create_workspace(
 @router.get("/workspaces", response_model=list[WorkspaceResponse])
 def list_workspaces(
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     principal: Principal = Depends(current_principal),
+    page: PaginationParams = Depends(),
 ):
-    return _service(request, session).list_workspaces(principal.user_id)
+    items = _service(request, session).list_workspaces(principal.user_id)
+    return paginated_list_response(items, page, response)
 
 
 @router.post("/workspaces/{workspace_id}/switch", response_model=TokenResponse)
@@ -674,12 +678,15 @@ def add_workspace_member(
 def list_workspace_members(
     workspace_id: str,
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     principal: Principal = Depends(current_principal),
+    page: PaginationParams = Depends(),
 ):
-    return _handle(
-        lambda: _service(request, session).list_workspace_members(workspace_id, principal.user_id)
-    )
+    def _do():
+        items = _service(request, session).list_workspace_members(workspace_id, principal.user_id)
+        return paginated_list_response(items, page, response)
+    return _handle(_do)
 
 
 @router.put("/workspaces/{workspace_id}/members/{user_id}", response_model=ChangeRoleResponse)
@@ -736,10 +743,13 @@ def create_project(
 def list_projects(
     workspace_id: str,
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     principal: Principal = Depends(current_principal),
+    page: PaginationParams = Depends(),
 ):
-    return _service(request, session).list_projects(principal.user_id, workspace_id)
+    items = _service(request, session).list_projects(principal.user_id, workspace_id)
+    return paginated_list_response(items, page, response)
 
 
 @router.post("/projects/{project_id}/members")
@@ -765,12 +775,15 @@ def add_project_member(
 def list_project_members(
     project_id: str,
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     principal: Principal = Depends(current_principal),
+    page: PaginationParams = Depends(),
 ):
-    return _handle(
-        lambda: _service(request, session).list_project_members(project_id, principal.user_id)
-    )
+    def _do():
+        items = _service(request, session).list_project_members(project_id, principal.user_id)
+        return paginated_list_response(items, page, response)
+    return _handle(_do)
 
 
 @router.post("/invitations", response_model=InvitationCreateResponse)
@@ -803,14 +816,17 @@ def accept_invitation(
 @router.get("/invitations", response_model=list[InvitationResponse])
 def list_invitations(
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     principal: Principal = Depends(require("admin")),
+    page: PaginationParams = Depends(),
 ):
-    return _handle(
-        lambda: _service(request, session).list_invitations(
+    def _do():
+        items = _service(request, session).list_invitations(
             principal.workspace_id, principal.user_id
         )
-    )
+        return paginated_list_response(items, page, response)
+    return _handle(_do)
 
 
 @router.delete("/invitations/{invitation_id}", response_model=OkResponse)
@@ -900,19 +916,25 @@ def add_member(
 @router.get("/admin/users", response_model=list[AdminUserResponse])
 def admin_list_users(
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     principal: Principal = Depends(require_superadmin),
+    page: PaginationParams = Depends(),
 ):
-    return _service(request, session).list_users()
+    items = _service(request, session).list_users()
+    return paginated_list_response(items, page, response)
 
 
 @router.get("/admin/workspaces", response_model=list[AdminWorkspaceResponse])
 def admin_list_workspaces(
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     principal: Principal = Depends(require_superadmin),
+    page: PaginationParams = Depends(),
 ):
-    return _service(request, session).list_all_workspaces()
+    items = _service(request, session).list_all_workspaces()
+    return paginated_list_response(items, page, response)
 
 
 @router.post("/admin/users", response_model=TokenResponse)

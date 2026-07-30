@@ -3,12 +3,13 @@ import pathlib
 import time
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
+from app.core.pagination import PaginationParams, paginated_list_response
 from app.core.storage import (
     DEFAULT_MAX_UPLOAD_SIZE,
     MAX_UPLOAD_SIZES,
@@ -50,11 +51,14 @@ class RegisterDocumentBody(BaseModel):
 @router.get("/opportunities")
 def list_opportunities(
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
+    page: PaginationParams = Depends(),
 ):
     opps = _service(request, session).list_opportunities(principal.workspace_id)
-    return {"opportunities": [_opp_json(o) for o in opps]}
+    items = [_opp_json(o) for o in opps]
+    return {"opportunities": paginated_list_response(items, page, response)}
 
 
 def _opp_json(o) -> dict:
@@ -251,46 +255,48 @@ def _sse_event(event: str, data):
 def list_clauses(
     opportunity_id: str,
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
+    page: PaginationParams = Depends(),
 ):
     clauses = _service(request, session).list_clauses(principal.workspace_id, opportunity_id)
-    return {
-        "clauses": [
-            {
-                "id": str(c.id),
-                "clause_ref": c.clause_ref,
-                "heading": c.heading,
-                "page_from": c.page_from,
-                "cross_refs": c.cross_refs,
-            }
-            for c in clauses
-        ]
-    }
+    items = [
+        {
+            "id": str(c.id),
+            "clause_ref": c.clause_ref,
+            "heading": c.heading,
+            "page_from": c.page_from,
+            "cross_refs": c.cross_refs,
+        }
+        for c in clauses
+    ]
+    return {"clauses": paginated_list_response(items, page, response)}
 
 
 @router.get("/opportunities/{opportunity_id}/deadlines")
 def list_deadlines(
     opportunity_id: str,
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
+    page: PaginationParams = Depends(),
 ):
     deadlines = _service(request, session).list_deadlines(principal.workspace_id, opportunity_id)
-    return {
-        "deadlines": [
-            {
-                "id": str(d.id),
-                "kind": d.kind,
-                "due_at": d.due_at.isoformat() if d.due_at else None,
-                "description": d.description,
-                "source_page": d.source_page,
-                "source_quote": d.source_quote,
-                "confirmed": d.confirmed,
-            }
-            for d in deadlines
-        ]
-    }
+    items = [
+        {
+            "id": str(d.id),
+            "kind": d.kind,
+            "due_at": d.due_at.isoformat() if d.due_at else None,
+            "description": d.description,
+            "source_page": d.source_page,
+            "source_quote": d.source_quote,
+            "confirmed": d.confirmed,
+        }
+        for d in deadlines
+    ]
+    return {"deadlines": paginated_list_response(items, page, response)}
 
 
 @router.post("/opportunities/{opportunity_id}/deadlines/{deadline_id}/confirm")

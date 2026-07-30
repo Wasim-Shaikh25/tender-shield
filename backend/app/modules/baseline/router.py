@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core import audit as audit_log
 from app.core.deps import get_session, require
+from app.core.pagination import PaginationParams, paginated_list_response
 from app.core.storage import StorageError, ValidationError, validate_and_store
 from app.modules.baseline.service import BaselineError, BaselineService
 
@@ -126,11 +127,14 @@ async def upload_award_document(
 def list_baselines(
     opportunity_id: str,
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
+    page: PaginationParams = Depends(),
 ):
     rows = _service(request, session).list(principal.workspace_id, opportunity_id)
-    return {"baselines": [_baseline_dict(r) for r in rows]}
+    items = [_baseline_dict(r) for r in rows]
+    return {"baselines": paginated_list_response(items, page, response)}
 
 
 @router.get("/baselines/{baseline_id}")

@@ -189,10 +189,20 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Added `tests/test_audit.py`.
 - Updated `specs/modules/core.md` and `specs/modules/review.md`.
 
+### Done — 2026-07-30 (TS-118: pagination and `/api/health/details` super-admin gate)
+
+- Added `app.core.pagination.PaginationParams` with default page size 50 and max 1000.
+- Added pagination query params to auth, billing, ingestion, findings, review, and
+  baseline list endpoints; response headers include `X-Total-Count`, `X-Next-Offset`,
+  `X-Prev-Offset`, and `X-Page-Limit`.
+- `/api/health/details` now requires a valid super-admin token whenever the auth
+  module is loaded; isolated module tests without auth still receive 200.
+- Updated affected tests to mint a super-admin token for `/api/health/details` calls.
+- Updated `specs/modules/core.md`.
+
 ### Next
 
 - TS-117 — data export and account deletion (GDPR/DPDP).
-- TS-118 — pagination + `/api/health/details` super-admin gate.
 - TS-119 — accessibility linting + WCAG assessment.
 - TS-120 — repository governance (CODEOWNERS, branch protection docs).
 - TS-159 — store `Finding.amount_exposure` and monetary thresholds in minor units.

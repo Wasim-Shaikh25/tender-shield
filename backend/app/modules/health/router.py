@@ -155,13 +155,12 @@ def health_details(
 ) -> dict:
     """Detailed health/capability report.
 
-    In production the auth module is always loaded, so this requires a valid
-    super-admin token. When auth is disabled (isolated loader tests) it falls
-    back to public access so module-loading tests still work.
+    Requires a valid super-admin token whenever the auth module is loaded.
+    When auth is disabled (isolated loader tests) it falls back to public access
+    so module-loading tests still work.
     """
-    settings = request.app.state.ctx.settings
     auth_loaded = request.app.state.ctx.registry.get("auth.authenticate") is not None
-    if settings.is_prod() and auth_loaded and not getattr(principal, "is_superadmin", False):
+    if auth_loaded and not getattr(principal, "is_superadmin", False):
         raise HTTPException(403, "superadmin_required")
 
     report = request.app.state.load_report

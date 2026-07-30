@@ -21,6 +21,13 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   (queried from `WorkspaceMember`) instead of the hardcoded `"owner"` literal.
 - Added `specs/modules/auth.md` acceptance criterion A13 covering OIDC role binding.
 
+### Done — 2026-07-29 (TS-095: workspace-scoped member addition)
+
+- `POST /api/auth/workspaces/{workspace_id}/members` now verifies the caller's
+  `principal.workspace_id` matches `{workspace_id}` (super-admins bypass), preventing
+  any admin of one workspace from joining or adding members to another workspace.
+- Added `specs/modules/auth.md` acceptance criterion A14 covering workspace binding.
+
 ### Done — 2026-07-29 (TS-094: end-to-end production readiness audit)
 
 - **TS-094** — Full end-to-end production readiness audit of trunk

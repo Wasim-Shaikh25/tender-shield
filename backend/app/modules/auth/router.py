@@ -401,6 +401,8 @@ def add_workspace_member(
 ):
     if not principal_requires_verified(principal):
         raise HTTPException(403, "email_not_verified")
+    if not principal.is_superadmin and str(principal.workspace_id) != workspace_id:
+        raise HTTPException(403, "not_workspace_member")
     return _handle(
         lambda: _service(request, session).add_workspace_member(workspace_id, body.email, body.role)
     )

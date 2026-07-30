@@ -97,6 +97,8 @@ endpoints under `/api/auth/admin/*`.
 - A12: 5 failed logins lock the account for 15 minutes.
 - A13: Google OIDC login issues tokens with the user's existing workspace role (not a hardcoded
   `owner`) and raises `no_workspace` for non-super-admins with no membership.
+- A14: `POST /api/auth/workspaces/{id}/members` rejects principals whose workspace does not match
+  `{id}` (super-admins excepted).
 
 ## Out of scope
 

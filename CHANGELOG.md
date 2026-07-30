@@ -167,10 +167,17 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Updated `specs/modules/core.md`, `specs/modules/assistant.md`, `specs/modules/risk.md`,
   and `tasks/backlog.md`.
 
+### Done — 2026-07-30 (TS-114: remove cross-module FK on findings.opportunity_id)
+
+- `findings.models.FindingRow.opportunity_id` is now a plain `Uuid` column instead
+  of a `ForeignKey` to `opportunities.id`.
+- Added Alembic migration `3bfb4b682a86` to drop the existing FK on PostgreSQL.
+- Added `tests/test_architecture.py::test_findings_opportunity_id_has_no_foreign_key`
+  to prevent regressions.
+- Updated `specs/modules/findings.md`.
+
 ### Next
 
-- TS-114 — remove cross-module FK `findings.opportunity_id → opportunities`; add a
-  metadata architecture test.
 - TS-116 — complete audit-log events for auth, membership, billing, and data-export actions.
 - TS-117 — data export and account deletion (GDPR/DPDP).
 - TS-118 — pagination + `/api/health/details` super-admin gate.

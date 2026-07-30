@@ -2,7 +2,7 @@
 
 **Status:** implemented — free-tier metering + paywall (pure), Razorpay/Stripe webhooks, plan activation via webhook only, checkout with coupon support, payment history, plan history, coupon CRUD, billing settings, subscription cancel; billing account state and financial history stored on `users` account (not per-workspace)
 **Requirement refs:** Doc §7, §15, §16.5
-**Task refs:** TS-022, TS-037, TS-172, TS-183, TS-184, TS-185
+**Task refs:** TS-022, TS-037, TS-172, TS-183, TS-184, TS-185, TS-192
 
 ## Purpose
 
@@ -41,6 +41,8 @@ invoicing, and the append-only `payment_log`.
   - `GET /api/billing/settings` (admin)
   - `PUT /api/billing/settings` (admin)
   - `POST /api/billing/cancel` (admin — cancel subscription and downgrade to free)
+  - `GET /api/billing/plans` (viewer — public plan catalog with prices)
+  - `POST /api/billing/change-plan` (admin — upgrade/downgrade to `free`/`pro`/`scale`)
   - `POST /api/billing/webhooks/razorpay` (unauthenticated, HMAC-verified)
   - `POST /api/billing/webhooks/stripe` (unauthenticated, signature-verified)
 
@@ -100,6 +102,11 @@ without affecting their subscription or financial history).
   to cancel a paid subscription immediately. The owning user account plan is set to `free`,
   `free_review_used` is reset to `false`, and a `billing.subscription_cancelled`
   event is recorded in `payment_log`.
+- **B17a (User plan upgrade/downgrade):** `GET /api/billing/plans` returns the public
+  catalog. `POST /api/billing/change-plan` lets an admin pick any valid plan.
+  Downgrading to `free` takes effect immediately and records a `plan_history` entry.
+  Upgrading or switching between paid plans returns a provider checkout; activation
+  still happens only via verified webhook (Doc §15.1).
 - **B18 (Plan history):** every plan change (admin set, subscription checkout,
   subscription cancel, webhook upgrade/downgrade) appends a `plan_history` row
   capturing the old plan, new plan, actor, reason, and timestamp.
@@ -138,6 +145,13 @@ without affecting their subscription or financial history).
 - A10: `POST /api/billing/cancel` downgrades the owning user account to `free`, resets
   `free_review_used`, writes a `subscription_cancelled` payment log row, and appends
   a `plan_history` entry.
+- A10a: `GET /api/billing/plans` returns `free`/`pro`/`scale` with INR prices.
+- A10b: `POST /api/billing/change-plan` to `free` from a paid plan downgrades
+  immediately and returns `{action: "downgraded", plan: "free", previous_plan}`.
+- A10c: `POST /api/billing/change-plan` to `pro` or `scale` returns a checkout
+  (provider order/session) and writes a `billing.plan_change_checkout` audit log.
+- A10d: `POST /api/billing/change-plan` rejects invalid plan ids and selecting the
+  current plan.
 - A11: `POST /api/billing/checkout` with a valid `coupon_code` returns a discounted
   amount; `GET /api/billing/payments` and `GET /api/billing/plan-history` return
   the expected rows after a webhook.
@@ -148,4 +162,5 @@ without affecting their subscription or financial history).
 ## Out of scope
 
 Stripe live wiring (P2/GCC), admin refund console (Doc §16, P1-admin scope),
-annual plans/proration polish.
+annual plans/proration polish, mid-cycle subscription update through provider
+subscription API (currently handled by new checkout).

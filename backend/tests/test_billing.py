@@ -155,3 +155,54 @@ def test_record_usage_capability_logs_event(client):
     with Session(engine) as session:
         factory(session, workspace_id, "test_event")
     # usage is internal; the capability was reachable and callable without error
+
+
+def test_list_plans_exposes_catalog(client):
+    headers, _ = _auth(client)
+    r = client.get("/api/billing/plans", headers=headers)
+    assert r.status_code == 200
+    plans = r.json()["plans"]
+    assert {p["id"] for p in plans} == {"free", "pro", "scale"}
+
+
+def test_user_can_downgrade_to_free(client):
+    headers, workspace_id = _auth(client)
+    # start on pro via webhook
+    body = {
+        "id": "evt_sub_downgrade",
+        "event": "subscription.activated",
+        "payload": {
+            "subscription": {"entity": {"notes": {"workspace_id": workspace_id, "plan": "pro"}}}
+        },
+    }
+    raw, sig = _signed(body)
+    client.post(
+        "/api/billing/webhooks/razorpay",
+        content=raw,
+        headers={"X-Razorpay-Signature": sig},
+    )
+    assert client.get("/api/billing/status", headers=headers).json()["plan"] == "pro"
+
+    r = client.post("/api/billing/change-plan", json={"plan": "free"}, headers=headers)
+    assert r.status_code == 200
+    assert r.json()["plan"] == "free"
+    assert r.json()["previous_plan"] == "pro"
+    assert client.get("/api/billing/status", headers=headers).json()["plan"] == "free"
+
+
+def test_change_plan_to_paid_returns_checkout(client):
+    headers, _ = _auth(client)
+    # fixture signs up and verifies email, so change-plan is allowed.
+    r = client.post("/api/billing/change-plan", json={"plan": "pro"}, headers=headers)
+    assert r.status_code == 200
+    assert r.json()["provider"] in {"razorpay", "stripe"}
+    assert "order_id" in r.json() or "session_id" in r.json()
+
+
+def test_change_plan_rejects_invalid_and_same_plan(client):
+    headers, _ = _auth(client)
+    r1 = client.post("/api/billing/change-plan", json={"plan": "invalid"}, headers=headers)
+    assert r1.status_code == 400
+    # free is the default plan after signup
+    r2 = client.post("/api/billing/change-plan", json={"plan": "free"}, headers=headers)
+    assert r2.status_code == 400

@@ -6,6 +6,20 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-30 (TS-192: user-facing plan upgrade/downgrade)
+
+- Added `GET /api/billing/plans` public catalog and `POST /api/billing/change-plan`
+  so workspace admins can upgrade or downgrade their account plan.
+- Downgrade to `free` takes effect immediately and appends a `plan_history` row.
+- Upgrade/downgrade to `pro` or `scale` returns a provider checkout; the plan is
+  activated only by the verified webhook (Doc §15.1 remains the billing truth).
+- Refactored `POST /api/billing/checkout` into a shared `_create_checkout` helper
+  used by both checkout and change-plan.
+- Updated `/billing` UI with plan cards that show current plan, price, and context-aware
+  "Upgrade" / "Downgrade" actions.
+- Added backend tests for plan catalog, downgrade to free, paid checkout, and invalid/same-plan rejection.
+- Updated `specs/modules/billing.md` with TS-192 behavior and acceptance criteria.
+
 ### Done — 2026-07-30 (TS-186/187/188: AI assistant scoping, Office MCP, and dynamic plan dashboard)
 
 - **TS-186**: Scoped the AI assistant to the logged-in user's account/workspace.
@@ -73,7 +87,7 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ### Next
 
-No tracked `todo` tasks remain in `tasks/backlog.md` for this PR.
+No tracked `todo` tasks remain in `tasks/backlog.md`.
 
 ### Done — 2026-07-30 (TS-185: billing usage/payments/invoices belong to user account, not workspace)
 

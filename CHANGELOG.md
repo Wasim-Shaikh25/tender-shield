@@ -95,12 +95,20 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Updated `specs/modules/rulepacks.md` B2 and `specs/modules/findings.md` B6.
 - Added migration `857d8c12c3f6` for `findings.disclaimer`.
 
+### Done — 2026-07-30 (TS-107: account & security settings UI)
+
+- Added `/settings` page with profile (org/firm, city, phone, DOB) and security
+  (change password, sign out) forms.
+- Linked `/settings` from the header nav.
+- Added `api.getSettings`, `api.updateSettings`, and `api.changePassword` to the
+  typed API client; added `AccountSettings` type.
+- Updated `specs/frontend.md` with `/settings` structure, behavior B9, and acceptance A8.
+
 ### Next
 
 - TS-103 — regenerate the TypeScript API client from the updated OpenAPI schema and
   remove hand-rolled API response mismatches.
 - TS-106 — Team-management UI (invite/list/role/remove) and invitation revocation API.
-- TS-107 — Account & security settings UI.
 - TS-108 — Observability (metrics, health probes, backup/rollback docs).
 - TS-109 — Enforce plan seat limits in `add_workspace_member` / `accept_invitation`.
 - TS-133..TS-162 — remaining medium/low audit follow-ups.

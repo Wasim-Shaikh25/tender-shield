@@ -61,6 +61,19 @@ Before going live, set real values for:
 - `TS_APPLE_*` — to enable Sign in with Apple.
 - `TS_OPENROUTER_API_KEY` (or `OPENROUTER_API_KEY`) and optional `TS_OPENROUTER_MODEL` — to enable LLM risk classification and assistant free-form answers via OpenRouter.
 - `NEXT_PUBLIC_API_URL` — public API base URL, consumed at build time by the frontend.
+- `TS_STORAGE_TYPE` (`local` or `s3`) plus `TS_S3_*` when using S3 or an S3-compatible store.
+
+### Object storage
+
+The backend uses the S3 protocol via `boto3`. Any S3-compatible provider works:
+
+- **MinIO** (self-hosted, free): `TS_STORAGE_TYPE=s3`, `TS_S3_ENDPOINT_URL=https://minio.example.com`,
+  `TS_S3_BUCKET=tendershield`, `TS_S3_REGION=us-east-1`, plus the MinIO access/secret keys.
+  The default `TS_STORAGE_DIR` is ignored when `TS_STORAGE_TYPE=s3`.
+- **AWS S3**, **Cloudflare R2**, **Tigris**, or **Backblaze B2** S3 endpoints also work by setting
+  `TS_S3_ENDPOINT_URL` to the provider’s S3-compatible URL.
+
+Enable versioning and lifecycle rules for production buckets if the provider supports them.
 
 ## Observability
 

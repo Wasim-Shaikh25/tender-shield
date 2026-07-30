@@ -551,6 +551,10 @@ class AuthService:
             raise AuthError("bad_role")
         workspace_id = uuid.UUID(str(workspace_id))
         project_uuid = uuid.UUID(str(project_id)) if project_id else None
+        if project_uuid:
+            project = self.s.get(Project, project_uuid)
+            if not project or project.workspace_id != workspace_id:
+                raise AuthError("no_such_project")
         token = uuid.uuid4().hex
         expires_at = datetime.now(UTC) + timedelta(days=7)
         invitation = Invitation(
@@ -597,6 +601,10 @@ class AuthService:
         user = self.s.get(User, user_id)
         if not user or user.email != invitation.email:
             raise AuthError("invitation_email_mismatch")
+        if invitation.project_id:
+            project = self.s.get(Project, invitation.project_id)
+            if not project or project.workspace_id != invitation.workspace_id:
+                raise AuthError("no_such_project")
         existing = self.s.scalar(
             select(WorkspaceMember).where(
                 WorkspaceMember.workspace_id == invitation.workspace_id,

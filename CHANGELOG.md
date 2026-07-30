@@ -62,6 +62,14 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   only `dev`/`storage`/`redis`.
 - Created `specs/deployment.md` covering production image requirements.
 
+### Done — 2026-07-29 (TS-129: invitation project_id verification)
+
+- `create_invitation` now rejects a `project_id` that does not belong to the
+  invitation's workspace.
+- `accept_invitation` also verifies project/workspace consistency before adding
+  a `ProjectMember`.
+- Added `specs/modules/auth.md` acceptance criterion A19.
+
 ### Done — 2026-07-29 (TS-094: end-to-end production readiness audit)
 
 - **TS-094** — Full end-to-end production readiness audit of trunk

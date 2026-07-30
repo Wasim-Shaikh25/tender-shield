@@ -107,6 +107,8 @@ endpoints under `/api/auth/admin/*`.
   raising an `IntegrityError`/500; unverified accounts are rejected.
 - A18: `GET /api/auth/workspaces/{id}/members` and `GET /api/auth/projects/{id}/members` reject
   callers who are not members of the target workspace (super-admins excepted).
+- A19: `create_invitation` and `accept_invitation` verify that a supplied `project_id` belongs to
+  the invitation's workspace.
 
 ## Out of scope
 

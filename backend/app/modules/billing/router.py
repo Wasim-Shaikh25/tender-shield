@@ -69,6 +69,13 @@ class BillingSettingsBody(BaseModel):
     payment_method_id: str | None = None
 
 
+class ChangePlanBody(BaseModel):
+    plan: str  # free | pro | scale
+    provider: str | None = None
+    coupon_code: str | None = None
+    amount_minor: int | None = None
+
+
 @router.get("/status")
 def status(
     request: Request,
@@ -78,14 +85,41 @@ def status(
     return _service(request, session).status(principal.workspace_id)
 
 
-@router.post("/checkout", dependencies=[Depends(RateLimitDep(10, 60))])
-def checkout(
-    body: CheckoutBody,
+@router.get("/plans")
+def list_plans(
     request: Request,
     session: Session = Depends(get_session),
-    principal: Any = Depends(require("admin")),
+    principal: Any = Depends(require("viewer")),
 ):
-    """Creates a provider order/subscription handle for the client SDK.
+    """Public plan catalog for the upgrade/downgrade UI."""
+    return {
+        "plans": [
+            {"id": "free", "name": "Free", "price_minor": 0, "currency": "INR"},
+            {
+                "id": "pro",
+                "name": "Pro",
+                "price_minor": SUBSCRIPTION_PRICES["inr"]["pro"],
+                "currency": "INR",
+            },
+            {
+                "id": "scale",
+                "name": "Scale",
+                "price_minor": SUBSCRIPTION_PRICES["inr"]["scale"],
+                "currency": "INR",
+            },
+        ]
+    }
+
+
+def _create_checkout(
+    request: Request,
+    session: Session,
+    principal: Any,
+    body: CheckoutBody,
+    *,
+    action: str = "billing.checkout",
+) -> dict:
+    """Shared helper: create a provider order/subscription handle.
     Activates NOTHING — only the verified webhook does (Doc §15.1)."""
     if not (principal.is_superadmin or principal.email_verified):
         raise HTTPException(403, "email_not_verified")
@@ -152,7 +186,7 @@ def checkout(
         session,
         workspace_id=principal.workspace_id,
         actor_user_id=principal.user_id,
-        action="billing.checkout",
+        action=action,
         object_type="workspace",
         object_id=principal.workspace_id,
         detail={
@@ -165,6 +199,83 @@ def checkout(
         },
     )
     return result
+
+
+@router.post("/checkout", dependencies=[Depends(RateLimitDep(10, 60))])
+def checkout(
+    body: CheckoutBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    """Creates a provider order/subscription handle for the client SDK.
+    Activates NOTHING — only the verified webhook does (Doc §15.1)."""
+    return _create_checkout(request, session, principal, body)
+
+
+@router.post("/change-plan", dependencies=[Depends(RateLimitDep(10, 60))])
+def change_plan(
+    body: ChangePlanBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    """User-facing plan upgrade/downgrade.
+
+    - Downgrade to free cancels the current subscription immediately.
+    - Upgrade or paid plan switch returns a checkout for the new plan.
+      Activation still happens only when the provider webhook is verified.
+    """
+    valid_plans = {"free", "pro", "scale"}
+    if body.plan not in valid_plans:
+        raise HTTPException(400, "invalid_plan")
+
+    svc = _service(request, session)
+    user = svc._user_billing(principal.user_id)
+    current_plan = user["plan"]
+    if body.plan == current_plan:
+        raise HTTPException(400, "same_plan")
+
+    if body.plan == "free":
+        try:
+            result = svc.cancel_subscription(principal.workspace_id, principal.user_id)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        except PaywallError as exc:
+            raise HTTPException(402, exc.code) from exc
+        audit_log.log(
+            request,
+            session,
+            workspace_id=principal.workspace_id,
+            actor_user_id=principal.user_id,
+            action="billing.plan_changed",
+            object_type="user",
+            object_id=str(principal.user_id),
+            detail={
+            "previous_plan": result.get("previous_plan"),
+            "new_plan": "free",
+            "reason": "user_downgrade",
+        },
+        )
+        return {
+            "action": "downgraded",
+            "plan": "free",
+            "previous_plan": result.get("previous_plan"),
+        }
+
+    return _create_checkout(
+        request,
+        session,
+        principal,
+        CheckoutBody(
+            provider=body.provider,
+            kind="subscription",
+            plan=body.plan,
+            coupon_code=body.coupon_code,
+            amount_minor=body.amount_minor,
+        ),
+        action="billing.plan_change_checkout",
+    )
 
 
 @router.post("/authorize-review")

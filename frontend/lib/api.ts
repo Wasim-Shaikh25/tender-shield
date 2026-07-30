@@ -165,6 +165,9 @@ export const api = {
   listPlanHistory: (token: string) => req<{ history: { id: string; old_plan: string; new_plan: string; changed_by: string | null; reason: string | null; created_at: string }[] }>("/billing/plan-history", {}, token),
   checkout: (token: string, body: { provider?: string; kind: string; plan?: string; amount_minor?: number; coupon_code?: string }) =>
     req<{ provider: string; order_id?: string; session_id?: string; mock: boolean; note: string }>("/billing/checkout", { method: "POST", body: JSON.stringify(body) }, token),
+  listPlans: (token: string) => req<{ plans: { id: string; name: string; price_minor: number; currency: string }[] }>("/billing/plans", {}, token),
+  changePlan: (token: string, body: { plan: string; provider?: string; coupon_code?: string; amount_minor?: number }) =>
+    req<{ action: string; plan: string; previous_plan?: string; provider?: string; order_id?: string; session_id?: string; mock: boolean; note?: string }>("/billing/change-plan", { method: "POST", body: JSON.stringify(body) }, token),
   listCoupons: (token: string) => req<{ coupons: { id: string; code: string; discount_type: string; discount_value: number; currency: string | null; max_uses: number | null; uses_count: number; valid_from: string | null; valid_until: string | null; active: boolean; created_at: string }[] }>("/billing/coupons", {}, token),
   createCoupon: (token: string, body: Record<string, unknown>) => req<{ id: string; code: string }>("/billing/coupons", { method: "POST", body: JSON.stringify(body) }, token),
   deleteCoupon: (token: string, code: string) => req<OkResponse>(`/billing/coupons/${code}`, { method: "DELETE" }, token),

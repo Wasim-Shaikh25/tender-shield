@@ -300,3 +300,4 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-189 | Add backend tests and audit-log verification for assistant scoping, admin chat, and plan dashboard | TS-186/188 follow-up | `backend/tests/`, `backend/app/modules/assistant/tests/`, `backend/app/modules/analytics/tests/` | done |
 | TS-190 | Integrate Office MCP server with TenderShield API so QS engineers can pull opportunities/findings into Word/Excel | TS-187 follow-up | `mcp-servers/office-mcp/`, `docs/integrations/office-mcp.md` | done |
 | TS-191 | Add plan dashboard templates, saved snapshots, and export to PowerPoint/PDF | TS-188 follow-up | `frontend/app/plan/`, `backend/app/modules/analytics/`, `specs/modules/plan-dashboard.md` | done |
+| TS-192 | Add user-facing plan upgrade/downgrade endpoints and UI | user request | `backend/app/modules/billing/`, `frontend/app/billing/`, `specs/modules/billing.md` | done |

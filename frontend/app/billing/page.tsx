@@ -12,6 +12,7 @@ export default function BillingPage() {
   const [invoices, setInvoices] = useState<{ id: string; invoice_number: string; amount_minor: number; currency: string; status: string; paid_at: string | null; created_at: string }[]>([]);
   const [payments, setPayments] = useState<{ id: string; provider: string; event_type: string; amount_minor: number | null; currency: string | null; status: string; created_at: string }[]>([]);
   const [history, setHistory] = useState<{ id: string; old_plan: string; new_plan: string; reason: string | null; created_at: string }[]>([]);
+  const [plans, setPlans] = useState<{ id: string; name: string; price_minor: number; currency: string }[]>([]);
   const [coupon, setCoupon] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -23,6 +24,7 @@ export default function BillingPage() {
     api.listInvoices(session.token).then((d) => setInvoices(d.invoices)).catch(() => setInvoices([]));
     api.listPayments(session.token).then((d) => setPayments(d.payments)).catch(() => setPayments([]));
     api.listPlanHistory(session.token).then((d) => setHistory(d.history)).catch(() => setHistory([]));
+    api.listPlans(session.token).then((d) => setPlans(d.plans)).catch(() => setPlans([]));
   }, [session]);
 
   async function checkout(kind: string, plan?: string) {
@@ -36,6 +38,30 @@ export default function BillingPage() {
       setMessage(`Checkout created (${res.provider}). ${res.note}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Checkout failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function changePlan(planId: string) {
+    if (!session) return;
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const body: { plan: string; provider?: string; coupon_code?: string } = { plan: planId };
+      if (coupon.trim()) body.coupon_code = coupon.trim();
+      const res = await api.changePlan(session.token, body);
+      if (res.action === "downgraded") {
+        setMessage(`Plan downgraded from ${res.previous_plan || "paid"} to Free.`);
+      } else {
+        setMessage(`Checkout created (${res.provider || "mock"}). ${res.note || ""}`);
+      }
+      // refresh status/history to reflect change
+      api.billingStatus(session.token).then(setStatus).catch(() => {});
+      api.listPlanHistory(session.token).then((d) => setHistory(d.history)).catch(() => {});
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Plan change failed");
     } finally {
       setBusy(false);
     }
@@ -83,13 +109,35 @@ export default function BillingPage() {
         <button onClick={() => checkout("paygo")} disabled={busy} className="rounded-md bg-ink px-3 py-1.5 text-sm text-white hover:opacity-90 disabled:opacity-50">
           Pay for one review
         </button>
-        <button onClick={() => checkout("subscription", "pro")} disabled={busy} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-white disabled:opacity-50">
-          Subscribe to Pro
-        </button>
-        <button onClick={() => checkout("subscription", "scale")} disabled={busy} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-white disabled:opacity-50">
-          Subscribe to Scale
-        </button>
       </div>
+
+      {status && plans.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          {plans.map((p) => {
+            const isCurrent = status.plan === p.id;
+            const isUpgrade = rankPlan(p.id) > rankPlan(status.plan);
+            return (
+              <div key={p.id} className={`rounded-xl border p-4 ${isCurrent ? "border-emerald-500 bg-emerald-50" : "border-slate-200 bg-white"}`}>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold capitalize text-ink">{p.name}</h3>
+                  {isCurrent && <span className="rounded-full bg-emerald-200 px-2 py-0.5 text-xs font-medium text-emerald-800">Current</span>}
+                </div>
+                <p className="mt-1 text-2xl font-bold text-ink">
+                  {new Intl.NumberFormat("en-IN", { style: "currency", currency: p.currency }).format(p.price_minor / 100)}
+                  <span className="text-sm font-normal text-slate-500">{p.id === "free" ? "" : "/mo"}</span>
+                </p>
+                <button
+                  onClick={() => changePlan(p.id)}
+                  disabled={busy || isCurrent}
+                  className="mt-4 w-full rounded-md bg-ink px-3 py-1.5 text-sm text-white disabled:opacity-50"
+                >
+                  {isCurrent ? "Current plan" : isUpgrade ? `Upgrade to ${p.name}` : `Downgrade to ${p.name}`}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {message && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</p>}
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
@@ -108,10 +156,10 @@ export default function BillingPage() {
 
       {tab === "overview" && (
         <div className="space-y-4">
-          <p className="text-sm text-slate-500">Use the buttons above to start a checkout. Enter a coupon code before clicking to apply a discount.</p>
+          <p className="text-sm text-slate-500">Pick a plan above to upgrade or downgrade. Enter a coupon code before clicking to apply a discount. Payments are verified by signed webhooks before your plan is activated.</p>
           <div className="rounded-xl border border-slate-200 bg-white p-6">
             <h2 className="text-lg font-semibold text-ink">Need help?</h2>
-            <p className="text-sm text-slate-500">Payments are verified by signed webhooks before your plan is activated.</p>
+            <p className="text-sm text-slate-500">Downgrading to Free takes effect immediately. Upgrades require a verified payment.</p>
           </div>
         </div>
       )}
@@ -201,6 +249,10 @@ function HistoryTable({ history }: { history: { id: string; old_plan: string; ne
       </tbody>
     </table>
   );
+}
+
+function rankPlan(plan: string): number {
+  return { free: 0, paygo: 1, pro: 2, scale: 3 }[plan] ?? 0;
 }
 
 function formatMinor(minor: number, currency: string) {

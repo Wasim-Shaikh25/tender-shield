@@ -78,7 +78,9 @@ def test_mfa_enroll_and_verify():
 
 def test_extract_csv_and_boq_detection():
     csv = b"src_row,description,unit_raw,qty,rate,amount\n1,Excavation,cum,10,20,200\n"
-    assert "Excavation" in extract_text("boq.csv", csv)
+    text = extract_text("boq.csv", csv)
+    assert "Excavation" in text
+    assert "[p2]" in text
     assert looks_like_boq_csv("boq.csv", csv)
     assert not looks_like_boq_csv("notes.txt", csv)
 

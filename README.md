@@ -30,6 +30,7 @@ quote-verified, and nothing exports until a human reviews it.
 | `tasks/backlog.md` | Task backlog derived from requirements (`TS-###` IDs) |
 | `CHANGELOG.md` | What's done and what's next, updated every session |
 | `CLAUDE.md`, `.cursor/rules/` | Mandatory workflow + architecture rules for AI assistants |
+| `docs/governance.md` | Branch protection, `CODEOWNERS`, and local venv setup instructions |
 | `backend/` | FastAPI modular monolith — pluggable modules, no hard cross-module deps |
 | `frontend/` | Next.js 15 + TypeScript + Tailwind app |
 | `rulepacks/` | Versioned contract rule-packs (data + tests, not prompts) |

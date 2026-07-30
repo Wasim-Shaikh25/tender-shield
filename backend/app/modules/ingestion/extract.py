@@ -19,7 +19,9 @@ def extract_text(filename: str, data: bytes) -> str:
         return _pdf(data)
     if name.endswith((".xlsx", ".xlsm")):
         return _xlsx(data)
-    if name.endswith((".csv", ".txt", ".md")):
+    if name.endswith(".csv"):
+        return _csv(data)
+    if name.endswith((".txt", ".md")):
         return data.decode("utf-8", errors="replace")
     return data.decode("utf-8", errors="replace")
 
@@ -76,10 +78,21 @@ def _xlsx(data: bytes) -> str:
     lines: list[str] = []
     for ws in wb.worksheets:
         lines.append(f"[sheet:{ws.title}]")
-        for row in ws.iter_rows(values_only=True):
+        for row_idx, row in enumerate(ws.iter_rows(values_only=True), start=1):
             cells = [str(c) for c in row if c is not None]
             if cells:
+                lines.append(f"[p{row_idx}]")
                 lines.append("\t".join(cells))
+    return "\n".join(lines)
+
+
+def _csv(data: bytes) -> str:
+    text = data.decode("utf-8", errors="replace")
+    lines: list[str] = []
+    for row_idx, line in enumerate(text.splitlines(), start=1):
+        if line.strip():
+            lines.append(f"[p{row_idx}]")
+            lines.append(line)
     return "\n".join(lines)
 
 

@@ -4,6 +4,7 @@ from app.modules.ingestion.ocr import NullOcrProvider, RapidOcrProvider, RapidTa
 from app.modules.ingestion.router import router
 from app.modules.ingestion.service import IngestionService
 from app.modules.ingestion.tables import file_to_boq_csv, scanned_boq_csv
+from app.modules.ingestion.tus import sweep_expired_uploads
 
 
 def setup(ctx: AppContext) -> None:
@@ -38,6 +39,10 @@ def setup(ctx: AppContext) -> None:
         "ingestion.doc_text",
         lambda session: DocTextService(session),
     )
+
+    scheduler = reg.get("core.scheduler")
+    if scheduler is not None:
+        scheduler.add_job(sweep_expired_uploads, "interval", hours=1)
 
 
 module = ModuleSpec(

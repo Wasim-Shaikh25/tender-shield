@@ -1,8 +1,8 @@
 # Billing & Metering — Spec
 
-**Status:** implemented — free-tier metering + paywall (pure), Razorpay/Stripe webhooks, plan activation via webhook only, checkout with coupon support, payment history, plan history, coupon CRUD, billing settings, subscription cancel
+**Status:** implemented — free-tier metering + paywall (pure), Razorpay/Stripe webhooks, plan activation via webhook only, checkout with coupon support, payment history, plan history, coupon CRUD, billing settings, subscription cancel; plan stored on `users` account (not per-workspace)
 **Requirement refs:** Doc §7, §15, §16.5
-**Task refs:** TS-022, TS-037, TS-172, TS-183
+**Task refs:** TS-022, TS-037, TS-172, TS-183, TS-184
 
 ## Purpose
 
@@ -20,7 +20,7 @@ invoicing, and the append-only `payment_log`.
   - `billing.record_usage(session, org_id, event, ref_id=None)` — direct capability
     for modules that only need to log usage without pulling in the full service.
   - `billing.set_workspace_plan(session, workspace_id, new_plan, changed_by, reason=None)` —
-    lets auth/admin update a workspace plan while appending a `plan_history` row.
+    resolves the workspace owner and updates the user account plan while appending a `plan_history` row.
   - `billing.metering.authorize_review(org) -> Grant` (legacy alias via service).
   - `billing.provider_factory` → `BillingProvider` with `RazorpayProvider` and
     `StripeProvider` implementations; falls back to the deterministic dev notes
@@ -46,9 +46,10 @@ invoicing, and the append-only `payment_log`.
 ## Data owned
 
 `usage_events`, `payment_log` (append-only, from day one), `invoices`, payment
-intents, webhook-dedup records, `plan_history` (every workspace plan change with
+intents, webhook-dedup records, `plan_history` (every user account plan change with
 old/new plan, changed_by, reason), `coupons` (global discount codes with usage
-counts and validity windows), plan state on `workspaces`.
+counts and validity windows), plan state on `users` (a user can create or delete
+workspaces without affecting their subscription).
 
 ## Behavior
 
@@ -93,7 +94,7 @@ counts and validity windows), plan state on `workspaces`.
   identifier) on the workspace. GSTIN and PAN are validated for Indian workspaces
   (15 and 10 characters respectively); invalid values return `400`.
 - **B17 (Subscription cancel):** `POST /api/billing/cancel` allows a workspace admin
-  to cancel a paid subscription immediately. The workspace plan is set to `free`,
+  to cancel a paid subscription immediately. The owning user account plan is set to `free`,
   `free_review_used` is reset to `false`, and a `billing.subscription_cancelled`
   event is recorded in `payment_log`.
 - **B18 (Plan history):** every plan change (admin set, subscription checkout,
@@ -110,8 +111,8 @@ counts and validity windows), plan state on `workspaces`.
   and re-validated on the webhook before plan activation.
 - **B21 (Payment history):** `GET /api/billing/payments` lists all `payment_log`
   rows for the workspace so workspace admins can trace every transaction.
-- **B22 (Plan history read):** `GET /api/billing/plan-history` returns the workspace's
-  chronological plan changes.
+- **B22 (Plan history read):** `GET /api/billing/plan-history` returns the current
+  user's chronological account plan changes.
 
 ## Acceptance criteria
 
@@ -130,7 +131,7 @@ counts and validity windows), plan state on `workspaces`.
   but a Stripe SDK outage raises.
 - A9: `PUT /api/billing/settings` validates GSTIN length 15 and PAN length 10 for
   Indian workspaces and persists the billing profile.
-- A10: `POST /api/billing/cancel` downgrades the workspace to `free`, resets
+- A10: `POST /api/billing/cancel` downgrades the owning user account to `free`, resets
   `free_review_used`, writes a `subscription_cancelled` payment log row, and appends
   a `plan_history` entry.
 - A11: `POST /api/billing/checkout` with a valid `coupon_code` returns a discounted

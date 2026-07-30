@@ -46,6 +46,8 @@ class User(Base):
     )
     pending_email: Mapped[str | None] = mapped_column(String, nullable=True)
     pending_email_token_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    plan: Mapped[str] = mapped_column(String, nullable=False, default="free")
+    free_review_used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -79,8 +81,6 @@ class Workspace(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     slug: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     country: Mapped[str] = mapped_column(String, nullable=False, default="IN")
-    plan: Mapped[str] = mapped_column(String, nullable=False, default="free")
-    free_review_used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     billing_provider: Mapped[str | None] = mapped_column(String, nullable=True)
     billing_settings: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=dict)
     created_at: Mapped[datetime] = mapped_column(

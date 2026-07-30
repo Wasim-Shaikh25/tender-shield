@@ -248,7 +248,7 @@ def list_plan_history(
             "reason": h.reason,
             "created_at": h.created_at.isoformat(),
         }
-        for h in _service(request, session).list_plan_history(principal.workspace_id)
+        for h in _service(request, session).list_plan_history(principal.user_id)
     ]
     return {"history": paginated_list_response(items, page, response)}
 

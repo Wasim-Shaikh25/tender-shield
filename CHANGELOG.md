@@ -6,6 +6,22 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-30 (TS-184: plan belongs to user account, not workspace)
+
+- Moved `plan` and `free_review_used` columns from `workspaces` to `users` so
+  billing follows the account, not a workspace that can be deleted.
+- Updated `BillingService` to resolve the workspace owner and read/update the
+  user account's plan; `set_workspace_plan` still accepts a workspace ID but sets
+  the owning user's plan.
+- `PlanHistory` is now keyed by `user_id` instead of `workspace_id` and is no
+  longer workspace-scoped/RLS-isolated (it is account-level history).
+- `GET /api/billing/plan-history` returns the current user's account plan changes.
+- Admin user detail page (`/admin/users/[id]`) now shows the user's current plan
+  and each workspace's plan pill (inherited from the account).
+- Added Alembic migration `d109c102dd39` to migrate existing `plan_history` rows
+  and backfill `users.plan`/`free_review_used` from the first owned workspace.
+- Updated `specs/modules/billing.md` to reflect account-level billing plan state.
+
 ### Done — 2026-07-30 (TS-183: billing/payment UI and admin/billing API mapping)
 
 - Added `Coupon` and `PlanHistory` models, Alembic migration, and RLS policy for

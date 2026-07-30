@@ -55,6 +55,7 @@ export default function AdminUserDetailPage() {
           <div><p className="text-xs text-slate-500">Phone</p><p className="text-sm font-medium">{user.phone} {user.mobile_verified && "(verified)"}</p></div>
           <div><p className="text-xs text-slate-500">Organisation</p><p className="text-sm font-medium">{user.org_name}</p></div>
           <div><p className="text-xs text-slate-500">City</p><p className="text-sm font-medium">{user.city}</p></div>
+          <div><p className="text-xs text-slate-500">Plan</p><p className="text-sm font-medium capitalize">{user.plan || "free"}</p></div>
           <div><p className="text-xs text-slate-500">DOB</p><p className="text-sm font-medium">{user.dob ?? "—"}</p></div>
           <div><p className="text-xs text-slate-500">Created</p><p className="text-sm font-medium">{user.created_at ?? "—"}</p></div>
         </div>
@@ -76,7 +77,10 @@ export default function AdminUserDetailPage() {
             {user.workspaces.map((w) => (
               <li key={w.workspace_id} className="flex items-center justify-between py-2">
                 <span className="text-sm font-medium text-slate-900">{w.name}</span>
-                <span className="text-xs text-slate-500">{w.role}</span>
+                <div className="flex items-center gap-3">
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs capitalize text-slate-600">{w.plan || "free"}</span>
+                  <span className="text-xs text-slate-500">{w.role}</span>
+                </div>
               </li>
             ))}
           </ul>

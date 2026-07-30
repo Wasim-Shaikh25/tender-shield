@@ -382,10 +382,11 @@ export type UserDetail = {
   email_verified: boolean;
   mobile_verified: boolean;
   is_superadmin: boolean;
+  plan: string;
   suspended_at: string | null;
   created_at: string | null;
   dob: string | null;
-  workspaces: Array<{ workspace_id: string; name: string; role: string }>;
+  workspaces: Array<{ workspace_id: string; name: string; role: string; plan: string | null }>;
 };
 
 export type WorkspaceDetail = {

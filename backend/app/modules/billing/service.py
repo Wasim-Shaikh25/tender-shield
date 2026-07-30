@@ -70,19 +70,31 @@ class BillingService:
         if commit:
             self.s.commit()
 
+    def _user_for_workspace(self, workspace_id):
+        user_id = self._workspaces().get_owner(workspace_id)
+        if user_id is None:
+            raise PaywallError("no_workspace")
+        return user_id
+
+    def _user_billing(self, user_id) -> dict:
+        user = self._workspaces().get_user(user_id)
+        if user is None:
+            raise PaywallError("no_workspace")
+        return user
+
     def authorize_review(self, workspace_id) -> Grant:
         """Meter a review at processing start (Doc §7). Raises PaywallError with
         an upsell payload when blocked."""
-        workspace = self._workspaces().get(workspace_id)
-        if workspace is None:
-            raise PaywallError("no_workspace")
+        user_id = self._user_for_workspace(workspace_id)
+        user = self._user_billing(user_id)
         grant = authorize(
-            plan=workspace.plan,
-            free_review_used=workspace.free_review_used,
+            plan=user["plan"],
+            free_review_used=user["free_review_used"],
             reviews_this_month=self._month_reviews(workspace_id),
         )
         if grant.kind == "free_first_review":
-            self._workspaces().mark_free_review_used(workspace_id)
+            self._workspaces().mark_free_review_used(user_id, commit=False)
+            self.s.commit()
             self.record_usage(workspace_id, "review_started")
         elif grant.kind == "plan":
             self.record_usage(workspace_id, "review_started")
@@ -90,14 +102,14 @@ class BillingService:
         return grant
 
     def status(self, workspace_id) -> dict:
-        workspace = self._workspaces().get(workspace_id)
-        plan = workspace.plan if workspace else "free"
+        user_id = self._user_for_workspace(workspace_id)
+        user = self._user_billing(user_id)
         reviews_this_month = self._month_reviews(workspace_id)
-        seats = len(self._workspaces().list_members(workspace_id)) if workspace else 0
-        limits = PLAN_LIMITS.get(plan, {})
+        seats = len(self._workspaces().list_members(workspace_id))
+        limits = PLAN_LIMITS.get(user["plan"], {})
         return {
-            "plan": plan,
-            "free_review_used": workspace.free_review_used if workspace else None,
+            "plan": user["plan"],
+            "free_review_used": user["free_review_used"],
             "reviews_used": reviews_this_month,
             "reviews_limit": limits.get("reviews_month") or limits.get("reviews_total"),
             "seats": seats,
@@ -184,18 +196,18 @@ class BillingService:
         )
 
     # ---- plan history -----------------------------------------------------
-    def list_plan_history(self, workspace_id) -> list[PlanHistory]:
+    def list_plan_history(self, user_id) -> list[PlanHistory]:
         return list(
             self.s.scalars(
                 select(PlanHistory)
-                .where(PlanHistory.workspace_id == uuid.UUID(str(workspace_id)))
+                .where(PlanHistory.user_id == uuid.UUID(str(user_id)))
                 .order_by(PlanHistory.created_at.desc())
             )
         )
 
     def record_plan_change(
         self,
-        workspace_id,
+        user_id,
         old_plan: str,
         new_plan: str,
         changed_by,
@@ -203,7 +215,7 @@ class BillingService:
         commit: bool = True,
     ) -> PlanHistory:
         entry = PlanHistory(
-            workspace_id=uuid.UUID(str(workspace_id)),
+            user_id=uuid.UUID(str(user_id)),
             old_plan=old_plan,
             new_plan=new_plan,
             changed_by=uuid.UUID(str(changed_by)) if changed_by else None,
@@ -214,6 +226,23 @@ class BillingService:
             self.s.commit()
         return entry
 
+    def set_user_plan(
+        self,
+        user_id,
+        new_plan: str,
+        changed_by,
+        reason: str | None = None,
+        commit: bool = True,
+    ) -> dict:
+        """Update the user account plan and append a plan_history row."""
+        result = self._workspaces().set_user_plan(user_id, new_plan, commit=False)
+        self.record_plan_change(
+            user_id, result["previous_plan"], new_plan, changed_by, reason=reason, commit=False
+        )
+        if commit:
+            self.s.commit()
+        return result
+
     def set_workspace_plan(
         self,
         workspace_id,
@@ -222,20 +251,9 @@ class BillingService:
         reason: str | None = None,
         commit: bool = True,
     ) -> dict:
-        """Update the workspace plan and append a plan_history row."""
-        ws = self._workspaces().get(workspace_id)
-        if ws is None:
-            raise PaywallError("no_workspace")
-        old_plan = ws.plan
-        if old_plan == new_plan:
-            return {"plan": new_plan, "previous_plan": old_plan}
-        ws.plan = new_plan
-        self.record_plan_change(
-            workspace_id, old_plan, new_plan, changed_by, reason=reason, commit=False
-        )
-        if commit:
-            self.s.commit()
-        return {"plan": new_plan, "previous_plan": old_plan}
+        """Resolve the workspace owner and set the user account plan."""
+        user_id = self._user_for_workspace(workspace_id)
+        return self.set_user_plan(user_id, new_plan, changed_by, reason=reason, commit=commit)
 
     # ---- coupons ----------------------------------------------------------
     def list_coupons(self) -> list[Coupon]:
@@ -326,16 +344,15 @@ class BillingService:
         return settings
 
     def cancel_subscription(self, workspace_id, user_id) -> dict:
-        ws = self._workspaces().get(workspace_id)
-        if ws is None:
-            raise PaywallError("no_workspace")
-        old_plan = ws.plan
+        owner_id = self._user_for_workspace(workspace_id)
+        user = self._user_billing(owner_id)
+        old_plan = user["plan"]
         if old_plan == "free":
             raise ValueError("already_free")
-        ws.plan = "free"
-        ws.free_review_used = False
+        self._workspaces().set_user_plan(owner_id, "free", commit=False)
+        self._workspaces().mark_free_review_used(owner_id, used=False, commit=False)
         self.record_plan_change(
-            workspace_id,
+            owner_id,
             old_plan,
             "free",
             user_id,

@@ -79,6 +79,10 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   org/firm name, email, mobile, city, DOB, password + confirm, email/mobile
   verification, OTP login, and workspace creation; `session.tsx` drives workspace
   selection; `api.ts` and `admin/page.tsx` align with backend response shapes.
+- Fixed `6cffa6139050` to use dialect-aware `ALTER TABLE` on PostgreSQL (avoiding
+  `DROP CONSTRAINT users_pkey` while FKs reference it) and keep batch-alter for SQLite.
+- `tests/test_rls_postgres.py` now catches `(IntegrityError, ProgrammingError)` for
+  RLS `WITH CHECK` violations (`InsufficientPrivilege` is a `ProgrammingError` in psycopg).
 
 ### Next
 

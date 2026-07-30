@@ -61,12 +61,12 @@ until Phase-1 exit gates pass (§10).
 | TS-031 | Deploy scaffolding: Postgres docker-compose + backend/frontend Dockerfiles + `.env.example` | Doc §4, §11.1 | — | done |
 | TS-032 | Frontend CI (npm build) job in GitHub Actions | Doc §11.1 | — | done |
 | TS-033 | tus resumable upload; (Textract NOT required — open-source scanned-table path shipped in TS-039) | Doc §4, §6.1 | `specs/modules/ingestion.md` | done |
-| TS-039 | Scanned-table BOQ via rapid-table (offline ONNX, NO cloud) + HTML→CSV; wired as BOQ-upload fallback | Doc §6.1, §12.4 | `specs/modules/ingestion.md` | done (model download on first use; not sandbox-verified) |
+| TS-039 | Scanned-table BOQ via rapid-table (offline ONNX, NO cloud) + HTML→CSV; wired as BOQ-upload fallback — NOTE: ONNX model downloads on first use; not verified in a sandbox | Doc §6.1, §12.4 | `specs/modules/ingestion.md` | done |
 | TS-038 | Local OCR (RapidOCR, offline) + PDF table extraction (pdfplumber) — no cloud; OCR provider interface + honest needs_ocr degradation | Doc §6.1, §12.4 | `specs/modules/ingestion.md` | done |
 | TS-034 | Celery + Redis: async page-streamed processing (SSE) | Doc §3.1, §3.3 | — | done |
-| TS-035 | SES/Resend + MSG91 send adapters behind the notifications interface | Doc §4, §11.6 | — | done (skeletons in place; needs live keys) |
-| TS-036 | Phone OTP (MSG91) + Google OIDC login | Doc §5 | `specs/modules/auth.md` | done (skeletons in place; needs live keys) |
-| TS-037 | Stripe (GCC/UK) provider + live Razorpay keys behind the billing interface | Doc §7, §15.6 | `specs/modules/billing.md` | done (skeletons in place; needs live keys) |
+| TS-035 | SES/Resend + MSG91 send adapters behind the notifications interface — BLOCKED: adapters written, needs live provider credentials to verify | Doc §4, §11.6 | — | blocked |
+| TS-036 | Phone OTP (MSG91) + Google OIDC login — BLOCKED: needs live provider credentials to verify | Doc §5 | `specs/modules/auth.md` | blocked |
+| TS-037 | Stripe (GCC/UK) provider + live Razorpay keys behind the billing interface — BLOCKED: needs live provider credentials to verify | Doc §7, §15.6 | `specs/modules/billing.md` | blocked |
 
 ## Phase 1 — UX & docs
 
@@ -135,18 +135,18 @@ staying inside the tender-review domain. Full requirements and tracker:
 | TS-076 | Rename `org_id` → `workspace_id` across all modules, RLS, and `core.db` | architecture; Doc §3.2 | `specs/data-model.md` (update) | done |
 | TS-077 | Workspace/project CRUD, sharing/invites, super-admin endpoints, and 2FA method | product; Doc §5, §16 | `specs/modules/auth.md` (update) | done |
 | TS-078 | Update tests and verify `ruff`/`pytest`/frontend build for tenant refactor | testing; Doc §11.1 | — | done |
-| TS-079 | Real email/SMS delivery for `email`/`sms` MFA and OTP codes | product; Doc §5 | `specs/modules/auth.md` (update), `specs/modules/notifications.md` (update) | done (skeletons in place; needs live keys) |
+| TS-079 | Real email/SMS delivery for `email`/`sms` MFA and OTP codes — BLOCKED: needs live provider credentials to verify | product; Doc §5 | `specs/modules/auth.md` (update), `specs/modules/notifications.md` (update) | blocked |
 | TS-080 | Real web automation validation of signup -> workspace -> project -> invite flow | testing; Doc §11.1 | — | done |
-| TS-081 | Fix `accept_invitation` naive/aware datetime comparison and add invitation flow test | bugfix; Doc §11.1 | `tests/test_auth_module.py` (update) | done |
+| TS-081 | Fix `accept_invitation` naive/aware datetime comparison and add invitation flow test | bugfix; Doc §11.1 | `backend/tests/test_auth_module.py` (update) | done |
 | TS-082 | Forgot-password and reset-password flow (token via email, dev mode returns token) | product; Doc §5 | `specs/modules/auth.md` (update) | done |
 
 ## Notes
 
 - A task moves to `in-progress` when work starts and `done` in the commit that
-  completes it, with the task ID in the commit body.| done || done || done (skeletons in place; needs live keys) || done (skeletons in place; needs live keys) || done (skeletons in place; needs live keys) || done || done || done || done (skeletons in place; needs live keys) |
+  completes it, with the task ID in the commit body.| done || done || blocked || blocked || blocked || done || done || done || blocked |
 - New requirements → new `TS-###` rows here first, then a spec, then code.
 - Hardening items marked `(needs …)` are logic-ready but require external
-  accounts/services to complete; the interfaces they plug into are already built.| done || done || done (skeletons in place; needs live keys) || done (skeletons in place; needs live keys) || done (skeletons in place; needs live keys) || done || done || done || done (skeletons in place; needs live keys) |
+  accounts/services to complete; the interfaces they plug into are already built.| done || done || blocked || blocked || blocked || done || done || done || blocked |
 
 ## Production readiness audit fixes (2026-07-29)
 
@@ -271,7 +271,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-160 | XLSX/CSV text extraction does not emit page markers, so spreadsheet-derived deadlines and clauses lose page provenance | audit TS-I10; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | done |
 | TS-161 | Email/password login selects an arbitrary workspace for multi-workspace users | audit TS-A17; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/auth.md` (update) | done |
 | TS-162 | Severity evaluator silently defaults missing facts to 0 | audit TS-R03; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/risk.md` (update) | done |
-| TS-163 | Account-centric auth re-architecture: account as top-level identity, workspace created after login, OTP on every login, remove social login, email+mobile verification, account/security settings | user request; Doc §5 | `specs/modules/auth.md`, `specs/frontend.md` (update) | done (backend + core frontend); settings UI pending |
+| TS-163 | Account-centric auth re-architecture: account as top-level identity, workspace created after login, OTP on every login, remove social login, email+mobile verification, account/security settings | user request; Doc §5 | `specs/modules/auth.md`, `specs/frontend.md` (update) | in-progress |
 | TS-164 | Replace Anthropic LLM integration with OpenRouter (OpenAI-compatible API) for risk classifier and assistant agent | user request; `PRODUCTION_READINESS_AUDIT.md` TS-R02/TS-A14 | `specs/modules/risk.md`, `specs/modules/assistant.md`, `docs/deployment.md` | done |
 | TS-165 | Add MinIO storage example to production env and deployment docs | user request | `.env.prod`, `docs/deployment.md` | done |
 | TS-166 | Create end-to-end automation test scenarios doc and check in the end-to-end audit prompt | user request | `evals/e2e/` | done |
@@ -284,7 +284,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-173 | Support tickets module: create/reply/admin manage tickets with attachments | TS-170 | `backend/app/modules/support/`, `specs/modules/support.md` | done |
 | TS-174 | User analysis/reports: risk summary, deadline dashboard, BOQ defect summary, report export | TS-170 | `backend/app/modules/analytics/`, `specs/modules/analytics.md` | done |
 | TS-175 | Observability log search: admin audit-log/log search with filters | TS-170 | `backend/app/core/audit.py`, `backend/app/modules/auth/router.py`, `specs/modules/admin.md` | done |
-| TS-176 | Close remaining product needs: notification preferences UI, admin/billing/support/analytics UI, local infra, E2E automation, alerting runbooks | user request | `frontend/`, `docker-compose.yml`, `evals/e2e/playwright`, `docs/runbooks/` | done |
+| TS-176 | Close remaining product needs: notification preferences UI, admin/billing/support/analytics UI, local infra, E2E automation, alerting runbooks | user request | `frontend/`, `docker-compose.yml`, `frontend/e2e/`, `docs/runbooks/` | done |
 | TS-177 | Format analytics dashboard: render risk/deadline/BOQ summaries as cards and tables instead of raw JSON | user request | `frontend/app/analytics/page.tsx` | done |
 | TS-178 | Add OpenTelemetry tracing and self-hosted Jaeger/Grafana observability stack with automation to verify traces | user request | `backend/app/core/tracing.py`, `docker-compose.yml`, `docs/runbooks/observability.md`, `scripts/verify-traces.sh` | done |
 | TS-179 | Update testing skill with observability demo notes (Jaeger/Grafana/network) | TS-178 | `.agents/skills/testing-tendershield/SKILL.md` | done |
@@ -297,12 +297,12 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-186 | Scope AI assistant retrieval to user account/workspace and add admin chat mode for super-admins | user request | `backend/app/modules/assistant/`, `specs/modules/assistant.md` | done |
 | TS-187 | Microsoft Office MCP server for QS engineers: read/write Word/Excel tender data | user request | `mcp-servers/office-mcp/`, `specs/modules/mcp-office.md`, `docs/integrations/office-mcp.md` | done |
 | TS-188 | AI-generated dynamic tender plan dashboard: natural-language query with dynamic charts, sequence diagrams, and mind maps | user request | `backend/app/modules/analytics/`, `frontend/app/plan/`, `specs/modules/plan-dashboard.md` | done |
-| TS-189 | Add backend tests and audit-log verification for assistant scoping, admin chat, and plan dashboard | TS-186/188 follow-up | `backend/tests/`, `backend/app/modules/assistant/tests/`, `backend/app/modules/analytics/tests/` | done |
+| TS-189 | Add backend tests and audit-log verification for assistant scoping, admin chat, and plan dashboard | TS-186/188 follow-up | `backend/tests/`, `backend/tests/test_assistant.py`, `backend/tests/test_analytics.py` | done |
 | TS-190 | Integrate Office MCP server with TenderShield API so QS engineers can pull opportunities/findings into Word/Excel | TS-187 follow-up | `mcp-servers/office-mcp/`, `docs/integrations/office-mcp.md` | done |
 | TS-191 | Add plan dashboard templates, saved snapshots, and export to PowerPoint/PDF | TS-188 follow-up | `frontend/app/plan/`, `backend/app/modules/analytics/`, `specs/modules/plan-dashboard.md` | done |
 | TS-192 | Add user-facing plan upgrade/downgrade endpoints and UI | user request | `backend/app/modules/billing/`, `frontend/app/billing/`, `specs/modules/billing.md` | done |
-|| TS-193 | Reframe AI plan dashboard as the assistant: dedicated `/assistant` chat UI with collapsible dashboard panel for KPIs/tables/charts/Mermaid | user request; TS-188 | `specs/modules/assistant.md`, `frontend/app/assistant/`, `frontend/app/plan/page.tsx`, `frontend/components/plan-dashboard.tsx`, `backend/app/modules/assistant/` | done |
-|| TS-194 | Fix plan snapshot export 404 and default OpenRouter model to `openrouter/free` with clear no-key messaging | user request; E2E findings | `backend/app/modules/analytics/`, `backend/app/core/config.py`, `.env.*`, `specs/modules/plan-dashboard.md` | done |
+| TS-193 | Reframe AI plan dashboard as the assistant: dedicated `/assistant` chat UI with collapsible dashboard panel for KPIs/tables/charts/Mermaid | user request; TS-188 | `specs/modules/assistant.md`, `frontend/app/assistant/`, `frontend/app/plan/page.tsx`, `frontend/components/plan-dashboard.tsx`, `backend/app/modules/assistant/` | done |
+| TS-194 | Fix plan snapshot export 404 and default OpenRouter model to `openrouter/free` with clear no-key messaging | user request; E2E findings | `backend/app/modules/analytics/`, `backend/app/core/config.py`, `.env.*`, `specs/modules/plan-dashboard.md` | done |
 
 ## Phase 16 — Defensibility, Domain-Agnosticism & Scale Validation
 
@@ -512,3 +512,11 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-290 | Advisor Edition: multi-client workspace separation, review queues, per-client usage billing | Research Doc §8.3, §10.1 | `specs/modules/advisor.md` (new) | todo |
 | TS-291 | White-label branded report templates for the advisor channel | Research Doc §8.3 | `specs/modules/export.md` (update) | todo |
 | TS-292 | Public API + e-signature integration for notice issue | Research Doc §4.I | `specs/modules/integrations.md` | todo |
+
+---
+
+## Tooling
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-293 | `scripts/task_tracker.py`: parse/validate `tasks/backlog.md`, report progress by phase, list incomplete/blocked tasks, cross-check tracker files; wired into CI as a blocking job | `CLAUDE.md` §1; user request | `scripts/task_tracker.py` | done |

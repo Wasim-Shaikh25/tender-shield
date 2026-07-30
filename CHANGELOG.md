@@ -6,6 +6,29 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-30 (TS-293: task tracker script + backlog integrity audit)
+
+- **`scripts/task_tracker.py`** (new): parses `tasks/backlog.md`, validates it, and reports progress.
+  - Validates unique IDs, the `todo | in-progress | blocked | done` status enum, 5-column row shape,
+    paths referenced by *done* tasks existing on disk, and that every `TS-` id cited in
+    `tasks/*tracker*.md` exists in the backlog.
+  - Reports per-phase progress bars, incomplete/blocked/in-progress lists.
+  - Modes: default summary, `--incomplete`, `--phase N`, `--json`, `--validate` (exit 1 on error).
+  - Wired into CI as a new blocking `backlog` job.
+- **Backlog integrity fixes surfaced by the new script:**
+  - Two malformed rows (TS-193, TS-194 began with `||`, breaking table rendering) corrected.
+  - Six tasks carried non-conforming statuses that read as complete but were not. Reclassified to
+    the documented enum, with the caveat moved into the title:
+    - TS-035, TS-036, TS-037, TS-079 → `blocked` (adapters and providers are written; verification
+      needs live provider credentials — code presence confirmed in `notifications/adapters.py`,
+      `billing/providers.py`, `auth/google.py`).
+    - TS-163 → `in-progress` (backend and core frontend landed; settings UI outstanding).
+    - TS-039 → `done`, with the unverified-ONNX-download caveat moved into the title.
+  - Three stale path references on done tasks corrected: TS-081 and TS-189 point at `backend/tests/`,
+    TS-176 at `frontend/e2e/`.
+- **Verified position:** 294 tasks, no duplicate or missing IDs, 191 done, 103 incomplete
+  (1 in-progress, 4 blocked, 98 todo).
+
 ### Done — 2026-07-30 (Roadmap Stage 1→5: reconciling the founding research with the build)
 
 Planning only — no runtime code. Triggered by re-reading the founding research doc

@@ -109,6 +109,13 @@ class Settings(BaseSettings):
     sentry_traces_sample_rate: float = 0.0
     metrics_enabled: bool = True
 
+    # OpenTelemetry tracing. Set TS_OTEL_ENABLED=true and point to an OTLP collector
+    # such as Jaeger (http://jaeger:4318/v1/traces) or a hosted OTLP endpoint.
+    otel_enabled: bool = False
+    otel_service_name: str = "tendershield-backend"
+    otel_exporter_otlp_endpoint: str = "http://localhost:4318/v1/traces"
+    otel_exporter_otlp_headers: str = ""
+
     @field_validator("s3_secret_access_key", "apple_private_key", "sentry_dsn")
     @classmethod
     def _blank_secret_is_none(cls, v: SecretStr | None) -> SecretStr | None:

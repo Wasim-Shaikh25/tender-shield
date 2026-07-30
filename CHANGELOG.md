@@ -6,7 +6,15 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
-### In progress — 2026-07-30 (TS-177: format analytics dashboard)
+### Done — 2026-07-30 (TS-178: OpenTelemetry tracing and self-hosted observability)
+
+- Add OpenTelemetry instrumentation to the FastAPI backend.
+- Add Jaeger all-in-one and Grafana to `docker-compose.yml` for self-hosted tracing.
+- Add `scripts/verify-traces.sh` to boot the stack, emit a request, and verify a
+  trace is visible in Jaeger.
+- Document observability setup and trace inspection in `docs/runbooks/observability.md`.
+
+### Done — 2026-07-30 (TS-177: format analytics dashboard)
 
 - Replace raw JSON `<pre>` blocks on `/analytics` with readable cards/tables for
   risk summary, deadline dashboard, and BOQ defect summary.

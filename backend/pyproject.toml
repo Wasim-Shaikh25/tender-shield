@@ -24,6 +24,10 @@ dependencies = [
     "httpx>=0.27",
     "filetype>=1.2",
     "openai>=1.30",
+    "opentelemetry-api>=1.25",
+    "opentelemetry-sdk>=1.25",
+    "opentelemetry-instrumentation-fastapi>=0.46b0",
+    "opentelemetry-exporter-otlp-proto-http>=1.25",
 ]
 
 [project.optional-dependencies]

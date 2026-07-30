@@ -27,6 +27,7 @@ from app.core.registry import ServiceRegistry
 from app.core.scheduler import Scheduler
 from app.core.sentry import init_sentry
 from app.core.storage import StorageError, get_storage, sanitize_filename
+from app.core.tracing import init_tracing
 
 logger = logging.getLogger(__name__)
 
@@ -252,6 +253,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             media_type=content_type,
             headers={"Content-Disposition": f'attachment; filename="{escaped}"'},
         )
+
+    # OpenTelemetry tracing is opt-in via TS_OTEL_ENABLED; instrument after
+    # all routers and middleware are registered.
+    init_tracing(app, settings)
 
     report.loaded = [s for s in report.loaded if s.name not in report.failed]
     return app

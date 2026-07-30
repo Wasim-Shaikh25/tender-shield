@@ -1,14 +1,19 @@
-# Local Postgres + Redis + MinIO stack. This is the closest local mirror of
-# production without cloud credentials.
+# Local Postgres + Redis + MinIO + observability (Jaeger/Grafana) stack. This is
+# the closest local mirror of production without cloud credentials.
 #
 #   cp .env.dev .env.local
 #   docker compose --env-file .env.local up --build
+#
+# To also start Jaeger and Grafana:
+#   docker compose --env-file .env.local --profile observability up --build
 #
 # Default credentials:
 #   Postgres  postgres://tendershield:tendershield@localhost:5432/tendershield
 #   Redis     redis://localhost:6379/0
 #   MinIO     http://localhost:9000  (minio / minio123)
 #   MinIO console http://localhost:9001
+#   Jaeger UI http://localhost:16686
+#   Grafana   http://localhost:3100  (admin / admin)
 services:
   db:
     image: postgres:16
@@ -72,8 +77,30 @@ services:
     depends_on: [backend]
     ports: ["3000:3000"]
 
+  # Self-hosted observability stack (option 1). Enable with --profile observability.
+  jaeger:
+    profiles: ["observability"]
+    image: jaegertracing/all-in-one:latest
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4317:4317"     # OTLP gRPC
+      - "4318:4318"     # OTLP HTTP
+
+  grafana:
+    profiles: ["observability"]
+    image: grafana/grafana:latest
+    depends_on: [jaeger]
+    ports:
+      - "3100:3000"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafanadata:/var/lib/grafana
+
 volumes:
   pgdata:
   redisdata:
   miniodata:
   backend_storage:
+  grafanadata:

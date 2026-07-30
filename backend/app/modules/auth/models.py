@@ -120,7 +120,7 @@ class Invitation(Base, WorkspaceScopedMixin):
     )
     email: Mapped[str] = mapped_column(String, nullable=False)
     role: Mapped[str] = mapped_column(String, nullable=False)
-    token: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    token_hash: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

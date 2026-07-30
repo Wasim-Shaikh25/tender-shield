@@ -555,14 +555,15 @@ class AuthService:
             project = self.s.get(Project, project_uuid)
             if not project or project.workspace_id != workspace_id:
                 raise AuthError("no_such_project")
-        token = uuid.uuid4().hex
+        token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
         expires_at = datetime.now(UTC) + timedelta(days=7)
         invitation = Invitation(
             workspace_id=workspace_id,
             project_id=project_uuid,
             email=email.strip().lower(),
             role=role,
-            token=token,
+            token_hash=token_hash,
             expires_at=expires_at,
         )
         self.s.add(invitation)
@@ -588,7 +589,8 @@ class AuthService:
 
     def accept_invitation(self, user_id, token: str) -> dict:
         user_id = uuid.UUID(str(user_id))
-        invitation = self.s.scalar(select(Invitation).where(Invitation.token == token))
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        invitation = self.s.scalar(select(Invitation).where(Invitation.token_hash == token_hash))
         if not invitation:
             raise AuthError("invalid_invitation")
         expires_at = invitation.expires_at

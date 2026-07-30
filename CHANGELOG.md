@@ -112,6 +112,13 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   callers that manage the transaction boundary.
 - Added `specs/modules/billing.md` B12/A6.
 
+### Done — 2026-07-29 (TS-126: hash invitation tokens at rest)
+
+- `Invitation.token` renamed to `token_hash`; raw tokens are generated with
+  `secrets.token_urlsafe` and stored as SHA-256.
+- `accept_invitation` hashes the supplied token before lookup.
+- Added `specs/modules/auth.md` B17/A20.
+
 ### Done — 2026-07-29 (TS-101 / TS-102: upload size cap + SSE hardening)
 
 - `POST /api/ingestion/opportunities/{id}/upload` now reads at most

@@ -79,6 +79,9 @@ endpoints under `/api/auth/admin/*`.
   one uppercase letter, one lowercase letter, one digit, and one symbol.
 - **B16 — Account lockout:** 5 failed login attempts within 15 minutes lock the account
   for 15 minutes.
+- **B17 — Invitation tokens:** invitation tokens are generated with `secrets.token_urlsafe`
+  and stored as a SHA-256 hash. The raw token is exposed once in the invitation email or
+  dev/test fallback; `accept_invitation` hashes the supplied token before lookup.
 
 ## Acceptance criteria
 
@@ -109,6 +112,8 @@ endpoints under `/api/auth/admin/*`.
   callers who are not members of the target workspace (super-admins excepted).
 - A19: `create_invitation` and `accept_invitation` verify that a supplied `project_id` belongs to
   the invitation's workspace.
+- A20: invitation tokens are stored as a SHA-256 hash; only the creator/email sender
+  sees the raw token once.
 
 ## Out of scope
 

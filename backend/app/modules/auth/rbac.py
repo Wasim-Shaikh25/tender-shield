@@ -15,6 +15,7 @@ class Principal:
     role: str
     is_superadmin: bool = False
     email_verified: bool = False
+    mobile_verified: bool = False
 
 
 def role_at_least(role: str, min_role: str) -> bool:
@@ -22,5 +23,5 @@ def role_at_least(role: str, min_role: str) -> bool:
 
 
 def principal_requires_verified(principal: Principal) -> bool:
-    """Sensitive actions require a verified email or explicit super-admin override."""
-    return principal.is_superadmin or principal.email_verified
+    """Sensitive actions require a verified email+mobile or explicit super-admin override."""
+    return principal.is_superadmin or (principal.email_verified and principal.mobile_verified)

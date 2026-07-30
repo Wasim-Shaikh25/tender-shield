@@ -19,6 +19,7 @@ from app.modules.auth import mfa
 from app.modules.billing.gst import compute_invoice, invoice_number
 from app.modules.ingestion.extract import extract_text, looks_like_boq_csv
 from app.modules.notifications.digest import deadlines_to_alert, format_digest
+from tests.helpers import auth_headers
 
 # ---- GST (pure) -----------------------------------------------------------
 
@@ -101,15 +102,7 @@ def client(tmp_path):
 
 
 def _auth(client):
-    client.post(
-        "/api/auth/signup",
-        json={"email": "h@x.com", "password": "Hunter2!Hunter2", "workspace_name": "Acme"},
-    )
-    tok = client.post(
-        "/api/auth/login", json={"email": "h@x.com", "password": "Hunter2!Hunter2"}
-    ).json()["access_token"]
-    return {"authorization": f"Bearer {tok}"}
-
+    return auth_headers(client, "h@x.com")
 
 def _make_pdf() -> bytes:
     from reportlab.pdfgen import canvas

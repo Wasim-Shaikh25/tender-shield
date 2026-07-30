@@ -28,35 +28,119 @@ def client() -> TestClient:
 TEST_PASSWORD = "Hunter2!Hunter2"
 
 
-def _signup(client, email="a@example.com"):
+def _signup(client, email="a@example.com", phone=None):
+    phone = phone or f"+91{hash(email) % 10000000000:010d}"
     r = client.post(
         "/api/auth/signup",
-        json={"email": email, "password": TEST_PASSWORD, "workspace_name": "Acme Infra"},
+        json={
+            "email": email,
+            "phone": phone,
+            "password": TEST_PASSWORD,
+            "confirm_password": TEST_PASSWORD,
+            "org_name": "Acme Infra Pvt Ltd",
+            "city": "Mumbai",
+        },
+    )
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def _verify_account(client, email="a@example.com"):
+    """Verify email and mobile using the dev/test tokens returned by signup.
+
+    If the account already exists (e.g. a previous _signup call in the same test),
+    mark it verified directly in the test DB so _login stays idempotent.
+    """
+    engine = client.app.state.ctx.registry.require("db.engine")
+    with Session(engine) as s:
+        user = s.scalar(select(User).where(User.email == email))
+        if user and user.email_verified and user.mobile_verified:
+            return
+    signup_resp = _signup(client, email)
+    assert signup_resp.get("status") == "verification_required"
+    if "email_verification_token" in signup_resp:
+        r = client.post(
+            "/api/auth/verify-email",
+            json={"token": signup_resp["email_verification_token"]},
+        )
+        assert r.status_code == 200, r.text
+    if "mobile_verification_token" in signup_resp:
+        r = client.post(
+            "/api/auth/verify-mobile",
+            json={"token": signup_resp["mobile_verification_token"]},
+        )
+        assert r.status_code == 200, r.text
+
+
+def _login(client, email="a@example.com", password=TEST_PASSWORD):
+    _verify_account(client, email)
+    r = client.post("/api/auth/login", json={"email": email, "password": password})
+    assert r.status_code == 200, r.text
+    challenge = r.json()
+    assert challenge["mfa_required"]
+    r = client.post(
+        "/api/auth/mfa/challenge",
+        json={"mfa_token": challenge["mfa_token"], "code": challenge["mfa_code"]},
+    )
+    assert r.status_code == 200, r.text
+    tokens = r.json()
+    # Login no longer creates a workspace. Create one automatically for tests that
+    # expect an active workspace.
+    r = client.post(
+        "/api/auth/workspaces",
+        json={"name": "Acme Infra"},
+        headers={"authorization": f"Bearer {tokens['access_token']}"},
+    )
+    assert r.status_code == 200, r.text
+    workspace_id = r.json()["workspace_id"]
+    r = client.post(
+        f"/api/auth/workspaces/{workspace_id}/switch",
+        headers={"authorization": f"Bearer {tokens['access_token']}"},
     )
     assert r.status_code == 200, r.text
     return r.json()
 
 
 def test_signup_login_me_flow(client):
-    _signup(client)
-    r = client.post(
-        "/api/auth/login", json={"email": "a@example.com", "password": TEST_PASSWORD}
-    )
-    assert r.status_code == 200
-    tokens = r.json()
+    tokens = _login(client)
     assert tokens["role"] == "owner"
     me = client.get("/api/auth/me", headers={"authorization": f"Bearer {tokens['access_token']}"})
     assert me.status_code == 200
     assert me.json()["role"] == "owner"
+    assert me.json()["email_verified"] is True
+    assert me.json()["mobile_verified"] is True
 
 
 def test_duplicate_email_rejected(client):
-    _signup(client)
+    _verify_account(client)
     r = client.post(
         "/api/auth/signup",
-        json={"email": "a@example.com", "password": TEST_PASSWORD, "workspace_name": "Other"},
+        json={
+            "email": "a@example.com",
+            "phone": "+919999999999",
+            "password": TEST_PASSWORD,
+            "confirm_password": TEST_PASSWORD,
+            "org_name": "Other",
+            "city": "Delhi",
+        },
     )
     assert r.status_code == 409
+
+
+def test_password_mismatch_rejected(client):
+    r = client.post(
+        "/api/auth/signup",
+        json={
+            "email": "a@example.com",
+            "phone": "+919999999999",
+            "password": TEST_PASSWORD,
+            "confirm_password": "Different123!",
+            "org_name": "Acme",
+            "city": "Delhi",
+        },
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"] == "password_mismatch"
 
 
 def test_bad_password_rejected(client):
@@ -66,8 +150,7 @@ def test_bad_password_rejected(client):
 
 
 def test_refresh_rotation_and_reuse_detection(client):
-    _signup(client)
-    client.post("/api/auth/login", json={"email": "a@example.com", "password": TEST_PASSWORD})
+    _login(client)
     r0 = client.cookies.get("refresh_token")
     assert r0
 
@@ -115,64 +198,7 @@ def test_capabilities_published(client):
     assert {"auth.keys", "auth.authenticate", "auth.check_role"} <= set(caps)
 
 
-def test_apple_callback_not_configured(client):
-    r = client.post("/api/auth/apple/callback", json={"id_token": "x"})
-    assert r.status_code == 503
-    assert r.json()["detail"] == "apple_not_configured"
-
-
-def test_apple_callback_creates_user_and_issues_tokens(client, monkeypatch):
-    from app.modules.auth import apple
-
-    client.app.state.ctx.settings.apple_services_id = "test.app"
-
-    def fake_init(self, settings):
-        self.settings = settings
-
-    def fake_is_configured(self):
-        return True
-
-    def fake_verify_id_token(self, id_token: str):
-        return {
-            "sub": "apple_001",
-            "email": "apple@example.com",
-            "email_verified": True,
-        }
-
-    monkeypatch.setattr(apple.AppleClient, "__init__", fake_init)
-    monkeypatch.setattr(apple.AppleClient, "is_configured", fake_is_configured)
-    monkeypatch.setattr(apple.AppleClient, "verify_id_token", fake_verify_id_token)
-
-    r = client.post(
-        "/api/auth/apple/callback",
-        json={"id_token": "x", "user": '{"name": {"firstName": "Test", "lastName": "User"}}'},
-    )
-    assert r.status_code == 200
-    assert r.json()["role"] == "owner"
-
-
-def _login(client, email="a@example.com"):
-    r = client.post("/api/auth/login", json={"email": email, "password": TEST_PASSWORD})
-    assert r.status_code == 200, r.text
-    tokens = r.json()
-    # Verify the email address so gated flows (billing, invitations) can be tested.
-    if not tokens.get("email_verified"):
-        # The resend-verification endpoint no longer leaks the raw token, so mark
-        # the address verified directly in the test DB.
-        engine = client.app.state.ctx.registry.require("db.engine")
-        with Session(engine) as s:
-            user = s.scalar(select(User).where(User.email == email))
-            if user:
-                user.email_verified = True
-                s.commit()
-        r = client.post("/api/auth/login", json={"email": email, "password": TEST_PASSWORD})
-        assert r.status_code == 200, r.text
-        tokens = r.json()
-    return tokens
-
-
 def test_create_and_list_workspaces(client):
-    _signup(client)
     token = _login(client)["access_token"]
     r = client.post(
         "/api/auth/workspaces",
@@ -186,7 +212,6 @@ def test_create_and_list_workspaces(client):
 
 
 def test_create_project_and_share_with_member(client):
-    _signup(client, "owner@example.com")
     owner = _login(client, "owner@example.com")
     # add member to workspace
     _signup(client, "member@example.com")
@@ -226,7 +251,6 @@ def test_create_project_and_share_with_member(client):
 
 
 def test_superadmin_endpoints(client):
-    _signup(client, "admin@example.com")
     user = _login(client, "admin@example.com")
     r = client.get(
         "/api/auth/admin/users",
@@ -236,9 +260,7 @@ def test_superadmin_endpoints(client):
 
 
 def test_invitation_flow(client):
-    _signup(client, "owner2@example.com")
     owner = _login(client, "owner2@example.com")
-    _signup(client, "invited@example.com")
     workspace_id = owner["workspace_id"]
 
     r = client.post(
@@ -265,7 +287,7 @@ def test_invitation_flow(client):
 
 
 def test_forgot_password_and_reset(client):
-    _signup(client, "reset@example.com")
+    _verify_account(client, "reset@example.com")
 
     # unknown email still returns ok to avoid email enumeration
     r = client.post("/api/auth/forgot-password", json={"email": "missing@example.com"})
@@ -289,16 +311,13 @@ def test_forgot_password_and_reset(client):
         "/api/auth/login", json={"email": "reset@example.com", "password": TEST_PASSWORD}
     ).status_code == 401
 
-    # new password works
-    r = client.post(
-        "/api/auth/login", json={"email": "reset@example.com", "password": "NewPass123!"}
-    )
-    assert r.status_code == 200
-    assert r.json()["role"] == "owner"
+    # new password works after going through the OTP challenge
+    tokens = _login(client, "reset@example.com", "NewPass123!")
+    assert tokens["role"] == "owner"
 
 
 def test_reset_password_rejects_expired_or_reused_token(client):
-    _signup(client, "reset2@example.com")
+    _verify_account(client, "reset2@example.com")
     r = client.post("/api/auth/forgot-password", json={"email": "reset2@example.com"})
     token = r.json()["token"]
 

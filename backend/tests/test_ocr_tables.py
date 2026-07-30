@@ -18,6 +18,7 @@ from app.modules.ingestion.tables import (
     find_boq_table,
     scanned_boq_csv,
 )
+from tests.helpers import auth_headers
 
 
 def _boq_pdf() -> bytes:
@@ -80,15 +81,7 @@ def client():
 
 
 def _auth(client):
-    client.post(
-        "/api/auth/signup",
-        json={"email": "o@x.com", "password": "Hunter2!Hunter2", "workspace_name": "Acme"},
-    )
-    tok = client.post(
-        "/api/auth/login", json={"email": "o@x.com", "password": "Hunter2!Hunter2"}
-    ).json()["access_token"]
-    return {"authorization": f"Bearer {tok}"}
-
+    return auth_headers(client, "o@x.com")
 
 def test_boq_pdf_upload_runs_checks(client):
     headers = _auth(client)

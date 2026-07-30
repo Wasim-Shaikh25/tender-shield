@@ -12,6 +12,7 @@ from app.main import create_app
 from app.modules.risk.engine import retrieve_candidates, run_pattern, verify_quote
 from app.modules.risk.severity import evaluate_severity
 from app.modules.rulepacks.loader import RulePackLoader
+from tests.helpers import auth_headers
 
 # ---- deterministic severity (the invariant: severity is code, not LLM) ----
 
@@ -155,15 +156,7 @@ def client():
 
 
 def _auth(client):
-    client.post(
-        "/api/auth/signup",
-        json={"email": "e@x.com", "password": "Hunter2!Hunter2", "workspace_name": "Acme"},
-    )
-    tok = client.post(
-        "/api/auth/login", json={"email": "e@x.com", "password": "Hunter2!Hunter2"}
-    ).json()["access_token"]
-    return {"authorization": f"Bearer {tok}"}
-
+    return auth_headers(client, "e@x.com")
 
 def test_run_endpoint_absence_finding_without_llm(client):
     # No API key in tests → NullClassifier. Absence detection still works: an

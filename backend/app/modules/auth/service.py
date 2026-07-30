@@ -4,10 +4,9 @@ session. This is the only place that touches auth tables."""
 from __future__ import annotations
 
 import hashlib
-import json
 import secrets
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 
@@ -17,11 +16,10 @@ from sqlalchemy.orm import Session
 from app.modules.auth import mfa
 from app.modules.auth import refresh as rf
 from app.modules.auth import security as sec
-from app.modules.auth.apple import AppleClient
-from app.modules.auth.google import GoogleClient
 from app.modules.auth.models import (
     EmailVerification,
     Invitation,
+    MobileVerification,
     PasswordReset,
     Project,
     ProjectMember,
@@ -31,6 +29,15 @@ from app.modules.auth.models import (
     WorkspaceMember,
 )
 from app.modules.auth.rbac import ROLES
+
+
+def _as_utc(dt: datetime | None) -> datetime | None:
+    """Make a possibly naive DB datetime UTC-aware for comparisons."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
 
 
 class AuthError(Exception):
@@ -48,8 +55,6 @@ class AuthService:
         settings=None,
         access_ttl_min=15,
         refresh_ttl_days=30,
-        apple_client: AppleClient | None = None,
-        google_client: GoogleClient | None = None,
         sender: Any | None = None,
     ):
         self.s = session
@@ -57,103 +62,67 @@ class AuthService:
         self.settings = settings
         self.access_ttl = timedelta(minutes=access_ttl_min)
         self.refresh_ttl = timedelta(days=refresh_ttl_days)
-        self._apple = apple_client
-        self._google = google_client
         self._sender = sender
 
     # ---- registration -----------------------------------------------------
     def signup(
-        self, email: str, password: str, workspace_name: str | None = None, country: str = "IN"
+        self,
+        email: str,
+        phone: str,
+        password: str,
+        confirm_password: str,
+        org_name: str,
+        city: str,
+        dob: date | None = None,
     ) -> dict:
         email = email.strip().lower()
+        phone = phone.strip()
+        if password != confirm_password:
+            raise AuthError("password_mismatch")
         try:
             sec.validate_password(password)
         except ValueError as exc:
             raise AuthError(str(exc)) from exc
         if self.s.scalar(select(User).where(User.email == email)):
             raise AuthError("email_taken")
-        user = User(email=email, password_hash=sec.hash_password(password))
+        if self.s.scalar(select(User).where(User.phone == phone)):
+            raise AuthError("phone_taken")
+        user = User(
+            email=email,
+            phone=phone,
+            password_hash=sec.hash_password(password),
+            org_name=org_name.strip(),
+            city=city.strip(),
+            dob=dob,
+        )
         self.s.add(user)
         self.s.flush()
-        workspace_name = workspace_name or "Personal"
-        workspace = Workspace(owner_id=user.id, name=workspace_name, country=country)
-        self.s.add(workspace)
-        self.s.flush()
-        self.s.add(WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role="owner"))
+        email_token = self.create_email_verification(user.id, email=email)
+        mobile_token = self.create_mobile_verification(user.id, phone=phone)
         self.s.commit()
-        verification_token = self.create_email_verification(user.id, email=email)
         result = {
             "user_id": str(user.id),
-            "workspace_id": str(workspace.id),
-            "email_verified": user.email_verified,
+            "status": "verification_required",
+            "email_verified": False,
+            "mobile_verified": False,
         }
-        # In production the token is sent by email; in dev/tests it is returned so
+        # In production the tokens are sent by email/SMS; in dev/tests they are returned so
         # verification flows can be exercised without a real mailer.
-        if verification_token and (not self.settings or not self.settings.is_prod()):
-            result["verification_token"] = verification_token
+        if not self.settings or not self.settings.is_prod():
+            if email_token:
+                result["email_verification_token"] = email_token
+            if mobile_token:
+                result["mobile_verification_token"] = mobile_token
         return result
 
-    def google_login(self, id_token: str) -> dict:
-        if not self._google or not self._google.is_configured():
-            raise AuthError("google_not_configured")
-        try:
-            claims = self._google.verify_id_token(id_token)
-        except Exception as exc:
-            raise AuthError("google_token_invalid") from exc
-        google_sub = claims.get("sub")
-        email = claims.get("email", "").strip().lower()
-        if not google_sub or not email:
-            raise AuthError("google_email_missing")
-        user = self.s.scalar(select(User).where(User.google_sub == google_sub))
-        if not user:
-            # Account linking: a verified Google email may belong to an existing password user.
-            existing = self.s.scalar(select(User).where(User.email == email))
-            if existing:
-                if not (claims.get("email_verified") or existing.email_verified):
-                    raise AuthError("email_not_verified")
-                user = existing
-                user.google_sub = google_sub
-                user.email_verified = True
-            else:
-                # First Google sign-in: create user and a personal workspace.
-                user = User(
-                    email=email,
-                    google_sub=google_sub,
-                    email_verified=claims.get("email_verified", False),
-                )
-                self.s.add(user)
-                self.s.flush()
-                workspace = Workspace(owner_id=user.id, name="Personal", country="IN")
-                self.s.add(workspace)
-                self.s.flush()
-                self.s.add(
-                    WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role="owner")
-                )
-        else:
-            user.email_verified = claims.get("email_verified", False)
-        self.s.commit()
-        member = self.s.scalar(
-            select(WorkspaceMember)
-            .where(WorkspaceMember.user_id == user.id)
-            .order_by(WorkspaceMember.workspace_id)
-            .limit(1)
-        )
-        if not member:
-            if user.is_superadmin:
-                return self._issue_tokens(
-                    user.id, None, "owner", is_superadmin=True, new_family=True
-                )
-            raise AuthError("no_workspace")
-        return self._issue_tokens(
-            user.id,
-            member.workspace_id,
-            member.role,
-            is_superadmin=user.is_superadmin,
-            new_family=True,
-        )
+    def _require_verified_for_login(self, user: User) -> None:
+        if not user.email_verified:
+            raise AuthError("email_not_verified")
+        if not user.mobile_verified:
+            raise AuthError("mobile_not_verified")
 
     # ---- login ------------------------------------------------------------
-    def login(self, email: str, password: str) -> dict | None:
+    def login(self, email: str, password: str) -> dict:
         email = email.strip().lower()
         user = self.s.scalar(select(User).where(User.email == email))
 
@@ -178,46 +147,40 @@ class AuthService:
         user.failed_login_attempts = 0
         user.locked_until = None
 
+        # An account must be verified before it can log in and access workspaces.
+        if not user.email_verified:
+            raise AuthError("email_not_verified")
+        if not user.mobile_verified:
+            raise AuthError("mobile_not_verified")
+
         member = self.s.scalar(select(WorkspaceMember).where(WorkspaceMember.user_id == user.id))
         workspace_id = member.workspace_id if member else None
         role = member.role if member else "owner"
 
-        # If MFA is enrolled, do not issue tokens yet.
-        if user.mfa_totp_secret or user.mfa_method in ("email", "sms"):
-            if user.mfa_method in ("email", "sms"):
-                code = mfa.new_otp_code()
-                user.mfa_otp_code = code
-                user.mfa_otp_expires_at = datetime.now(UTC) + timedelta(
-                    seconds=mfa.CODE_TTL_SECONDS
-                )
-                self.s.commit()
-                self._mfa_send_code(user, code, "login code")
-            return {
-                "mfa_required": True,
-                "mfa_token": sec.mint_mfa_token(
-                    self.keys,
-                    user_id=str(user.id),
-                    workspace_id=str(workspace_id) if workspace_id else self._NO_WORKSPACE,
-                    role=role,
-                    is_superadmin=user.is_superadmin,
-                    email_verified=user.email_verified,
-                    ttl=timedelta(minutes=5),
-                ),
-            }
-
-        if not member:
-            if user.is_superadmin:
-                return self._issue_tokens(
-                    user.id, None, "owner", is_superadmin=True, new_family=True
-                )
-            raise AuthError("no_workspace")
-        return self._issue_tokens(
-            user.id,
-            member.workspace_id,
-            member.role,
-            is_superadmin=user.is_superadmin,
-            new_family=True,
-        )
+        # Every login requires an OTP challenge.
+        code = mfa.new_otp_code()
+        user.mfa_otp_code = code
+        user.mfa_otp_expires_at = datetime.now(UTC) + timedelta(seconds=mfa.CODE_TTL_SECONDS)
+        self.s.commit()
+        self._mfa_send_code(user, code, "login code")
+        result = {
+            "mfa_required": True,
+            "mfa_token": sec.mint_mfa_token(
+                self.keys,
+                user_id=str(user.id),
+                workspace_id=str(workspace_id) if workspace_id else self._NO_WORKSPACE,
+                role=role,
+                is_superadmin=user.is_superadmin,
+                email_verified=user.email_verified,
+                mobile_verified=user.mobile_verified,
+                ttl=timedelta(minutes=5),
+            ),
+        }
+        # In production the code is sent by email/SMS; in dev/tests it is returned so
+        # the login flow can be exercised without a real sender.
+        if not self.settings or not self.settings.is_prod():
+            result["mfa_code"] = code
+        return result
 
     # ---- refresh rotation + reuse detection -------------------------------
     def refresh(self, raw_token: str) -> dict:
@@ -278,80 +241,6 @@ class AuthService:
         self.s.commit()
         return {"workspace_id": str(workspace_id), "user_id": str(user.id), "role": role}
 
-    # ---- Sign in with Apple -----------------------------------------------
-    def apple_callback(self, id_token: str | None, code: str | None, user_json: str | None) -> dict:
-        if not self._apple or not self._apple.is_configured():
-            raise AuthError("apple_not_configured")
-
-        if code and not id_token:
-            token_resp = self._apple.exchange_code(code)
-            id_token = token_resp.get("id_token")
-        if not id_token:
-            raise AuthError("apple_token_invalid")
-
-        try:
-            claims = self._apple.verify_id_token(id_token)
-        except Exception as exc:
-            raise AuthError("apple_token_invalid") from exc
-
-        sub = claims.get("sub")
-        email = (claims.get("email") or "").strip().lower()
-        email_verified = claims.get("email_verified") in (True, "true", "1")
-        if not sub:
-            raise AuthError("apple_token_invalid")
-
-        # First look up by Apple subject; otherwise trust verified email.
-        user = self.s.scalar(select(User).where(User.apple_id == sub))
-        if not user and email and email_verified:
-            user = self.s.scalar(select(User).where(User.email == email))
-
-        if not user:
-            if not email:
-                raise AuthError("apple_email_missing")
-            user = User(email=email, email_verified=True, apple_id=sub)
-            workspace_name = self._apple_workspace_name(user_json)
-            self.s.add(user)
-            self.s.flush()
-            workspace = Workspace(owner_id=user.id, name=workspace_name, country="IN")
-            self.s.add(workspace)
-            self.s.flush()
-            self.s.add(WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role="owner"))
-        else:
-            if not user.apple_id:
-                user.apple_id = sub
-            if email and not user.email:
-                user.email = email
-            user.email_verified = True
-
-        self.s.commit()
-        member = self.s.scalar(select(WorkspaceMember).where(WorkspaceMember.user_id == user.id))
-        if not member:
-            if user.is_superadmin:
-                return self._issue_tokens(
-                    user.id, None, "owner", is_superadmin=True, new_family=True
-                )
-            raise AuthError("no_workspace")
-        return self._issue_tokens(
-            user.id,
-            member.workspace_id,
-            member.role,
-            is_superadmin=user.is_superadmin,
-            new_family=True,
-        )
-
-    def _apple_workspace_name(self, user_json: str | None) -> str:
-        if not user_json:
-            return "Apple User"
-        try:
-            data = json.loads(user_json)
-            name = data.get("name", {})
-            first = name.get("firstName", "")
-            last = name.get("lastName", "")
-            full = f"{first} {last}".strip()
-            return full or "Apple User"
-        except json.JSONDecodeError:
-            return "Apple User"
-
     # ---- internals --------------------------------------------------------
     _NO_WORKSPACE = "00000000-0000-0000-0000-000000000000"
 
@@ -363,12 +252,15 @@ class AuthService:
         *,
         is_superadmin=False,
         email_verified: bool | None = None,
+        mobile_verified: bool | None = None,
         new_family=False,
         family_id=None,
     ) -> dict:
+        user = self.s.get(User, uuid.UUID(str(user_id)))
         if email_verified is None:
-            user = self.s.get(User, uuid.UUID(str(user_id)))
             email_verified = user.email_verified if user else False
+        if mobile_verified is None:
+            mobile_verified = user.mobile_verified if user else False
         access = sec.mint_access(
             self.keys,
             user_id=str(user_id),
@@ -376,6 +268,7 @@ class AuthService:
             role=role,
             is_superadmin=is_superadmin,
             email_verified=email_verified,
+            mobile_verified=mobile_verified,
             ttl=self.access_ttl,
         )
         raw, token_hash = rf.new_refresh()
@@ -646,7 +539,8 @@ class AuthService:
         """Send an email or SMS one-time code if a sender is configured."""
         if not self._sender:
             return
-        if user.mfa_method == "email":
+        channel = user.mfa_method or "email"
+        if channel == "email":
             self._sender.send(
                 SimpleNamespace(
                     channel="email",
@@ -655,7 +549,7 @@ class AuthService:
                     body=f"Your TenderShield {purpose} is {code}. It expires in 5 minutes.",
                 )
             )
-        elif user.mfa_method == "sms" and (user.mfa_phone or user.phone):
+        elif channel == "sms" and (user.mfa_phone or user.phone):
             self._sender.send(
                 SimpleNamespace(
                     channel="sms",
@@ -667,11 +561,12 @@ class AuthService:
 
     def _mfa_code_valid(self, user: User, code: str) -> bool:
         now = datetime.now(UTC)
+        expires_at = _as_utc(user.mfa_otp_expires_at)
         return bool(
             user.mfa_otp_code
             and user.mfa_otp_code == code
-            and user.mfa_otp_expires_at
-            and user.mfa_otp_expires_at > now
+            and expires_at
+            and expires_at > now
         )
 
     def mfa_enroll(self, user_id, method: str, phone: str | None = None) -> dict:
@@ -742,10 +637,20 @@ class AuthService:
             workspace_id = None
         role = claims["role"]
         is_superadmin = claims.get("is_superadmin", False)
+        email_verified = claims.get("email_verified", False)
+        mobile_verified = claims.get("mobile_verified", False)
         user = self.s.get(User, user_id)
         if not user:
             raise AuthError("no_such_user")
-        if user.mfa_method == "totp":
+        # Login flow stores a per-login OTP on the user row. If present, prefer it.
+        expires_at = _as_utc(user.mfa_otp_expires_at)
+        if user.mfa_otp_code and expires_at and expires_at > datetime.now(UTC):
+            if not self._mfa_code_valid(user, code):
+                raise AuthError("mfa_invalid")
+            user.mfa_otp_code = None
+            user.mfa_otp_expires_at = None
+            self.s.commit()
+        elif user.mfa_method == "totp":
             if not user.mfa_totp_secret or not mfa.verify(user.mfa_totp_secret, code):
                 raise AuthError("mfa_invalid")
         else:
@@ -759,6 +664,8 @@ class AuthService:
             workspace_id,
             role,
             is_superadmin=is_superadmin,
+            email_verified=email_verified,
+            mobile_verified=mobile_verified,
             new_family=True,
         )
 
@@ -850,6 +757,59 @@ class AuthService:
         if not user:
             raise AuthError("no_such_user")
         user.email_verified = True
+        row.used_at = datetime.now(UTC)
+        self.s.commit()
+        return True
+
+    def create_mobile_verification(self, user_id, phone: str | None = None) -> str | None:
+        """Create a mobile-verification token and send it. Returns the raw token for dev/tests."""
+        user = self.s.get(User, uuid.UUID(str(user_id)))
+        if not user:
+            raise AuthError("no_such_user")
+        if user.mobile_verified:
+            return None
+        target_phone = (phone or user.phone or "").strip()
+        if not target_phone:
+            return None
+        raw = mfa.new_otp_code()
+        token_hash = hashlib.sha256(raw.encode()).hexdigest()
+        expires_at = datetime.now(UTC) + timedelta(minutes=10)
+        self.s.add(
+            MobileVerification(
+                user_id=user.id, token_hash=token_hash, expires_at=expires_at, used_at=None
+            )
+        )
+        self.s.commit()
+        if self._sender:
+            self._sender.send(
+                SimpleNamespace(
+                    channel="sms",
+                    to=target_phone,
+                    subject="Verify your TenderShield mobile number",
+                    body=(
+                        f"Your TenderShield mobile verification code is {raw}. "
+                        "It expires in 10 minutes."
+                    ),
+                )
+            )
+        return raw
+
+    def verify_mobile(self, token: str) -> bool:
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        row = self.s.scalar(
+            select(MobileVerification).where(MobileVerification.token_hash == token_hash)
+        )
+        if not row or row.used_at:
+            raise AuthError("invalid_verification_token")
+        expires_at = row.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        if expires_at < datetime.now(UTC):
+            raise AuthError("invalid_verification_token")
+        user = self.s.get(User, row.user_id)
+        if not user:
+            raise AuthError("no_such_user")
+        user.mobile_verified = True
         row.used_at = datetime.now(UTC)
         self.s.commit()
         return True

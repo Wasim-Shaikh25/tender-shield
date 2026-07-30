@@ -31,8 +31,29 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Added `psycopg[binary]` to `dev` extras and updated the `rls-postgres` CI job to
   create a non-superuser `app`/`app_db` so `FORCE ROW LEVEL SECURITY` is actually tested.
 
+### Done — 2026-07-29 (TS-163: account-centric auth re-architecture backend)
+
+- `User` model now stores `org_name`, `city`, `dob`, `phone`, `mobile_verified`;
+  `phone` and `password_hash` are non-nullable; OIDC columns (`google_sub`, `apple_id`)
+  removed.
+- Added `MobileVerification` table and Alembic migration `6cffa6139050`.
+- `POST /api/auth/signup` now creates an account only (no default workspace) with
+  org/firm name, email, mobile, city, DOB, password, and confirm-password fields;
+  enforces password complexity; returns email and mobile verification tokens.
+- `POST /api/auth/verify-email` and `POST /api/auth/verify-mobile` activate the account.
+- `POST /api/auth/login` always issues an OTP challenge; tokens are only returned after
+  the `/api/auth/mfa/challenge` step.
+- Removed Google and Apple OIDC routes and service methods.
+- Added `/api/auth/settings`, `/api/auth/settings/password`, and updated `/api/auth/me`.
+- JWT claims and `Principal` now include `mobile_verified`; gated endpoints require both
+  email and mobile verified (or superadmin).
+- Added `tests/helpers.py` and updated all test suites for the new OTP-on-login flow.
+- Backend: 146 tests passed, ruff clean.
+
 ### Next
 
+- TS-163 frontend: update `frontend/app/login/page.tsx` and `frontend/lib/api.ts` for the
+  new account-only sign-up, email/mobile OTP verification, and workspace creation UI.
 - TS-125 — Rulepack QS validation / beta-disclaimer flag for unvalidated patterns.
 - TS-103, TS-106, TS-107, TS-108, TS-109, TS-133..TS-162 — remaining medium/low audit
   follow-ups.

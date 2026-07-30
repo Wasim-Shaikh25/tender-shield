@@ -1399,7 +1399,9 @@ class AuthService:
         workspaces = []
         for w in self.s.scalars(select(Workspace).where(Workspace.owner_id == user.id)):
             seen.add(w.id)
-            workspaces.append({"workspace_id": str(w.id), "name": w.name, "role": "owner"})
+            workspaces.append(
+                {"workspace_id": str(w.id), "name": w.name, "role": "owner", "plan": w.plan}
+            )
         for m in self.s.scalars(
             select(WorkspaceMember).where(WorkspaceMember.user_id == user.id)
         ):
@@ -1409,7 +1411,12 @@ class AuthService:
             if ws:
                 seen.add(ws.id)
                 workspaces.append(
-                    {"workspace_id": str(ws.id), "name": ws.name, "role": m.role}
+                    {
+                        "workspace_id": str(ws.id),
+                        "name": ws.name,
+                        "role": m.role,
+                        "plan": ws.plan,
+                    }
                 )
         return {
             **self._user_summary(user),

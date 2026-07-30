@@ -132,6 +132,22 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   all tests that call the review endpoint.
 - Updated `specs/modules/review.md` and `specs/modules/core.md`.
 
+### Done — 2026-07-30 (TS-138 / TS-152 / TS-151 / TS-143 / TS-137 / TS-139 / TS-142 / TS-141: follow-up fixes)
+
+- `comparison`: treat naive submission deadlines as UTC when computing `days_to_submission` (TS-138).
+- `timeline`: convert all ICS `DTSTART` values to UTC before appending `Z` (TS-152).
+- `drafting` + `baseline`: use atomic `INSERT ... RETURNING` with a scalar subquery
+  for version numbering, removing the read-modify-write race (TS-151, TS-143).
+- `risk`: robust Anthropic classifier output parsing with JSON-array extraction and
+  Pydantic schema validation; fails closed on malformed responses (TS-137).
+- `qualification`: missing eligibility criteria now roll up as `unknown` / `needs_review`
+  with MEDIUM severity, not a hard `not_met` / `not_eligible` (TS-139).
+- `ingestion`: `confirm_deadline` now verifies the deadline belongs to the URL's
+  `opportunity_id` (TS-142).
+- `crossref`: bound clause search with DB-level `limit` and clamp the result `limit`
+  to 1–100 (TS-141).
+- Added/updated module specs and `tasks/backlog.md`.
+
 ### Done — 2026-07-30 (TS-115 / TS-155 / TS-156: production guard, Stripe URLs, and webhook verifier)
 
 - Extended the production startup guard to validate the JWT keypair, require

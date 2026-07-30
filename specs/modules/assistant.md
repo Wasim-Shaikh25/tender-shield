@@ -32,7 +32,9 @@ capability, not direct table access.
 ## Behavior
 
 - **B1 (grounded-only):** answers only from tool results; nothing relevant →
-  says so; general questions → polite refusal.
+  says so; general questions → polite refusal. User input is wrapped in data-only
+  delimiters and run through a lightweight prompt-injection classifier; the response
+  is rejected if it cites pages not present in the tool context.
 - **B2 (tools):** `search_docs`, `list_deadlines`, `filter_findings`,
   `boq_query` (safe filter), `rulepack_lookup`, `regenerate_artifact_section`
   (versioned edit — never mutates approved artifacts, requires UI confirmation).
@@ -49,6 +51,8 @@ capability, not direct table access.
 - A1: off-topic question is refused.
 - A2: a response with an uncited factual sentence is blocked/regenerated.
 - A3: `AnthropicAgent` uses a valid, current Anthropic model identifier.
+- A4: a prompt-injection attempt returns the grounded-only refusal.
+- A5: a response citing a page not in tool context is rejected.
 
 ## Out of scope
 

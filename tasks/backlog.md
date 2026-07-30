@@ -241,22 +241,22 @@ Audit only — no source changes. Findings and full remediation detail live in
 
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
-| TS-133 | Synchronous extraction blocks the async event loop in upload_document | audit TS-I04; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | todo |
-| TS-134 | BOQ run endpoint accepts unbounded CSV payloads | audit TS-I05; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/boq.md` (update) | todo |
+| TS-133 | Synchronous extraction blocks the async event loop in upload_document | audit TS-I04; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | done |
+| TS-134 | BOQ run endpoint accepts unbounded CSV payloads | audit TS-I05; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/boq.md` (update) | done |
 | TS-135 | Session provider keeps a stale workspace list after switch/refresh | audit TS-F02; `PRODUCTION_READINESS_AUDIT.md` | `specs/frontend.md` (update) | todo |
 | TS-136 | Risk classifier uses an invalid default Anthropic model name | audit TS-R02; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/risk.md` (update) | done |
 | TS-137 | Risk classifier uses brittle string slicing and no schema validation | audit TS-R01; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/risk.md` (update) | done |
 | TS-138 | Days_to_submission mixes UTC and local time for naive deadlines | audit TS-D02; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/comparison.md` (update) | done |
 | TS-139 | Qualification matrix marks missing criteria as not_met with HIGH severity | audit TS-Q01; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/qualification.md` (update) | done |
-| TS-140 | BOQ engine relies on DuckDB reading df from caller scope | audit TS-X02; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/boq.md` (update) | todo |
+| TS-140 | BOQ engine relies on DuckDB reading df from caller scope | audit TS-X02; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/boq.md` (update) | done |
 | TS-141 | Cross-reference search loads all clauses regardless of limit | audit TS-A11; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/crossref.md` (update) | done |
 | TS-142 | Confirm_deadline does not verify the deadline belongs to the opportunity | audit TS-I06; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | done |
 | TS-143 | Baseline freeze has a race condition on version numbering | audit TS-B05; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/baseline.md` (update) | done |
 | TS-144 | Uploaded filename can inject Content-Disposition header in file download | audit TS-S03; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/core.md` (update) | done |
-| TS-145 | Assistant agent has no output guard and includes user prompt verbatim | audit TS-A13; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/assistant.md` (update) | todo |
+| TS-145 | Assistant agent has no output guard and includes user prompt verbatim | audit TS-A13; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/assistant.md` (update) | done |
 | TS-146 | Notifications deadline-alert scheduler calls a missing WorkspaceAdmin method | audit TS-N02; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/notifications.md` (update) | todo |
-| TS-147 | Register_document accepts unbounded sample_text and processes it synchronously | audit TS-I07; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | todo |
-| TS-148 | Async process_document Celery task does not classify, segment clauses, update the submission deadline, or run OCR | audit TS-I08; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | todo |
+| TS-147 | Register_document accepts unbounded sample_text and processes it synchronously | audit TS-I07; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | done |
+| TS-148 | Async process_document Celery task does not classify, segment clauses, update the submission deadline, or run OCR | audit TS-I08; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | done |
 | TS-149 | Assistant agent uses an invalid default Anthropic model name | audit TS-A14; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/assistant.md` (update) | done |
 | TS-150 | Review audit trail endpoint ignores opportunity_id | audit TS-A15; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/review.md` (update) | done |
 | TS-151 | Artifact.version uses a non-atomic read-modify-write increment | audit TS-B06; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/drafting.md` (update) | done |

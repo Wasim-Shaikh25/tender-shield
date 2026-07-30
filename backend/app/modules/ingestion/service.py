@@ -103,10 +103,17 @@ class IngestionService:
         self.s.commit()
         self._publish("document.classified", {"document_id": str(doc.id), "kind": kind})
         if sample_text.strip():
-            self._segment(doc, sample_text)
-            self._extract_deadlines(doc, sample_text)
-            persist_chunks(self.s, doc.workspace_id, doc.opportunity_id, doc.id, sample_text)
+            self.process_text(doc, sample_text, ocr_status=fields.get("ocr_status") or "done")
         return doc
+
+    def process_text(self, doc: Document, text: str, ocr_status: str = "done") -> None:
+        """Segment clauses, extract deadlines, persist chunks, and update metadata."""
+        doc.kind = classify_text(text, self._anchors()) or doc.kind
+        doc.ocr_status = ocr_status
+        self._segment(doc, text)
+        self._extract_deadlines(doc, text)
+        persist_chunks(self.s, doc.workspace_id, doc.opportunity_id, doc.id, text)
+        self.s.commit()
 
     def _extract_deadlines(self, doc: Document, text: str) -> int:
         """Deterministic deadline extraction (Doc §6.2). Sets the opportunity's

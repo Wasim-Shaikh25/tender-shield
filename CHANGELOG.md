@@ -132,6 +132,26 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   all tests that call the review endpoint.
 - Updated `specs/modules/review.md` and `specs/modules/core.md`.
 
+### Done — 2026-07-30 (TS-133 / TS-134 / TS-140 / TS-145 / TS-146: ingestion, BOQ, assistant, auth)
+
+- `ingestion`: `extract_upload` now runs in `asyncio.to_thread` so the async
+  upload path does not block the event loop (TS-133).
+- `ingestion`: `RegisterDocumentBody.sample_text` is capped at 1,000,000 characters
+  (TS-147).
+- `ingestion`: Celery `process_document` now classifies the document, segments
+  clauses, extracts deadlines, updates `submission_due`, persists chunks, and
+  applies OCR when `TS_OCR_ENABLED=true` (TS-148).
+- `boq`: `POST .../run` rejects CSV payloads > 10,000,000 characters and the upload
+  path reads at most `BOQ_MAX_UPLOAD_SIZE` bytes (TS-134).
+- `boq`: DuckDB queries run against an explicitly registered DataFrame in a fresh
+  in-memory connection instead of relying on caller scope (TS-140).
+- `assistant`: `AnthropicAgent` now wraps user input in data-only delimiters,
+  runs a lightweight prompt-injection classifier, rejects override attempts, and
+  validates that cited pages exist in the tool context (TS-145).
+- `auth`: `WorkspaceAdmin.list_all_workspaces()` added so the notifications
+  scheduler can enumerate workspaces (TS-146).
+- Updated `tasks/backlog.md` and module specs.
+
 ### Done — 2026-07-30 (TS-138 / TS-152 / TS-151 / TS-143 / TS-137 / TS-139 / TS-142 / TS-141: follow-up fixes)
 
 - `comparison`: treat naive submission deadlines as UTC when computing `days_to_submission` (TS-138).

@@ -29,7 +29,9 @@ trade checklists for scope gaps.
 ## Behavior
 
 - **B1 (deterministic only):** Pandas + DuckDB; arithmetic findings are never
-  AI opinions. Same input → identical output, always.
+  AI opinions. Same input → identical output, always. DuckDB queries run against an
+  explicitly registered DataFrame in a fresh in-memory connection, not the caller's
+  Python scope.
 - **B2 (normalization):** unit canon via pack map; `amount_calc = round(qty×rate, 2)`.
 - **B3 (checks):** arithmetic error (|amount−calc| > tolerance), blank/zero rate,
   duplicate (description+unit), quantity outlier (z/quantile threshold from pack),
@@ -38,8 +40,9 @@ trade checklists for scope gaps.
   BOQ line matches the item's patterns; finding carries the trigger's page.
 - **B5 (money order):** defects sort by rupee impact, not row order (Doc §9).
 - **B6 (provenance):** every defect points to `src_sheet`/`src_row`.
-- **B7 (upload guard):** BOQ upload enforces a 100 MB size cap and the same MIME/
-  extension validation as ingestion documents.
+- **B7 (upload guard):** BOQ upload enforces a 10 MB size cap and the same MIME/
+  extension validation as ingestion documents. The `RunBody.csv` field is capped at
+  10,000,000 characters.
 
 ## Acceptance criteria
 
@@ -50,6 +53,7 @@ trade checklists for scope gaps.
 - A4: grand-total carry-forward error detected on fixture.
 - A5: running twice yields byte-identical findings (determinism).
 - A6: oversized BOQ upload returns 413.
+- A7: `POST .../run` rejects a CSV payload > 10,000,000 characters.
 
 ## Out of scope
 

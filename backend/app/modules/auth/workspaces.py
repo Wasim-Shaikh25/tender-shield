@@ -22,6 +22,18 @@ class WorkspaceAdmin:
     def get(self, workspace_id) -> Workspace | None:
         return self.s.scalar(select(Workspace).where(Workspace.id == uuid.UUID(str(workspace_id))))
 
+    def list_all_workspaces(self) -> list[dict]:
+        return [
+            {
+                "workspace_id": str(w.id),
+                "name": w.name,
+                "owner_id": str(w.owner_id),
+                "plan": w.plan,
+                "country": w.country,
+            }
+            for w in self.s.scalars(select(Workspace)).all()
+        ]
+
     def is_paying(self, workspace_id) -> bool:
         ws = self.get(workspace_id)
         return ws is not None and ws.plan.lower() in PAID_PLANS

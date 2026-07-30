@@ -43,7 +43,7 @@ class CreateOpportunityBody(BaseModel):
 
 class RegisterDocumentBody(BaseModel):
     filename: str = Field(min_length=1)
-    sample_text: str = ""
+    sample_text: str = Field(default="", max_length=1_000_000)
     supersedes: str | None = None
 
 
@@ -177,7 +177,9 @@ async def upload_document(
         }
 
     ocr = request.app.state.ctx.registry.get("ingestion.ocr")
-    text, ocr_status = extract_upload(file.filename, data, ocr)
+    # `extract_upload` may parse PDF/CSV/XLSX and run OCR; keep it out of the
+    # async event loop by running in the default executor.
+    text, ocr_status = await asyncio.to_thread(extract_upload, file.filename, data, ocr)
     doc = svc.register_document(
         principal.workspace_id,
         opportunity_id,

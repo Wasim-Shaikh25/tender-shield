@@ -1,7 +1,7 @@
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
@@ -21,7 +21,7 @@ def boq_status(request: Request) -> dict:
 
 
 class RunBody(BaseModel):
-    csv: str
+    csv: str = Field(..., max_length=10_000_000)
 
 
 def _runner(request: Request, session: Session) -> BoqRunner:
@@ -68,7 +68,9 @@ async def upload_boq(
     to_csv = reg.get("ingestion.file_to_boq_csv")
     if to_csv is None:
         raise HTTPException(503, "ingestion_unavailable")
-    data = await file.read()
+    data = await file.read(BOQ_MAX_UPLOAD_SIZE + 1)
+    if len(data) > BOQ_MAX_UPLOAD_SIZE:
+        raise HTTPException(413, "upload_too_large")
     try:
         await validate_and_store(
             request.app.state.ctx.settings,

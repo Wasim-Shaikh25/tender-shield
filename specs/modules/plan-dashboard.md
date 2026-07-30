@@ -2,7 +2,7 @@
 
 **Status:** done — AI-generated dynamic dashboard with templates, saved snapshots, and PDF/PowerPoint export.
 **Requirement refs:** Doc §9, §11.3
-**Task refs:** TS-188, TS-191
+**Task refs:** TS-188, TS-191, TS-193, TS-194
 
 ## Purpose
 

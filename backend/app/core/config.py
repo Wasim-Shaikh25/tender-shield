@@ -67,7 +67,7 @@ class Settings(BaseSettings):
     # LLM via OpenRouter (OpenAI-compatible API). No key → assistant free-form
     # answers and the risk LLM classifier are disabled, deterministic paths still run.
     openrouter_api_key: SecretStr | None = None
-    openrouter_model: str = "openai/gpt-4o-mini"
+    openrouter_model: str = "openrouter/free"
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_site_url: str = ""
     openrouter_app_name: str = "TenderShield"

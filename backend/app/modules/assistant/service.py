@@ -24,6 +24,23 @@ from app.modules.assistant.models import ChatMessage, ChatSession
 logger = logging.getLogger(__name__)
 
 _SEVERITIES = {"critical", "high", "medium", "low"}
+_DASHBOARD_KEYWORDS = {
+    "dashboard",
+    "chart",
+    "diagram",
+    "mindmap",
+    "mind map",
+    "graph",
+    "kpi",
+    "visual",
+    "visualize",
+    "visualisation",
+    "visualization",
+    "risk severity",
+    "deadline timeline",
+    "boq defect",
+    "bid readiness",
+}
 _REFUSAL = (
     "I can only help with this workspace's tenders — deadlines, risk findings, "
     "BOQ defects, missing documents, and the rule-pack. Ask me e.g. "
@@ -41,6 +58,7 @@ class AssistantService:
         loader=None,
         agent=None,
         workspace_factory=None,
+        plan_dashboard_factory=None,
     ):
         self.s = session
         self._ing = ingestion_factory
@@ -48,6 +66,7 @@ class AssistantService:
         self._loader = loader
         self._agent = agent
         self._workspace_factory = workspace_factory
+        self._plan_dashboard_factory = plan_dashboard_factory
 
     # ---- workspace binding & access checks ---------------------------------
     def _bind_workspace(self, workspace_id, user_id=None) -> None:
@@ -127,6 +146,8 @@ class AssistantService:
             session_id=uuid.UUID(str(session_id)),
             role=role,
             content=answer["answer"],
+            message_type=answer.get("type", "text"),
+            dashboard=answer.get("dashboard"),
             grounded=answer.get("grounded", True),
             source=answer.get("source"),
             citations=answer.get("citations", []),
@@ -198,9 +219,12 @@ class AssistantService:
         self._bind_workspace(workspace_id, user_id=identity.get("user_id") if identity else None)
         if identity and not identity.get("is_superadmin"):
             if not self._can_access(workspace_id, identity["user_id"]):
-                return {"answer": _REFUSAL, "grounded": True, "source": "refusal"}
+                return {"type": "text", "answer": _REFUSAL, "grounded": True, "source": "refusal"}
 
         m = message.lower()
+
+        if any(w in m for w in _DASHBOARD_KEYWORDS):
+            return self._dashboard(workspace_id, opportunity_id, message, identity=identity)
 
         if any(w in m for w in ("deadline", "due", "submission", "pre-bid", "clarification cut")):
             return self._deadlines(workspace_id, opportunity_id)
@@ -231,8 +255,8 @@ class AssistantService:
                 "findings": tools.filter_findings(self._find, self.s, workspace_id, opportunity_id),
             }
             reply = self._agent.answer(message, context, identity=identity)
-            return {"answer": reply, "grounded": True, "source": "llm"}
-        return {"answer": _REFUSAL, "grounded": True, "source": "refusal"}
+            return {"type": "text", "answer": reply, "grounded": True, "source": "llm"}
+        return {"type": "text", "answer": _REFUSAL, "grounded": True, "source": "refusal"}
 
     def admin_answer(
         self,
@@ -251,10 +275,35 @@ class AssistantService:
         return self.answer(workspace_id, opportunity_id, message, identity=identity)
 
     # ---- deterministic intent handlers -------------------------------------
+    def _dashboard(
+        self, workspace_id, opportunity_id, message: str, *, identity: dict | None = None
+    ) -> dict:
+        if self._plan_dashboard_factory is None:
+            return {
+                "type": "text",
+                "answer": (
+                    "Dashboard generation is not available right now — "
+                    "the analytics module is disabled."
+                ),
+                "grounded": True,
+                "source": "refusal",
+            }
+        dashboard = self._plan_dashboard_factory(
+            self.s, workspace_id, opportunity_id, message, identity=identity
+        )
+        return {
+            "type": "dashboard",
+            "answer": f"Generated a {dashboard.get('title', 'dashboard')} for this tender.",
+            "dashboard": dashboard,
+            "grounded": True,
+            "source": "llm",
+        }
+
     def _deadlines(self, workspace_id, opportunity_id) -> dict:
         rows = tools.list_deadlines(self._ing, self.s, workspace_id, opportunity_id)
         if not rows:
             return {
+                "type": "text",
                 "answer": "No deadlines have been extracted yet.",
                 "grounded": True,
                 "source": "tool",
@@ -265,6 +314,7 @@ class AssistantService:
             for r in rows
         ]
         return {
+            "type": "text",
             "answer": "Deadlines for this tender:\n" + "\n".join(lines),
             "grounded": True,
             "source": "tool",
@@ -278,7 +328,7 @@ class AssistantService:
             ans = f"Missing expected documents: {names}."
         else:
             ans = "All expected documents are present."
-        return {"answer": ans, "grounded": True, "source": "tool"}
+        return {"type": "text", "answer": ans, "grounded": True, "source": "tool"}
 
     def _findings(self, workspace_id, opportunity_id, m: str) -> dict:
         severity = next((s for s in _SEVERITIES if s in m), None)
@@ -288,6 +338,7 @@ class AssistantService:
         if not rows:
             scope = f"{severity} " if severity else ""
             return {
+                "type": "text",
                 "answer": f"No {scope}findings on this tender yet — run the risk review "
                 "and BOQ check first.",
                 "grounded": True,
@@ -300,6 +351,7 @@ class AssistantService:
         ]
         header = f"{severity.capitalize()} findings:" if severity else "Findings on this tender:"
         return {
+            "type": "text",
             "answer": header + "\n" + "\n".join(lines),
             "grounded": True,
             "source": "tool",

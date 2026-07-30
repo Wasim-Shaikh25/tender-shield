@@ -2,7 +2,7 @@
 
 **Status:** implemented — grounded, tool-first Q&A: deterministic intents (deadlines, findings by severity, missing docs, rule-pack lookup) with citations work with no key; off-topic questions refused; free-form questions use an injected LLM agent only when `TS_OPENROUTER_API_KEY` or `OPENROUTER_API_KEY` is set (grounded-only). User input is sanitized, delimited, and scanned for prompt-injection patterns before reaching the LLM. Versioned artifact-edit tool is a follow-up.
 **Requirement refs:** Doc §8, §11.3
-**Task refs:** TS-024, TS-112, TS-145, TS-164
+**Task refs:** TS-024, TS-112, TS-145, TS-164, TS-193
 
 ## Purpose
 
@@ -22,6 +22,7 @@ questions.
   - `GET /sessions/{id}/messages` (viewer) — retrieve conversation history.
   - `POST /sessions/{id}/chat` (viewer) — persist user + assistant messages and answer.
   - `POST /sessions/{id}/stream` (viewer) — SSE stream of the assistant answer.
+  - `POST /chat` and `POST /sessions/{id}/chat` may return `type: "dashboard"` with a `dashboard` field containing a `PlanDashboard` (KPI/table/chart/mermaid/text) when the query asks for a visual summary.
   - `POST /admin/chat` (super-admin) — transient cross-tenant research chat. Queries still
     require explicit `workspace_id` and `opportunity_id` parameters and are logged to the audit log.
 
@@ -64,6 +65,7 @@ not persist sessions.
   and a verified `superadmin` role. The response is still grounded in the explicit
   `workspace_id` and `opportunity_id` supplied by the admin; it does not allow
   broad cross-tenant search by default.
+- **B10 (dashboard intent):** user messages containing dashboard/visual keywords trigger `PlanDashboardAgent` to generate a structured `PlanDashboard`. The response is returned as `type: "dashboard"` so the UI can render it in a collapsible panel without switching pages. If the LLM is unavailable, the agent's fallback is returned with a clear message.
 
 ## Acceptance criteria
 
@@ -79,6 +81,8 @@ not persist sessions.
   and refuses queries about other tenants.
 - A9: `POST /api/assistant/admin/chat` rejects non-super-admin callers and logs
   every admin query to the audit log.
+- A10: a query with dashboard/visual keywords returns `type: "dashboard"` with a valid
+  `PlanDashboard` payload and the UI renders it in a collapsible panel.
 
 ## Out of scope
 

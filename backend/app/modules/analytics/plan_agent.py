@@ -50,13 +50,19 @@ _FALLBACK = {
     "title": "Dashboard unavailable",
     "summary": (
         "The AI planner could not generate a dashboard right now. "
-        "Try a more specific question or visit the Analytics page."
+        "Set TS_OPENROUTER_API_KEY (or OPENROUTER_API_KEY) to enable "
+        "OpenRouter free/paid models; until then only deterministic tool data is available."
     ),
     "sections": [
         {
             "type": "text",
             "title": "Note",
-            "data": {"content": "No model response or invalid JSON. Please refine your query."},
+            "data": {
+                "content": (
+                    "No model response or invalid JSON. Please refine your query, "
+                    "or add an OpenRouter API key to use the free model router."
+                ),
+            },
         }
     ],
     "citations": [],

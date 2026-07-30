@@ -50,6 +50,7 @@ def _service(request: Request, session: Session) -> AssistantService:
         loader=reg.get("rulepacks.loader"),
         agent=reg.get("assistant.agent"),
         workspace_factory=reg.get("auth.workspace_factory"),
+        plan_dashboard_factory=reg.get("analytics.plan_dashboard"),
     )
 
 
@@ -68,6 +69,8 @@ def _message_json(m) -> dict:
         "id": str(m.id),
         "role": m.role,
         "content": m.content,
+        "type": m.message_type,
+        "dashboard": m.dashboard,
         "grounded": m.grounded,
         "source": m.source,
         "citations": m.citations,

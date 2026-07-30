@@ -54,6 +54,19 @@ export type Finding = {
   disclaimer?: string | null;
 };
 
+export type PlanSection = {
+  type: "kpi" | "table" | "chart" | "mermaid" | "text";
+  title: string;
+  data: Record<string, unknown>;
+};
+
+export type PlanDashboard = {
+  title: string;
+  summary: string;
+  sections: PlanSection[];
+  citations?: string[];
+};
+
 type SignupResponse = components["schemas"]["SignupResponse"];
 type ForgotPasswordResponse = components["schemas"]["ForgotPasswordResponse"];
 type OkResponse = components["schemas"]["OkResponse"];
@@ -229,8 +242,17 @@ export const api = {
       { method: "POST", body: JSON.stringify({ csv }) },
       token
     ),
-  askAssistant: (token: string, opportunityId: string, message: string) =>
-    req<{ answer: string; source: string }>(
+  askAssistant: (
+    token: string,
+    opportunityId: string,
+    message: string
+  ) =>
+    req<{
+      type?: string;
+      answer: string;
+      source: string;
+      dashboard?: PlanDashboard;
+    }>(
       `/assistant/chat`,
       { method: "POST", body: JSON.stringify({ opportunity_id: opportunityId, message }) },
       token
@@ -347,7 +369,7 @@ export const api = {
   boqDefectSummary: (token: string) =>
     req<Record<string, unknown>>("/analytics/boq-defect-summary", {}, token),
   planDashboard: (token: string, opportunity_id: string, query: string) =>
-    req<Record<string, unknown>>("/analytics/plan", { method: "POST", body: JSON.stringify({ opportunity_id, query }) }, token),
+    req<PlanDashboard>("/analytics/plan", { method: "POST", body: JSON.stringify({ opportunity_id, query }) }, token),
   planTemplates: () =>
     req<Array<{ id: string; name: string; query: string }>>("/analytics/plan/templates", {}),
   listPlanSnapshots: (token: string) =>

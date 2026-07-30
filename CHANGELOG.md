@@ -85,6 +85,20 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Updated `specs/modules/plan-dashboard.md` and added `python-pptx` to backend
   dependencies.
 
+### Done — 2026-07-30 (TS-193: assistant chat UI with collapsible dashboard panel; TS-194: snapshot export 404 fix + openrouter/free default)
+
+- **TS-193**: Reframed the AI-generated plan dashboard as part of the assistant chat experience.
+  - New `/assistant` page provides a dedicated chat UI for the selected opportunity.
+  - Assistant responses can include `type: "dashboard"` with a structured `PlanDashboard` payload.
+  - A collapsible dashboard panel on the right renders KPIs, tables, charts, and Mermaid diagrams inline.
+  - Shared `frontend/components/plan-dashboard.tsx` renders dashboard sections for both `/plan` and `/assistant`.
+  - Updated `specs/modules/assistant.md` and `frontend/app/layout.tsx` with the AI Assistant nav link.
+- **TS-194**: Fixed plan snapshot export and clarified OpenRouter model/ API-key requirements.
+  - Verified `GET /api/analytics/plan/snapshots/{id}/export?format=pdf` works when the correct snapshot id and a valid token are used; the earlier 404 was caused by a stale token and a typo in the test id.
+  - Changed the default OpenRouter model from `openai/gpt-4o-mini` to `openrouter/free` in `backend/app/core/config.py` and `.env.*` files.
+  - Improved `PlanDashboardAgent` fallback copy to explicitly ask for an OpenRouter API key so users know free models still require authentication.
+  - Updated `specs/modules/plan-dashboard.md` with TS-193/194 task references.
+
 ### Next
 
 No tracked `todo` tasks remain in `tasks/backlog.md`.

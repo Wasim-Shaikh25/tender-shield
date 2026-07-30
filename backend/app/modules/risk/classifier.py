@@ -86,11 +86,15 @@ class AnthropicClassifier:
             raw = msg.content[0].text if msg.content else ""
             json_text = self._extract_json_array(raw)
             if json_text is None:
-                logger.warning("AnthropicClassifier returned no JSON array for pattern %s", pattern.id)
+                logger.warning(
+                    "AnthropicClassifier returned no JSON array for pattern %s", pattern.id
+                )
                 return []
             parsed = json.loads(json_text)
             if not isinstance(parsed, list):
-                logger.warning("AnthropicClassifier returned non-array JSON for pattern %s", pattern.id)
+                logger.warning(
+                    "AnthropicClassifier returned non-array JSON for pattern %s", pattern.id
+                )
                 return []
             validated = []
             for item in parsed:

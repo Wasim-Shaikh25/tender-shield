@@ -67,6 +67,49 @@ description: |
    user is signed out. This is **not** a PR regression.
 3. **No Anthropic key** means risk review returns `count:0, findings:[]`.
    Deterministic BOQ checks still work.
+4. **Environment variables must be exported.** Use `set -a` before `source .env.local`
+   so `TS_*` vars are visible to the server process:
+   ```bash
+   cd /home/ubuntu/repos/tender-shield/backend
+   . .venv/bin/activate
+   set -a && source ../.env.local && set +a
+   ```
+5. **Migration/model drift can break sign-up.** If `alembic upgrade head` ever
+   lags the SQLAlchemy models, sign-up will 500 with `no such column`. Regenerate
+   migrations (`alembic revision --autogenerate`) or, for a quick smoke test,
+   recreate tables from the models:
+   ```bash
+   python - <<'PY'
+   from app.main import create_app
+   from app.core.config import Settings
+   from app.core.db import Base
+   url = "sqlite://///tmp/tendershield_smoke.db"
+   app = create_app(Settings(database_url=url))
+   engine = app.state.ctx.registry.require("db.engine")
+   Base.metadata.create_all(engine)
+   PY
+   TS_DATABASE_URL=sqlite://///tmp/tendershield_smoke.db uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
+   ```
+
+## Backend / Postgres RLS test notes
+
+- The Postgres-only RLS tests are in `backend/tests/test_rls_postgres.py`.
+- To run them you need a Postgres container and `psycopg[binary]` (not `psycopg-binary`):
+  ```bash
+  docker run --name pgts -e POSTGRES_USER=tendershield -e POSTGRES_PASSWORD=tendershield -e POSTGRES_DB=tendershield -p 5432:5432 -d postgres:16-alpine
+  . .venv/bin/activate
+  .venv/bin/pip install "psycopg[binary]"
+  export TS_DATABASE_URL=postgresql+psycopg://tendershield:tendershield@localhost:5432/tendershield
+  pytest tests/test_rls_postgres.py -q
+  ```
+- PostgreSQL does not allow parameter placeholders in `SET LOCAL`. If you see:
+  `syntax error at or near "$1"` on `SET LOCAL app.workspace_id = $1`, the RLS
+  binding must inline the workspace UUID literal or use `set_config()`.
+- Running the integration tests as a superuser bypasses RLS. Use a dedicated,
+  non-superuser database role to exercise `FORCE ROW LEVEL SECURITY`.
+- `current_setting('app.workspace_id', true)` returns an empty string (not `NULL`)
+  when the GUC is unset, so casting it directly to `uuid` can raise
+  `invalid input syntax for type uuid: ""`. Use `nullif(..., '')::uuid` to fail closed.
 
 ## UI testing tips
 
@@ -94,5 +137,5 @@ CURL="curl -s -c cookies.txt -b cookies.txt"
 Expected local baseline:
 - `ruff check .` clean
 - `mypy app` clean
-- `pytest -q` 145 passed
+- `pytest -q` 147 passed, 4 skipped
 - `npm run lint`, `npm run typecheck`, `npm run build` clean

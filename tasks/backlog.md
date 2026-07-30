@@ -195,7 +195,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-115 | Extend the production startup guard (Stripe secret, Redis, cookie policy, keypair parse) | audit TS-S02; Doc §11 | `specs/modules/core.md` (update) | done |
 | TS-116 | Complete the audit log: auth, membership, role, billing, and export events | audit §3.5 item 6; Doc §11.4 | `specs/modules/review.md` (update) | done |
 | TS-117 | Data export and account deletion (GDPR/DPDP) | audit §3.5 item 5; Doc §11.5 | `specs/modules/auth.md` (update) | todo |
-| TS-118 | Pagination on all list endpoints; `/api/health/details` super-admin gate in every environment | audit TS-L01, TS-L02 | `specs/modules/core.md` (update) | todo |
+| TS-118 | Pagination on all list endpoints; `/api/health/details` super-admin gate in every environment | audit TS-L01, TS-L02 | `specs/modules/core.md` (update) | done |
 | TS-119 | Accessibility: `eslint-plugin-jsx-a11y` + `axe-core` in CI, then WCAG 2.1 AA assessment | audit TS-L03; Doc §9 | `specs/frontend.md` (update) | todo |
 | TS-120 | Repository governance: default branch, branch protection, `CODEOWNERS`; document the venv install | audit TS-O03, TS-L04 | `docs/governance.md`, `README.md` | done |
 

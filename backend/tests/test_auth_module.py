@@ -28,6 +28,18 @@ def client() -> TestClient:
 TEST_PASSWORD = "Hunter2!Hunter2"
 
 
+def _superadmin_token(client, workspace_id="00000000-0000-0000-0000-0000000000aa"):
+    keys = client.app.state.ctx.registry.require("auth.keys")
+    return sec.mint_access(
+        keys,
+        user_id="00000000-0000-0000-0000-000000000001",
+        workspace_id=workspace_id,
+        role="viewer",
+        is_superadmin=True,
+        ttl=timedelta(minutes=5),
+    )
+
+
 def _signup(client, email="a@example.com", phone=None):
     phone = phone or f"+91{hash(email) % 10000000000:010d}"
     r = client.post(
@@ -194,7 +206,12 @@ def test_rbac_viewer_cannot_add_member(client):
 
 
 def test_capabilities_published(client):
-    caps = client.get("/api/health/details").json()["capabilities"]
+    r = client.get(
+        "/api/health/details",
+        headers={"authorization": f"Bearer {_superadmin_token(client)}"},
+    )
+    assert r.status_code == 200, r.text
+    caps = r.json()["capabilities"]
     assert {"auth.keys", "auth.authenticate", "auth.check_role"} <= set(caps)
 
 

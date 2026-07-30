@@ -3,7 +3,7 @@
 **Status:** implemented
 **Requirement refs:** Doc §3.1 (modular monolith); user requirement: "module
 pluggable format, no hard dependency"
-**Task refs:** TS-004
+**Task refs:** TS-004, TS-108, TS-118
 
 ## Purpose
 
@@ -92,6 +92,13 @@ None (core owns no business tables).
   that resolves the `review.service_factory` capability and writes append-only
   `audit_log` rows. It skips account-level contexts that have no real workspace and
   never raises into the caller.
+- **B13 (pagination):** `app.core.pagination` provides a `PaginationParams`
+  dependency with a default page size of 50 and a maximum of 1000. List endpoints
+  return a slice of results and set `X-Total-Count`, `X-Next-Offset`, `X-Prev-Offset`
+  and `X-Page-Limit` headers.
+- **B14 (health details gate):** `/api/health/details` requires a valid super-admin
+  token whenever the auth module is loaded; when auth is disabled it degrades to
+  public access for isolated module tests.
 
 ## Acceptance criteria
 
@@ -118,6 +125,10 @@ None (core owns no business tables).
   strips delimiter mimicry, and wraps untrusted text in XML-style tags.
 - A16: `app.core.audit.log` writes an `audit_log` row through the review module
   without raising, and skips non-UUID workspace contexts.
+- A17: list endpoints accept `limit`/`offset`, cap at 1000, and return pagination
+  headers.
+- A18: `/api/health/details` returns 403 without a super-admin token when auth is
+  loaded, and 200 when auth is disabled.
 
 ## Out of scope
 

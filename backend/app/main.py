@@ -20,6 +20,7 @@ from app.core.db import make_engine, make_session_factory
 from app.core.deps import require
 from app.core.events import EventBus
 from app.core.loader import LoadReport, load_modules
+from app.core.logging_middleware import AccessLogMiddleware
 from app.core.metrics import MetricsMiddleware
 from app.core.module import AppContext
 from app.core.ratelimit import default_rate_limiter
@@ -28,6 +29,7 @@ from app.core.scheduler import Scheduler
 from app.core.sentry import init_sentry
 from app.core.storage import StorageError, get_storage, sanitize_filename
 from app.core.tracing import init_tracing
+from app.core.tracing_middleware import TracingAttributesMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -253,6 +255,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             media_type=content_type,
             headers={"Content-Disposition": f'attachment; filename="{escaped}"'},
         )
+
+    # Access logging and trace enrichment run *inside* the OTel span, so they are
+    # registered before init_tracing instruments the app.
+    if settings.access_log_enabled:
+        app.add_middleware(AccessLogMiddleware)
+    app.add_middleware(TracingAttributesMiddleware)
 
     # OpenTelemetry tracing is opt-in via TS_OTEL_ENABLED; instrument after
     # all routers and middleware are registered.

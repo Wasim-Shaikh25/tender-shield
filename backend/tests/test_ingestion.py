@@ -126,6 +126,33 @@ def test_soft_dep_absent_uses_fallback_anchors():
     assert d.json()["kind"] == "boq"
 
 
+def test_confirm_deadline_rejects_foreign_opportunity(app_client):
+    client = TestClient(app_client)
+    auth = {"authorization": f"Bearer {_owner_token(client, 'dl@x.com')}"}
+
+    opp_a = client.post("/api/ingestion/opportunities", json={"title": "A"}, headers=auth).json()["id"]
+    opp_b = client.post("/api/ingestion/opportunities", json={"title": "B"}, headers=auth).json()["id"]
+
+    doc_a = client.post(
+        f"/api/ingestion/opportunities/{opp_a}/documents",
+        json={
+            "filename": "nit.pdf",
+            "sample_text": "Last date of submission: 25/12/2026.",
+        },
+        headers=auth,
+    ).json()
+    # Process document synchronously for this test.
+    client.post(f"/api/ingestion/documents/{doc_a['id']}/process", headers=auth)
+    dl_a = client.get(f"/api/ingestion/opportunities/{opp_a}/deadlines", headers=auth).json()["deadlines"][0]
+
+    # Confirming a deadline under a different opportunity must 404.
+    resp = client.post(
+        f"/api/ingestion/opportunities/{opp_b}/deadlines/{dl_a['id']}/confirm",
+        headers=auth,
+    )
+    assert resp.status_code == 404
+
+
 def test_doc_chunks_stored_on_register_and_can_be_read_back(app_client):
     client = TestClient(app_client)
     auth = {"authorization": f"Bearer {_owner_token(client, 'chunk@x.com')}"}

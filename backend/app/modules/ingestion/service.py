@@ -149,11 +149,14 @@ class IngestionService:
             )
         )
 
-    def confirm_deadline(self, workspace_id, deadline_id) -> Deadline | None:
+    def confirm_deadline(
+        self, workspace_id, opportunity_id, deadline_id
+    ) -> Deadline | None:
         dl = self.s.scalar(
             select(Deadline).where(
                 Deadline.id == uuid.UUID(str(deadline_id)),
                 Deadline.workspace_id == uuid.UUID(str(workspace_id)),
+                Deadline.opportunity_id == uuid.UUID(str(opportunity_id)),
             )
         )
         if dl is not None:

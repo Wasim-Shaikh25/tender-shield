@@ -375,14 +375,17 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('workspace_id', 'user_id')
     )
 
-    # Enable RLS on every workspace-scoped table (PostgreSQL only).
+    # Enable RLS on every workspace-scoped table that already exists (PostgreSQL only).
+    # Later migrations create additional workspace-scoped tables and apply RLS there.
     # Membership tables are not WorkspaceScopedMixin subclasses (composite PKs), so add them
     # explicitly before generating policies.
     rls_tables = set(WORKSPACE_SCOPED_TABLES) | {"workspace_members", "project_members"}
     if op.get_bind().dialect.name == "postgresql":
+        inspector = sa.inspect(op.get_bind())
         for table in rls_tables:
-            for stmt in rls_statements(table):
-                op.execute(stmt)
+            if inspector.has_table(table):
+                for stmt in rls_statements(table):
+                    op.execute(stmt)
     # ### end Alembic commands ###
 
 

@@ -50,6 +50,17 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Added `tests/helpers.py` and updated all test suites for the new OTP-on-login flow.
 - Backend: 146 tests passed, ruff clean.
 
+### Done — 2026-07-30 (TS-163 follow-up: migration fixes)
+
+- `e26e85245237` RLS policy loop now skips tables that do not yet exist, so a later
+  migration can create and then secure `award_documents`.
+- `5a5548916ff0` now applies workspace-isolation RLS immediately after creating the
+  `award_documents` table.
+- `6cffa6139050` uses `batch_alter_table` and backfills existing rows, making the
+  `phone`/`password_hash` NOT NULL change and OIDC column drop safe on both PostgreSQL
+  and SQLite.
+- Verified `alembic upgrade head` and `alembic downgrade base` on SQLite.
+
 ### Next
 
 - TS-163 frontend: update `frontend/app/login/page.tsx` and `frontend/lib/api.ts` for the

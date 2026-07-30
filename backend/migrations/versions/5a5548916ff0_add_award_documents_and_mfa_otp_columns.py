@@ -11,6 +11,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
+from app.core.db import rls_statements
+
 revision: str = '5a5548916ff0'
 down_revision: str | None = '45018dce267d'
 branch_labels: str | Sequence[str] | None = None
@@ -33,6 +35,11 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_award_documents_opportunity_id'), 'award_documents', ['opportunity_id'], unique=False)
     op.create_index(op.f('ix_award_documents_workspace_id'), 'award_documents', ['workspace_id'], unique=False)
+
+    # Apply workspace-isolation RLS to this newly created table (PostgreSQL only).
+    if op.get_bind().dialect.name == "postgresql":
+        for stmt in rls_statements("award_documents"):
+            op.execute(stmt)
     # ### end Alembic commands ###
 
 

@@ -118,6 +118,20 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   typed API client; added `AccountSettings` type.
 - Updated `specs/frontend.md` with `/settings` structure, behavior B9, and acceptance A8.
 
+### Done — 2026-07-30 (TS-150 / TS-153 / TS-158: review audit scoping, LocalStorage async I/O, and review opportunity scoping)
+
+- `GET /api/review/opportunities/{id}/audit` now only returns audit rows whose
+  object is a finding belonging to that opportunity.
+- `LocalStorage.write`, `read`, and `delete` now run filesystem calls via
+  `asyncio.to_thread`, preventing synchronous I/O from blocking the event loop.
+- `POST /api/review/findings/{finding_id}` now requires an `opportunity_id` and
+  returns 404 if the finding does not belong to that opportunity.
+- Updated `frontend/lib/api.ts` and `frontend/app/opportunities/[id]/page.tsx` to
+  pass `opportunity_id` when reviewing a finding.
+- Added `test_review.py::test_review_finding_scopes_by_opportunity` and updated
+  all tests that call the review endpoint.
+- Updated `specs/modules/review.md` and `specs/modules/core.md`.
+
 ### Done — 2026-07-30 (TS-154 / TS-144: CORS/allowed-hosts wildcard guard and filename sanitization)
 
 - Production startup guard now rejects wildcard (`*`) in `TS_CORS_ORIGINS` and

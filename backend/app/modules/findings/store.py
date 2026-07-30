@@ -66,6 +66,7 @@ class FindingStore:
         finding_id,
         *,
         status,
+        opportunity_id=None,
         note=None,
         review_reason=None,
         reviewer_id=None,
@@ -74,6 +75,8 @@ class FindingStore:
         the store capability — the findings module owns these columns)."""
         row = self.get(workspace_id, finding_id)
         if row is None:
+            return None
+        if opportunity_id is not None and row.opportunity_id != uuid.UUID(str(opportunity_id)):
             return None
         row.review_status = status
         row.review_note = note

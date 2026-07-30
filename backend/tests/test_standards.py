@@ -36,6 +36,7 @@ def client():
 def _auth(client):
     return auth_headers(client, "st@x.com")
 
+
 def _opp_with_turnover(client, headers):
     text = "[p1] The bidder shall have a minimum turnover of Rs. 10 Cr in the last three years."
     opp_id = client.post(
@@ -95,7 +96,9 @@ def test_violation_detection_persists_standard_violation(client):
         "findings"
     ]:
         client.post(
-            f"/api/review/findings/{f['id']}", json={"decision": "accepted"}, headers=headers
+            f"/api/review/findings/{f['id']}",
+            json={"opportunity_id": opp_id, "decision": "accepted"},
+            headers=headers,
         )
 
     check = client.post(f"/api/standards/opportunities/{opp_id}/check", headers=headers)
@@ -131,7 +134,9 @@ def test_bid_decision_considers_standard_violation(client):
         "findings"
     ]:
         client.post(
-            f"/api/review/findings/{f['id']}", json={"decision": "accepted"}, headers=headers
+            f"/api/review/findings/{f['id']}",
+            json={"opportunity_id": opp_id, "decision": "accepted"},
+            headers=headers,
         )
 
     client.post(f"/api/standards/opportunities/{opp_id}/check", headers=headers)
@@ -143,7 +148,7 @@ def test_bid_decision_considers_standard_violation(client):
         if f["kind"] == "standard_violation":
             client.post(
                 f"/api/review/findings/{f['id']}",
-                json={"decision": "accepted"},
+                json={"opportunity_id": opp_id, "decision": "accepted"},
                 headers=headers,
             )
 

@@ -67,11 +67,17 @@ def test_accuracy_dashboard_admin_only(client):
     opp2 = _opp_with_findings(client, owner, "Road")
 
     f1 = client.get(f"/api/review/opportunities/{opp1}/queue", headers=owner).json()["findings"][0]
-    client.post(f"/api/review/findings/{f1['id']}", json={"decision": "accepted"}, headers=owner)
+    client.post(
+        f"/api/review/findings/{f1['id']}",
+        json={"opportunity_id": opp1, "decision": "accepted"},
+        headers=owner,
+    )
 
     f2 = client.get(f"/api/review/opportunities/{opp2}/queue", headers=owner).json()["findings"][0]
     client.post(
-        f"/api/review/findings/{f2['id']}", json={"decision": "false_positive"}, headers=owner
+        f"/api/review/findings/{f2['id']}",
+        json={"opportunity_id": opp2, "decision": "false_positive"},
+        headers=owner,
     )
 
     resp = client.get("/api/analytics/accuracy", headers=owner)

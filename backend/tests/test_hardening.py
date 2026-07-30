@@ -104,6 +104,7 @@ def client(tmp_path):
 def _auth(client):
     return auth_headers(client, "h@x.com")
 
+
 def _make_pdf() -> bytes:
     from reportlab.pdfgen import canvas
 
@@ -147,7 +148,9 @@ def test_pdf_export_after_review(client):
         "findings"
     ]:
         client.post(
-            f"/api/review/findings/{f['id']}", json={"decision": "accepted"}, headers=headers
+            f"/api/review/findings/{f['id']}",
+            json={"opportunity_id": opp_id, "decision": "accepted"},
+            headers=headers,
         )
     pdf = client.get(f"/api/export/opportunities/{opp_id}?format=pdf", headers=headers)
     assert pdf.status_code == 200

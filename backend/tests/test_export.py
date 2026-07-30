@@ -29,6 +29,7 @@ def client():
 def _auth(client):
     return auth_headers(client, "ex@x.com")
 
+
 def _opp_with_findings(client, headers):
     opp_id = client.post(
         "/api/ingestion/opportunities", json={"title": "Bridge"}, headers=headers
@@ -57,7 +58,9 @@ def test_export_xlsx_after_review(client):
         "findings"
     ]:
         client.post(
-            f"/api/review/findings/{f['id']}", json={"decision": "accepted"}, headers=headers
+            f"/api/review/findings/{f['id']}",
+            json={"opportunity_id": opp_id, "decision": "accepted"},
+            headers=headers,
         )
 
     r = client.get(f"/api/export/opportunities/{opp_id}?format=xlsx", headers=headers)
@@ -78,7 +81,9 @@ def test_export_bad_format(client):
         "findings"
     ]:
         client.post(
-            f"/api/review/findings/{f['id']}", json={"decision": "accepted"}, headers=headers
+            f"/api/review/findings/{f['id']}",
+            json={"opportunity_id": opp_id, "decision": "accepted"},
+            headers=headers,
         )
 
     r = client.get(f"/api/export/opportunities/{opp_id}?format=txt", headers=headers)

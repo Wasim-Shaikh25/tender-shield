@@ -29,6 +29,7 @@ def client():
 def _auth(client):
     return auth_headers(client, "r@x.com")
 
+
 def _opp_with_findings(client, headers):
     opp_id = client.post(
         "/api/ingestion/opportunities", json={"title": "Bridge"}, headers=headers
@@ -55,7 +56,7 @@ def test_gate_blocks_until_all_reviewed(client):
     for f in queue["findings"]:
         r = client.post(
             f"/api/review/findings/{f['id']}",
-            json={"decision": "accepted"},
+            json={"opportunity_id": opp_id, "decision": "accepted"},
             headers=headers,
         )
         assert r.status_code == 200
@@ -73,11 +74,34 @@ def test_review_writes_audit_trail(client):
     ][0]["id"]
     client.post(
         f"/api/review/findings/{fid}",
-        json={"decision": "rejected", "note": "not a risk here"},
+        json={"opportunity_id": opp_id, "decision": "rejected", "note": "not a risk here"},
         headers=headers,
     )
     audit = client.get(f"/api/review/opportunities/{opp_id}/audit", headers=headers).json()["audit"]
     assert any(a["action"] == "finding.rejected" for a in audit)
+
+
+def test_audit_trail_scopes_by_opportunity(client):
+    """Audit rows for opportunity A must not include reviews from opportunity B."""
+    headers = _auth(client)
+    opp_a = _opp_with_findings(client, headers)
+    opp_b = _opp_with_findings(client, headers)
+    fid_a = client.get(f"/api/review/opportunities/{opp_a}/queue", headers=headers).json()[
+        "findings"
+    ][0]["id"]
+    client.post(
+        f"/api/review/findings/{fid_a}",
+        json={"opportunity_id": opp_a, "decision": "accepted"},
+        headers=headers,
+    )
+    audit_b = client.get(f"/api/review/opportunities/{opp_b}/audit", headers=headers).json()[
+        "audit"
+    ]
+    assert not any(a["action"] == "finding.accepted" for a in audit_b)
+    audit_a = client.get(f"/api/review/opportunities/{opp_a}/audit", headers=headers).json()[
+        "audit"
+    ]
+    assert any(a["action"] == "finding.accepted" for a in audit_a)
 
 
 def test_structured_review_outcomes_and_review_reason(client):
@@ -90,7 +114,11 @@ def test_structured_review_outcomes_and_review_reason(client):
     # false_positive is a resolved state and should open the gate when all are resolved
     r = client.post(
         f"/api/review/findings/{fid}",
-        json={"decision": "false_positive", "review_reason": "wrong_clause"},
+        json={
+            "opportunity_id": opp_id,
+            "decision": "false_positive",
+            "review_reason": "wrong_clause",
+        },
         headers=headers,
     )
     assert r.status_code == 200
@@ -107,7 +135,7 @@ def test_needs_clarification_blocks_gate(client):
     for f in queue["findings"]:
         client.post(
             f"/api/review/findings/{f['id']}",
-            json={"decision": "needs_clarification"},
+            json={"opportunity_id": opp_id, "decision": "needs_clarification"},
             headers=headers,
         )
     gate = client.get(f"/api/review/opportunities/{opp_id}/gate", headers=headers).json()
@@ -121,10 +149,32 @@ def test_bad_decision_and_missing_finding(client):
     fid = client.get(f"/api/review/opportunities/{opp_id}/queue", headers=headers).json()[
         "findings"
     ][0]["id"]
-    bad = client.post(f"/api/review/findings/{fid}", json={"decision": "banana"}, headers=headers)
+    bad = client.post(
+        f"/api/review/findings/{fid}",
+        json={"opportunity_id": opp_id, "decision": "banana"},
+        headers=headers,
+    )
     assert bad.status_code == 400
     missing = "00000000-0000-0000-0000-0000000000ff"
     gone = client.post(
-        f"/api/review/findings/{missing}", json={"decision": "accepted"}, headers=headers
+        f"/api/review/findings/{missing}",
+        json={"opportunity_id": opp_id, "decision": "accepted"},
+        headers=headers,
     )
     assert gone.status_code == 404
+
+
+def test_review_finding_scopes_by_opportunity(client):
+    """A finding from opportunity A cannot be reviewed under opportunity B."""
+    headers = _auth(client)
+    opp_a = _opp_with_findings(client, headers)
+    opp_b = _opp_with_findings(client, headers)
+    fid_a = client.get(f"/api/review/opportunities/{opp_a}/queue", headers=headers).json()[
+        "findings"
+    ][0]["id"]
+    r = client.post(
+        f"/api/review/findings/{fid_a}",
+        json={"opportunity_id": opp_b, "decision": "accepted"},
+        headers=headers,
+    )
+    assert r.status_code == 404

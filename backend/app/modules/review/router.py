@@ -16,6 +16,7 @@ def _service(request: Request, session: Session) -> ReviewService:
 
 
 class ReviewBody(BaseModel):
+    opportunity_id: str
     decision: str  # accepted | edited | rejected | false_positive | needs_clarification
     note: str | None = None
     review_reason: str | None = None
@@ -63,6 +64,7 @@ def review_finding(
             note=body.note,
             review_reason=body.review_reason,
             reviewer_id=principal.user_id,
+            opportunity_id=body.opportunity_id,
         )
     except ReviewError as exc:
         status = 404 if exc.code == "not_found" else 400

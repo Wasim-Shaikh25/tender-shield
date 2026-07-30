@@ -46,6 +46,9 @@ anything is exported; every decision is audited append-only.
 - **B5:** `audit_log` has no UPDATE/DELETE grants; every acceptance/export/
   outcome writes a row.
 - **B6:** outcome capture (won/lost/declined + reasons; risks materialized).
+- **B7:** `review_finding` requires the `opportunity_id` of the opportunity under
+  review and rejects the request when the finding does not belong to that
+  opportunity.
 
 ## Acceptance criteria
 
@@ -54,6 +57,7 @@ anything is exported; every decision is audited append-only.
 - A3: `false_positive` and `needs_clarification` decisions are accepted by the
   review endpoint and persisted with `review_reason`.
 - A4: the queue response includes `review_reason` and `explanation` for each finding.
+- A5: reviewing a finding with a mismatched `opportunity_id` returns 404.
 
 ## Out of scope
 

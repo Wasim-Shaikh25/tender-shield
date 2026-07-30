@@ -101,7 +101,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
   }
 
   async function review(findingId: string, decision: string) {
-    await api.reviewFinding(session!.token, findingId, decision);
+    await api.reviewFinding(session!.token, id, findingId, decision);
     refresh();
   }
 

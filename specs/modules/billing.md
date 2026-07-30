@@ -69,6 +69,11 @@ intents, webhook-dedup records, plan state on `orgs`.
 - **B13 (seat limits):** the billing module publishes `billing.seat_limits` from the
   Doc §7 plan table so the auth module can enforce per-workspace seat caps during
   member addition and invitation creation/acceptance.
+- **B14 (Stripe redirect URLs):** Stripe checkout uses `TS_APP_URL` for `success_url`
+  and `cancel_url`, never hardcoded `example.com`.
+- **B15 (Stripe verifier):** Stripe webhook signature verification only treats
+  `SignatureVerificationError` and `ValueError` as a bad signature; all other SDK or
+  runtime errors propagate so silent failures do not swallow billing outages.
 
 ## Acceptance criteria
 
@@ -82,6 +87,9 @@ intents, webhook-dedup records, plan state on `orgs`.
   price; webhook processing rejects mismatched amounts before plan activation.
 - A6: webhook idempotency marker is claimed atomically within the same transaction
   as the billing effect.
+- A7: Stripe checkout `success_url`/`cancel_url` are derived from `TS_APP_URL`.
+- A8: a malformed Stripe payload or invalid signature returns a 400 without raising,
+  but a Stripe SDK outage raises.
 
 ## Out of scope
 

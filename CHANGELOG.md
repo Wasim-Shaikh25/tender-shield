@@ -132,6 +132,18 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   all tests that call the review endpoint.
 - Updated `specs/modules/review.md` and `specs/modules/core.md`.
 
+### Done — 2026-07-30 (TS-115 / TS-155 / TS-156: production guard, Stripe URLs, and webhook verifier)
+
+- Extended the production startup guard to validate the JWT keypair, require
+  `TS_REDIS_URL`, require a notification sender (SES or MSG91), enforce the
+  payment-provider + webhook-secret pairing, and validate cookie `SameSite`/`Secure`
+  policy.
+- Added `TS_APP_URL` and made Stripe checkout `success_url`/`cancel_url` derive
+  from it instead of hardcoded `example.com`.
+- Narrowed `verify_stripe_signature` to catch only `SignatureVerificationError`
+  and `ValueError`; SDK/runtime errors now propagate.
+- Updated `specs/modules/core.md`, `specs/modules/billing.md`, and `tasks/backlog.md`.
+
 ### Done — 2026-07-30 (TS-154 / TS-144: CORS/allowed-hosts wildcard guard and filename sanitization)
 
 - Production startup guard now rejects wildcard (`*`) in `TS_CORS_ORIGINS` and

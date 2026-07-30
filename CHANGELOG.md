@@ -6,6 +6,47 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-30 (Phase 16 planning: defensibility, domain-agnosticism, scale validation)
+
+Requirements and planning only — no runtime code in this change.
+
+- **`docs/TenderShield_Market_Strategy_2026.md`** (new, requirement source for Phase 16):
+  - Part A — researched source base with citations: competitive landscape (Trimble/Document Crunch
+    closing Q2 2026; Procore/Autodesk moves; crowded Indian L1-prediction segment), public
+    procurement data (CPPP ~4.9 M award records, Etimad 283k with official API, TED eForms/SPARQL,
+    OCDS across 30+ governments, CAG audit reports, MoSPI/PAIMANA overrun data), and EU AI Act
+    status (Annex III deferred to Dec 2027; contractor-side tools likely out of scope — flagged
+    `assumption:`).
+  - Part B — defensibility thesis: four moat classes (proprietary data, deterministic computation,
+    accountability, workflow position) and the eight verifiable claims they produce.
+  - Part C — ranked value features with why/how/what-if: Employer Behaviour Graph, risk-to-price,
+    cashflow, SOR benchmarking, contradiction engine, outcome capture, reproducibility chain,
+    correction loop.
+  - Part D — domain-agnostic architecture: agnostic engine / deep packs / per-vertical graph, plus a
+    five-rung generalization ladder and the pack-SDK distribution play.
+  - Part E — geography: India → Saudi → UAE, Europe deferred; the Indian-contractor-in-the-Gulf
+    bridge; jurisdiction must be a property of the opportunity, not the workspace.
+  - Part F — business model including the new **Express** pay-per-report lane and its resolution of
+    the Build Doc §11.4 reviewer-gate conflict.
+  - Part G — profitability: cost drivers to instrument before any pricing commitment; the
+    retrieval-first cost property and how to guard it.
+  - Part H — risks, what-ifs and kill conditions.
+- **`specs/eval-at-scale.md`** (new): automated evaluation on 1,000+ real tenders. Five scoring modes
+  — M1 structural invariants, M2 portal-metadata agreement, M3 outcome backtest, M4 metamorphic
+  consistency (all label-free) and M5 a 50-tender human gold set. OCDS as the normalization target,
+  per-source adapters with recorded legality review, Celery-based resumable sharded runner with a
+  cost guard, and CI gating.
+- **New module specs:** `specs/modules/marketdata.md`, `specs/modules/pricing-intel.md`,
+  `specs/modules/express-report.md`, `specs/modules/outcomes.md`. Index updated in `specs/README.md`.
+- **`tasks/backlog.md`:** Phase 16 added — TS-195 – TS-233 across seven groups, each task mapped to a
+  moat class.
+- **`tasks/phase16_tracker.md`** (new): sprint map with sequencing rationale, dependency graph with
+  critical path, per-task acceptance gates, phase exit gates and kill conditions.
+
+**Next:** TS-223 (cost-per-review instrumentation), TS-224 (corpus schema + harvester), TS-226 (M1
+structural invariant suite) — Sprint 0/1, in that order. Measurement precedes corpus; corpus precedes
+the graph; correctness at scale precedes the Express revenue lane.
+
 ### Done — 2026-07-30 (TS-192: user-facing plan upgrade/downgrade)
 
 - Added `GET /api/billing/plans` public catalog and `POST /api/billing/change-plan`

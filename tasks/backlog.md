@@ -303,3 +303,91 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-192 | Add user-facing plan upgrade/downgrade endpoints and UI | user request | `backend/app/modules/billing/`, `frontend/app/billing/`, `specs/modules/billing.md` | done |
 || TS-193 | Reframe AI plan dashboard as the assistant: dedicated `/assistant` chat UI with collapsible dashboard panel for KPIs/tables/charts/Mermaid | user request; TS-188 | `specs/modules/assistant.md`, `frontend/app/assistant/`, `frontend/app/plan/page.tsx`, `frontend/components/plan-dashboard.tsx`, `backend/app/modules/assistant/` | done |
 || TS-194 | Fix plan snapshot export 404 and default OpenRouter model to `openrouter/free` with clear no-key messaging | user request; E2E findings | `backend/app/modules/analytics/`, `backend/app/core/config.py`, `.env.*`, `specs/modules/plan-dashboard.md` | done |
+
+## Phase 16 — Defensibility, Domain-Agnosticism & Scale Validation
+
+Requirement source: `docs/TenderShield_Market_Strategy_2026.md`.
+Every task below maps to a **moat class** (Strategy §B.2): 1 = proprietary data,
+2 = deterministic computation, 3 = accountability, 4 = workflow position.
+A task that maps to no moat class does not belong in this phase.
+
+Tracker: `tasks/phase16_tracker.md`.
+
+### 16.A — Employer Behaviour Graph (`marketdata`) — moat 1
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-195 | `marketdata` module scaffold: ModuleSpec, config flag, registry capabilities, graceful absence | Strategy §C.1 | `specs/modules/marketdata.md` | todo |
+| TS-196 | Corpus schema + migrations: `md_tenders`, `md_awards`, `md_employers`, `md_profiles`, `md_harvest_runs` (OCDS-shaped, non-tenant) | Strategy §A.2, §C.1 | `specs/modules/marketdata.md` | todo |
+| TS-197 | Source adapters P0: CPPP + one state NIC portal — legality review recorded in adapter docstring, robots/rate-limit compliant | Strategy §A.2 | `specs/eval-at-scale.md` §2.2 | todo |
+| TS-198 | Employer identity resolution: deterministic normalization to family/division/region with confidence; unresolved stays unresolved | Strategy §C.1 | `specs/modules/marketdata.md` | todo |
+| TS-199 | Deterministic aggregates + sample-size suppression (n ≥ 12) + comparable-set builder that returns its own filter | Strategy §C.1 | `specs/modules/marketdata.md` | todo |
+| TS-200 | Employer context block on risk findings + `/api/marketdata/*` read routes | Strategy §C.1 | `specs/modules/marketdata.md` | todo |
+
+### 16.B — Pricing intelligence (`pricing-intel`) — moat 2
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-201 | `pricing-intel` module scaffold + `pi_*` migrations; assert module has no LLM client dependency | Strategy §C.2 | `specs/modules/pricing-intel.md` | todo |
+| TS-202 | `price_impact` block in rulepack schema + named versioned formula registry with worked-example tests | Strategy §C.2 | `specs/modules/pricing-intel.md` | todo |
+| TS-203 | Bid loading sheet: accepted findings → rupee loading with formula and inputs shown; missing input → no loading | Strategy §C.2 | `specs/modules/pricing-intel.md` | todo |
+| TS-204 | SOR/DSR rulepack data format + loader (`rulepacks/<pack>/rates/<authority>/<year>.yaml`) | Strategy §C.4 | `specs/modules/pricing-intel.md` | todo |
+| TS-205 | Rate benchmarking: two-band matching (code / description), headline variance from code matches only, unmatched reported | Strategy §C.4 | `specs/modules/pricing-intel.md` | todo |
+| TS-206 | Cashflow & working-capital model with mandatory `assumptions[]` block; peak requirement + month | Strategy §C.3 | `specs/modules/pricing-intel.md` | todo |
+| TS-207 | Pricing artifacts inherit the review export gate; excluded from unreviewed tiers (test-asserted) | Build Doc §11.4; Strategy §C.2 | `specs/modules/pricing-intel.md` | todo |
+
+### 16.C — Express pay-per-report lane (`express`) — revenue / top of funnel
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-208 | `express` module scaffold + `ex_*` migrations; ephemeral internal workspace backing | Strategy §F.2 | `specs/modules/express-report.md` | todo |
+| TS-209 | Anonymous session lifecycle: create (email + acknowledgment), upload with pre-buffer size caps, expiry, high-entropy tokens | Strategy §F.2 | `specs/modules/express-report.md` | todo |
+| TS-210 | Teaser renderer: full deadline wall + missing-doc checklist + severity counts + 2 complete cited findings | Strategy §F.2 | `specs/modules/express-report.md` | todo |
+| TS-211 | Server-owned tier price table + guest checkout (Razorpay India / Stripe GCC-UK); client never sends an amount | Build Doc §15; audit TS-B01 | `specs/modules/express-report.md` | todo |
+| TS-212 | Webhook-only activation + full report delivery (in-app + emailed PDF); test proves redirect alone never unlocks | Build Doc §15.1 | `specs/modules/express-report.md` | todo |
+| TS-213 | `unreviewed` export variant: watermark on every page/format, acknowledgment logged with version/timestamp/IP, pricing outputs excluded | Build Doc §11.4; Strategy §F.2 | `specs/modules/express-report.md` | todo |
+| TS-214 | Anti-abuse (email/IP/document-hash limits, teaser dedupe), retention deletion job, magic-link claim into a workspace | Strategy §F.2 | `specs/modules/express-report.md` | todo |
+
+### 16.D — Outcome capture (`outcomes`) — moat 1
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-215 | `outcomes` module + `oc_*` workspace-scoped migrations; record/read bid outcome and risk materialization | Build Doc §1.1(9); Strategy §C.6 | `specs/modules/outcomes.md` | todo |
+| TS-216 | Prefill from public award record via `marketdata` with one-click confirm; manual path always available | Strategy §C.6 | `specs/modules/outcomes.md` | todo |
+
+### 16.E — Cross-cutting moat work
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-217 | Contradiction engine: fact-level cross-document disagreement + rulepack-configurable precedence naming the governing instance | Strategy §C.5 | `specs/modules/crossref.md` (update) | todo |
+| TS-218 | Correction loop: aggregate review corrections per pattern per employer family → **proposed** rulepack overlay in admin console; never auto-mutate | Build Doc §11.5, §2.4; Strategy §C.9 | `specs/modules/rulepacks.md` (update) | todo |
+| TS-219 | Reproducibility chain: pin `rulepack_version`/`model_id`/`prompt_hash`/`document_hash`/`engine_version` on every finding; deterministic stages byte-identical on re-run | Strategy §C.7 | `specs/modules/findings.md` (update) | todo |
+
+### 16.F — Domain-agnosticism
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-220 | Pack SDK: schema, validator CLI, pack test harness so a third party can author and verify a pack | Strategy §D.4 | `specs/modules/rulepacks.md` (update) | todo |
+| TS-221 | Ladder rung 1 trade checklists: plumbing/public-health, fire-fighting, structural steel, lifts (YAML only, zero code) | Strategy §D.2 | `rulepacks/in-works/boq/trade_checklists/` | todo |
+| TS-222 | Ladder rung 2 patterns: supply-and-erection — customs/GST variation, split delivery/erection LD, PG tests, free-issue material, O&M tail | Strategy §D.2 | `specs/modules/rulepacks.md` (update) | todo |
+
+### 16.G — Profitability instrumentation
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-223 | Per-review cost instrumentation (tokens in/out/cached, OCR pages, worker seconds, storage) tagged by opportunity/rulepack/model; p50+p95 cost-per-review metric; token-ceiling test guarding the retrieval-first property | Strategy §G.2, §G.3 | `specs/modules/observability.md` (update) | todo |
+
+### 16.H — Evaluation at scale (1,000+ tenders, automated)
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-224 | Corpus schema + `scripts/corpus_harvest.py` with pluggable adapter interface (`fetch_index`, `fetch_documents`), sha256 storage, full provenance | Strategy §A.2 | `specs/eval-at-scale.md` §2 | todo |
+| TS-225 | Adapters: CPPP, state NIC, Etimad (official API), OCDS registry — each with recorded legality review and rate-limit compliance | Strategy §A.2, §E | `specs/eval-at-scale.md` §2.2 | todo |
+| TS-226 | M1 structural invariant suite (quote integrity, citations, no invented numbers, BOQ closure, determinism, currency, tenant isolation, degradation, budget, no-crash) | Build Doc §6.2, §6.5, §11.5 | `specs/eval-at-scale.md` §1 | todo |
+| TS-227 | M2 portal-metadata agreement scoring with `extraction_miss`/`extraction_wrong`/`portal_wrong` triage | `specs/eval-at-scale.md` §1 | `specs/eval-at-scale.md` | todo |
+| TS-228 | M3 outcome backtest with **time-based** train/test split (L1 MAPE, bidder count, award latency, retender AUC) | Strategy §C.1 | `specs/eval-at-scale.md` §1 | todo |
+| TS-229 | M4 metamorphic checks: format, order, addendum monotonicity, redundancy, locale invariance | `specs/eval-at-scale.md` §1 | `specs/eval-at-scale.md` | todo |
+| TS-230 | `scripts/bulk_eval.py`: Celery fan-out, disposable workspace per tender, checkpoint/resume, sharding, cost guard + kill switch, failure classification | `specs/eval-at-scale.md` §3 | `specs/eval-at-scale.md` | todo |
+| TS-231 | `scripts/eval_report.py`: `evals/runs/<run_id>/` scorecard + regression diff vs previous run on the same slice | Build Doc §11.5 | `specs/eval-at-scale.md` §3.2 | todo |
+| TS-232 | CI wiring: 20-tender smoke per PR (M1+M4, blocking), 100-tender nightly, 1,000+ weekly; >2pt headline drop blocks the change | Build Doc §11.5 | `specs/eval-at-scale.md` §3.4 | todo |
+| TS-233 | M5 human gold set: 50 tenders composed per the slice table, annotated per Build Doc §19, stored under `evals/in-works/` | Build Doc §19, §14.2 | `specs/eval-at-scale.md` §1 | todo |

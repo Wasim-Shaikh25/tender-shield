@@ -6,6 +6,11 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### In progress — 2026-07-30 (TS-177: format analytics dashboard)
+
+- Replace raw JSON `<pre>` blocks on `/analytics` with readable cards/tables for
+  risk summary, deadline dashboard, and BOQ defect summary.
+
 ### Done — 2026-07-30 (TS-176: close remaining product needs)
 
 - TS-146 verified as already implemented; backlog status corrected.

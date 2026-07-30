@@ -285,3 +285,4 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-174 | User analysis/reports: risk summary, deadline dashboard, BOQ defect summary, report export | TS-170 | `backend/app/modules/analytics/`, `specs/modules/analytics.md` | done |
 | TS-175 | Observability log search: admin audit-log/log search with filters | TS-170 | `backend/app/core/audit.py`, `backend/app/modules/auth/router.py`, `specs/modules/admin.md` | done |
 | TS-176 | Close remaining product needs: notification preferences UI, admin/billing/support/analytics UI, local infra, E2E automation, alerting runbooks | user request | `frontend/`, `docker-compose.yml`, `evals/e2e/playwright`, `docs/runbooks/` | done |
+| TS-177 | Format analytics dashboard: render risk/deadline/BOQ summaries as cards and tables instead of raw JSON | user request | `frontend/app/analytics/page.tsx` | in-progress |

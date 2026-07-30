@@ -260,7 +260,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-149 | Assistant agent uses an invalid default Anthropic model name | audit TS-A14; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/assistant.md` (update) | done |
 | TS-150 | Review audit trail endpoint ignores opportunity_id | audit TS-A15; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/review.md` (update) | done |
 | TS-151 | Artifact.version uses a non-atomic read-modify-write increment | audit TS-B06; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/drafting.md` (update) | todo |
-| TS-152 | Timeline ICS export appends Z to naive or local datetimes; synthetic tender_published uses created_at | audit TS-D03; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/timeline.md` (update) | todo |
+| TS-152 | Timeline ICS export appends Z to naive or local datetimes; synthetic tender_published uses created_at | audit TS-D03; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/timeline.md` (update) | done |
 | TS-153 | LocalStorage async methods perform synchronous file I/O | audit TS-S04; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/core.md` (update) | done |
 | TS-154 | Production guard for CORS and allowed hosts can be bypassed with a comma-separated wildcard | audit TS-O05; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/core.md` (update) | done |
 | TS-155 | Stripe checkout uses hardcoded example.com redirect URLs | audit TS-B07; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/billing.md` (update) | done |

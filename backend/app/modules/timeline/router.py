@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -65,7 +66,12 @@ def export_ics(
     for e in events:
         if e.due_at is None:
             continue
-        dt = e.due_at.strftime("%Y%m%dT%H%M%SZ")
+        # ICS DTSTART must be in UTC. Convert aware datetimes to UTC and treat
+        # naive datetimes as already UTC so we don't append 'Z' to local time.
+        due_utc = e.due_at
+        if due_utc.tzinfo is not None:
+            due_utc = due_utc.astimezone(UTC).replace(tzinfo=None)
+        dt = due_utc.strftime("%Y%m%dT%H%M%SZ")
         uid = f"{opportunity_id}-{e.kind}@tendershield.local"
         summary = e.label
         desc = e.description

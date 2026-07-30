@@ -15,6 +15,7 @@ from app.core.db import Base
 from app.main import create_app
 from app.modules.billing.plans import PAYGO_PRICE_INR_PAISE, PaywallError, authorize
 from app.modules.billing.webhook import verify_signature
+from tests.helpers import auth_headers_and_workspace
 
 # ---- pure ----------------------------------------------------------------
 
@@ -65,13 +66,7 @@ def client():
 
 
 def _auth(client):
-    client.post(
-        "/api/auth/signup",
-        json={"email": "b@x.com", "password": "Hunter2!Hunter2", "workspace_name": "Acme"},
-    )
-    r = client.post("/api/auth/login", json={"email": "b@x.com", "password": "Hunter2!Hunter2"})
-    return {"authorization": f"Bearer {r.json()['access_token']}"}, r.json()["workspace_id"]
-
+    return auth_headers_and_workspace(client, "b@x.com")
 
 def _signed(body: dict):
     raw = json.dumps(body).encode()

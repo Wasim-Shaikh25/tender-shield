@@ -15,6 +15,7 @@ import app.modules.standards.models  # noqa: F401
 from app.core.config import Settings
 from app.core.db import Base
 from app.main import create_app
+from tests.helpers import auth_headers
 
 
 @pytest.fixture
@@ -33,15 +34,7 @@ def client():
 
 
 def _auth(client):
-    client.post(
-        "/api/auth/signup",
-        json={"email": "st@x.com", "password": "Hunter2!Hunter2", "workspace_name": "Acme"},
-    )
-    tok = client.post(
-        "/api/auth/login", json={"email": "st@x.com", "password": "Hunter2!Hunter2"}
-    ).json()["access_token"]
-    return {"authorization": f"Bearer {tok}"}
-
+    return auth_headers(client, "st@x.com")
 
 def _opp_with_turnover(client, headers):
     text = "[p1] The bidder shall have a minimum turnover of Rs. 10 Cr in the last three years."

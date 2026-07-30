@@ -13,6 +13,7 @@ from app.core.config import Settings
 from app.core.db import Base
 from app.main import create_app
 from app.modules.drafting.validators import DraftError, FactTable, validate
+from tests.helpers import auth_headers
 
 # ---- the spine: three validators (pure) -----------------------------------
 
@@ -68,15 +69,7 @@ def client():
 
 
 def _auth(client):
-    client.post(
-        "/api/auth/signup",
-        json={"email": "dr@x.com", "password": "Hunter2!Hunter2", "workspace_name": "Acme"},
-    )
-    tok = client.post(
-        "/api/auth/login", json={"email": "dr@x.com", "password": "Hunter2!Hunter2"}
-    ).json()["access_token"]
-    return {"authorization": f"Bearer {tok}"}
-
+    return auth_headers(client, "dr@x.com")
 
 def _opp_with_findings(client, headers):
     opp_id = client.post(

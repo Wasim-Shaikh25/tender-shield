@@ -1,18 +1,18 @@
 # Auth — Spec
 
-**Status:** implemented (email+password, JWT, refresh rotation, RBAC, RLS bind;
-TOTP/email/SMS MFA enroll/verify done; password reset via token; Google OIDC login + MSG91 phone OTP skeleton implemented and gated by credentials; Sign in
-with Apple backend callback implemented but requires Apple Developer credentials to
-enable)
-**Requirement refs:** Doc §5, §3.2, §16
-**Task refs:** TS-011, TS-012, TS-035, TS-036, TS-074..TS-078, TS-079
+**Status:** re-architecture in progress (TS-163): account is the top-level identity; workspace
+is created explicitly after login; platform-only registration/login; email + mobile verification;
+OTP required on every login. Social login (Google/Apple) removed.
+**Requirement refs:** Doc §5, §3.2, §16; user request (account-first, OTP login)
+**Task refs:** TS-011, TS-012, TS-035, TS-036, TS-074..TS-078, TS-079, TS-163
 
 ## Purpose
 
-Trust-critical custom auth: email+password (argon2id), Google OIDC, Apple OIDC,
-phone OTP (MSG91, India-first). Workspace-scoped RBAC and the RLS binding every
-other module relies on. A global `is_superadmin` flag unlocks application-owner
-endpoints under `/api/auth/admin/*`.
+Trust-critical custom auth: email+password (argon2id), OTP-based verification and
+login, workspace-scoped RBAC and the RLS binding every other module relies on.
+Account is the top-level identity; a user signs up once, verifies email and mobile,
+then creates workspaces after login. A global `is_superadmin` flag unlocks
+application-owner endpoints under `/api/auth/admin/*`.
 
 ## Public interface
 
@@ -21,95 +21,103 @@ endpoints under `/api/auth/admin/*`.
 - **Events emitted:** `auth.user_registered`, `auth.workspace_created`,
   `auth.refresh_reuse_detected`.
 - **API routes:**
-  - `/api/auth/signup`, `/login`, `/refresh`, `/logout`, `/me`
-  - `/api/auth/forgot-password`, `/reset-password`
+  - `/api/auth/signup` (account-only; requires org_name, phone, city, dob, password, confirm_password)
+  - `/api/auth/verify-email` (POST token)
+  - `/api/auth/verify-mobile` (POST token)
+  - `/api/auth/resend-verification` (account context)
+  - `/api/auth/login`, `/api/auth/mfa/challenge`, `/api/auth/refresh`, `/api/auth/logout`, `/api/auth/me`
+  - `/api/auth/forgot-password`, `/api/auth/reset-password`
+  - `/api/auth/settings` (GET/PUT profile), `/api/auth/settings/password` (POST change password)
   - `/api/auth/workspaces` (create/list)
   - `/api/auth/workspaces/{id}/members` (add/list)
   - `/api/auth/workspaces/{id}/projects` (create/list)
   - `/api/auth/projects/{id}/members` (add/list)
   - `/api/auth/invitations` (create) + `/api/auth/invitations/{token}/accept`
-  - `/api/auth/mfa/enroll` + `/api/auth/mfa/verify` + `/api/auth/mfa/challenge`
+  - `/api/auth/mfa/enroll` + `/api/auth/mfa/verify`
   - `/api/auth/workspaces/{id}/switch`
-  - `/api/auth/otp/send`, `/api/auth/otp/verify`
-  - `/api/auth/google` (POST id_token), `/api/auth/apple/authorize`, `/api/auth/apple/callback`
   - `/api/auth/admin/*` (super-admin only: list/create users, set superadmin, list workspaces)
 
 ## Data owned
 
-`users` (including `google_sub`, `apple_id`, OIDC links, `is_superadmin`, `mfa_method`,
-`mfa_phone`), `workspaces`, `workspace_members`, `projects`, `project_members`,
-`invitations`, `password_resets`, `refresh_tokens` (family-tracked), OTP state (Redis).
+`users` (`email`, `phone` unique, `password_hash`, `org_name`, `dob`, `city`,
+`email_verified`, `mobile_verified`, `is_superadmin`, `mfa_method`, `mfa_phone`),
+`mobile_verifications`, `workspaces`, `workspace_members`, `projects`, `project_members`,
+`invitations`, `password_resets`, `refresh_tokens` (family-tracked).
 
 ## Behavior
 
-- **B1:** passwords argon2id (time=3, mem=64MiB, par=2).
+- **B1:** passwords argon2id (time=3, mem=64MiB, par=2) and must contain ≥ 1 upper,
+  ≥ 1 lower, ≥ 1 digit, and ≥ 1 special character; length ≥ 8.
 - **B2:** access JWT RS256, 15-min TTL, `kid`-headered for key rotation; claims
-  `sub`, `workspace`, `role`, `is_superadmin`, `iss=tendershield`, `aud=tendershield-api`, `jti`.
+  `sub`, `workspace`, `role`, `is_superadmin`, `email_verified`, `mobile_verified`, `iss=tendershield`, `aud=tendershield-api`, `jti`.
 - **B3:** refresh tokens 30-day, httpOnly Secure cookie, hashed at rest, rotated
   on every use; **reuse detection revokes the whole token family** and audits.
 - **B4:** RBAC ranks `viewer<reviewer<estimator<admin<owner`; `require(min_role)`.
 - **B5:** every authenticated request executes `SET LOCAL app.workspace_id` before any
-  query (RLS binding, Doc §3.2 — non-negotiable).
-- **B6:** rate limits — 5 failed logins/15 min → captcha; OTP 3 sends/10 min,
+  query (RLS binding, Doc §3.2 — non-negotiable). A nil `workspace` claim uses a
+  sentinel UUID and blocks workspace-scoped reads/writes until the user selects/creates a workspace.
+- **B6:** rate limits — 5 failed logins/15 min → account lockout; OTP 3 sends/10 min,
   5 verify attempts; OTP hash-stored, 5-min TTL.
-- **B7:** Google OIDC verifies `iss/aud/email_verified`; links verified emails only.
-  Apple OIDC verifies `id_token`, generates client secret from `TS_APPLE_*` keys.
-- **B8:** MFA optional: `totp`, `email`, or `sms`; a TOTP secret or OTP code is stored on
-  the user row depending on method. `email`/`sms` codes are generated by `AuthService` and
-  sent through the `notifications.sender` adapter; without credentials the sender logs to
-  the console. `email`/`sms` are verified at `/mfa/challenge`. TOTP enrollment stores the
-  secret in a pending column and only commits `mfa_method=totp` after the first code is
-  verified.
-- **B9:** sign-up creates a bare user plus a default `Workspace` (name from form or
-  "Personal") so existing workspace-scoped endpoints keep working.
+- **B8:** Login always returns an OTP challenge. `AuthService` generates a 6-digit
+  OTP, stores its hash on the user row with a 5-minute TTL, and sends it through the
+  `notifications.sender` adapter. The client posts `/mfa/challenge` with the
+  `mfa_token` and the 6-digit code to receive tokens. In dev/tests the code is
+  returned in the response body. TOTP enrollment remains optional for account
+  recovery but the per-login OTP is mandatory.
+- **B9:** sign-up creates only a `User`; it does **not** create a workspace. The user
+  must be verified (email + mobile) before any workspace-scoped action.
 - **B10:** super-admins bypass workspace checks on `/api/auth/admin/*`; their access
   token carries `is_superadmin=true` and a placeholder `workspace` claim.
 - **B11:** forgot-password accepts an email and creates a single-use 15-minute reset token;
   the endpoint returns `ok` even for unknown emails to prevent enumeration. Reset consumes
   the token and updates the user's password hash; expired or reused tokens are rejected.
-- **B12 — Refresh token cookie:** login returns `access_token` in JSON and sets
-  `refresh_token` as an `httpOnly`, `Secure` (prod), `SameSite=Lax` cookie.
-  `/api/auth/refresh` reads the cookie, rotates the stored token family, and sets a new
-  cookie. `/api/auth/logout` clears the cookie and revokes the family.
-- **B13 — MFA enforcement:** when `User.mfa_totp_secret` is set, password verification
-  returns `mfa_required`. The client posts `/api/auth/mfa/challenge` with the current
-  TOTP code to receive tokens.
+- **B12 — Refresh token cookie:** `/login` returns an `mfa_token`; `/mfa/challenge`
+  returns an `access_token` in JSON and sets `refresh_token` as an `httpOnly`, `Secure`
+  (prod), `SameSite=Lax` cookie. `/api/auth/refresh` reads the cookie, rotates the
+  stored token family, and sets a new cookie. `/api/auth/logout` clears the cookie and
+  revokes the family.
 - **B14 — Workspace switcher:** `GET /api/auth/workspaces` lists the user's workspace
   memberships. `POST /api/auth/workspaces/{id}/switch` returns tokens bound to the
   chosen workspace (and the same workspace ID in the new cookie).
-- **B15 — Password policy:** passwords must be ≥ 8 characters and contain at least
-  one uppercase letter, one lowercase letter, one digit, and one symbol.
+- **B15 — Registration fields:** email, phone (unique), password, confirm password,
+  org/company name, date of birth (optional), city.
 - **B16 — Account lockout:** 5 failed login attempts within 15 minutes lock the account
   for 15 minutes.
 - **B17 — Invitation tokens:** invitation tokens are generated with `secrets.token_urlsafe`
   and stored as a SHA-256 hash. The raw token is exposed once in the invitation email or
   dev/test fallback; `accept_invitation` hashes the supplied token before lookup.
+- **B18 — No social login:** Google/Apple OIDC routes and settings are removed.
+- **B19 — Account settings:** `/api/auth/settings` returns/updates the current user's
+  profile (org_name, phone, dob, city). `/api/auth/settings/password` changes the
+  password after re-authentication.
 
 ## Acceptance criteria
 
 - A1: refresh replay revokes family and returns `reuse_detected`.
 - A2: RBAC guard 403s below-rank roles.
 - A3: two-workspace RLS isolation test passes through the whole request stack.
-- A4: workspace/project CRUD and invitation flow work through the API.
+- A4: workspace/project CRUD and invitation flow work through the API after user
+  verifies email/mobile and creates a workspace.
 - A5: super-admin endpoints reject non-super-admins with 403.
 - A6: forgot-password returns `ok` for unknown emails and a usable token for known emails;
   reset updates the password and invalidates the token.
-- A7: login response sets an `httpOnly` `refresh_token` cookie and the JSON body does not.
+- A7: `/mfa/challenge` response sets an `httpOnly` `refresh_token` cookie and the JSON body does not.
 - A8: `/auth/refresh` uses the cookie, issues a new access token, and rotates the cookie.
-- A9: enrolled MFA login returns `mfa_required`; correct TOTP code returns tokens.
+- A9: every login returns `mfa_required` with a valid `mfa_token`; the correct per-login OTP
+  returns tokens. TOTP enrollment still works for recovery.
 - A10: `/auth/workspaces` lists all user memberships; switching workspace issues tokens for it.
-- A11: weak passwords (`password`) are rejected at signup and reset.
+- A11: weak/short passwords missing uppercase, lowercase, digit, or special characters are
+  rejected at signup and reset.
 - A12: 5 failed logins lock the account for 15 minutes.
-- A13: Google OIDC login issues tokens with the user's existing workspace role (not a hardcoded
-  `owner`) and raises `no_workspace` for non-super-admins with no membership.
+- A13: account-only sign-up creates no workspace; `/auth/workspaces` returns `[]` until the user
+  explicitly creates one.
 - A14: `POST /api/auth/workspaces/{id}/members` rejects principals whose workspace does not match
   `{id}` (super-admins excepted).
 - A15: `POST /api/auth/resend-verification` returns a generic status and never exposes the raw
   verification token.
 - A16: `POST /api/auth/workspaces/{id}/switch` rotates the refresh token and persists the new
   refresh-token row before returning tokens.
-- A17: Google OIDC login links a verified Google email to an existing password account instead of
-  raising an `IntegrityError`/500; unverified accounts are rejected.
+- A17: sign-up rejects mismatched `confirm_password` and missing required fields.
 - A18: `GET /api/auth/workspaces/{id}/members` and `GET /api/auth/projects/{id}/members` reject
   callers who are not members of the target workspace (super-admins excepted).
 - A19: `create_invitation` and `accept_invitation` verify that a supplied `project_id` belongs to
@@ -118,6 +126,10 @@ endpoints under `/api/auth/admin/*`.
   sees the raw token once.
 - A21: TOTP enrollment returns a pending secret and only sets `mfa_method=totp` after
   the first code is verified.
+- A22: `/api/auth/settings` returns and updates `org_name`, `phone`, `dob`, `city`.
+- A23: `/api/auth/settings/password` requires current password and rejects reused/weak passwords.
+- A24: sign-up sends separate email and mobile verification OTPs; both must be verified before
+  login returns a usable access token.
 
 ## Out of scope
 

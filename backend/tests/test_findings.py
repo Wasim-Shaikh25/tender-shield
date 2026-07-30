@@ -14,6 +14,7 @@ from app.core.contracts.findings import Finding, FindingKind, FindingSource, Sev
 from app.core.db import Base, make_engine, make_session_factory
 from app.main import create_app
 from app.modules.findings.store import FindingStore
+from tests.helpers import auth_headers
 
 
 def _finding(category="ld", severity=Severity.CRITICAL):
@@ -70,15 +71,7 @@ def client():
 
 
 def _auth(client):
-    client.post(
-        "/api/auth/signup",
-        json={"email": "f@x.com", "password": "Hunter2!Hunter2", "workspace_name": "Acme"},
-    )
-    tok = client.post(
-        "/api/auth/login", json={"email": "f@x.com", "password": "Hunter2!Hunter2"}
-    ).json()["access_token"]
-    return {"authorization": f"Bearer {tok}"}
-
+    return auth_headers(client, "f@x.com")
 
 def test_risk_run_persists_findings_and_list_api(client):
     headers = _auth(client)

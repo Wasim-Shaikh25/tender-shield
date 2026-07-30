@@ -47,13 +47,11 @@ def app_client():
 
 
 def _owner_token(client: TestClient, email="e@example.com") -> str:
-    client.post(
-        "/api/auth/signup",
-        json={"email": email, "password": "Hunter2!Hunter2", "workspace_name": "Acme"},
-    )
-    return client.post(
-        "/api/auth/login", json={"email": email, "password": "Hunter2!Hunter2"}
-    ).json()["access_token"]
+    from tests.helpers import ensure_workspace, login, signup
+    signup(client, email)
+    tokens = login(client, email)
+    tokens, _ = ensure_workspace(client, tokens)
+    return tokens["access_token"]
 
 
 def test_opportunity_and_document_flow(app_client):

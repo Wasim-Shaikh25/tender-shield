@@ -6,9 +6,9 @@ projects live under workspaces; invitations enable sharing.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Uuid, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import WORKSPACE_SCOPED_TABLES, Base, WorkspaceScopedMixin
@@ -20,11 +20,13 @@ class User(Base):
     __tablename__ = "users"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
-    phone: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
-    password_hash: Mapped[str | None] = mapped_column(String, nullable=True)
-    google_sub: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
-    apple_id: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
+    phone: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String, nullable=False)
+    org_name: Mapped[str] = mapped_column(String, nullable=False)
+    dob: Mapped[date | None] = mapped_column(Date, nullable=True)
+    city: Mapped[str] = mapped_column(String, nullable=False)
     email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    mobile_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_superadmin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     mfa_method: Mapped[str] = mapped_column(String, nullable=False, default="")
     mfa_phone: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -145,6 +147,20 @@ class PasswordReset(Base):
 
 class EmailVerification(Base):
     __tablename__ = "email_verifications"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class MobileVerification(Base):
+    __tablename__ = "mobile_verifications"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True

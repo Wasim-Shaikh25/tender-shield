@@ -271,3 +271,4 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-160 | XLSX/CSV text extraction does not emit page markers, so spreadsheet-derived deadlines and clauses lose page provenance | audit TS-I10; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | todo |
 | TS-161 | Email/password login selects an arbitrary workspace for multi-workspace users | audit TS-A17; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/auth.md` (update) | todo |
 | TS-162 | Severity evaluator silently defaults missing facts to 0 | audit TS-R03; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/risk.md` (update) | done |
+| TS-163 | Account-centric auth re-architecture: account as top-level identity, workspace created after login, OTP on every login, remove social login, email+mobile verification, account/security settings | user request; Doc §5 | `specs/modules/auth.md`, `specs/frontend.md` (update) | done (backend); frontend pending |

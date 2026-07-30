@@ -1,3 +1,6 @@
+import uuid
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
@@ -6,11 +9,10 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.core.deps import current_principal, get_session, require
 from app.core.ratelimit import RateLimitDep
-from app.modules.auth.apple import AppleClient
 from app.modules.auth.deps import require_superadmin
-from app.modules.auth.google import GoogleClient
 from app.modules.auth.models import User
 from app.modules.auth.rbac import Principal, principal_requires_verified
+from app.modules.auth.security import hash_password, validate_password, verify_password
 from app.modules.auth.service import AuthError, AuthService
 
 router = APIRouter()
@@ -19,8 +21,6 @@ router = APIRouter()
 def _service(request: Request, session: Session) -> AuthService:
     settings = request.app.state.ctx.settings
     keys = request.app.state.ctx.registry.require("auth.keys")
-    apple_client = AppleClient(settings) if settings.apple_services_id else None
-    google_client = GoogleClient(settings) if settings.google_client_id else None
     sender = request.app.state.ctx.registry.get("notifications.sender")
     return AuthService(
         session,
@@ -28,8 +28,6 @@ def _service(request: Request, session: Session) -> AuthService:
         settings=settings,
         access_ttl_min=settings.access_ttl_minutes,
         refresh_ttl_days=settings.refresh_ttl_days,
-        apple_client=apple_client,
-        google_client=google_client,
         sender=sender,
     )
 
@@ -65,7 +63,10 @@ def _issue_token_response(response: Response, settings: Settings, tokens: dict) 
     without setting any cookies.
     """
     if tokens.get("mfa_required"):
-        return {"mfa_required": True, "mfa_token": tokens["mfa_token"]}
+        result: dict = {"mfa_required": True, "mfa_token": tokens["mfa_token"]}
+        if "mfa_code" in tokens:
+            result["mfa_code"] = tokens["mfa_code"]
+        return result
     _set_refresh_cookie(response, tokens["refresh_token"], settings)
     return {
         "access_token": tokens["access_token"],
@@ -87,17 +88,18 @@ def _call_and_issue(
 
 
 def _validate_password_field(v: str) -> str:
-    from app.modules.auth import security as sec
-
-    sec.validate_password(v)
+    validate_password(v)
     return v
 
 
 class SignupBody(BaseModel):
     email: str
+    phone: str = Field(min_length=1)
     password: str = Field(min_length=8)
-    workspace_name: str | None = Field(default="Personal", min_length=1)
-    country: str = "IN"
+    confirm_password: str = Field(min_length=8)
+    org_name: str = Field(min_length=1)
+    city: str = Field(min_length=1)
+    dob: str | None = None
 
     @field_validator("password")
     @classmethod
@@ -125,11 +127,33 @@ class ResetPasswordBody(BaseModel):
     @field_validator("new_password")
     @classmethod
     def _password_policy(cls, v: str) -> str:
-        return _validate_password_field(v)
+        validate_password(v)
+        return v
 
 
 class VerifyEmailBody(BaseModel):
     token: str = Field(min_length=8)
+
+
+class VerifyMobileBody(BaseModel):
+    token: str = Field(min_length=6)
+
+
+class AccountSettingsBody(BaseModel):
+    org_name: str | None = None
+    phone: str | None = None
+    dob: str | None = None
+    city: str | None = None
+
+
+class ChangePasswordBody(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8)
+
+    @field_validator("new_password")
+    @classmethod
+    def _password_policy(cls, v: str) -> str:
+        return _validate_password_field(v)
 
 
 class AddMemberBody(BaseModel):
@@ -167,10 +191,6 @@ class MfaChallengeBody(BaseModel):
     code: str
 
 
-class GoogleLoginBody(BaseModel):
-    id_token: str
-
-
 class CreateSuperadminBody(BaseModel):
     email: str
     password: str = Field(min_length=8)
@@ -187,21 +207,18 @@ class SetSuperadminBody(BaseModel):
 
 _STATUS = {
     "email_taken": 409,
+    "phone_taken": 409,
+    "password_mismatch": 400,
     "invalid_credentials": 401,
     "invalid_refresh": 401,
     "reuse_detected": 401,
     "no_workspace": 401,
     "email_not_verified": 403,
+    "mobile_not_verified": 403,
     "no_such_user": 400,
     "no_such_project": 400,
     "bad_role": 400,
     "not_workspace_member": 403,
-    "apple_not_configured": 503,
-    "apple_token_invalid": 401,
-    "apple_email_missing": 400,
-    "google_not_configured": 503,
-    "google_token_invalid": 401,
-    "google_email_missing": 400,
     "bad_mfa_method": 400,
     "mfa_not_enrolled": 400,
     "mfa_invalid": 401,
@@ -233,7 +250,13 @@ def _handle(fn):
 def signup(body: SignupBody, request: Request, session: Session = Depends(get_session)):
     return _handle(
         lambda: _service(request, session).signup(
-            body.email, body.password, body.workspace_name, body.country
+            email=body.email,
+            phone=body.phone,
+            password=body.password,
+            confirm_password=body.confirm_password,
+            org_name=body.org_name,
+            city=body.city,
+            dob=date.fromisoformat(body.dob) if body.dob else None,
         )
     )
 
@@ -247,18 +270,6 @@ def login(
 ):
     return _call_and_issue(
         request, response, session, lambda svc: svc.login(body.email, body.password)
-    )
-
-
-@router.post("/google", dependencies=_LOGIN_LIMIT)
-def google_login(
-    body: GoogleLoginBody,
-    response: Response,
-    request: Request,
-    session: Session = Depends(get_session),
-):
-    return _call_and_issue(
-        request, response, session, lambda svc: svc.google_login(body.id_token)
     )
 
 
@@ -296,13 +307,26 @@ def logout(
 
 
 @router.get("/me")
-def me(principal: Principal = Depends(current_principal)):
+def me(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(current_principal),
+):
+    user = session.scalar(select(User).where(User.id == uuid.UUID(principal.user_id)))
+    if not user:
+        raise HTTPException(404, "user_not_found")
     return {
         "user_id": principal.user_id,
         "workspace_id": principal.workspace_id,
         "role": principal.role,
         "is_superadmin": principal.is_superadmin,
         "email_verified": principal.email_verified,
+        "mobile_verified": principal.mobile_verified,
+        "email": user.email,
+        "phone": user.phone,
+        "org_name": user.org_name,
+        "city": user.city,
+        "dob": user.dob.isoformat() if user.dob else None,
     }
 
 
@@ -335,15 +359,92 @@ def verify_email(
     return _handle(lambda: _service(request, session).verify_email(body.token))
 
 
-@router.post("/resend-verification", dependencies=_LOGIN_LIMIT)
-def resend_verification(
+@router.post("/verify-mobile")
+def verify_mobile(
+    body: VerifyMobileBody,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    return _handle(lambda: _service(request, session).verify_mobile(body.token))
+
+
+@router.get("/settings")
+def get_settings(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(current_principal),
+):
+    user = session.scalar(select(User).where(User.id == uuid.UUID(principal.user_id)))
+    if not user:
+        raise HTTPException(404, "user_not_found")
+    return {
+        "email": user.email,
+        "phone": user.phone,
+        "org_name": user.org_name,
+        "city": user.city,
+        "dob": user.dob.isoformat() if user.dob else None,
+        "email_verified": user.email_verified,
+        "mobile_verified": user.mobile_verified,
+    }
+
+
+@router.put("/settings")
+def update_settings(
+    body: AccountSettingsBody,
     request: Request,
     session: Session = Depends(get_session),
     principal: Principal = Depends(current_principal),
 ):
     def _do():
-        _service(request, session).create_email_verification(principal.user_id)
-        return {"status": "ok"}
+        user = session.scalar(select(User).where(User.id == uuid.UUID(principal.user_id)))
+        if not user:
+            raise AuthError("no_such_user")
+        if body.org_name:
+            user.org_name = body.org_name.strip()
+        if body.city:
+            user.city = body.city.strip()
+        if body.dob:
+            user.dob = date.fromisoformat(body.dob)
+        if body.phone:
+            phone = body.phone.strip()
+            if phone != user.phone and session.scalar(select(User).where(User.phone == phone)):
+                raise AuthError("phone_taken")
+            user.phone = phone
+            user.mobile_verified = False
+            _service(request, session).create_mobile_verification(user.id, phone=user.phone)
+        session.commit()
+        return {
+            "email": user.email,
+            "phone": user.phone,
+            "org_name": user.org_name,
+            "city": user.city,
+            "dob": user.dob.isoformat() if user.dob else None,
+            "email_verified": user.email_verified,
+            "mobile_verified": user.mobile_verified,
+        }
+
+    return _handle(_do)
+
+
+@router.post("/settings/password")
+def change_password(
+    body: ChangePasswordBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(current_principal),
+):
+    def _do():
+        svc = _service(request, session)
+        user = session.scalar(select(User).where(User.id == uuid.UUID(principal.user_id)))
+        if not user or not user.password_hash or not verify_password(
+            body.current_password, user.password_hash
+        ):
+            raise AuthError("invalid_credentials")
+        svc._require_verified_for_login(user)
+        validate_password(body.new_password)
+        user.password_hash = hash_password(body.new_password)
+        session.commit()
+        return {"ok": True}
 
     return _handle(_do)
 
@@ -566,44 +667,6 @@ def add_member(
         lambda: _service(request, session).add_workspace_member(
             principal.workspace_id, body.email, body.role
         )
-    )
-
-
-# ---- Sign in with Apple --------------------------------------------------
-
-
-class AppleCallbackBody(BaseModel):
-    id_token: str | None = None
-    code: str | None = None
-    user: str | None = None  # Apple sends a JSON string on first sign-in
-
-
-@router.get("/apple/authorize")
-def apple_authorize(request: Request):
-    settings = request.app.state.ctx.settings
-    url = (
-        "https://appleid.apple.com/auth/authorize"
-        f"?client_id={settings.apple_services_id}"
-        f"&redirect_uri={settings.apple_redirect_uri}"
-        "&response_type=code id_token"
-        "&scope=name email"
-        "&response_mode=form_post"
-    )
-    return {"url": url}
-
-
-@router.post("/apple/callback", dependencies=_LOGIN_LIMIT)
-def apple_callback(
-    body: AppleCallbackBody,
-    response: Response,
-    request: Request,
-    session: Session = Depends(get_session),
-):
-    return _call_and_issue(
-        request,
-        response,
-        session,
-        lambda svc: svc.apple_callback(body.id_token, body.code, body.user),
     )
 
 

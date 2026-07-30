@@ -11,6 +11,7 @@ from app.core.config import Settings
 from app.main import create_app
 from app.modules.boq.engine import SpecTextIndex, normalize, run_checks, scope_gaps
 from app.modules.rulepacks.loader import RulePackLoader
+from tests.helpers import auth_headers
 
 SAMPLE = Path(__file__).resolve().parents[2] / "evals" / "in-works" / "sample_tender"
 
@@ -99,14 +100,7 @@ def test_boq_run_persists_defects_via_findings():
     )
     Base.metadata.create_all(application.state.ctx.registry.require("db.engine"))
     client = TestClient(application)
-    client.post(
-        "/api/auth/signup",
-        json={"email": "bq@x.com", "password": "Hunter2!Hunter2", "workspace_name": "Acme"},
-    )
-    tok = client.post(
-        "/api/auth/login", json={"email": "bq@x.com", "password": "Hunter2!Hunter2"}
-    ).json()["access_token"]
-    h = {"authorization": f"Bearer {tok}"}
+    h = auth_headers(client, "bq@x.com")
     opp_id = client.post("/api/ingestion/opportunities", json={"title": "Depot"}, headers=h).json()[
         "id"
     ]

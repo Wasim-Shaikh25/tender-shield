@@ -12,6 +12,7 @@ from app.core.config import Settings
 from app.core.db import Base
 from app.main import create_app
 from app.modules.ingestion.deadlines import extract_deadlines, parse_date
+from tests.helpers import auth_headers
 
 # ---- pure unit tests ------------------------------------------------------
 
@@ -59,15 +60,7 @@ def client():
 
 
 def _auth(client):
-    client.post(
-        "/api/auth/signup",
-        json={"email": "d@x.com", "password": "Hunter2!Hunter2", "workspace_name": "Acme"},
-    )
-    tok = client.post(
-        "/api/auth/login", json={"email": "d@x.com", "password": "Hunter2!Hunter2"}
-    ).json()["access_token"]
-    return {"authorization": f"Bearer {tok}"}
-
+    return auth_headers(client, "d@x.com")
 
 def test_upload_extracts_deadlines_and_sets_submission_due(client):
     headers = _auth(client)

@@ -4753,3 +4753,44 @@ There are now **61 findings** (5 Critical, 15 High, 37 Medium, 4 Low) with **18 
 items. The new gaps are product-invariant violations (money representation, provenance,
 deterministic severity) and an auth workspace-selection issue; they do not add new release blockers,
 but they should be fixed and verified before launch.
+
+---
+
+## 13. Account-centric authentication re-architecture (user requirement)
+
+### 13.1 Summary
+
+The current sign-up flow auto-creates a `Workspace` and ties the user's first login to that workspace. The user has requested an account-first model:
+
+- **Account** is the top-level identity owned by one user.
+- **Workspace** is created explicitly after login, like a project container.
+- A single account can own/create multiple workspaces; each workspace can contain multiple `projects`.
+
+### 13.2 New requirements
+
+| ID | Requirement | Release-blocking |
+|---|---|---|
+| **TS-163-a** | Remove Google, Facebook, and Apple (OIDC) sign-in from backend and UI. Keep only platform registration/login. | Yes |
+| **TS-163-b** | Registration form: company/organization name, email, mobile number, date of birth, city, password, re-enter password. Password policy enforced with upper, lower, digit, special character and minimum length. | Yes |
+| **TS-163-c** | Both **email** and **mobile number** must be verified via OTP before the account is activated. | Yes |
+| **TS-163-d** | Every login requires password + OTP challenge (email or SMS) before tokens are issued. | Yes |
+| **TS-163-e** | Sign-up no longer auto-creates a workspace; the authenticated user creates a workspace via `POST /workspaces` after login. | Yes |
+| **TS-163-f** | Account and security settings endpoints: update profile, change password, manage email/mobile verification, OTP preference. | No |
+
+### 13.3 Affected locations
+
+- `backend/app/modules/auth/models.py` — `User` profile fields, `MobileVerification` ledger.
+- `backend/app/modules/auth/service.py` — `signup`, `login`, `mfa_challenge`, `verify_email`, new `verify_mobile`, `create_workspace`.
+- `backend/app/modules/auth/router.py` — remove `/google`, `/apple/authorize`, `/apple/callback`; update `/signup`, `/login`, `/mfa/challenge`; add `/verify-mobile`, `/resend-mobile-otp`, `/me/settings`, `/me/password`.
+- `frontend/app/login/page.tsx` — remove workspace field and social login; add name/mobile/dob/city/confirm-password fields and OTP step.
+- `backend/migrations/versions/` — add new columns and `mobile_verifications` table.
+
+### 13.4 Recommended solution
+
+1. Extend `User` with `org_name`, `phone` (unique, required), `dob`, `city`, `mobile_verified`, `email_verified`, `password_hash`.
+2. Create `MobileVerification` table mirroring `EmailVerification`.
+3. `signup` creates a `User` only, sends both email and SMS OTPs; returns `{user_id, email, phone, status: "verification_required"}`.
+4. `login` validates password, then always issues an `mfa_token` and sends an OTP; `POST /mfa/challenge` verifies and issues tokens.
+5. Drop `GoogleClient`, `AppleClient`, `google_login`, `apple_callback`, and the OIDC settings from `Settings` (or leave optional but remove routes).
+6. Add `/me/settings` and `/me/password` protected routes.
+

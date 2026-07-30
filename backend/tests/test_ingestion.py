@@ -1,6 +1,8 @@
 """Ingestion: pure classifier unit tests + full-stack integration (auth-gated,
 org-scoped) through the app."""
 
+import base64
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -183,3 +185,32 @@ def test_doc_chunks_stored_on_register_and_can_be_read_back(app_client):
     p2 = client.get(f"/api/ingestion/documents/{doc_id}/text?page=2", headers=auth).json()
     assert p2["page"] == 2
     assert "Page two line." in p2["text"]
+
+
+def test_tus_options_returns_capabilities(app_client):
+    client = TestClient(app_client)
+    r = client.options("/api/ingestion/tus/")
+    assert r.status_code == 204
+    assert r.headers["Tus-Resumable"] == "1.0.0"
+
+
+def test_tus_create_returns_201_with_location_and_rejects_invalid_id(app_client):
+    client = TestClient(app_client)
+    auth = {"authorization": f"Bearer {_owner_token(client, 'tus@x.com')}"}
+    opp = client.post("/api/ingestion/opportunities", json={"title": "T"}, headers=auth)
+    opp_id = opp.json()["id"]
+    filename_b64 = base64.b64encode(b"test.pdf").decode()
+    opp_id_b64 = base64.b64encode(opp_id.encode()).decode()
+    r = client.post(
+        "/api/ingestion/tus/",
+        headers={
+            **auth,
+            "Upload-Length": "100",
+            "Upload-Metadata": f"filename {filename_b64},opportunity_id {opp_id_b64}",
+        },
+    )
+    assert r.status_code == 201
+    assert "Location" in r.headers
+    # Invalid upload_id must 400, not 404/500.
+    bad = client.head("/api/ingestion/tus/not-an-id", headers=auth)
+    assert bad.status_code == 400

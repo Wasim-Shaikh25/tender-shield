@@ -83,7 +83,12 @@ document is re-registered or re-uploaded.
   rejected as unsupported.
 - **B10 (page provenance):** XLSX rows and CSV lines are emitted with `[pN]`
   markers so spreadsheet-derived clauses and deadlines carry row-level provenance.
-- **B11 (resumable upload):** tus endpoints support creation, PATCH chunking, and HEAD offset queries; completed uploads are validated, stored, and processed identically to multipart uploads.
+- **B11 (resumable upload):** tus endpoints follow the tus 1.0.0 protocol:
+  `OPTIONS` returns `Tus-Resumable`/`Tus-Version`/`Tus-Max-Size`, `POST` returns
+  `201 Created` with a `Location` header, `PATCH` appends chunks and returns
+  `Upload-Offset`, `HEAD` returns the current offset. Upload IDs are validated
+  (32-char hex). Chunk persistence uses threaded file I/O so async endpoints do
+  not block the event loop, and an hourly TTL sweeper removes abandoned uploads.
 - **B12 (async extraction):** `?async=1` creates a pending document and enqueues a Celery task; the SSE endpoint streams `PROGRESS`/`done`/`error` events, sleeps between polls, stops on client disconnect, and has a hard timeout. Celery falls back to eager execution when Redis is not configured. The Celery task classifies the document, segments clauses, extracts deadlines, updates `submission_due`, persists chunks, and applies OCR when `TS_OCR_ENABLED=true`.
 - **B13 (deadline scoping):** `POST /opportunities/{id}/deadlines/{deadline_id}/confirm`
   verifies that the deadline belongs to the opportunity in the URL path; a mismatch
@@ -105,6 +110,7 @@ document is re-registered or re-uploaded.
 - A9: async `process_document` produces clauses, deadlines, and a `submission_due`.
 - A10: `POST /opportunities/{id}/documents` rejects `sample_text` > 1,000,000 chars.
 - A11: CSV and XLSX extraction output contains `[pN]` row markers.
+- A12: tus `OPTIONS` returns `204` with `Tus-Resumable`; `POST` returns `201` and `Location`; invalid upload IDs return `400`.
 
 ## Out of scope
 

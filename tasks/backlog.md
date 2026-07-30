@@ -187,7 +187,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-107 | Account & security settings UI: change password, MFA enrolment, resend verification, session list | audit §3.5 item 2; Doc §5, §9 | `specs/frontend.md` (update) | done |
 | TS-108 | Observability: metrics, error tracking, dependency-checking health probes, documented backup/rollback | audit TS-O02; Doc §16 | `specs/modules/health.md` (update) | done |
 | TS-109 | Enforce plan seat limits in `add_workspace_member` and `accept_invitation` | audit TS-B03; Doc §7 | `specs/modules/billing.md` (update) | done |
-| TS-110 | tus: `201` + `Location` header, shared chunk state, TTL sweeper, `upload_id` validation | audit TS-I03; Doc §11.1 | `specs/modules/ingestion.md` (update) | todo |
+| TS-110 | tus: `201` + `Location` header, shared chunk state, TTL sweeper, `upload_id` validation | audit TS-I03; Doc §11.1 | `specs/modules/ingestion.md` (update) | done |
 | TS-111 | Deadline-alert deduplication table and per-user notification preferences | audit TS-N01; Doc §11.6 | `specs/modules/notifications.md` (update) | todo |
 | TS-112 | Prompt-injection hardening: delimit untrusted tender text; adversarial eval fixtures | audit TS-P01; Doc §11.3 | `specs/modules/assistant.md` (update) | todo |
 | TS-113 | Replace the virus-scan stub with a real scanner; quarantine on detection | audit TS-S01; Doc §11.2 | `specs/modules/ingestion.md` (update) | todo |
@@ -265,7 +265,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-154 | Production guard for CORS and allowed hosts can be bypassed with a comma-separated wildcard | audit TS-O05; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/core.md` (update) | done |
 | TS-155 | Stripe checkout uses hardcoded example.com redirect URLs | audit TS-B07; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/billing.md` (update) | done |
 | TS-156 | Stripe webhook verifier swallows all exceptions and returns None | audit TS-B08; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/billing.md` (update) | done |
-| TS-157 | Tus endpoints perform synchronous file I/O and OPTIONS returns a non-compliant empty body | audit TS-I09; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | todo |
+| TS-157 | Tus endpoints perform synchronous file I/O and OPTIONS returns a non-compliant empty body | audit TS-I09; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | done |
 | TS-158 | POST /api/review/findings/{finding_id} does not scope by opportunity | audit TS-A16; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/review.md` (update) | done |
 | TS-159 | Finding.amount_exposure and monetary thresholds are stored/extracted as float major units, violating the minor-units invariant | audit TS-C01; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/findings.md` (update) | todo |
 | TS-160 | XLSX/CSV text extraction does not emit page markers, so spreadsheet-derived deadlines and clauses lose page provenance | audit TS-I10; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | done |

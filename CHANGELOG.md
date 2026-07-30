@@ -132,6 +132,17 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   all tests that call the review endpoint.
 - Updated `specs/modules/review.md` and `specs/modules/core.md`.
 
+### Done — 2026-07-30 (TS-110 / TS-157 / TS-160: tus and spreadsheet page markers)
+
+- `ingestion`: tus `OPTIONS` returns tus 1.0.0 capability headers and `204`; `POST`
+  returns `201 Created` with a `Location` header; `PATCH`/`HEAD` include `Tus-Resumable`.
+- `ingestion`: tus upload IDs are validated (32-char hex); file I/O in `POST`/`PATCH`/
+  `HEAD`/finalise runs in `asyncio.to_thread` so it does not block the event loop.
+- `ingestion`: hourly TTL sweeper removes abandoned tus chunk/state files.
+- `ingestion`: XLSX rows and CSV lines now emit `[pN]` markers so downstream
+  deadline/clause extraction can cite row-level provenance (TS-160).
+- Updated `specs/modules/ingestion.md`, `tasks/backlog.md`, and tests.
+
 ### Done — 2026-07-30 (TS-133 / TS-134 / TS-140 / TS-145 / TS-146: ingestion, BOQ, assistant, auth)
 
 - `ingestion`: `extract_upload` now runs in `asyncio.to_thread` so the async

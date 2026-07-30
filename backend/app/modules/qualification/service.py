@@ -163,11 +163,13 @@ class QualificationService:
                     break
 
             if found is None:
+                # A missing criterion is "unknown" (needs human review), not a
+                # hard "not_met" failure; severity will be MEDIUM, not HIGH.
                 records.append(
                     QualificationCriterion(
                         key=cfg["key"],
                         label=cfg["label"],
-                        status="not_met",
+                        status="unknown",
                         evidence=f"{cfg['label']} not found in the tender documents.",
                         source_page=None,
                         source_quote="",

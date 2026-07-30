@@ -84,5 +84,6 @@ def test_qualification_matrix_flags_missing_criteria(client):
     resp = client.get(f"/api/qualification/opportunities/{opp_id}", headers=headers)
     assert resp.status_code == 200
     body = resp.json()
-    assert body["status"] == "not_eligible"
-    assert any(c["status"] == "not_met" for c in body["criteria"])
+    # Missing criteria are "unknown" (needs review), not a hard "not_met" failure.
+    assert body["status"] == "needs_review"
+    assert any(c["status"] == "unknown" for c in body["criteria"])

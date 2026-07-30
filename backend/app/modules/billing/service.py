@@ -46,12 +46,12 @@ class BillingService:
         """Bind the RLS workspace GUC so webhook writes obey tenant isolation."""
         bind_workspace_context(self.s, workspace_id or uuid.UUID(int=0))
 
-    def _month_reviews(self, workspace_id) -> int:
+    def _month_reviews(self, user_id) -> int:
         start = datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         return (
             self.s.scalar(
                 select(func.count(UsageEvent.id)).where(
-                    UsageEvent.workspace_id == uuid.UUID(str(workspace_id)),
+                    UsageEvent.user_id == uuid.UUID(str(user_id)),
                     UsageEvent.event == "review_started",
                     UsageEvent.created_at >= start,
                 )
@@ -59,10 +59,19 @@ class BillingService:
             or 0
         )
 
-    def record_usage(self, workspace_id, event: str, ref_id=None, *, commit: bool = True) -> None:
+    def record_usage(
+        self,
+        user_id,
+        event: str,
+        ref_id=None,
+        *,
+        workspace_id=None,
+        commit: bool = True,
+    ) -> None:
         self.s.add(
             UsageEvent(
-                workspace_id=uuid.UUID(str(workspace_id)),
+                user_id=uuid.UUID(str(user_id)),
+                workspace_id=uuid.UUID(str(workspace_id)) if workspace_id else None,
                 event=event,
                 ref_id=uuid.UUID(str(ref_id)) if ref_id else None,
             )
@@ -75,6 +84,18 @@ class BillingService:
         if user_id is None:
             raise PaywallError("no_workspace")
         return user_id
+
+    def _user_from_notes(self, notes: dict) -> uuid.UUID | None:
+        user_id = notes.get("user_id")
+        if user_id:
+            return uuid.UUID(str(user_id))
+        workspace_id = notes.get("workspace_id")
+        if workspace_id:
+            try:
+                return self._user_for_workspace(workspace_id)
+            except PaywallError:
+                return None
+        return None
 
     def _user_billing(self, user_id) -> dict:
         user = self._workspaces().get_user(user_id)
@@ -90,21 +111,21 @@ class BillingService:
         grant = authorize(
             plan=user["plan"],
             free_review_used=user["free_review_used"],
-            reviews_this_month=self._month_reviews(workspace_id),
+            reviews_this_month=self._month_reviews(user_id),
         )
         if grant.kind == "free_first_review":
             self._workspaces().mark_free_review_used(user_id, commit=False)
             self.s.commit()
-            self.record_usage(workspace_id, "review_started")
+            self.record_usage(user_id, "review_started", workspace_id=workspace_id)
         elif grant.kind == "plan":
-            self.record_usage(workspace_id, "review_started")
+            self.record_usage(user_id, "review_started", workspace_id=workspace_id)
         # paygo: nothing recorded until the webhook confirms payment
         return grant
 
     def status(self, workspace_id) -> dict:
         user_id = self._user_for_workspace(workspace_id)
         user = self._user_billing(user_id)
-        reviews_this_month = self._month_reviews(workspace_id)
+        reviews_this_month = self._month_reviews(user_id)
         seats = len(self._workspaces().list_members(workspace_id))
         limits = PLAN_LIMITS.get(user["plan"], {})
         return {
@@ -116,20 +137,21 @@ class BillingService:
         }
 
     # ---- invoices ---------------------------------------------------------
-    def list_invoices(self, workspace_id) -> list[Invoice]:
+    def list_invoices(self, user_id) -> list[Invoice]:
         return list(
             self.s.scalars(
                 select(Invoice)
-                .where(Invoice.workspace_id == uuid.UUID(str(workspace_id)))
+                .where(Invoice.user_id == uuid.UUID(str(user_id)))
                 .order_by(Invoice.created_at.desc())
             )
         )
 
     def create_invoice(
         self,
-        workspace_id,
+        user_id,
         *,
         amount_minor: int,
+        workspace_id=None,
         currency: str = "INR",
         provider: str = "manual",
         provider_invoice_id: str | None = None,
@@ -138,7 +160,8 @@ class BillingService:
         commit: bool = True,
     ) -> Invoice:
         inv = Invoice(
-            workspace_id=uuid.UUID(str(workspace_id)),
+            user_id=uuid.UUID(str(user_id)),
+            workspace_id=uuid.UUID(str(workspace_id)) if workspace_id else None,
             invoice_number=uuid.uuid4().hex,  # temporary; replaced with INV- id after flush
             amount_minor=amount_minor,
             currency=currency,
@@ -186,11 +209,11 @@ class BillingService:
         return amount == expected
 
     # ---- payment history --------------------------------------------------
-    def list_payments(self, workspace_id) -> list[PaymentLog]:
+    def list_payments(self, user_id) -> list[PaymentLog]:
         return list(
             self.s.scalars(
                 select(PaymentLog)
-                .where(PaymentLog.workspace_id == uuid.UUID(str(workspace_id)))
+                .where(PaymentLog.user_id == uuid.UUID(str(user_id)))
                 .order_by(PaymentLog.at.desc())
             )
         )
@@ -326,21 +349,27 @@ class BillingService:
         return discounted, coupon
 
     # ---- billing self-service ---------------------------------------------
-    def get_billing_settings(self, workspace_id) -> dict:
-        return self._workspaces().get_billing_settings(workspace_id)
+    def get_billing_settings(self, user_id) -> dict:
+        return self._workspaces().get_billing_settings(user_id)
 
-    def update_billing_settings(self, workspace_id, settings: dict) -> dict:
-        ws = self._workspaces().get(workspace_id)
-        if ws is None:
+    def update_billing_settings(self, user_id, settings: dict) -> dict:
+        user = self._user_billing(user_id)
+        if user is None:
             raise PaywallError("no_workspace")
-        if ws.country.upper() == "IN":
+        country = (
+            (settings.get("country") or "")
+            .upper()
+            or (user.get("billing_settings") or {}).get("country")
+            or "IN"
+        )
+        if country == "IN":
             gstin = (settings.get("gstin") or "").strip()
             pan = (settings.get("pan") or "").strip()
             if gstin and len(gstin) != 15:
                 raise ValueError("invalid_gstin")
             if pan and len(pan) != 10:
                 raise ValueError("invalid_pan")
-        self._workspaces().set_billing_settings(workspace_id, settings)
+        self._workspaces().set_billing_settings(user_id, settings)
         return settings
 
     def cancel_subscription(self, workspace_id, user_id) -> dict:
@@ -360,11 +389,12 @@ class BillingService:
             commit=False,
         )
         self._log(
-            workspace_id,
+            owner_id,
             "internal",
             None,
             "subscription_cancelled",
             status="applied",
+            workspace_id=workspace_id,
             raw={"cancelled_by": str(user_id), "previous_plan": old_plan},
         )
         self.s.commit()
@@ -381,19 +411,25 @@ class BillingService:
         event_id = evt.get("id", "")
         notes = _extract_notes(evt)
         workspace_id = notes.get("workspace_id")
+        user_id = self._user_from_notes(notes)
         self._bind_workspace(workspace_id)
 
         self._log(
-            workspace_id,
+            user_id,
             "razorpay",
             event_id,
             evt.get("event", "unknown"),
             status="verified" if verified else "failed",
             raw=evt,
+            workspace_id=workspace_id,
         )
         if not verified:
             self.s.commit()
             return {"ok": False, "reason": "bad_signature"}
+
+        if user_id is None:
+            self.s.commit()
+            return {"ok": False, "reason": "no_workspace"}
 
         # 2) validate amount against server-owned price table
         typ = evt.get("event")
@@ -403,37 +439,43 @@ class BillingService:
         plan = notes.get("plan")
         if amount is not None and not self._valid_amount(currency, kind, plan, amount, notes=notes):
             self._log(
-                workspace_id,
+                user_id,
                 "razorpay",
                 event_id,
                 typ or "unknown",
                 status="amount_mismatch",
                 raw=evt,
+                workspace_id=workspace_id,
             )
             self.s.commit()
             return {"ok": False, "reason": "amount_mismatch"}
 
         # 3) idempotency: claim the event marker atomically as part of the effect tx
-        if event_id and not self._claim_event_id(workspace_id, event_id, "razorpay"):
+        if event_id and not self._claim_event_id(event_id, "razorpay", user_id=user_id):
             self.s.commit()
             return {"ok": True, "duplicate": True}
 
         # 4) apply effect
-        if typ == "order.paid" and workspace_id:
+        if typ == "order.paid":
             self.record_usage(
-                workspace_id, "review_paid", ref_id=notes.get("opportunity_id"), commit=False
+                user_id,
+                "review_paid",
+                ref_id=notes.get("opportunity_id"),
+                workspace_id=workspace_id,
+                commit=False,
             )
             if amount:
                 self.create_invoice(
-                    workspace_id,
+                    user_id,
                     amount_minor=amount,
+                    workspace_id=workspace_id,
                     provider="razorpay",
                     provider_invoice_id=event_id,
                     raw=evt,
                     status="paid",
                     commit=False,
                 )
-        elif typ == "subscription.charged" and workspace_id:
+        elif typ == "subscription.charged":
             self.set_workspace_plan(
                 workspace_id,
                 notes.get("plan", "pro"),
@@ -443,15 +485,16 @@ class BillingService:
             )
             if amount:
                 self.create_invoice(
-                    workspace_id,
+                    user_id,
                     amount_minor=amount,
+                    workspace_id=workspace_id,
                     provider="razorpay",
                     provider_invoice_id=event_id,
                     raw=evt,
                     status="paid",
                     commit=False,
                 )
-        elif typ == "subscription.activated" and workspace_id:
+        elif typ == "subscription.activated":
             self.set_workspace_plan(
                 workspace_id,
                 notes.get("plan", "pro"),
@@ -459,7 +502,7 @@ class BillingService:
                 reason="razorpay_subscription_activated",
                 commit=False,
             )
-        elif typ in ("subscription.halted", "subscription.cancelled") and workspace_id:
+        elif typ in ("subscription.halted", "subscription.cancelled"):
             self.set_workspace_plan(
                 workspace_id,
                 "free",
@@ -487,9 +530,14 @@ class BillingService:
         obj = data.get("object", {}) if isinstance(data, dict) else {}
         metadata = obj.get("metadata", {}) if isinstance(obj, dict) else {}
         workspace_id = metadata.get("workspace_id")
+        user_id = self._user_from_notes(metadata)
         self._bind_workspace(workspace_id)
 
-        if event_type == "checkout.session.completed" and workspace_id:
+        if event_type == "checkout.session.completed":
+            if user_id is None:
+                self.s.commit()
+                return {"ok": False, "reason": "no_workspace"}
+
             amount = obj.get("amount_total")
             currency = obj.get("currency", "INR").upper()
             kind = metadata.get("kind", "paygo")
@@ -498,29 +546,35 @@ class BillingService:
                 currency, kind, plan, int(amount), notes=metadata
             ):
                 self._log(
-                    workspace_id,
+                    user_id,
                     "stripe",
                     event_id,
                     event_type,
                     status="amount_mismatch",
                     raw=evt,
+                    workspace_id=workspace_id,
                 )
                 self.s.commit()
                 return {"ok": False, "reason": "amount_mismatch"}
 
             # Idempotency: claim the event marker atomically as part of the effect tx
-            if event_id and not self._claim_event_id(workspace_id, event_id, "stripe"):
+            if event_id and not self._claim_event_id(event_id, "stripe", user_id=user_id):
                 self.s.commit()
                 return {"ok": True, "duplicate": True}
 
             if kind == "paygo":
                 self.record_usage(
-                    workspace_id, "review_paid", ref_id=metadata.get("opportunity_id"), commit=False
+                    user_id,
+                    "review_paid",
+                    ref_id=metadata.get("opportunity_id"),
+                    workspace_id=workspace_id,
+                    commit=False,
                 )
                 if amount:
                     self.create_invoice(
-                        workspace_id,
+                        user_id,
                         amount_minor=int(amount),
+                        workspace_id=workspace_id,
                         currency=currency,
                         provider="stripe",
                         provider_invoice_id=obj.get("id") or event_id,
@@ -538,8 +592,9 @@ class BillingService:
                 )
                 if amount:
                     self.create_invoice(
-                        workspace_id,
+                        user_id,
                         amount_minor=int(amount),
+                        workspace_id=workspace_id,
                         currency=currency,
                         provider="stripe",
                         provider_invoice_id=obj.get("id") or event_id,
@@ -552,11 +607,22 @@ class BillingService:
         ws = str(workspace_id) if workspace_id else None
         return {"ok": True, "applied": event_type, "workspace_id": ws}
 
-    def _log(self, workspace_id, provider, event_id, event_type, *, status, raw):
+    def _log(
+        self,
+        user_id,
+        provider,
+        event_id,
+        event_type,
+        *,
+        status,
+        raw,
+        workspace_id=None,
+    ):
         """Append a payment_log row. Callers commit."""
         self.s.add(
             PaymentLog(
-                workspace_id=uuid.UUID(str(workspace_id)) if workspace_id else uuid.UUID(int=0),
+                user_id=uuid.UUID(str(user_id)) if user_id else None,
+                workspace_id=uuid.UUID(str(workspace_id)) if workspace_id else None,
                 provider=provider,
                 provider_event_id=event_id or None,
                 event_type=event_type,
@@ -565,7 +631,7 @@ class BillingService:
             )
         )
 
-    def _claim_event_id(self, workspace_id, event_id: str, provider: str) -> bool:
+    def _claim_event_id(self, event_id: str, provider: str, user_id=None) -> bool:
         """Insert a webhook event idempotency marker; return True if this is a new event.
 
         Uses a savepoint so an existing event only rolls back the marker insert,
@@ -577,9 +643,7 @@ class BillingService:
             with self.s.begin_nested():
                 self.s.add(
                     WebhookEvent(
-                        workspace_id=uuid.UUID(str(workspace_id))
-                        if workspace_id
-                        else uuid.UUID(int=0),
+                        user_id=uuid.UUID(str(user_id)) if user_id else None,
                         provider=provider,
                         provider_event_id=event_id,
                     )

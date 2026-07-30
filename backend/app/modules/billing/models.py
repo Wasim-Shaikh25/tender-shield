@@ -1,7 +1,11 @@
 """Billing-owned tables (Doc §3.2, §16.5).
 
-- `payment_log` is the append-only financial ledger.
-- `plan_history` records every workspace plan change.
+- `usage_events` tracks metered consumption per user account (workspace_id is
+  retained for attribution but the plan limit is account-wide).
+- `payment_log` is the append-only financial ledger per user account.
+- `webhook_events` is a global idempotency ledger.
+- `plan_history` records every user account plan change.
+- `invoices` are customer-visible GST invoices per user account.
 - `coupon` stores discount codes that can be applied at checkout.
 """
 
@@ -10,17 +14,29 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Integer, String, Uuid, func
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Boolean,
+    DateTime,
+    Integer,
+    String,
+    UniqueConstraint,
+    Uuid,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.db import Base, WorkspaceScopedMixin
+from app.core.db import Base
 
 _BigId = BigInteger().with_variant(Integer, "sqlite")
 
 
-class UsageEvent(Base, WorkspaceScopedMixin):
-    _tablename_ = "usage_events"
+class UsageEvent(Base):
+    __tablename__ = "usage_events"
     id: Mapped[int] = mapped_column(_BigId, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
+    workspace_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True, index=True)
     event: Mapped[str] = mapped_column(String, nullable=False)  # review_started|review_paid|...
     qty: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     ref_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
@@ -29,9 +45,11 @@ class UsageEvent(Base, WorkspaceScopedMixin):
     )
 
 
-class PaymentLog(Base, WorkspaceScopedMixin):
-    _tablename_ = "payment_log"
+class PaymentLog(Base):
+    __tablename__ = "payment_log"
     id: Mapped[int] = mapped_column(_BigId, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True, index=True)
+    workspace_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True, index=True)
     provider: Mapped[str] = mapped_column(String, nullable=False)  # razorpay|stripe|internal
     provider_event_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     event_type: Mapped[str] = mapped_column(String, nullable=False)
@@ -44,23 +62,29 @@ class PaymentLog(Base, WorkspaceScopedMixin):
     )
 
 
-class WebhookEvent(Base, WorkspaceScopedMixin):
-    """Idempotency ledger — a processed provider event id is a no-op on replay."""
+class WebhookEvent(Base):
+    """Global idempotency ledger — a processed provider event id is a no-op on replay."""
 
-    _tablename_ = "webhook_events"
+    __tablename__ = "webhook_events"
+    __table_args__ = (
+        UniqueConstraint("provider", "provider_event_id", name="uq_webhook_provider_event_id"),
+    )
     id: Mapped[int] = mapped_column(_BigId, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True, index=True)
     provider: Mapped[str] = mapped_column(String, nullable=False)
-    provider_event_id: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    provider_event_id: Mapped[str] = mapped_column(String, nullable=False)
     processed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
 
-class Invoice(Base, WorkspaceScopedMixin):
+class Invoice(Base):
     """Customer-visible GST invoices generated from paid events."""
 
-    _tablename_ = "invoices"
+    __tablename__ = "invoices"
     id: Mapped[int] = mapped_column(_BigId, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
+    workspace_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True, index=True)
     invoice_number: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     currency: Mapped[str] = mapped_column(String, nullable=False, default="INR")

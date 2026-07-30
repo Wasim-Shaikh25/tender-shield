@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { useSession } from "@/components/session";
 
 export default function BillingSettingsPage() {
-  const { session, activeWorkspace } = useSession();
+  const { session } = useSession();
   const router = useRouter();
   const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
   const [status, setStatus] = useState<{ plan: string } | null>(null);
@@ -59,7 +59,7 @@ export default function BillingSettingsPage() {
   };
 
   const cancel = async () => {
-    if (!session || !confirm("Cancel subscription? The workspace will move to the free plan.")) return;
+    if (!session || !confirm("Cancel subscription? Your account will move to the free plan.")) return;
     try {
       const r = await api.cancelSubscription(session.token);
       setMessage(`Subscription cancelled; reverted to ${r.plan}.`);
@@ -75,7 +75,7 @@ export default function BillingSettingsPage() {
       {message && <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">{message}</p>}
 
       <section className="rounded-xl border border-slate-200 bg-white p-6">
-        <p className="mb-4 text-sm text-slate-500">Workspace: {activeWorkspace?.name ?? "—"} (plan: {status?.plan || "free"})</p>
+        <p className="mb-4 text-sm text-slate-500">Account plan: {status?.plan || "free"}</p>
         <form onSubmit={save} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>

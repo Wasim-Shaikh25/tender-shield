@@ -1,8 +1,8 @@
 # Billing & Metering — Spec
 
-**Status:** implemented — free-tier metering + paywall (pure), Razorpay/Stripe webhooks, plan activation via webhook only, checkout with coupon support, payment history, plan history, coupon CRUD, billing settings, subscription cancel; plan stored on `users` account (not per-workspace)
+**Status:** implemented — free-tier metering + paywall (pure), Razorpay/Stripe webhooks, plan activation via webhook only, checkout with coupon support, payment history, plan history, coupon CRUD, billing settings, subscription cancel; billing account state and financial history stored on `users` account (not per-workspace)
 **Requirement refs:** Doc §7, §15, §16.5
-**Task refs:** TS-022, TS-037, TS-172, TS-183, TS-184
+**Task refs:** TS-022, TS-037, TS-172, TS-183, TS-184, TS-185
 
 ## Purpose
 
@@ -17,8 +17,9 @@ invoicing, and the append-only `payment_log`.
     `record_usage`, `list_invoices`, `create_invoice`, `checkout`, `list_payments`,
     `list_plan_history`, `set_workspace_plan`, `validate_coupon`, `apply_coupon`,
     and coupon CRUD.
-  - `billing.record_usage(session, org_id, event, ref_id=None)` — direct capability
-    for modules that only need to log usage without pulling in the full service.
+  - `billing.record_usage(session, workspace_id, event, ref_id=None)` — direct capability
+    for modules that only need to log usage without pulling in the full service; the
+    service resolves the workspace owner to attribute usage to the user account.
   - `billing.set_workspace_plan(session, workspace_id, new_plan, changed_by, reason=None)` —
     resolves the workspace owner and updates the user account plan while appending a `plan_history` row.
   - `billing.metering.authorize_review(org) -> Grant` (legacy alias via service).
@@ -45,11 +46,13 @@ invoicing, and the append-only `payment_log`.
 
 ## Data owned
 
-`usage_events`, `payment_log` (append-only, from day one), `invoices`, payment
-intents, webhook-dedup records, `plan_history` (every user account plan change with
-old/new plan, changed_by, reason), `coupons` (global discount codes with usage
-counts and validity windows), plan state on `users` (a user can create or delete
-workspaces without affecting their subscription).
+`usage_events` (per user account, with optional `workspace_id` attribution), `payment_log`
+(append-only, per user account), `invoices` (per user account, with optional `workspace_id`
+attribution), payment intents, `webhook_events` (global idempotency ledger, not workspace-
+scoped), `plan_history` (every user account plan change with old/new plan, changed_by, reason),
+`coupons` (global discount codes with usage counts and validity windows), plan state,
+`billing_provider`, and `billing_settings` on `users` (a user can create or delete workspaces
+without affecting their subscription or financial history).
 
 ## Behavior
 
@@ -90,8 +93,8 @@ workspaces without affecting their subscription).
   `SignatureVerificationError` and `ValueError` as a bad signature; all other SDK or
   runtime errors propagate so silent failures do not swallow billing outages.
 - **B16 (Billing settings):** `GET/PUT /api/billing/settings` lets workspace admins
-  store a billing profile (GSTIN, PAN, billing address, state, payment method
-  identifier) on the workspace. GSTIN and PAN are validated for Indian workspaces
+  store a billing profile (GSTIN, PAN, billing address, country, payment method
+  identifier) on the user account. GSTIN and PAN are validated for Indian accounts
   (15 and 10 characters respectively); invalid values return `400`.
 - **B17 (Subscription cancel):** `POST /api/billing/cancel` allows a workspace admin
   to cancel a paid subscription immediately. The owning user account plan is set to `free`,
@@ -110,7 +113,8 @@ workspaces without affecting their subscription).
   exhausted/currency-mismatched. Coupon codes are passed to the provider in notes
   and re-validated on the webhook before plan activation.
 - **B21 (Payment history):** `GET /api/billing/payments` lists all `payment_log`
-  rows for the workspace so workspace admins can trace every transaction.
+  rows for the current user account so account owners can trace every transaction
+  regardless of which workspace triggered the payment.
 - **B22 (Plan history read):** `GET /api/billing/plan-history` returns the current
   user's chronological account plan changes.
 

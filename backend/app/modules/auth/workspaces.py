@@ -53,6 +53,8 @@ class WorkspaceAdmin:
             "is_superadmin": user.is_superadmin,
             "plan": user.plan,
             "free_review_used": user.free_review_used,
+            "billing_provider": user.billing_provider,
+            "billing_settings": user.billing_settings,
         }
 
     def get_user_plan(self, user_id) -> str | None:
@@ -84,15 +86,15 @@ class WorkspaceAdmin:
             self.s.commit()
         return {"plan": plan, "previous_plan": previous}
 
-    def get_billing_settings(self, workspace_id) -> dict:
-        workspace = self.get(workspace_id)
-        if workspace is None:
+    def get_billing_settings(self, user_id) -> dict:
+        user = self.s.get(User, uuid.UUID(str(user_id)))
+        if user is None:
             return {}
-        return workspace.billing_settings or {}
+        return user.billing_settings or {}
 
-    def set_billing_settings(self, workspace_id, settings: dict, *, commit: bool = True) -> None:
-        workspace = self.get(workspace_id)
-        if workspace:
-            workspace.billing_settings = settings
+    def set_billing_settings(self, user_id, settings: dict, *, commit: bool = True) -> None:
+        user = self.s.get(User, uuid.UUID(str(user_id)))
+        if user:
+            user.billing_settings = settings
             if commit:
                 self.s.commit()

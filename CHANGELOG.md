@@ -6,6 +6,22 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-30 (TS-185: billing usage/payments/invoices belong to user account, not workspace)
+
+- Moved `billing_provider` and `billing_settings` from `workspaces` to `users`.
+- `UsageEvent`, `PaymentLog`, and `Invoice` now store `user_id` and optional
+  `workspace_id` (workspace is for attribution only).
+- `WebhookEvent` is now a global idempotency ledger keyed by `(provider, provider_event_id)`,
+  no longer workspace-scoped.
+- `BillingService` derives the account owner for usage counting, invoices, and
+  payment history; `GET /api/billing/invoices` and `/api/billing/payments` return
+  the current user's account-wide history.
+- `GET/PUT /api/billing/settings` now read/write the user account's billing profile.
+- `frontend/app/billing/settings/page.tsx` labels the account plan instead of the active workspace.
+- Added Alembic migration `c7dac720f0e6` to migrate existing rows and drop workspace
+  RLS policies on the affected billing tables.
+- Updated `specs/modules/billing.md` to reflect account-level billing data.
+
 ### Done — 2026-07-30 (TS-184: plan belongs to user account, not workspace)
 
 - Moved `plan` and `free_review_used` columns from `workspaces` to `users` so

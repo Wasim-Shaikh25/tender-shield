@@ -6,6 +6,47 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-30 (Roadmap Stage 1→5: reconciling the founding research with the build)
+
+Planning only — no runtime code. Triggered by re-reading the founding research doc
+(`TenderShield_AI_Architecture_and_Market_Research.pdf`, 20 Jul 2026) against the codebase.
+
+- **`docs/TenderShield_Roadmap_Stage1_to_5.md`** (new master roadmap):
+  - Position audit against the research doc's five-stage value ladder: stage 1 substantially
+    complete, stage 2 partial, stages 3–5 not built. The entire 24.5k-line backend sits in the
+    transactional half of the ladder; all recurring revenue is in stages 3–5.
+  - The money ladder — per the research doc's own §10.1 price bands, stage 3 is worth roughly 12×
+    stage 1 per customer and is structurally stickier (a contractor cannot switch mid-project).
+  - Gap analysis: nine capability blocks specified in the founding research and never built —
+    baseline→project controls, change/variation detection, claims workspace, control tower,
+    integrations, subcontract control, payment control, site evidence, advisor edition.
+  - Two missing concepts recovered: **evidence continuity** (the research doc's stated "most
+    valuable product") and the **north-star metric, "verified contractor margin protected"**.
+  - Restructured phase plan 16→21, each mapped to a stage and carrying an unlock gate taken from
+    the research doc's own kill/continue criteria (§12.4).
+  - Reconciliation appendix: the AI assistant appears nowhere in the founding capability
+    architecture; the product was never civil-only (§3.3, §3.4, §8.2 always specified multi-segment,
+    multi-jurisdiction packs); geography expansion requires a local specialist plus a paid design
+    customer.
+- **`tasks/backlog.md`:** TS-234 added to Phase 16 (north-star metric), plus Phases 17–21 —
+  TS-235 – TS-292:
+  - Phase 17 (stage 2): baseline completion — award comparison, risk watchlists, notice-rule
+    register, approval matrix, cost codes, handover pack, adoption telemetry.
+  - Phase 18 (stage 3, ★ recurring revenue): change & notice control — baseline diff, change-signal
+    ingestion, variation inbox, site confirmation, deterministic notice-deadline engine, evidence
+    chain of custody and completeness scoring, per-project billing.
+  - Phase 19 (stage 4): claims & evidence workspace — chronology, deterministic quantum, delay
+    register, draft generators, settlement tracking, chain-integrity test.
+  - Phase 20 (stage 5): commercial control tower — exposure model, forecasting, portfolio trends,
+    payment control, economics and customer-outcome metrics.
+  - Phase 21: integrations, subcontract flow-down and pay-when-paid exposure, advisor edition.
+- **`tasks/roadmap_tracker.md`** (new master tracker): stage↔phase↔revenue map, unlock-gate status,
+  per-phase task tables with dependencies, evidence-chain completion tracker, metrics coverage, and
+  a gate-override log so any decision to skip a gate is recorded rather than implicit.
+
+**Next:** unchanged — Phase 16 Sprint 0 (TS-223 cost instrumentation, TS-224 corpus harvester,
+TS-226 M1 invariants), now with TS-234 (north-star metric) added to the phase.
+
 ### Done — 2026-07-30 (Phase 16 planning: defensibility, domain-agnosticism, scale validation)
 
 Requirements and planning only — no runtime code in this change.

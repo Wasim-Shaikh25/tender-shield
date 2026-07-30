@@ -391,3 +391,124 @@ Tracker: `tasks/phase16_tracker.md`.
 | TS-231 | `scripts/eval_report.py`: `evals/runs/<run_id>/` scorecard + regression diff vs previous run on the same slice | Build Doc §11.5 | `specs/eval-at-scale.md` §3.2 | todo |
 | TS-232 | CI wiring: 20-tender smoke per PR (M1+M4, blocking), 100-tender nightly, 1,000+ weekly; >2pt headline drop blocks the change | Build Doc §11.5 | `specs/eval-at-scale.md` §3.4 | todo |
 | TS-233 | M5 human gold set: 50 tenders composed per the slice table, annotated per Build Doc §19, stored under `evals/in-works/` | Build Doc §19, §14.2 | `specs/eval-at-scale.md` §1 | todo |
+
+### 16.I — North-star metric (added from founding research)
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-234 | **North-star metric — "verified contractor margin protected"**: deterministic computation over accepted risk allowances, declined-bid exposure avoided, and BOQ defects corrected pre-submission; excludes speculative value; grows as Phases 18–19 land | Research Doc §12.1; Roadmap §6.1 | `specs/modules/outcomes.md` (update) | todo |
+
+---
+
+## Phase 17 — Stage 2: Baseline Lock & Handover completion
+
+Requirement source: Research Doc §4.E, §5.2; `docs/TenderShield_Roadmap_Stage1_to_5.md` §4.
+**Unlock gate:** Phase 16 exit gates green.
+**Why:** change detection (Phase 18) diffs against a baseline. The `baseline` module freezes
+documents but produces none of the *controls* stage 3 consumes.
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-235 | Spec: `baseline` completion — controls, notice rules, cost codes, approval matrix, handover pack | Research Doc §4.E | `specs/modules/baseline.md` (update) | todo |
+| TS-236 | Award comparison: diff negotiated contract + accepted BOQ against tender assumptions; highlight concessions and new obligations with citations | Research Doc §5.2(10) | `specs/modules/baseline.md` | todo |
+| TS-237 | Risk → project watchlist: convert accepted tender findings into monitored project controls with owner, trigger and review cadence | Research Doc §4.E | `specs/modules/baseline.md` | todo |
+| TS-238 | Notice-rule register: per-contract notice types, trigger events, deadline arithmetic (deterministic), required content, correspondence addresses, authorized representatives | Research Doc §4.E, §5.2(13) | `specs/modules/standards.md` (update) | todo |
+| TS-239 | Approval matrix: role-based authority limits per action (notice issue, variation acceptance, claim submission) | Research Doc §4.E, §13 Negotiation | `specs/modules/auth.md` (update) | todo |
+| TS-240 | Cost-code model: create cost codes, map to BOQ items and variation categories; foundation for stage 3/4 valuation | Research Doc §4.E | `specs/modules/baseline.md` | todo |
+| TS-241 | Commercial handover pack export (site, planning, procurement, finance views) with hash-sealed baseline reference | Research Doc §4.E, §5.2(12) | `specs/modules/export.md` (update) | todo |
+| TS-242 | Baseline adoption telemetry: projects with a locked baseline, weekly active baseline users — measures the Phase 18 unlock gate | Research Doc §12.4 | `specs/modules/analytics.md` (update) | todo |
+
+---
+
+## Phase 18 — Stage 3: Change & Notice Control ★ recurring revenue
+
+Requirement source: Research Doc §4.F, §5.3; Roadmap §2, §4.
+**Unlock gate:** *"Two projects use baseline weekly"* (Research Doc §12.4 / Phase-2 exit).
+**Why this is the priority phase:** converts transactional revenue into per-project recurring
+subscription (Research Doc §10.1), and creates the first real switching cost in the product.
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-243 | Spec: `change` module — event model, sources, confidence, site confirmation, notice deadlines | Research Doc §4.F | `specs/modules/change.md` (new) | todo |
+| TS-244 | `change` module scaffold + migrations: `change_events`, `change_sources`, `change_confirmations` (workspace-scoped, RLS) | Research Doc §4.F | `specs/modules/change.md` | todo |
+| TS-245 | Baseline diff engine: compare new drawing/spec/instruction revisions against the locked baseline; emit candidate change events with citations | Research Doc §4.F, §5.3(15) | `specs/modules/change.md` | todo |
+| TS-246 | Change-signal ingestion: RFIs, site instructions, meeting minutes, daily reports — classified into candidate events with source provenance | Research Doc §4.F | `specs/modules/change.md` | todo |
+| TS-247 | Email ingestion adapter (forward-to-inbox address per project), with prompt-injection defenses for untrusted correspondence | Research Doc §4.F; Build Doc §11.3 | `specs/modules/change.md` | todo |
+| TS-248 | Potential-variation inbox: reason, source, affected scope, confidence band, triage queue | Research Doc §4.F | `specs/modules/change.md` | todo |
+| TS-249 | Impact linking: connect a change event to affected BOQ items, cost codes and subcontract packages | Research Doc §4.F | `specs/modules/change.md` | todo |
+| TS-250 | Site confirmation workflow: changed / not changed / clarification only / contractor risk / client risk / unknown — with recorded confirmer and timestamp | Research Doc §4.F, §5.3(16) | `specs/modules/change.md` | todo |
+| TS-251 | **Deterministic notice-deadline engine**: compute the notice deadline and required content from the Phase-17 notice-rule register; never LLM | Research Doc §4.F, §5.3(17); `CLAUDE.md` §4 | `specs/modules/change.md` | todo |
+| TS-252 | Deadline countdown, escalation rules and multi-channel alerts (email/WhatsApp) with per-event dedup | Research Doc §4.F | `specs/modules/notifications.md` (update) | todo |
+| TS-253 | Notice drafting: contract-specific template populated with **verified facts only**; three validators applied; human approval mandatory before issue | Research Doc §4.G, §5.3(18); Build Doc §6.5, §11.4 | `specs/modules/drafting.md` (update) | todo |
+| TS-254 | Evidence attachment + chain of custody on change events (type, date, creator, custody chain, event link) | Research Doc §4.G, §6.3 | `specs/modules/evidence.md` (new) | todo |
+| TS-255 | **Evidence-completeness scoring** per event with a list of missing contemporaneous records | Research Doc §2.1, §4.G | `specs/modules/evidence.md` | todo |
+| TS-256 | Per-project billing lane: project activation + per-project monthly subscription (server-owned prices, webhook-only activation) | Research Doc §10.1; Build Doc §15 | `specs/modules/billing.md` (update) | todo |
+
+---
+
+## Phase 19 — Stage 4: Claims & Evidence Workspace
+
+Requirement source: Research Doc §4.G, §5.3.
+**Unlock gate (both required, Research Doc §12.4):** *"Do not build claims valuation until users
+capture contemporaneous evidence in the platform"* **and** *"Document at least five real events
+before work completion."*
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-257 | Spec: `claims` module — chronology, quantum, delay register, negotiation tracking | Research Doc §4.G | `specs/modules/claims.md` (new) | todo |
+| TS-258 | `claims` module scaffold + migrations (workspace-scoped, RLS) | Research Doc §4.G | `specs/modules/claims.md` | todo |
+| TS-259 | Chronology builder from approved correspondence, revisions and confirmed events — every entry cited | Research Doc §4.G | `specs/modules/claims.md` | todo |
+| TS-260 | Evidence checklist per claim type: instruction, baseline, revised scope, labour, plant, material, schedule, photos, approvals | Research Doc §4.G | `specs/modules/evidence.md` (update) | todo |
+| TS-261 | **Quantum workspace**: deterministic quantity × rate × daywork calculation with reviewer sign-off; zero LLM arithmetic | Research Doc §4.G, §7.1; `CLAUDE.md` §4 | `specs/modules/claims.md` | todo |
+| TS-262 | Delay-event register with links to programme records; **no autonomous entitlement conclusion** | Research Doc §4.G | `specs/modules/claims.md` | todo |
+| TS-263 | Draft generators: interim particulars, variation proposal, EOT narrative, full claim package — facts injected, prose generated, all validators applied | Research Doc §4.G; Build Doc §6.5 | `specs/modules/drafting.md` (update) | todo |
+| TS-264 | Issue → response → negotiation → settlement tracking with outcome capture | Research Doc §4.G, §5.3(21) | `specs/modules/claims.md` | todo |
+| TS-265 | Outcome feedback into the private learning set: approved / negotiated / rejected / withdrawn / disputed | Research Doc §5.3(22) | `specs/modules/outcomes.md` (update) | todo |
+| TS-266 | Chain-integrity test: every claim traces to a notice → event → baseline obligation → tender clause; a broken link fails the build | Research Doc §14; Roadmap §5 | `specs/modules/claims.md` | todo |
+| TS-267 | Conflicts control: block serving opposing parties on the same project | Research Doc §11.1 | `specs/modules/auth.md` (update) | todo |
+| TS-268 | Claim-cycle-time and notice-timeliness workflow metrics | Research Doc §12.2 | `specs/modules/analytics.md` (update) | todo |
+| TS-269 | North-star extension: recovered claim value linked to TenderShield evidence feeds "margin protected" | Research Doc §12.1 | `specs/modules/outcomes.md` (update) | todo |
+| TS-270 | Site evidence capture: mobile geotagged photos, labour/plant/daywork records, offline sync, evidence-quality prompts | Research Doc §13 Site evidence | `specs/modules/evidence.md` (update) | todo |
+
+---
+
+## Phase 20 — Stage 5: Commercial Control Tower & Portfolio Intelligence
+
+Requirement source: Research Doc §4.H, §12.2.
+**Unlock gate:** Phase 19 in production use with at least one customer.
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-271 | Spec: `controltower` module — exposure model, dashboards, forecasting | Research Doc §4.H | `specs/modules/controltower.md` (new) | todo |
+| TS-272 | Commercial exposure model (deterministic): at-risk revenue, unnotified change, submitted / certified / rejected value, ageing, cash exposure | Research Doc §4.H | `specs/modules/controltower.md` | todo |
+| TS-273 | Project deadline + evidence-health dashboard | Research Doc §4.H | `specs/modules/controltower.md` | todo |
+| TS-274 | Risk-adjusted forecast at completion with explicit assumptions block | Research Doc §4.H | `specs/modules/controltower.md` | todo |
+| TS-275 | Client / consultant response-time analytics | Research Doc §4.H | `specs/modules/controltower.md` | todo |
+| TS-276 | Portfolio clause trends, recurring omission patterns and loss-reason analysis across projects | Research Doc §4.H | `specs/modules/analytics.md` (update) | todo |
+| TS-277 | Executive summaries with source links and drill-down | Research Doc §4.H | `specs/modules/controltower.md` | todo |
+| TS-278 | Payment control: RA/progress bill checklist, certification variance, retention and security release dates, ageing and collection actions | Research Doc §13 Payment control | `specs/modules/controltower.md` | todo |
+| TS-279 | Economics metrics: paid conversion, gross margin, CAC payback, project retention, expansion revenue | Research Doc §12.2 | `specs/modules/analytics.md` (update) | todo |
+| TS-280 | Customer-outcome metrics: risks priced, bad bids declined, omissions corrected, value notified/certified, hours saved | Research Doc §12.2 | `specs/modules/analytics.md` (update) | todo |
+
+---
+
+## Phase 21 — Integrations, Subcontract Control & Advisor Edition
+
+Requirement source: Research Doc §4.I, §8.3, §13.
+**Unlock gate:** *"Integration marketplaces only after workflow proof"* (Research Doc §10.2);
+*"Start with uploads/exports; add APIs after proven value"* (§12.3).
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-281 | Spec: integration adapter framework (auth, sync model, conflict handling, rate limits) | Research Doc §4.I | `specs/modules/integrations.md` (new) | todo |
+| TS-282 | SharePoint / OneDrive document-source adapter | Research Doc §4.I | `specs/modules/integrations.md` | todo |
+| TS-283 | Procore adapter (documents, RFIs, change events) | Research Doc §4.I | `specs/modules/integrations.md` | todo |
+| TS-284 | Autodesk Construction Cloud adapter | Research Doc §4.I | `specs/modules/integrations.md` | todo |
+| TS-285 | Oracle Aconex adapter | Research Doc §4.I | `specs/modules/integrations.md` | todo |
+| TS-286 | ERP adapter (cost codes, committed cost, certified value) — Tally / SAP / MS Dynamics shortlist | Research Doc §4.I | `specs/modules/integrations.md` | todo |
+| TS-287 | Schedule import: P6 / MS Project; event-to-activity links; contemporaneous programme snapshots | Research Doc §13 Schedule linkage | `specs/modules/integrations.md` | todo |
+| TS-288 | **Subcontract control**: flow-down clause comparison against the main contract, subcontract scope-gap checks | Research Doc §13 Subcontract control | `specs/modules/subcontract.md` (new) | todo |
+| TS-289 | Back-to-back notice calendar and **pay-when-paid exposure flags** across the subcontract chain | Research Doc §13 Subcontract control | `specs/modules/subcontract.md` | todo |
+| TS-290 | Advisor Edition: multi-client workspace separation, review queues, per-client usage billing | Research Doc §8.3, §10.1 | `specs/modules/advisor.md` (new) | todo |
+| TS-291 | White-label branded report templates for the advisor channel | Research Doc §8.3 | `specs/modules/export.md` (update) | todo |
+| TS-292 | Public API + e-signature integration for notice issue | Research Doc §4.I | `specs/modules/integrations.md` | todo |

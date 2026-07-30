@@ -3,7 +3,8 @@
 **Requirement source:** `docs/TenderShield_Market_Strategy_2026.md`
 **Specs:** `specs/eval-at-scale.md`, `specs/modules/marketdata.md`, `specs/modules/pricing-intel.md`,
 `specs/modules/express-report.md`, `specs/modules/outcomes.md`
-**Backlog:** `tasks/backlog.md` §Phase 16 (TS-195 – TS-233)
+**Backlog:** `tasks/backlog.md` §Phase 16 (TS-195 – TS-234)
+**Master roadmap:** `docs/TenderShield_Roadmap_Stage1_to_5.md` · `tasks/roadmap_tracker.md`
 
 **Phase goal.** Move the product from *"an LLM reads your tender"* — a position being consolidated by
 Trimble/Procore/Autodesk — to four things a general-purpose AI structurally cannot do: a proprietary
@@ -138,6 +139,7 @@ calendar-bound, not engineering-bound.
 | TS-231 | Report + regression diff | scripts | — | P1 | todo | Scorecard readable without raw data | TS-230 |
 | TS-232 | CI gates | CI | — | P1 | todo | Smoke blocks PRs; >2pt drop blocks change | TS-231 |
 | TS-233 | Human gold set (50) | evals | — | P1 | todo | Slice table filled; annotated per §19 | — |
+| TS-234 | North-star metric — margin protected | `outcomes` | 1 | P0 | todo | Deterministic; excludes speculative value; grows with Phases 18–19 | TS-203, TS-215 |
 
 ---
 

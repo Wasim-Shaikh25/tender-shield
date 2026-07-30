@@ -253,6 +253,12 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   and specs for assistant/risk.
 - Added `openai` to backend dependencies.
 
+### Done — 2026-07-30 (TS-165: MinIO storage examples)
+
+- Added commented MinIO example config to `.env.prod` and `.env.example`.
+- Updated `docs/deployment.md` with an Object storage section covering MinIO,
+  AWS S3, Cloudflare R2, Tigris, and Backblaze B2.
+
 ### Next
 
 - No open tasks in this batch.

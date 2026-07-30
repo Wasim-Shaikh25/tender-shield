@@ -178,8 +178,8 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-098 | **BLOCKER** Server-owned per-currency price table; drop client `amount_minor`; validate paid amount at webhook activation | audit TS-B01; Doc §7, §15 | `specs/modules/billing.md` (update) | done |
 | TS-099 | Membership checks on workspace/project member-list endpoints | audit TS-A04; Doc §3.2 | `specs/modules/auth.md` (update) | done |
 | TS-100 | Google account linking on verified email; `IntegrityError` → 409 instead of 500 | audit TS-A05; Doc §5 | `specs/modules/auth.md` (update) | done |
-| TS-101 | Cap upload size before buffering (`Content-Length` + streamed read); enforce at the proxy | audit TS-I01; Doc §11.1 | `specs/modules/ingestion.md` (update) | todo |
-| TS-102 | Async SSE generator: sleep, client-disconnect check, hard timeout | audit TS-I02; Doc §11.1 | `specs/modules/ingestion.md` (update) | todo |
+| TS-101 | Cap upload size before buffering (`Content-Length` + streamed read); enforce at the proxy | audit TS-I01; Doc §11.1 | `specs/modules/ingestion.md` (update) | done |
+| TS-102 | Async SSE generator: sleep, client-disconnect check, hard timeout | audit TS-I02; Doc §11.1 | `specs/modules/ingestion.md` (update) | done |
 | TS-103 | Align `/auth/workspaces` response contract with the frontend client; generate the TS client from OpenAPI | audit TS-F01; Doc §9 | `specs/frontend.md` (update) | todo |
 | TS-104 | Rate limiting: wall-clock Redis scores, unique members, `X-Forwarded-For` with configured hop count | audit TS-O01; Doc §11.3 | `specs/modules/core.md` (update) | todo |
 | TS-105 | Webhook atomicity: claim the idempotency marker first, single transaction, unique constraint | audit TS-B02; Doc §15.5 | `specs/modules/billing.md` (update) | todo |

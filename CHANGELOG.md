@@ -94,6 +94,15 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Updated `tests/test_risk.py` to expect fallback behavior.
 - Added `specs/modules/risk.md` A7.
 
+### Done — 2026-07-29 (TS-101 / TS-102: upload size cap + SSE hardening)
+
+- `POST /api/ingestion/opportunities/{id}/upload` now reads at most
+  `MAX_UPLOAD_SIZES[suffix] + 1` bytes and returns 413 before buffering the full
+  oversized file.
+- SSE document-processing stream now uses an async generator with `await`
+  disconnect checks, `asyncio.sleep(0.5)` polling, and a 600-second hard timeout.
+- Updated `specs/modules/ingestion.md` B7, B11, A4, A7.
+
 ### Done — 2026-07-29 (TS-094: end-to-end production readiness audit)
 
 - **TS-094** — Full end-to-end production readiness audit of trunk

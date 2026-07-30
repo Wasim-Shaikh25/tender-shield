@@ -13,12 +13,12 @@ router = APIRouter()
 
 
 class ChatBody(BaseModel):
-    opportunity_id: str
+    opportunity_id: str | None = None
     message: str
 
 
 class SessionBody(BaseModel):
-    opportunity_id: str = Field(min_length=1)
+    opportunity_id: str | None = None
     title: str | None = None
 
 
@@ -28,7 +28,7 @@ class StreamBody(BaseModel):
 
 class AdminChatBody(BaseModel):
     workspace_id: str = Field(min_length=1)
-    opportunity_id: str = Field(min_length=1)
+    opportunity_id: str | None = None
     message: str = Field(min_length=1)
 
 
@@ -57,7 +57,7 @@ def _service(request: Request, session: Session) -> AssistantService:
 def _session_json(s) -> dict:
     return {
         "id": str(s.id),
-        "opportunity_id": str(s.opportunity_id),
+        "opportunity_id": str(s.opportunity_id) if s.opportunity_id else None,
         "title": s.title,
         "created_at": s.created_at.isoformat() if s.created_at else None,
         "updated_at": s.updated_at.isoformat() if s.updated_at else None,
@@ -87,7 +87,10 @@ def chat(
 ):
     """Transient single-turn chat (no session persistence)."""
     return _service(request, session).answer(
-        principal.workspace_id, body.opportunity_id, body.message, identity=_identity(principal)
+        principal.workspace_id,
+        body.opportunity_id,
+        message=body.message,
+        identity=_identity(principal),
     )
 
 
@@ -146,8 +149,8 @@ def session_chat(
     return svc.answer_and_store(
         principal.workspace_id,
         session_id,
-        str(sess.opportunity_id),
-        body.message,
+        str(sess.opportunity_id) if sess.opportunity_id else None,
+        message=body.message,
         identity=_identity(principal),
     )
 
@@ -166,8 +169,8 @@ def stream_chat(
         svc.answer_stream(
             principal.workspace_id,
             session_id,
-            str(sess.opportunity_id),
-            body.message,
+            str(sess.opportunity_id) if sess.opportunity_id else None,
+            message=body.message,
             identity=_identity(principal),
         ),
         media_type="text/event-stream",
@@ -187,7 +190,7 @@ def admin_chat(
     answer = svc.admin_answer(
         body.workspace_id,
         body.opportunity_id,
-        body.message,
+        message=body.message,
         identity=identity,
     )
     audit_log(
@@ -196,8 +199,8 @@ def admin_chat(
         workspace_id=body.workspace_id,
         actor_user_id=principal.user_id,
         action="assistant.admin_query",
-        object_type="opportunity",
-        object_id=body.opportunity_id,
+        object_type="opportunity" if body.opportunity_id else "workspace",
+        object_id=body.opportunity_id or body.workspace_id,
         detail={"message_preview": body.message[:200]},
     )
     return answer

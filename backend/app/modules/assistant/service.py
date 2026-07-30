@@ -104,10 +104,16 @@ class AssistantService:
         }
 
     # ---- sessions & history ------------------------------------------------
-    def create_session(self, workspace_id, opportunity_id, title: str | None = None) -> ChatSession:
+    def create_session(
+        self,
+        workspace_id,
+        opportunity_id=None,
+        title: str | None = None,
+    ) -> ChatSession:
+        opp = uuid.UUID(str(opportunity_id)) if opportunity_id else None
         sess = ChatSession(
             workspace_id=uuid.UUID(str(workspace_id)),
-            opportunity_id=uuid.UUID(str(opportunity_id)),
+            opportunity_id=opp,
             title=title,
         )
         self.s.add(sess)
@@ -160,9 +166,9 @@ class AssistantService:
         self,
         workspace_id,
         session_id,
-        opportunity_id,
-        message: str,
+        opportunity_id=None,
         *,
+        message: str,
         identity: dict | None = None,
     ) -> dict:
         user_msg = ChatMessage(
@@ -175,7 +181,9 @@ class AssistantService:
         )
         self.s.add(user_msg)
         self.s.commit()
-        answer = self.answer(workspace_id, opportunity_id, message, identity=identity)
+        answer = self.answer(
+            workspace_id, opportunity_id, message=message, identity=identity
+        )
         self._add_message(workspace_id, session_id, "assistant", answer)
         return answer
 
@@ -183,9 +191,9 @@ class AssistantService:
         self,
         workspace_id,
         session_id,
-        opportunity_id,
-        message: str,
+        opportunity_id=None,
         *,
+        message: str,
         identity: dict | None = None,
     ):
         """Generator of SSE `data:` lines for the chat response."""
@@ -200,7 +208,9 @@ class AssistantService:
         self.s.add(user_msg)
         self.s.commit()
 
-        answer = self.answer(workspace_id, opportunity_id, message, identity=identity)
+        answer = self.answer(
+            workspace_id, opportunity_id, message=message, identity=identity
+        )
         payload = json.dumps(answer)
         yield f"data: {payload}\n\n"
 
@@ -211,9 +221,9 @@ class AssistantService:
     def answer(
         self,
         workspace_id,
-        opportunity_id,
-        message: str,
+        opportunity_id=None,
         *,
+        message: str,
         identity: dict | None = None,
     ) -> dict:
         self._bind_workspace(workspace_id, user_id=identity.get("user_id") if identity else None)
@@ -224,7 +234,9 @@ class AssistantService:
         m = message.lower()
 
         if any(w in m for w in _DASHBOARD_KEYWORDS):
-            return self._dashboard(workspace_id, opportunity_id, message, identity=identity)
+            return self._dashboard(
+                workspace_id, opportunity_id, message=message, identity=identity
+            )
 
         if any(w in m for w in ("deadline", "due", "submission", "pre-bid", "clarification cut")):
             return self._deadlines(workspace_id, opportunity_id)
@@ -245,7 +257,7 @@ class AssistantService:
                 "severity",
             )
         ):
-            return self._findings(workspace_id, opportunity_id, m)
+            return self._findings(workspace_id, m, opportunity_id)
 
         # Not a recognized grounded intent → defer to the LLM if configured,
         # else refuse (grounded-only, Doc §8).
@@ -261,9 +273,9 @@ class AssistantService:
     def admin_answer(
         self,
         workspace_id,
-        opportunity_id,
-        message: str,
+        opportunity_id=None,
         *,
+        message: str,
         identity: dict,
     ) -> dict:
         """Super-admin research mode: rebind to the requested workspace and answer.
@@ -272,11 +284,11 @@ class AssistantService:
         just ensures the database context matches the explicit workspace.
         """
         self._bind_workspace(workspace_id, user_id=identity.get("user_id"))
-        return self.answer(workspace_id, opportunity_id, message, identity=identity)
+        return self.answer(workspace_id, opportunity_id, message=message, identity=identity)
 
     # ---- deterministic intent handlers -------------------------------------
     def _dashboard(
-        self, workspace_id, opportunity_id, message: str, *, identity: dict | None = None
+        self, workspace_id, opportunity_id=None, *, message: str, identity: dict | None = None
     ) -> dict:
         if self._plan_dashboard_factory is None:
             return {
@@ -284,6 +296,21 @@ class AssistantService:
                 "answer": (
                     "Dashboard generation is not available right now — "
                     "the analytics module is disabled."
+                ),
+                "grounded": True,
+                "source": "refusal",
+            }
+        # Dashboard tools still need a concrete opportunity; pick the first one
+        # in the workspace when the user asked at workspace scope.
+        if opportunity_id is None and self._ing is not None:
+            opps = self._ing(self.s).list_opportunities(workspace_id)
+            if opps:
+                opportunity_id = str(opps[0].id)
+        if opportunity_id is None:
+            return {
+                "type": "text",
+                "answer": (
+                    "Please create or select a tender opportunity before generating a dashboard."
                 ),
                 "grounded": True,
                 "source": "refusal",
@@ -299,7 +326,7 @@ class AssistantService:
             "source": "llm",
         }
 
-    def _deadlines(self, workspace_id, opportunity_id) -> dict:
+    def _deadlines(self, workspace_id, opportunity_id=None) -> dict:
         rows = tools.list_deadlines(self._ing, self.s, workspace_id, opportunity_id)
         if not rows:
             return {
@@ -308,20 +335,22 @@ class AssistantService:
                 "grounded": True,
                 "source": "tool",
             }
+        scope = "this tender" if opportunity_id else "workspace"
         lines = [
             f"- {r['kind']}: {r['due_at'] or 'date not parsed'} [p{r['page']}]"
             f"{' (confirmed)' if r['confirmed'] else ''}"
+            f" — {r['opportunity_id'][:8]}"
             for r in rows
         ]
         return {
             "type": "text",
-            "answer": "Deadlines for this tender:\n" + "\n".join(lines),
+            "answer": f"Deadlines for {scope}:\n" + "\n".join(lines),
             "grounded": True,
             "source": "tool",
             "citations": [f"p{r['page']}" for r in rows],
         }
 
-    def _missing(self, workspace_id, opportunity_id) -> dict:
+    def _missing(self, workspace_id, opportunity_id=None) -> dict:
         rep = tools.missing_docs(self._ing, self.s, workspace_id, opportunity_id)
         if rep["missing"]:
             names = ", ".join(k.upper() for k in rep["missing"])
@@ -330,16 +359,17 @@ class AssistantService:
             ans = "All expected documents are present."
         return {"type": "text", "answer": ans, "grounded": True, "source": "tool"}
 
-    def _findings(self, workspace_id, opportunity_id, m: str) -> dict:
+    def _findings(self, workspace_id, m: str, opportunity_id=None) -> dict:
         severity = next((s for s in _SEVERITIES if s in m), None)
         rows = tools.filter_findings(
             self._find, self.s, workspace_id, opportunity_id, severity=severity
         )
+        scope = "this tender" if opportunity_id else "workspace"
         if not rows:
-            scope = f"{severity} " if severity else ""
+            sev = f"{severity} " if severity else ""
             return {
                 "type": "text",
-                "answer": f"No {scope}findings on this tender yet — run the risk review "
+                "answer": f"No {sev}findings on {scope} yet — run the risk review "
                 "and BOQ check first.",
                 "grounded": True,
                 "source": "tool",
@@ -347,9 +377,10 @@ class AssistantService:
         lines = [
             f"- [{r['severity']}] {r['category']}: {r['title']}"
             + (f" [p{r['page']}]" if r["page"] else "")
+            + f" — {r['opportunity_id'][:8]}"
             for r in rows
         ]
-        header = f"{severity.capitalize()} findings:" if severity else "Findings on this tender:"
+        header = f"{severity.capitalize()} findings:" if severity else f"Findings on {scope}:"
         return {
             "type": "text",
             "answer": header + "\n" + "\n".join(lines),

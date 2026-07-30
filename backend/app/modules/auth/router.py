@@ -1181,11 +1181,23 @@ def admin_set_workspace_plan(
     session: Session = Depends(get_session),
     principal: Principal = Depends(require_superadmin),
 ):
-    return _handle(
-        lambda: _service(request, session).set_workspace_plan(
-            workspace_id, body.plan, principal.user_id
-        )
+    set_plan = request.app.state.ctx.registry.get("billing.set_workspace_plan")
+    if set_plan is None:
+        raise HTTPException(503, "billing_unavailable")
+    previous = set_plan(
+        session, workspace_id, body.plan, principal.user_id, reason="admin_console"
     )
+    audit_log.log(
+        request,
+        session,
+        workspace_id=uuid.UUID(str(workspace_id)),
+        actor_user_id=principal.user_id,
+        action="admin.workspace_plan_changed",
+        object_type="workspace",
+        object_id=uuid.UUID(str(workspace_id)),
+        detail={"old_plan": previous["previous_plan"], "new_plan": previous["plan"]},
+    )
+    return _handle(lambda: _service(request, session).get_workspace_detail(workspace_id))
 
 
 @router.get("/admin/audit-log")

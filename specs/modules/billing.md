@@ -1,8 +1,8 @@
 # Billing & Metering — Spec
 
-**Status:** implemented — free-tier metering + paywall (pure), Razorpay webhook (HMAC-verified, idempotent, payment_log ledger), plan activation via webhook only; checkout returns a handle (live keys wire in later); GST invoice computation (CGST/SGST vs IGST + sequential numbering) done; Stripe webhook verification and processing implemented (credential-gated); Razorpay/Stripe provider skeletons in place
+**Status:** implemented — free-tier metering + paywall (pure), Razorpay/Stripe webhooks, plan activation via webhook only, checkout with coupon support, payment history, plan history, coupon CRUD, billing settings, subscription cancel
 **Requirement refs:** Doc §7, §15, §16.5
-**Task refs:** TS-022, TS-037, TS-172
+**Task refs:** TS-022, TS-037, TS-172, TS-183
 
 ## Purpose
 
@@ -14,9 +14,13 @@ invoicing, and the append-only `payment_log`.
 
 - **Capabilities published:**
   - `billing.service_factory` → `BillingService(session)` with `authorize_review`,
-    `record_usage`, `list_invoices`, `create_invoice`, and `checkout`.
+    `record_usage`, `list_invoices`, `create_invoice`, `checkout`, `list_payments`,
+    `list_plan_history`, `set_workspace_plan`, `validate_coupon`, `apply_coupon`,
+    and coupon CRUD.
   - `billing.record_usage(session, org_id, event, ref_id=None)` — direct capability
     for modules that only need to log usage without pulling in the full service.
+  - `billing.set_workspace_plan(session, workspace_id, new_plan, changed_by, reason=None)` —
+    lets auth/admin update a workspace plan while appending a `plan_history` row.
   - `billing.metering.authorize_review(org) -> Grant` (legacy alias via service).
   - `billing.provider_factory` → `BillingProvider` with `RazorpayProvider` and
     `StripeProvider` implementations; falls back to the deterministic dev notes
@@ -25,9 +29,14 @@ invoicing, and the append-only `payment_log`.
   `billing.paywall_hit`.
 - **API routes:**
   - `GET /api/billing/status` (viewer)
-  - `POST /api/billing/checkout` (admin)
+  - `POST /api/billing/checkout` (admin; optional `coupon_code`)
   - `POST /api/billing/authorize-review` (estimator)
   - `GET /api/billing/invoices` (viewer)
+  - `GET /api/billing/payments` (viewer)
+  - `GET /api/billing/plan-history` (viewer)
+  - `GET /api/billing/coupons` (super-admin)
+  - `POST /api/billing/coupons` (super-admin)
+  - `DELETE /api/billing/coupons/{code}` (super-admin)
   - `GET /api/billing/settings` (admin)
   - `PUT /api/billing/settings` (admin)
   - `POST /api/billing/cancel` (admin — cancel subscription and downgrade to free)
@@ -37,7 +46,9 @@ invoicing, and the append-only `payment_log`.
 ## Data owned
 
 `usage_events`, `payment_log` (append-only, from day one), `invoices`, payment
-intents, webhook-dedup records, plan state on `orgs`.
+intents, webhook-dedup records, `plan_history` (every workspace plan change with
+old/new plan, changed_by, reason), `coupons` (global discount codes with usage
+counts and validity windows), plan state on `workspaces`.
 
 ## Behavior
 
@@ -85,6 +96,22 @@ intents, webhook-dedup records, plan state on `orgs`.
   to cancel a paid subscription immediately. The workspace plan is set to `free`,
   `free_review_used` is reset to `false`, and a `billing.subscription_cancelled`
   event is recorded in `payment_log`.
+- **B18 (Plan history):** every plan change (admin set, subscription checkout,
+  subscription cancel, webhook upgrade/downgrade) appends a `plan_history` row
+  capturing the old plan, new plan, actor, reason, and timestamp.
+- **B19 (Coupons):** super-admins can create `percent` or `fixed` discount codes
+  with max uses, validity window, and currency. Codes are case-insensitive and
+  unique. Deleting disables the code without deleting the row or altering past
+  invoices.
+- **B20 (Coupon validation):** `POST /api/billing/checkout` accepts an optional
+  `coupon_code`, validates it, applies the discount to the server-owned price, and
+  rejects checkout if the discounted amount is zero or the code is invalid/expired/
+  exhausted/currency-mismatched. Coupon codes are passed to the provider in notes
+  and re-validated on the webhook before plan activation.
+- **B21 (Payment history):** `GET /api/billing/payments` lists all `payment_log`
+  rows for the workspace so workspace admins can trace every transaction.
+- **B22 (Plan history read):** `GET /api/billing/plan-history` returns the workspace's
+  chronological plan changes.
 
 ## Acceptance criteria
 
@@ -104,7 +131,14 @@ intents, webhook-dedup records, plan state on `orgs`.
 - A9: `PUT /api/billing/settings` validates GSTIN length 15 and PAN length 10 for
   Indian workspaces and persists the billing profile.
 - A10: `POST /api/billing/cancel` downgrades the workspace to `free`, resets
-  `free_review_used`, and writes a `subscription_cancelled` payment log row.
+  `free_review_used`, writes a `subscription_cancelled` payment log row, and appends
+  a `plan_history` entry.
+- A11: `POST /api/billing/checkout` with a valid `coupon_code` returns a discounted
+  amount; `GET /api/billing/payments` and `GET /api/billing/plan-history` return
+  the expected rows after a webhook.
+- A12: Super-admin can `POST /api/billing/coupons`, list them, and disable one via
+  `DELETE /api/billing/coupons/{code}`.
+- A13: Webhook re-validation fails when a tampered `coupon_code` or amount is sent.
 
 ## Out of scope
 

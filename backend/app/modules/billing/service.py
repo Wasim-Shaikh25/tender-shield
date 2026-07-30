@@ -13,9 +13,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.db import bind_workspace_context
-from app.modules.billing.models import Invoice, PaymentLog, UsageEvent, WebhookEvent
+from app.modules.billing.models import (
+    Coupon,
+    Invoice,
+    PaymentLog,
+    PlanHistory,
+    UsageEvent,
+    WebhookEvent,
+)
 from app.modules.billing.plans import (
     PAYGO_PRICE_INR_PAISE,
+    PLAN_LIMITS,
     SUBSCRIPTION_PRICES,
     Grant,
     PaywallError,
@@ -83,10 +91,16 @@ class BillingService:
 
     def status(self, workspace_id) -> dict:
         workspace = self._workspaces().get(workspace_id)
+        plan = workspace.plan if workspace else "free"
+        reviews_this_month = self._month_reviews(workspace_id)
+        seats = len(self._workspaces().list_members(workspace_id)) if workspace else 0
+        limits = PLAN_LIMITS.get(plan, {})
         return {
-            "plan": workspace.plan if workspace else None,
+            "plan": plan,
             "free_review_used": workspace.free_review_used if workspace else None,
-            "reviews_this_month": self._month_reviews(workspace_id),
+            "reviews_used": reviews_this_month,
+            "reviews_limit": limits.get("reviews_month") or limits.get("reviews_total"),
+            "seats": seats,
         }
 
     # ---- invoices ---------------------------------------------------------
@@ -130,6 +144,169 @@ class BillingService:
             self.s.commit()
         return inv
 
+    # ---- validation helpers -----------------------------------------------
+    def _valid_amount(
+        self,
+        currency: str,
+        kind: str,
+        plan: str | None,
+        amount: int,
+        notes: dict | None = None,
+    ) -> bool:
+        """Return True if the paid amount matches the server-owned price (or coupon discount)."""
+        notes = notes or {}
+        currency = currency.upper()
+        if kind == "paygo":
+            expected = PAYGO_PRICE_INR_PAISE
+        elif kind == "subscription" and plan:
+            expected = SUBSCRIPTION_PRICES.get(currency, {}).get(plan)
+        else:
+            return True
+        if expected is None:
+            return True
+        coupon_code = notes.get("coupon_code")
+        if coupon_code:
+            try:
+                discounted = self.validate_coupon(coupon_code, expected, currency)
+            except ValueError:
+                return False
+            return amount == discounted
+        return amount == expected
+
+    # ---- payment history --------------------------------------------------
+    def list_payments(self, workspace_id) -> list[PaymentLog]:
+        return list(
+            self.s.scalars(
+                select(PaymentLog)
+                .where(PaymentLog.workspace_id == uuid.UUID(str(workspace_id)))
+                .order_by(PaymentLog.at.desc())
+            )
+        )
+
+    # ---- plan history -----------------------------------------------------
+    def list_plan_history(self, workspace_id) -> list[PlanHistory]:
+        return list(
+            self.s.scalars(
+                select(PlanHistory)
+                .where(PlanHistory.workspace_id == uuid.UUID(str(workspace_id)))
+                .order_by(PlanHistory.created_at.desc())
+            )
+        )
+
+    def record_plan_change(
+        self,
+        workspace_id,
+        old_plan: str,
+        new_plan: str,
+        changed_by,
+        reason: str | None = None,
+        commit: bool = True,
+    ) -> PlanHistory:
+        entry = PlanHistory(
+            workspace_id=uuid.UUID(str(workspace_id)),
+            old_plan=old_plan,
+            new_plan=new_plan,
+            changed_by=uuid.UUID(str(changed_by)) if changed_by else None,
+            reason=reason,
+        )
+        self.s.add(entry)
+        if commit:
+            self.s.commit()
+        return entry
+
+    def set_workspace_plan(
+        self,
+        workspace_id,
+        new_plan: str,
+        changed_by,
+        reason: str | None = None,
+        commit: bool = True,
+    ) -> dict:
+        """Update the workspace plan and append a plan_history row."""
+        ws = self._workspaces().get(workspace_id)
+        if ws is None:
+            raise PaywallError("no_workspace")
+        old_plan = ws.plan
+        if old_plan == new_plan:
+            return {"plan": new_plan, "previous_plan": old_plan}
+        ws.plan = new_plan
+        self.record_plan_change(
+            workspace_id, old_plan, new_plan, changed_by, reason=reason, commit=False
+        )
+        if commit:
+            self.s.commit()
+        return {"plan": new_plan, "previous_plan": old_plan}
+
+    # ---- coupons ----------------------------------------------------------
+    def list_coupons(self) -> list[Coupon]:
+        return list(self.s.scalars(select(Coupon).order_by(Coupon.created_at.desc())))
+
+    def create_coupon(self, data: dict, created_by=None) -> Coupon:
+        coupon = Coupon(
+            code=(data["code"]).upper().strip(),
+            discount_type=data["discount_type"],
+            discount_value=int(data["discount_value"]),
+            currency=(data.get("currency") or "INR").upper(),
+            max_uses=data.get("max_uses"),
+            valid_from=data.get("valid_from"),
+            valid_until=data.get("valid_until"),
+            active=bool(data.get("active", True)),
+            created_by=uuid.UUID(str(created_by)) if created_by else None,
+        )
+        self.s.add(coupon)
+        try:
+            self.s.commit()
+        except IntegrityError as exc:
+            self.s.rollback()
+            raise ValueError("coupon_code_exists") from exc
+        return coupon
+
+    def get_coupon(self, code: str) -> Coupon | None:
+        return self.s.scalar(select(Coupon).where(Coupon.code == code.upper().strip()))
+
+    def delete_coupon(self, code: str) -> None:
+        coupon = self.get_coupon(code)
+        if coupon is None:
+            raise ValueError("no_such_coupon")
+        coupon.active = False
+        self.s.commit()
+
+    def _validate_coupon(self, coupon: Coupon, amount_minor: int, currency: str) -> int:
+        """Validate a coupon and return the discounted amount (no side effects)."""
+        if not coupon.active:
+            raise ValueError("invalid_coupon")
+        now = datetime.now(UTC)
+        if coupon.valid_from and now < coupon.valid_from:
+            raise ValueError("coupon_not_yet_valid")
+        if coupon.valid_until and now > coupon.valid_until:
+            raise ValueError("coupon_expired")
+        if coupon.max_uses is not None and coupon.uses_count >= coupon.max_uses:
+            raise ValueError("coupon_exhausted")
+        if coupon.discount_type == "fixed":
+            if currency.upper() != (coupon.currency or "INR").upper():
+                raise ValueError("coupon_currency_mismatch")
+            return max(0, amount_minor - coupon.discount_value)
+        if coupon.discount_type == "percent":
+            return max(0, int(amount_minor * (1 - coupon.discount_value / 100)))
+        raise ValueError("invalid_discount_type")
+
+    def validate_coupon(self, code: str, amount_minor: int, currency: str) -> int:
+        """Return discounted amount without consuming a use."""
+        coupon = self.get_coupon(code)
+        if coupon is None:
+            raise ValueError("invalid_coupon")
+        return self._validate_coupon(coupon, amount_minor, currency)
+
+    def apply_coupon(self, code: str, amount_minor: int, currency: str) -> tuple[int, Coupon]:
+        """Return discounted amount and consume one coupon use."""
+        coupon = self.get_coupon(code)
+        if coupon is None:
+            raise ValueError("invalid_coupon")
+        discounted = self._validate_coupon(coupon, amount_minor, currency)
+        coupon.uses_count += 1
+        self.s.commit()
+        return discounted, coupon
+
     # ---- billing self-service ---------------------------------------------
     def get_billing_settings(self, workspace_id) -> dict:
         return self._workspaces().get_billing_settings(workspace_id)
@@ -157,6 +334,14 @@ class BillingService:
             raise ValueError("already_free")
         ws.plan = "free"
         ws.free_review_used = False
+        self.record_plan_change(
+            workspace_id,
+            old_plan,
+            "free",
+            user_id,
+            reason="subscription_cancelled",
+            commit=False,
+        )
         self._log(
             workspace_id,
             "internal",
@@ -199,7 +384,7 @@ class BillingService:
         currency = _extract_currency(evt)
         kind = notes.get("kind", "paygo")
         plan = notes.get("plan")
-        if amount is not None and not _valid_amount(currency, kind, plan, amount):
+        if amount is not None and not self._valid_amount(currency, kind, plan, amount, notes=notes):
             self._log(
                 workspace_id,
                 "razorpay",
@@ -232,7 +417,13 @@ class BillingService:
                     commit=False,
                 )
         elif typ == "subscription.charged" and workspace_id:
-            self._workspaces().set_plan(workspace_id, notes.get("plan", "pro"), commit=False)
+            self.set_workspace_plan(
+                workspace_id,
+                notes.get("plan", "pro"),
+                changed_by=None,
+                reason="razorpay_subscription_charged",
+                commit=False,
+            )
             if amount:
                 self.create_invoice(
                     workspace_id,
@@ -244,9 +435,21 @@ class BillingService:
                     commit=False,
                 )
         elif typ == "subscription.activated" and workspace_id:
-            self._workspaces().set_plan(workspace_id, notes.get("plan", "pro"), commit=False)
+            self.set_workspace_plan(
+                workspace_id,
+                notes.get("plan", "pro"),
+                changed_by=None,
+                reason="razorpay_subscription_activated",
+                commit=False,
+            )
         elif typ in ("subscription.halted", "subscription.cancelled") and workspace_id:
-            self._workspaces().set_plan(workspace_id, "free", commit=False)
+            self.set_workspace_plan(
+                workspace_id,
+                "free",
+                changed_by=None,
+                reason=f"razorpay_{typ.split('.')[-1]}",
+                commit=False,
+            )
 
         self.s.commit()
         ws = str(workspace_id) if workspace_id else None
@@ -274,7 +477,9 @@ class BillingService:
             currency = obj.get("currency", "INR").upper()
             kind = metadata.get("kind", "paygo")
             plan = metadata.get("plan")
-            if amount is not None and not _valid_amount(currency, kind, plan, int(amount)):
+            if amount is not None and not self._valid_amount(
+                currency, kind, plan, int(amount), notes=metadata
+            ):
                 self._log(
                     workspace_id,
                     "stripe",
@@ -307,7 +512,13 @@ class BillingService:
                         commit=False,
                     )
             elif kind == "subscription":
-                self._workspaces().set_plan(workspace_id, plan or "pro", commit=False)
+                self.set_workspace_plan(
+                    workspace_id,
+                    plan or "pro",
+                    changed_by=None,
+                    reason="stripe_subscription_checkout",
+                    commit=False,
+                )
                 if amount:
                     self.create_invoice(
                         workspace_id,
@@ -397,13 +608,4 @@ def _extract_currency(evt: dict) -> str:
     return "INR"
 
 
-def _valid_amount(currency: str, kind: str, plan: str | None, amount: int) -> bool:
-    """Return True if the paid amount matches the server-owned price for the currency."""
-    currency = currency.upper()
-    if kind == "paygo":
-        expected = PAYGO_PRICE_INR_PAISE
-    elif kind == "subscription" and plan:
-        expected = SUBSCRIPTION_PRICES.get(currency, {}).get(plan)
-    else:
-        return True
-    return expected is None or amount == expected
+

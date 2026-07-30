@@ -291,3 +291,4 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-180 | Add request access logging and enrich traces with user/workspace/ticket attributes for observability | user request | `backend/app/core/logging_middleware.py`, `backend/app/core/tracing.py`, `backend/app/core/deps.py` | done |
 | TS-181 | Fix `tendershield.access` logger handler so access logs print without custom uvicorn config | TS-180 follow-up | `backend/app/main.py` | done |
 | TS-182 | Persist access logs to JSON file and ship to Loki + Grafana for search/dashboard | user request | `backend/app/core/logging.py`, `docker-compose.yml`, `observability/promtail/`, `observability/grafana/` | done |
+| TS-183 | Map admin/billing APIs to UI: payment history, plan history, coupon/discount codes | user request | `backend/app/modules/billing/`, `frontend/app/billing/`, `frontend/app/admin/coupons/` | done |

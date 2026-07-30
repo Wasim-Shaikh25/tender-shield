@@ -161,8 +161,13 @@ export const api = {
     }, token),
   billingStatus: (token: string) => req<{ plan: string; reviews_used: number; reviews_limit: number | null; seats: number }>("/billing/status", {}, token),
   listInvoices: (token: string) => req<{ invoices: { id: string; invoice_number: string; amount_minor: number; currency: string; status: string; provider: string; paid_at: string | null; created_at: string }[] }>("/billing/invoices", {}, token),
-  checkout: (token: string, body: { provider?: string; kind: string; plan?: string; amount_minor?: number }) =>
+  listPayments: (token: string) => req<{ payments: { id: string; provider: string; provider_event_id: string | null; event_type: string; amount_minor: number | null; currency: string | null; status: string; created_at: string }[] }>("/billing/payments", {}, token),
+  listPlanHistory: (token: string) => req<{ history: { id: string; old_plan: string; new_plan: string; changed_by: string | null; reason: string | null; created_at: string }[] }>("/billing/plan-history", {}, token),
+  checkout: (token: string, body: { provider?: string; kind: string; plan?: string; amount_minor?: number; coupon_code?: string }) =>
     req<{ provider: string; order_id?: string; session_id?: string; mock: boolean; note: string }>("/billing/checkout", { method: "POST", body: JSON.stringify(body) }, token),
+  listCoupons: (token: string) => req<{ coupons: { id: string; code: string; discount_type: string; discount_value: number; currency: string | null; max_uses: number | null; uses_count: number; valid_from: string | null; valid_until: string | null; active: boolean; created_at: string }[] }>("/billing/coupons", {}, token),
+  createCoupon: (token: string, body: Record<string, unknown>) => req<{ id: string; code: string }>("/billing/coupons", { method: "POST", body: JSON.stringify(body) }, token),
+  deleteCoupon: (token: string, code: string) => req<OkResponse>(`/billing/coupons/${code}`, { method: "DELETE" }, token),
   adminUsers: (token: string) => req<User[]>("/auth/admin/users", {}, token),
   adminWorkspaces: (token: string) => req<Workspace[]>("/auth/admin/workspaces", {}, token),
   adminSetSuperadmin: (token: string, user_id: string, is_superadmin: boolean) =>

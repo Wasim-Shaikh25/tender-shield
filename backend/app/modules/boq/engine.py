@@ -77,7 +77,13 @@ def run_checks(
         raise ValueError("call normalize() before run_checks()")
 
     sql = CHECKS_SQL.format(tol=tolerance, q=outlier_quantile, mult=outlier_multiplier)
-    rows = duckdb.query(sql).to_df().to_dict("records")  # duckdb reads `df` from scope
+    with duckdb.connect() as con:
+        con.register("df", df)
+        rows = con.execute(sql).fetchdf().to_dict("records")
+
+        totals = con.execute(
+            "SELECT sum(amount) a, sum(amount_calc) c FROM df"
+        ).fetchone()
 
     findings: list[Finding] = []
     for r in rows:
@@ -123,7 +129,6 @@ def run_checks(
                 )
             )
 
-    totals = duckdb.query("SELECT sum(amount) a, sum(amount_calc) c FROM df").fetchone()
     if totals[0] is not None and abs(totals[0] - totals[1]) > tolerance:
         findings.append(
             Finding(

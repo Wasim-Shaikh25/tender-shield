@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import mimetypes
 import pathlib as _pathlib
-import sys
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -21,6 +20,7 @@ from app.core.db import make_engine, make_session_factory
 from app.core.deps import require
 from app.core.events import EventBus
 from app.core.loader import LoadReport, load_modules
+from app.core.logging import configure_logging
 from app.core.logging_middleware import AccessLogMiddleware
 from app.core.metrics import MetricsMiddleware
 from app.core.module import AppContext
@@ -147,25 +147,10 @@ def _validate_prod_settings(settings: Settings) -> None:
         raise RuntimeError("Production settings unsafe: " + "; ".join(errors))
 
 
-def _ensure_access_logger() -> None:
-    """Make sure the tendershield.access logger has a handler.
-
-    Uvicorn's default logging config does not configure the root logger, so a
-    child logger like `tendershield.access` with no handler is silently dropped.
-    We add a stdout handler here so `TS_ACCESS_LOG_ENABLED=true` works out of the box.
-    """
-    access_logger = logging.getLogger("tendershield.access")
-    access_logger.setLevel(logging.INFO)
-    if not access_logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
-        access_logger.addHandler(handler)
-
-
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
     _validate_prod_settings(settings)
-    _ensure_access_logger()
+    configure_logging(settings)
 
     ctx = AppContext(settings=settings, registry=ServiceRegistry(), events=EventBus())
 

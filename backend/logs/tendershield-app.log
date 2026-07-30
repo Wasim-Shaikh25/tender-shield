@@ -1,0 +1,4 @@
+{"timestamp": "2026-07-30 15:08:20,296", "level": "INFO", "logger": "app.modules.assistant.module", "message": "assistant: no OpenRouter key \u2014 grounded tools only (no free-form LLM)"}
+{"timestamp": "2026-07-30 15:08:20,322", "level": "WARNING", "logger": "app.modules.auth.module", "message": "auth: no JWT keys configured \u2014 generated an EPHEMERAL keypair (dev/test only; set TS_JWT_PRIVATE_KEY / TS_JWT_PUBLIC_KEY in prod)"}
+{"timestamp": "2026-07-30 15:08:20,323", "level": "INFO", "logger": "app.modules.risk.module", "message": "risk: no OpenRouter key \u2014 using NullClassifier (LLM judgment off)"}
+{"timestamp": "2026-07-30 15:08:20,410", "level": "INFO", "logger": "httpx", "message": "HTTP Request: GET http://testserver/api/health \"HTTP/1.1 200 OK\""}

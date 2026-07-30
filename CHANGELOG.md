@@ -6,6 +6,15 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-30 (TS-182: persistent logs with Loki + Grafana)
+
+- Write JSON access logs and application logs to rotating files via
+  `configure_logging`.
+- Ship those files to Loki with Promtail and add Loki to the docker-compose
+  `observability` profile.
+- Grafana is pre-provisioned with both Loki and Jaeger data sources for
+  log search and trace search from the same UI.
+
 ### Done — 2026-07-30 (TS-181: access logger handler fix)
 
 - Ensure `tendershield.access` logs are emitted even when Uvicorn's default

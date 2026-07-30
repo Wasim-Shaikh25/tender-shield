@@ -42,9 +42,10 @@ def _principal_attrs(request) -> dict[str, Any]:
     if principal is None:
         return {}
     return {
-        "user_id": str(getattr(principal, "user_id", None) or "-"),
-        "workspace_id": str(getattr(principal, "workspace_id", None) or "-"),
-        "role": getattr(principal, "role", None) or "-",
+        "user_id": str(getattr(principal, "user_id", None) or ""),
+        "workspace_id": str(getattr(principal, "workspace_id", None) or ""),
+        "role": getattr(principal, "role", None) or "",
+        "is_superadmin": bool(getattr(principal, "is_superadmin", False)),
     }
 
 
@@ -59,6 +60,8 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
         )
         request.state.request_id = request_id
 
+        principal = _principal_attrs(request)
+
         start = time.perf_counter()
         response = await call_next(request)
         duration_ms = round((time.perf_counter() - start) * 1000, 2)
@@ -66,10 +69,9 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
         if "x-request-id" not in response.headers:
             response.headers["x-request-id"] = request_id
 
-        attrs = _principal_attrs(request)
-        user_id = attrs.get("user_id", "-")
-        workspace_id = attrs.get("workspace_id", "-")
-        role = attrs.get("role", "-")
+        user_id = principal.get("user_id") or "-"
+        workspace_id = principal.get("workspace_id") or "-"
+        role = principal.get("role") or "-"
 
         msg = (
             f"{request.method} {request.url.path} {response.status_code} "
@@ -79,10 +81,26 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
 
         settings = getattr(request.app.state, "ctx", None)
         settings_obj = settings.settings if settings else None
+        body_preview = ""
         if getattr(settings_obj, "log_request_bodies", False):
-            body_preview = _peek_body(request)
+            body_preview = _redact(_peek_body(request))
             if body_preview:
-                msg += f" body_preview={_redact(body_preview)}"
+                msg += f" body_preview={body_preview}"
 
-        logger.info(msg)
+        extra = {
+            "method": request.method,
+            "path": request.url.path,
+            "query": str(request.query_params) or None,
+            "status_code": response.status_code,
+            "duration_ms": duration_ms,
+            "request_id": request_id,
+            "client_ip": request.client.host if request.client else None,
+            "user_id": user_id if user_id != "-" else None,
+            "workspace_id": workspace_id if workspace_id != "-" else None,
+            "role": role if role != "-" else None,
+        }
+        if body_preview:
+            extra["body_preview"] = body_preview
+
+        logger.info(msg, extra=extra)
         return response

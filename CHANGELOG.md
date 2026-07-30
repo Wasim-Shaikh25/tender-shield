@@ -103,6 +103,15 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   the transport peer.
 - Added `specs/modules/core.md` B7/A10.
 
+### Done — 2026-07-29 (TS-105: webhook atomicity)
+
+- `process_razorpay_webhook` and `process_stripe_webhook` now claim the
+  `WebhookEvent` idempotency marker via a savepoint, apply the billing effect
+  with `commit=False`, and commit everything in one transaction.
+- `WorkspaceAdmin.set_plan` and `BillingService` helpers accept `commit=False` for
+  callers that manage the transaction boundary.
+- Added `specs/modules/billing.md` B12/A6.
+
 ### Done — 2026-07-29 (TS-101 / TS-102: upload size cap + SSE hardening)
 
 - `POST /api/ingestion/opportunities/{id}/upload` now reads at most

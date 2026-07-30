@@ -63,6 +63,9 @@ intents, webhook-dedup records, plan state on `orgs`.
 - **B11 (server-owned prices):** `POST /api/billing/checkout` ignores any client
   `amount_minor` and uses the server price table (`plans.py`). The webhook rejects
   payments whose amount does not match the expected price for the `kind`/`plan`/`currency`.
+- **B12 (webhook atomicity):** the idempotency marker (`WebhookEvent`) is claimed,
+  the payment effect is applied, and `payment_log` rows are committed in a single
+  transaction. Duplicate events are rejected without side effects.
 
 ## Acceptance criteria
 
@@ -74,6 +77,8 @@ intents, webhook-dedup records, plan state on `orgs`.
 - A4: checkout with Razorpay/Stripe keys configured creates a real provider order/session.
 - A5: client-provided `amount_minor` is rejected if it does not match the server
   price; webhook processing rejects mismatched amounts before plan activation.
+- A6: webhook idempotency marker is claimed atomically within the same transaction
+  as the billing effect.
 
 ## Out of scope
 

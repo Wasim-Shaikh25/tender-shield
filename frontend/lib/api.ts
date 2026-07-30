@@ -343,6 +343,26 @@ export const api = {
     req<Record<string, unknown>>("/analytics/deadline-dashboard", {}, token),
   boqDefectSummary: (token: string) =>
     req<Record<string, unknown>>("/analytics/boq-defect-summary", {}, token),
+  planDashboard: (token: string, opportunity_id: string, query: string) =>
+    req<Record<string, unknown>>("/analytics/plan", { method: "POST", body: JSON.stringify({ opportunity_id, query }) }, token),
+  planTemplates: () =>
+    req<Array<{ id: string; name: string; query: string }>>("/analytics/plan/templates", {}),
+  listPlanSnapshots: (token: string) =>
+    req<{ snapshots: PlanSnapshot[] }>("/analytics/plan/snapshots", {}, token),
+  getPlanSnapshot: (token: string, snapshot_id: string) =>
+    req<PlanSnapshot & { dashboard: Record<string, unknown> }>(`/analytics/plan/snapshots/${snapshot_id}`, {}, token),
+  savePlanSnapshot: (token: string, body: Omit<PlanSnapshot, "id" | "created_at">) =>
+    req<PlanSnapshot>("/analytics/plan/snapshots", { method: "POST", body: JSON.stringify(body) }, token),
+  deletePlanSnapshot: (token: string, snapshot_id: string) =>
+    req<{ ok: boolean }>(`/analytics/plan/snapshots/${snapshot_id}`, { method: "DELETE" }, token),
+  exportPlanSnapshot: async (token: string, snapshot_id: string, format: string) => {
+    const res = await fetch(`${API_BASE}/analytics/plan/snapshots/${snapshot_id}/export?format=${format}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      credentials: "include",
+    });
+    if (!res.ok) throw new Error("Export failed");
+    return res.blob();
+  },
   exportReport: async (token: string, format: string, filter: string) => {
     const params = new URLSearchParams({ format, filter });
     const res = await fetch(`${API_BASE}/analytics/reports/export?${params.toString()}`, {
@@ -353,6 +373,15 @@ export const api = {
     if (!res.ok) throw new Error("Export failed");
     return res.blob();
   },
+};
+
+export type PlanSnapshot = {
+  id?: string;
+  opportunity_id: string;
+  title: string;
+  query: string;
+  dashboard?: Record<string, unknown>;
+  created_at?: string;
 };
 
 export type NotificationPreferences = {

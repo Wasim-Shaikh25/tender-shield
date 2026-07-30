@@ -5,7 +5,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_session, require
+from app.core.audit import log as audit_log
+from app.core.deps import get_session, require, require_superadmin
 from app.modules.assistant.service import AssistantService
 
 router = APIRouter()
@@ -25,6 +26,21 @@ class StreamBody(BaseModel):
     message: str = Field(min_length=1)
 
 
+class AdminChatBody(BaseModel):
+    workspace_id: str = Field(min_length=1)
+    opportunity_id: str = Field(min_length=1)
+    message: str = Field(min_length=1)
+
+
+def _identity(principal) -> dict:
+    return {
+        "user_id": str(principal.user_id),
+        "workspace_id": str(principal.workspace_id),
+        "role": principal.role,
+        "is_superadmin": getattr(principal, "is_superadmin", False),
+    }
+
+
 def _service(request: Request, session: Session) -> AssistantService:
     reg = request.app.state.ctx.registry
     return AssistantService(
@@ -33,6 +49,7 @@ def _service(request: Request, session: Session) -> AssistantService:
         findings_factory=reg.get("findings.store_factory"),
         loader=reg.get("rulepacks.loader"),
         agent=reg.get("assistant.agent"),
+        workspace_factory=reg.get("auth.workspace_factory"),
     )
 
 
@@ -67,7 +84,7 @@ def chat(
 ):
     """Transient single-turn chat (no session persistence)."""
     return _service(request, session).answer(
-        principal.workspace_id, body.opportunity_id, body.message
+        principal.workspace_id, body.opportunity_id, body.message, identity=_identity(principal)
     )
 
 
@@ -124,7 +141,11 @@ def session_chat(
     svc = _service(request, session)
     sess = _resolve_session(svc, session_id, principal.workspace_id)
     return svc.answer_and_store(
-        principal.workspace_id, session_id, str(sess.opportunity_id), body.message
+        principal.workspace_id,
+        session_id,
+        str(sess.opportunity_id),
+        body.message,
+        identity=_identity(principal),
     )
 
 
@@ -140,7 +161,40 @@ def stream_chat(
     sess = _resolve_session(svc, session_id, principal.workspace_id)
     return StreamingResponse(
         svc.answer_stream(
-            principal.workspace_id, session_id, str(sess.opportunity_id), body.message
+            principal.workspace_id,
+            session_id,
+            str(sess.opportunity_id),
+            body.message,
+            identity=_identity(principal),
         ),
         media_type="text/event-stream",
     )
+
+
+@router.post("/admin/chat")
+def admin_chat(
+    body: AdminChatBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require_superadmin),
+):
+    """Super-admin research chat: explicit workspace/opportunity, no session stored."""
+    svc = _service(request, session)
+    identity = _identity(principal)
+    answer = svc.admin_answer(
+        body.workspace_id,
+        body.opportunity_id,
+        body.message,
+        identity=identity,
+    )
+    audit_log(
+        request,
+        session,
+        workspace_id=body.workspace_id,
+        actor_user_id=principal.user_id,
+        action="assistant.admin_query",
+        object_type="opportunity",
+        object_id=body.opportunity_id,
+        detail={"message_preview": body.message[:200]},
+    )
+    return answer

@@ -142,6 +142,14 @@ def downgrade() -> None:
     op.drop_table('plan_history')
     op.rename_table('plan_history_old', 'plan_history')
 
+    # SQLite does not rename indexes when a table is renamed, so recreate the
+    # expected index. PostgreSQL already renames it automatically; the DROP/CREATE
+    # is idempotent and harmless on both.
+    op.execute("DROP INDEX IF EXISTS ix_plan_history_old_workspace_id")
+    op.create_index(
+        op.f("ix_plan_history_workspace_id"), "plan_history", ["workspace_id"], unique=False
+    )
+
     # Re-add workspace-level plan columns.
     op.add_column('workspaces', sa.Column('plan', sa.String(), server_default='free', nullable=False))
     op.add_column(

@@ -302,6 +302,11 @@ def downgrade() -> None:
     """)
     op.drop_table('usage_events')
     op.rename_table('usage_events_old', 'usage_events')
+    # SQLite does not rename indexes with the table; recreate expected names.
+    op.execute("DROP INDEX IF EXISTS ix_usage_events_old_workspace_id")
+    op.create_index(
+        op.f("ix_usage_events_workspace_id"), "usage_events", ["workspace_id"], unique=False
+    )
 
     # payment_log
     op.create_table(
@@ -329,6 +334,17 @@ def downgrade() -> None:
     """)
     op.drop_table('payment_log')
     op.rename_table('payment_log_old', 'payment_log')
+    op.execute("DROP INDEX IF EXISTS ix_payment_log_old_workspace_id")
+    op.create_index(
+        op.f("ix_payment_log_workspace_id"), "payment_log", ["workspace_id"], unique=False
+    )
+    op.execute("DROP INDEX IF EXISTS ix_payment_log_old_provider_event_id")
+    op.create_index(
+        op.f("ix_payment_log_provider_event_id"),
+        "payment_log",
+        ["provider_event_id"],
+        unique=False,
+    )
 
     # invoices
     op.create_table(
@@ -356,6 +372,10 @@ def downgrade() -> None:
     """)
     op.drop_table('invoices')
     op.rename_table('invoices_old', 'invoices')
+    op.execute("DROP INDEX IF EXISTS ix_invoices_old_workspace_id")
+    op.create_index(
+        op.f("ix_invoices_workspace_id"), "invoices", ["workspace_id"], unique=False
+    )
 
     # webhook_events
     op.create_table(
@@ -376,3 +396,7 @@ def downgrade() -> None:
     """)
     op.drop_table('webhook_events')
     op.rename_table('webhook_events_old', 'webhook_events')
+    op.execute("DROP INDEX IF EXISTS ix_webhook_events_old_workspace_id")
+    op.create_index(
+        op.f("ix_webhook_events_workspace_id"), "webhook_events", ["workspace_id"], unique=False
+    )

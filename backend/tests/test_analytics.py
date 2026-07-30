@@ -102,3 +102,95 @@ def test_accuracy_dashboard_empty(client):
     resp = client.get("/api/analytics/accuracy", headers=owner)
     assert resp.status_code == 200
     assert resp.json()["summary"]["total_findings"] == 0
+
+
+def test_plan_dashboard_returns_structured_payload(client):
+    owner = _owner(client)
+    opp_id = _opp_with_findings(client, owner, "Plan Bridge")
+    r = client.post(
+        "/api/analytics/plan",
+        json={"opportunity_id": opp_id, "query": "summarise the risk profile"},
+        headers=owner,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert "title" in body
+    assert "summary" in body
+    assert "sections" in body
+    assert isinstance(body["sections"], list)
+    # Without an LLM key the agent returns a safe fallback; the response must
+    # still be valid dashboard JSON.
+    assert body["title"]
+    assert body["summary"]
+
+
+def test_plan_dashboard_is_workspace_scoped(client):
+    owner = _owner(client)
+    opp_id = _opp_with_findings(client, owner, "Plan Road")
+    # viewer token bound to a different workspace cannot see the opportunity.
+    viewer = _viewer_headers(client)
+    r = client.post(
+        "/api/analytics/plan",
+        json={"opportunity_id": opp_id, "query": "summarise the risk profile"},
+        headers=viewer,
+    )
+    # The request is rejected before analytics runs because the opportunity does
+    # not belong to the principal's workspace.
+    assert r.status_code in (403, 404)
+
+
+def test_plan_templates(client):
+    r = client.get("/api/analytics/plan/templates")
+    assert r.status_code == 200
+    templates = r.json()
+    assert len(templates) >= 4
+    assert any(t["id"] == "risk-severity" for t in templates)
+
+
+def test_plan_snapshot_lifecycle_and_export(client):
+    owner = _owner(client)
+    opp_id = _opp_with_findings(client, owner, "Snapshot Road")
+
+    dashboard = (
+        client.post(
+            "/api/analytics/plan",
+            json={"opportunity_id": opp_id, "query": "show risk summary"},
+            headers=owner,
+        )
+        .json()
+    )
+
+    save = client.post(
+        "/api/analytics/plan/snapshots",
+        json={
+            "opportunity_id": opp_id,
+            "title": "Risk snapshot",
+            "query": "show risk summary",
+            "dashboard": dashboard,
+        },
+        headers=owner,
+    )
+    assert save.status_code == 200
+    snapshot_id = save.json()["id"]
+
+    list_resp = client.get("/api/analytics/plan/snapshots", headers=owner)
+    assert list_resp.status_code == 200
+    assert any(s["id"] == snapshot_id for s in list_resp.json()["snapshots"])
+
+    get_resp = client.get(f"/api/analytics/plan/snapshots/{snapshot_id}", headers=owner)
+    assert get_resp.status_code == 200
+    assert get_resp.json()["dashboard"]["title"] == dashboard["title"]
+
+    for fmt in ("pdf", "pptx"):
+        export = client.get(
+            f"/api/analytics/plan/snapshots/{snapshot_id}/export?format={fmt}",
+            headers=owner,
+        )
+        assert export.status_code == 200
+        assert len(export.content) > 0
+
+    viewer = _viewer_headers(client)
+    assert (
+        client.get(f"/api/analytics/plan/snapshots/{snapshot_id}", headers=viewer).status_code
+        == 404
+    )

@@ -44,3 +44,9 @@ def require(min_role: str):
         return principal
 
     return guard
+
+
+def require_superadmin(principal: Any = Depends(current_principal)) -> Any:
+    if not getattr(principal, "is_superadmin", False):
+        raise HTTPException(403, "superadmin_required")
+    return principal

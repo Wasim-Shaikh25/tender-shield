@@ -1,23 +1,29 @@
 """Assistant: grounded deterministic intents (no LLM key) + off-topic refusal + agent guards."""
 
+import datetime
+
 import pytest
 from fastapi.testclient import TestClient
 
 import app.modules.assistant.models  # noqa: F401
 import app.modules.auth.models  # noqa: F401
+import app.modules.auth.security as sec  # noqa: F401
 import app.modules.findings.models  # noqa: F401
 import app.modules.ingestion.models  # noqa: F401
+import app.modules.review.models  # noqa: F401
 from app.core.config import Settings
 from app.core.db import Base
 from app.main import create_app
-from tests.helpers import auth_headers
+from tests.helpers import auth_headers, auth_headers_and_workspace
+
+TEST_USER_ID = "00000000-0000-0000-0000-000000000001"
 
 
 @pytest.fixture
 def client():
     app = create_app(
         Settings(
-            enabled_modules="health,rulepacks,auth,ingestion,findings,risk,assistant",
+            enabled_modules="health,rulepacks,auth,ingestion,findings,risk,assistant,review",
             database_url="sqlite:///:memory:",
         )
     )
@@ -27,6 +33,19 @@ def client():
 
 def _auth(client):
     return auth_headers(client, "as@x.com")
+
+
+def _superadmin_headers(client, user_id: str = TEST_USER_ID, workspace_id: str | None = None):
+    keys = client.app.state.ctx.registry.require("auth.keys")
+    tok = sec.mint_access(
+        keys,
+        user_id=user_id,
+        workspace_id=workspace_id or "00000000-0000-0000-0000-0000000000aa",
+        role="viewer",
+        is_superadmin=True,
+        ttl=datetime.timedelta(minutes=5),
+    )
+    return {"authorization": f"Bearer {tok}"}
 
 def _opp(client, headers):
     opp_id = client.post(
@@ -151,3 +170,72 @@ def test_citation_validator_rejects_ungrounded_page():
     allowed = {1, 5}
     assert "deadline" in _validate_citations("The submission deadline is on page [p1].", allowed)
     assert "tender" in _validate_citations("Claim on page [p99].", allowed).lower()
+
+
+def test_admin_chat_rejects_non_superadmin(client):
+    headers = _auth(client)
+    opp_id = _opp(client, headers)
+    r = client.post(
+        "/api/assistant/admin/chat",
+        json={
+            "workspace_id": "00000000-0000-0000-0000-000000000001",
+            "opportunity_id": opp_id,
+            "message": "list deadlines",
+        },
+        headers=headers,
+    )
+    assert r.status_code == 403
+
+
+def test_admin_chat_allows_superadmin_and_logs_audit(client):
+    # Create a normal user workspace with an opportunity.
+    user_headers, workspace_id = auth_headers_and_workspace(
+        client, "owner@x.com", workspace_name="SiteA"
+    )
+    opp_id = _opp(client, user_headers)
+    user_id = client.get("/api/auth/me", headers=user_headers).json()["user_id"]
+
+    # Super-admin token bound to the user's workspace.
+    admin_headers = _superadmin_headers(client, user_id=user_id, workspace_id=workspace_id)
+    r = client.post(
+        "/api/assistant/admin/chat",
+        json={
+            "workspace_id": workspace_id,
+            "opportunity_id": opp_id,
+            "message": "list the deadlines",
+        },
+        headers=admin_headers,
+    )
+    assert r.status_code == 200
+    ans = r.json()
+    assert ans["source"] == "tool"
+    assert "submission" in ans["answer"]
+
+    # Audit log captured the admin query.
+    audit = client.get(
+        f"/api/auth/admin/audit-log?workspace_id={workspace_id}&action=assistant.admin_query",
+        headers=admin_headers,
+    ).json()
+    assert any(row["action"] == "assistant.admin_query" for row in audit)
+
+
+def test_session_is_workspace_scoped(client):
+    # User A creates a session in workspace A.
+    headers_a, ws_a = auth_headers_and_workspace(client, "a@x.com", workspace_name="A")
+    opp_a = _opp(client, headers_a)
+    session_id = client.post(
+        "/api/assistant/sessions", json={"opportunity_id": opp_a}, headers=headers_a
+    ).json()["id"]
+
+    # User B (different workspace) cannot list the session and cannot post to it.
+    headers_b, _ = auth_headers_and_workspace(client, "b@x.com", workspace_name="B")
+    r = client.get("/api/assistant/sessions", headers=headers_b)
+    assert r.status_code == 200
+    assert session_id not in {s["id"] for s in r.json()["sessions"]}
+
+    r = client.post(
+        f"/api/assistant/sessions/{session_id}/chat",
+        json={"message": "list the deadlines"},
+        headers=headers_b,
+    )
+    assert r.status_code == 404

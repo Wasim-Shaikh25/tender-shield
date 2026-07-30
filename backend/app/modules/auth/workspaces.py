@@ -46,11 +46,11 @@ class WorkspaceAdmin:
 
     def list_members(self, workspace_id) -> list[dict]:
         rows = self.s.execute(
-            select(User.email)
+            select(User.id, User.email)
             .join(WorkspaceMember, WorkspaceMember.user_id == User.id)
             .where(WorkspaceMember.workspace_id == uuid.UUID(str(workspace_id)))
         )
-        return [{"email": r[0]} for r in rows]
+        return [{"user_id": str(r[0]), "email": r[1]} for r in rows]
 
     def mark_free_review_used(self, workspace_id, *, commit: bool = True) -> None:
         workspace = self.get(workspace_id)

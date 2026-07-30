@@ -143,6 +143,29 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   leaves stale entries (TS-135).
 - Updated `specs/modules/core.md`, `specs/frontend.md`, `tasks/backlog.md`, and tests.
 
+### Done — 2026-07-30 (TS-111: deadline-alert deduplication and notification preferences)
+
+- Added `notification_preferences` (account-level defaults: `email_deadlines=True`)
+  and `deadline_alert_log` (workspace-scoped, RLS-enforced) tables.
+- The daily deadline scheduler now buckets alerts at 7, 3, 1, and 0 days, checks
+  per-user preferences, and records each `(user, deadline, bucket)` send to
+  prevent duplicates.
+- `WorkspaceAdmin.list_members` now returns `user_id` along with `email`.
+- Updated `specs/modules/notifications.md`, `tasks/backlog.md`, and added
+  `tests/test_notifications.py`.
+
+### Next
+
+- TS-112 — broader prompt-injection hardening and adversarial eval fixtures.
+- TS-114 — remove cross-module FK `findings.opportunity_id → opportunities`; add a
+  metadata architecture test.
+- TS-116 — complete audit-log events for auth, membership, billing, and data-export actions.
+- TS-117 — data export and account deletion (GDPR/DPDP).
+- TS-118 — pagination + `/api/health/details` super-admin gate.
+- TS-119 — accessibility linting + WCAG assessment.
+- TS-120 — repository governance (CODEOWNERS, branch protection docs).
+- TS-159 — store `Finding.amount_exposure` and monetary thresholds in minor units.
+
 ### Done — 2026-07-30 (TS-110 / TS-157 / TS-160: tus and spreadsheet page markers)
 
 - `ingestion`: tus `OPTIONS` returns tus 1.0.0 capability headers and `204`; `POST`

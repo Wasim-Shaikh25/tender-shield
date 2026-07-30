@@ -272,6 +272,14 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Added a scenario coverage matrix mapping each scenario group to the
   end-to-end audit prompt sections.
 
+### Done — 2026-07-30 (TS-169: account settings, admin, payments, tickets, analysis, observability scenarios)
+
+- Added scenarios 56–66 covering account profile/security/delete, password change
+  and forgot-password, super-admin login and dashboard, user search/suspend/delete,
+  workspace and billing oversight, payment settings, support tickets, user-raised
+  analysis/reports, observability/log inspection, and alerting/backup/restore runbooks.
+- Updated the scenario coverage matrix.
+
 ### Done — 2026-07-30 (TS-168: assistant, document, OCR, Q&A fixtures and scenarios)
 
 - Added `evals/e2e/fixtures/` with synthetic NIT, GCC, pre-bid Q&A, addendum,

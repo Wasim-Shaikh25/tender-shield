@@ -1110,8 +1110,246 @@ Expected: `owner` and `admin` can manage team; `member` can create and review; `
 | 27–30 | Integrations | §2, §4, §7, §8 |
 | 31–34 | Observability / DR / config / cross-browser | §8 |
 | 51–55 | Assistant / documents / OCR / Q&A / session continuity | §4, §6, §7 |
+| 56–66 | Account settings, admin, payment, tickets, analysis, observability | §3, §4, §5, §7, §8 |
 
 Run scenarios in order where later scenarios depend on earlier ones, or use independent fixtures.
+
+## Scenario 56: Account settings profile and preferences
+
+**Audit prompt mapping:** §3, §4, §7
+
+### Steps
+
+1. Log in and open `/settings/account`.
+2. Update org/firm name, city, and DOB.
+3. Change the registered mobile number and verify a new OTP is required to re-verify.
+4. Toggle notification preferences (email digest, SMS alerts, marketing).
+5. Upload or update a profile picture/avatar if supported.
+6. Verify updated fields are reflected in `GET /api/auth/me` and the UI header.
+7. Attempt to update email to an already-registered email; expected `409`.
+
+### Negative cases
+
+- Update DOB to an invalid date or future date; expected `400`.
+- Update mobile to a non-10-digit / non-MSISDN format; expected `400`.
+- Update profile with an HTML/JS payload in the org name; verify it is escaped in the UI.
+- Change email without re-verification; verify `email_verified` reverts to `false`.
+
+---
+
+## Scenario 57: Delete account and data erasure
+
+**Audit prompt mapping:** §3, §5, §7
+
+### Steps
+
+1. Create an account, verify email/mobile, and create at least one workspace with an opportunity and documents.
+2. Navigate to `/settings/security` and choose "Delete account".
+3. Confirm with the current password and `confirm: true`.
+4. Verify `DELETE /api/auth/account` returns success and all sessions/refresh tokens are revoked.
+5. Try to log in with the deleted credentials; expected `401`.
+6. Verify the account's owned workspaces, opportunities, documents, and memberships are removed or anonymized.
+7. Verify audit-log entries for the account still exist (append-only) but no PII remains in user-scoped tables.
+
+### Negative cases
+
+- Delete account with wrong password → `400` `invalid_password`.
+- Delete account with `confirm: false` → `400` `confirm_required`.
+- Delete while active subscriptions/invoices are unpaid → `409` or appropriate business-rule error.
+
+---
+
+## Scenario 58: Password change and forgot-password flows
+
+**Audit prompt mapping:** §3, §7
+
+### Steps
+
+1. Log in, go to `/settings/security`, and change password with the current password.
+2. Verify all existing refresh tokens are revoked after a password change.
+3. Log out and use the new password to log in.
+4. Use "Forgot password" on the login page, enter the email, and read the reset token from the console/email.
+5. Submit `POST /api/auth/reset-password` with the token and a compliant new password.
+6. Verify login works with the reset password.
+7. Request a reset for a non-existent email; verify the UI shows a generic success and no user-enumeration leak.
+
+### Negative cases
+
+- Use an expired or already-used reset token → `400`.
+- Set a weak new password → `400` validation error.
+- Change password with correct current password but mismatched `new_password`/`confirm_password` → `400`.
+
+---
+
+## Scenario 59: Admin login and super-admin dashboard access
+
+**Audit prompt mapping:** §3, §7
+
+### Steps
+
+1. Create a regular user and verify `/admin` redirects or returns `403`.
+2. Create a super-admin user (via seed or DB flag `is_superadmin=true`).
+3. Log in as super-admin and verify access to `/admin`.
+4. Verify `/api/admin/users`, `/api/admin/workspaces`, `/api/admin/audit-log`, `/api/health/details` all return data.
+5. Verify `/api/admin` endpoints reject non-admin tokens with `403`.
+6. Verify the admin dashboard shows KPIs: total users, active workspaces, recent sign-ups, pending verifications.
+
+### Negative cases
+
+- A workspace admin (`admin` role in a workspace, not super-admin) calls `/api/admin/*`; expected `403`.
+- A non-admin user with a valid access token guesses an admin endpoint URL; expected `403`.
+
+---
+
+## Scenario 60: Admin user management — view, search, suspend, delete
+
+**Audit prompt mapping:** §3, §5, §7
+
+### Steps
+
+1. As super-admin, open `/admin/users`.
+2. Search users by email, phone, org name, and workspace name.
+3. Sort and paginate the user list.
+4. View user details: profile, workspaces, role, last login, verification status.
+5. Suspend a user (`POST /api/admin/users/{id}/suspend`); verify the user cannot log in and existing tokens are revoked.
+6. Unsuspend the user; verify login works again.
+7. Delete a user from the admin panel; verify the user is removed and owned workspaces/data are handled per deletion policy.
+8. Verify every admin action is recorded in the audit log.
+
+### Negative cases
+
+- Suspend an already-suspended user → idempotent success or `409`.
+- Delete a super-admin user from a non-super-admin account → `403`.
+- Search for a user by partial PII and get too much detail; verify response does not expose password hash, MFA secrets, or tokens.
+
+---
+
+## Scenario 61: Admin workspace and billing oversight
+
+**Audit prompt mapping:** §3, §4, §7, §8
+
+### Steps
+
+1. As super-admin, list all workspaces with owner, plan, seat count, and storage usage.
+2. Open a workspace detail page and see members, opportunities, invoices, and recent activity.
+3. Change a workspace plan from admin (if supported) and verify the billing event is logged.
+4. Impersonate a workspace owner to reproduce an issue (optional, if impersonation feature exists).
+5. Generate a workspace usage/export report from the admin panel.
+6. Verify cross-workspace data leakage does not occur when viewing one workspace.
+
+### Negative cases
+
+- A workspace member tries to access another workspace via URL; expected `403`.
+- Admin attempts to delete a workspace without proper confirmation; expected `400` confirmation required.
+
+---
+
+## Scenario 62: Payment settings and billing self-service
+
+**Audit prompt mapping:** §4, §7
+
+### Steps
+
+1. As account owner, open `/billing/settings`.
+2. View current plan, seat limit, next billing date, and payment method.
+3. Update GSTIN / billing address / PAN (for India) and verify validation.
+4. Add/change a payment method token (test card/UPI).
+5. View invoice history, download an invoice as PDF, and verify GST breakup.
+6. Change plan tier (upgrade/downgrade) and verify proration or credit note.
+7. Cancel subscription and verify the workspace is moved to the free plan at period end.
+
+### Negative cases
+
+- A non-owner tries to change payment settings; expected `403`.
+- Invalid GSTIN format → `400`.
+- Duplicate plan downgrade/upgrade in quick succession; verify idempotency/no double charge.
+
+---
+
+## Scenario 63: Tickets / support requests raised by users
+
+**Audit prompt mapping:** §4, §7
+
+### Steps
+
+1. As a workspace user, create a support ticket (`POST /api/support/tickets`) with category `billing`, `technical`, or `feature`.
+2. Attach a screenshot or document.
+3. Verify the ticket appears in `/support/tickets` with status `open`.
+4. Add a reply to the ticket.
+5. As super-admin, open `/admin/support` and view all tickets, filter by category/status.
+6. Update ticket status to `in_progress`, `resolved`, `closed`.
+7. Notify the user on status change (email/SMS/push).
+
+### Negative cases
+
+- A user views another user's ticket; expected `403`.
+- A user edits a closed ticket; expected `400`.
+- Upload an unsupported attachment type; expected `400`.
+
+---
+
+## Scenario 64: Analysis and reports raised by users
+
+**Audit prompt mapping:** §4, §6, §7
+
+### Steps
+
+1. As a workspace user, generate a built-in report:
+   - Risk summary across all opportunities.
+   - Deadline dashboard (opportunities expiring in 7/15/30 days).
+   - BOQ defect summary by trade.
+   - Bid-decision pipeline (bid/no-bid/deferred).
+2. Save a custom report filter and verify it can be reloaded.
+3. Export a report to CSV/XLSX/PDF and verify the data matches the UI.
+4. Share a report link with another workspace member; verify access control.
+5. As admin, view aggregated usage analytics across workspaces.
+
+### Negative cases
+
+- Request a report for a workspace the user does not belong to; expected `403`.
+- Export a report with a huge date range (>1 year) and verify timeout/pagination handling.
+
+---
+
+## Scenario 65: Observability and log inspection
+
+**Audit prompt mapping:** §7, §8
+
+### Steps
+
+1. Trigger an error in the app and verify it reaches Sentry (if `TS_SENTRY_DSN` is set).
+2. Verify `GET /api/health/metrics` returns Prometheus text with `http_requests_total`, `http_request_duration_seconds`, `module_*` metrics.
+3. Verify `GET /api/health/details` (super-admin) lists module status, dependency health, and feature flags.
+4. Verify structured logs contain `request_id`, `workspace_id`, `user_id`, `duration_ms`, `method`, `path`, and `status_code`.
+5. As super-admin, search logs for a specific user or workspace and verify no password/OTP/token values are logged.
+6. Verify audit-log endpoints support filtering by date range, actor, workspace, action.
+
+### Negative cases
+
+- A normal user calls `/api/health/details`; expected `403`.
+- Search logs without authentication; expected `401`.
+- Verify no secret values are accidentally printed in stack traces or logs.
+
+---
+
+## Scenario 66: Alerting and operational runbooks
+
+**Audit prompt mapping:** §8
+
+### Steps
+
+1. Configure an alert rule (or verify default thresholds): error rate > 1% for 5 minutes, 5xx rate > 0.1%, disk usage > 85%, DB connection pool saturation.
+2. Trigger a synthetic 5xx and verify the alert fires (webhook/email/Slack).
+3. Verify the on-call runbook link is present in the alert payload.
+4. Perform a documented backup (`pg_dump` + storage sync) and verify backup integrity.
+5. Perform a documented restore to a separate environment and verify all data is consistent.
+6. Verify rollback procedure for the last deployed image works in `docker compose`/`k8s`.
+
+### Negative cases
+
+- Alert silencing is not allowed for production without audit approval.
+- Missing backup for more than 24 hours triggers a warning.
+
 
 ## Fixture reference
 

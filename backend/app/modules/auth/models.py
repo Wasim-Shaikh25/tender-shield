@@ -53,6 +53,9 @@ class RefreshToken(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    workspace_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, nullable=True, index=True
+    )
     family_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
     token_hash: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     revoked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

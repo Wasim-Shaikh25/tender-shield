@@ -20,12 +20,12 @@ export function HeaderActions() {
     <div className="flex items-center gap-3">
       {workspaces.length > 1 ? (
         <select
-          value={activeWorkspace?.id ?? ""}
+          value={activeWorkspace?.workspace_id ?? ""}
           onChange={(e) => switchWorkspace(e.target.value)}
           className="rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-ink"
         >
           {workspaces.map((w) => (
-            <option key={w.id} value={w.id}>
+            <option key={w.workspace_id} value={w.workspace_id}>
               {w.name} · {w.plan}
             </option>
           ))}

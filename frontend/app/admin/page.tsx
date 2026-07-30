@@ -12,15 +12,15 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!session) return;
-    api.adminUsers(session.token).then((d) => setUsers(d.users)).catch((e) => setError(e.message));
-    api.adminWorkspaces(session.token).then((d) => setWorkspaces(d.workspaces)).catch((e) => setError(e.message));
+    api.adminUsers(session.token).then((list) => setUsers(list)).catch((e) => setError(e.message));
+    api.adminWorkspaces(session.token).then((list) => setWorkspaces(list)).catch((e) => setError(e.message));
   }, [session]);
 
   async function toggleSuperadmin(user_id: string, is_superadmin: boolean) {
     if (!session) return;
     try {
       await api.adminSetSuperadmin(session.token, user_id, is_superadmin);
-      setUsers((prev) => prev.map((u) => (u.id === user_id ? { ...u, is_superadmin } : u)));
+      setUsers((prev) => prev.map((u) => (u.user_id === user_id ? { ...u, is_superadmin } : u)));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Update failed");
     }
@@ -49,7 +49,7 @@ export default function AdminPage() {
             </thead>
             <tbody>
               {workspaces.map((w) => (
-                <tr key={w.id} className="border-b border-slate-100">
+                <tr key={w.workspace_id} className="border-b border-slate-100">
                   <td className="py-2">{w.name}</td>
                   <td className="py-2 capitalize">{w.plan}</td>
                   <td className="py-2">{w.country}</td>
@@ -75,14 +75,14 @@ export default function AdminPage() {
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className="border-b border-slate-100">
+                <tr key={u.user_id} className="border-b border-slate-100">
                   <td className="py-2">{u.email}</td>
                   <td className="py-2 capitalize">{u.role}</td>
                   <td className="py-2">
                     <input
                       type="checkbox"
                       checked={u.is_superadmin}
-                      onChange={(e) => toggleSuperadmin(u.id, e.target.checked)}
+                      onChange={(e) => toggleSuperadmin(u.user_id, e.target.checked)}
                       className="accent-ink"
                     />
                   </td>

@@ -31,7 +31,7 @@ def authenticate(request: Request, session: Session) -> Principal:
     # The non-negotiable RLS binding: this request's queries are scoped to the
     # caller's workspace (Doc §3.2, §5). FastAPI caches get_session per request,
     # so the endpoint's own queries reuse this same bound session.
-    bind_workspace_context(session, claims["workspace"])
+    bind_workspace_context(session, claims["workspace"], user_id=claims["sub"])
     return Principal(
         user_id=claims["sub"],
         workspace_id=claims["workspace"],

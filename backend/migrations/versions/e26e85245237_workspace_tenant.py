@@ -380,11 +380,14 @@ def upgrade() -> None:
     # Membership tables are not WorkspaceScopedMixin subclasses (composite PKs), so add them
     # explicitly before generating policies.
     rls_tables = set(WORKSPACE_SCOPED_TABLES) | {"workspace_members", "project_members"}
+    membership_tables = {"workspace_members", "project_members"}
     if op.get_bind().dialect.name == "postgresql":
         inspector = sa.inspect(op.get_bind())
         for table in rls_tables:
             if inspector.has_table(table):
-                for stmt in rls_statements(table):
+                for stmt in rls_statements(
+                    table, user_id_column="user_id" if table in membership_tables else None
+                ):
                     op.execute(stmt)
     # ### end Alembic commands ###
 

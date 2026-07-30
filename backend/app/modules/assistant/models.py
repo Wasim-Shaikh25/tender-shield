@@ -35,6 +35,9 @@ class ChatMessage(Base, WorkspaceScopedMixin):
     )
     role: Mapped[str] = mapped_column(String, nullable=False)  # user | assistant
     content: Mapped[str] = mapped_column(String, nullable=False)
+    # message_type values: text | dashboard
+    message_type: Mapped[str] = mapped_column(String, nullable=False, default="text")
+    dashboard: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     grounded: Mapped[bool] = mapped_column(default=True, nullable=False)
     source: Mapped[str | None] = mapped_column(String, nullable=True)  # tool | llm | refusal
     citations: Mapped[list] = mapped_column(JSON, nullable=False, default=list)

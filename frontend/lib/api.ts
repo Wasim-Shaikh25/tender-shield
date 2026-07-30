@@ -280,6 +280,10 @@ export const api = {
     req<OkResponse>("/auth/account", { method: "DELETE", body: JSON.stringify(body) }, token),
   exportAccount: (token: string) =>
     req<Record<string, unknown>>("/auth/export", {}, token),
+  requestEmailChange: (token: string, new_email: string) =>
+    req<{ ok: boolean; token: string }>("/auth/settings/email", { method: "POST", body: JSON.stringify({ new_email }) }, token),
+  verifyEmailChange: (token: string, code: string) =>
+    req<{ ok: boolean }>("/auth/settings/email/verify", { method: "POST", body: JSON.stringify({ token: code }) }, token),
   // Notification preferences
   getNotificationPreferences: (token: string) =>
     req<NotificationPreferences>("/notifications/preferences", {}, token),
@@ -320,6 +324,13 @@ export const api = {
     req<SupportTicket>("/support/tickets", { method: "POST", body: JSON.stringify(body) }, token),
   replySupportTicket: (token: string, ticket_id: string, body: string) =>
     req<SupportTicketReply>(`/support/tickets/${ticket_id}/replies`, { method: "POST", body: JSON.stringify({ body }) }, token),
+  // Support admin
+  adminListSupportTickets: (token: string, workspace_id: string, category?: string, status?: string) =>
+    req<SupportTicket[]>(`/support/admin/tickets?workspace_id=${encodeURIComponent(workspace_id)}${category ? `&category=${category}` : ""}${status ? `&status=${status}` : ""}`, {}, token),
+  adminGetSupportTicket: (token: string, workspace_id: string, ticket_id: string) =>
+    req<SupportTicket>(`/support/admin/tickets/${ticket_id}?workspace_id=${encodeURIComponent(workspace_id)}`, {}, token),
+  adminSetSupportTicketStatus: (token: string, workspace_id: string, ticket_id: string, status: string) =>
+    req<SupportTicket>(`/support/admin/tickets/${ticket_id}/status?workspace_id=${encodeURIComponent(workspace_id)}`, { method: "POST", body: JSON.stringify({ status }) }, token),
   // Analytics
   riskSummary: (token: string) =>
     req<Record<string, unknown>>("/analytics/risk-summary", {}, token),
@@ -327,11 +338,18 @@ export const api = {
     req<Record<string, unknown>>("/analytics/deadline-dashboard", {}, token),
   boqDefectSummary: (token: string) =>
     req<Record<string, unknown>>("/analytics/boq-defect-summary", {}, token),
-  exportReport: (token: string, format: string, filter: string) => {
+  exportReport: async (token: string, format: string, filter: string) => {
     const form = new FormData();
     form.append("format", format);
     form.append("filter", filter);
-    return req<Blob>("/analytics/reports/export", { method: "POST", body: form, headers: {} }, token);
+    const res = await fetch(`${API_BASE}/analytics/reports/export`, {
+      method: "POST",
+      body: form,
+      credentials: "include",
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    if (!res.ok) throw new Error("Export failed");
+    return res.blob();
   },
 };
 

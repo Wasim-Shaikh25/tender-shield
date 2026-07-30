@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, type AccountSettings } from "@/lib/api";
 import { useSession } from "@/components/session";
@@ -11,6 +12,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<AccountSettings | null>(null);
   const [form, setForm] = useState({ org_name: "", city: "", phone: "", dob: "" });
   const [password, setPassword] = useState({ current: "", new: "", confirm: "" });
+  const [emailChange, setEmailChange] = useState({ new_email: "", token: "", step: "form" as "form" | "verify" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -57,6 +59,42 @@ export default function SettingsPage() {
     }
   };
 
+  const requestEmailChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session) return;
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const r = await api.requestEmailChange(session.token, emailChange.new_email);
+      setEmailChange({ ...emailChange, token: r.token, step: "verify" });
+      setMessage("Verification code sent to new email.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Email change request failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyEmailChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session) return;
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await api.verifyEmailChange(session.token, emailChange.token);
+      setEmailChange({ new_email: "", token: "", step: "form" });
+      const updated = await api.getSettings(session.token);
+      setSettings(updated);
+      setMessage("Email updated.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Email verification failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const changePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!session) return;
@@ -79,6 +117,41 @@ export default function SettingsPage() {
       setError(e instanceof Error ? e.message : "Password change failed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const exportData = async () => {
+    if (!session) return;
+    setError(null);
+    setMessage(null);
+    try {
+      const data = await api.exportAccount(session.token);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "account-export.json";
+      a.click();
+      window.URL.revokeObjectURL(url);
+      setMessage("Account export downloaded.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Export failed");
+    }
+  };
+
+  const deleteAccount = async () => {
+    if (!session) return;
+    const current = prompt("Enter your current password to delete your account:");
+    if (!current) return;
+    if (!confirm("This permanently deletes your account and workspaces. Continue?")) return;
+    setError(null);
+    setMessage(null);
+    try {
+      await api.deleteAccount(session.token, { password: current, confirm: true });
+      signOut();
+      router.push("/login");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Account deletion failed");
     }
   };
 
@@ -155,6 +228,52 @@ export default function SettingsPage() {
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-ink">Notification preferences</h2>
+          <Link href="/settings/notifications" className="text-sm text-indigo-600 hover:underline">Edit preferences</Link>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-6">
+        <h2 className="mb-4 text-lg font-semibold text-ink">Email</h2>
+        {emailChange.step === "form" ? (
+          <form onSubmit={requestEmailChange} className="space-y-4">
+            <div>
+              <label htmlFor="settings-new-email" className="mb-1 block text-sm font-medium text-slate-700">New email</label>
+              <input
+                id="settings-new-email"
+                type="email"
+                value={emailChange.new_email}
+                onChange={(e) => setEmailChange({ ...emailChange, new_email: e.target.value })}
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                required
+              />
+            </div>
+            <button type="submit" disabled={loading} className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+              Request email change
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={verifyEmailChange} className="space-y-4">
+            <p className="text-sm text-slate-600">A verification code was sent to {emailChange.new_email}.</p>
+            <div>
+              <label htmlFor="settings-email-token" className="mb-1 block text-sm font-medium text-slate-700">Verification code</label>
+              <input
+                id="settings-email-token"
+                value={emailChange.token}
+                onChange={(e) => setEmailChange({ ...emailChange, token: e.target.value })}
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                required
+              />
+            </div>
+            <button type="submit" disabled={loading} className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+              Verify new email
+            </button>
+          </form>
+        )}
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-6">
         <h2 className="mb-4 text-lg font-semibold text-ink">Security</h2>
         <form onSubmit={changePassword} className="space-y-4">
           <div>
@@ -201,12 +320,24 @@ export default function SettingsPage() {
           </button>
         </form>
 
-        <div className="mt-6 border-t border-slate-100 pt-4">
+        <div className="mt-6 flex flex-wrap gap-3 border-t border-slate-100 pt-4">
           <button
             onClick={signOut}
             className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             Sign out
+          </button>
+          <button
+            onClick={exportData}
+            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Export account data
+          </button>
+          <button
+            onClick={deleteAccount}
+            className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+          >
+            Delete account
           </button>
         </div>
       </section>

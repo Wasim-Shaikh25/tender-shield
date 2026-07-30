@@ -6,13 +6,34 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
-### In progress — 2026-07-30 (TS-176: close remaining product needs)
+### Done — 2026-07-30 (TS-176: close remaining product needs)
 
 - TS-146 verified as already implemented; backlog status corrected.
-- Notification preferences API: `GET/PUT /api/notifications/preferences` with
-  `email_deadlines`, `sms_deadlines`, `email_digest`, `sms_alerts`, `marketing`,
-  and quiet-hours fields.
-- Added `TS-176` placeholder for the remaining UI/integrations/E2E work.
+- Notification preferences API (`GET/PUT /api/notifications/preferences`) and UI
+  (`/settings/notifications`) with `email_deadlines`, `sms_deadlines`, `email_digest`,
+  `sms_alerts`, `marketing`, and quiet-hours fields.
+- Account settings page now links to notification preferences and exposes
+  account export and deletion.
+- Admin console UI: dashboard KPIs (`/admin`), user search/suspend/delete
+  (`/admin/users`, `/admin/users/[id]`), workspace plan change
+  (`/admin/workspaces/[id]`), audit-log viewer (`/admin/audit-log`), and support
+  ticket queue (`/admin/support`).
+- Billing self-service UI (`/billing/settings`) for GSTIN/PAN/billing address/payment
+  method and subscription cancellation.
+- Support ticket UI: user list/detail/create (`/support/tickets`) and admin
+  management (`/admin/support`).
+- Analytics reports UI (`/analytics`) for risk summary, deadline dashboard,
+  BOQ defect summary, and CSV/XLSX/PDF export.
+- `docker-compose.yml` now includes Postgres, Redis, and MinIO for a complete
+  local production-like stack; `.env.dev` has the matching S3/MinIO examples.
+- Playwright E2E harness added (`frontend/playwright.config.ts`, `e2e/fixtures.ts`,
+  `e2e/golden-path.spec.ts`) covering sign-up, verification, MFA login,
+  workspace creation, opportunity creation, and document upload.
+- Alerting and runbooks: `docs/runbooks/alerting.md`, `docs/runbooks/backup-restore.md`,
+  and `observability/prometheus-alerts.yml`; notifications scheduler now exposes
+  a `deadline_alert_tick_last_success_seconds` gauge.
+- Real provider integrations (OpenRouter, SES/MSG91, Razorpay/Stripe) remain
+  credential-gated and are wired but not activated without keys.
 
 ### Done — 2026-07-30 (TS-170: admin, billing self-service, support tickets, analytics, audit-log search)
 

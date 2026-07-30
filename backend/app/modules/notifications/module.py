@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.db import bind_workspace_context
+from app.core.metrics import set_gauge
 from app.core.module import AppContext, ModuleSpec
 from app.modules.notifications import models  # noqa: F401 - register tables
 from app.modules.notifications.adapters import build_sender
@@ -171,6 +172,7 @@ def setup(ctx: AppContext) -> None:
                         lock.release()
                     except Exception:
                         pass
+                set_gauge("deadline_alert_tick_last_success_seconds", datetime.now(UTC).timestamp())
 
         scheduler.add_job(_deadline_alert_tick, "interval", hours=24)
 

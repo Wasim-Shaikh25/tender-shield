@@ -1053,6 +1053,52 @@ class AuthService:
         self.s.commit()
         return True
 
+    def request_email_change(self, user_id, new_email: str) -> str | None:
+        """Request a change to a new email. Returns a raw token for dev/tests."""
+        user = self.s.get(User, uuid.UUID(str(user_id)))
+        if not user:
+            raise AuthError("no_such_user")
+        new_email = new_email.strip().lower()
+        if new_email == user.email:
+            raise AuthError("same_email")
+        if self.s.scalar(select(User).where(User.email == new_email)):
+            raise AuthError("email_taken")
+        if self.s.scalar(select(User).where(User.pending_email == new_email)):
+            raise AuthError("email_taken")
+        raw = secrets.token_urlsafe(32)
+        user.pending_email = new_email
+        user.pending_email_token_hash = hashlib.sha256(raw.encode()).hexdigest()
+        self.s.commit()
+        if self._sender:
+            self._sender.send(
+                SimpleNamespace(
+                    channel="email",
+                    to=new_email,
+                    subject="Confirm your TenderShield email change",
+                    body=(
+                        "Confirm your new TenderShield email by posting this token:\n\n"
+                        f"{raw}\n\nIt expires in 24 hours."
+                    ),
+                )
+            )
+        return raw
+
+    def verify_email_change(self, token: str) -> bool:
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        user = self.s.scalar(
+            select(User).where(User.pending_email_token_hash == token_hash)
+        )
+        if not user or not user.pending_email:
+            raise AuthError("invalid_verification_token")
+        if self.s.scalar(select(User).where(User.email == user.pending_email)):
+            raise AuthError("email_taken")
+        user.email = user.pending_email
+        user.email_verified = True
+        user.pending_email = None
+        user.pending_email_token_hash = None
+        self.s.commit()
+        return True
+
     def create_mobile_verification(self, user_id, phone: str | None = None) -> str | None:
         """Create a mobile-verification token and send it. Returns the raw token for dev/tests."""
         user = self.s.get(User, uuid.UUID(str(user_id)))

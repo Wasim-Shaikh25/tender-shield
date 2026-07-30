@@ -134,6 +134,9 @@ application-owner endpoints under `/api/auth/admin/*`.
 - **B27 — Admin dashboard KPIs:** `GET /api/auth/admin/dashboard` returns counts of
   total users, suspended users, active workspaces, pending verifications, and
   recent sign-ups (last 30 days).
+- **B28 — Email change with verification:** `POST /api/auth/settings/email` requests a
+  change to a new email and sends a verification token. `POST /api/auth/settings/email/verify`
+  confirms the change and updates the user's email. Duplicate emails are rejected.
 
 ## Acceptance criteria
 

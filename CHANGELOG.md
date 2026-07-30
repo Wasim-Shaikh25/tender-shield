@@ -6,6 +6,13 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Next
+
+- TS-097 — RLS structural fix (PostgreSQL `FORCE`, `WITH CHECK`, membership tables, CI).
+- TS-125 — Rulepack QS validation / beta-disclaimer flag for unvalidated patterns.
+- TS-103, TS-106, TS-107, TS-108, TS-109, TS-133..TS-162 — remaining medium/low audit
+  follow-ups.
+
 ### Done — 2026-07-29 (TS-132: 61-finding implementation tracker)
 
 - Generated `tasks/audit_fix_tracker.md` mapping every `TS-*` finding to its requirement,

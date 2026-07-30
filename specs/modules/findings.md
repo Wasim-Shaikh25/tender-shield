@@ -44,6 +44,7 @@ Columns:
   `false_positive` | `needs_clarification`)
 - `review_note`, `review_reason`, `reviewed_by`
 - `explanation` (JSON, for `risk_clause` explainability)
+- `disclaimer` (nullable string; e.g. beta/unvalidated pattern warning)
 
 ## Behavior
 
@@ -59,6 +60,9 @@ Columns:
   module mutates these columns.
 - **B5 — Severity sort:** Listing defaults to severity descending
   (`critical` → `info`).
+- **B6 — Beta disclaimer:** `risk` producers set `disclaimer` on findings generated
+  from `unvalidated` rule-patterns when the workspace is allowed to see them
+  (free workspace, or paying workspace with `TS_BETA_UNVALIDATED=true`).
 
 ## Acceptance criteria
 

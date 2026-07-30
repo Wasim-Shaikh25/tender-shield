@@ -32,7 +32,9 @@ citable references, and golden tests. Launch pack: `in-works` (India works).
   unvalidated|validated`, `default_playbook` (`acceptable` / `flag_when`),
   anchor queries, and judgment-prompt spec (Doc §14.1 example).
 - **B2 (validation state):** only `validated` patterns are shown to paying users
-  as reliable; `unvalidated` are hidden or badged "beta — unverified" (Doc §14.3).
+  as reliable unless `TS_BETA_UNVALIDATED=true` is set; `unvalidated` patterns are
+  hidden by default from paying workspaces, or shown with a clear `disclaimer`
+  when the beta flag is enabled (Doc §14.3).
 - **B3 (versioning):** packs carry `effective_from/to`; generated artifacts embed
   `pack: <id>@<version>`; findings store `pattern_id` + `pattern_version` (Doc §2.4).
 - **B4 (governance):** every pack change = PR + golden-tender tests + named

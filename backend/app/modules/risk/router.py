@@ -18,6 +18,7 @@ def _service(request: Request, session: Session) -> RiskService:
         classifier=reg.get("risk.classifier"),
         store_factory=reg.get("findings.store_factory"),
         workspace_factory=reg.get("auth.workspace_factory"),
+        settings=request.app.state.ctx.settings,
     )
 
 
@@ -43,6 +44,7 @@ def run(
                 "source_page": f.source_page,
                 "source_quote": f.source_quote,
                 "pattern_id": f.pattern_id,
+                "disclaimer": f.disclaimer,
                 "explanation": f.explanation,
             }
             for f in findings

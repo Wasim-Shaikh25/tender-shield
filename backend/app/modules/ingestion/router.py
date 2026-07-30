@@ -299,7 +299,9 @@ def confirm_deadline(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("estimator")),
 ):
-    dl = _service(request, session).confirm_deadline(principal.workspace_id, deadline_id)
+    dl = _service(request, session).confirm_deadline(
+        principal.workspace_id, opportunity_id, deadline_id
+    )
     if not dl:
         raise HTTPException(404, "not_found")
     return {"id": str(dl.id), "confirmed": dl.confirmed}

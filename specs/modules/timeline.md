@@ -38,14 +38,16 @@ None; the module is a read-only view over ingestion's `deadlines` and `opportuni
 - **B4 (provenance):** every event carries `source_page`, `source_quote`, and
   `confirmed`; synthetic events are marked `source: "synthetic"`.
 - **B5 (export):** the `.ics` endpoint produces a valid iCalendar 2.0 file of
-  all dated events for the opportunity.
+  all dated events for the opportunity. All `DTSTART` values are converted to UTC
+  and emitted with a `Z` suffix; naive datetimes are treated as UTC so local time
+  is never mixed into the export.
 
 ## Acceptance criteria
 
 - A1: `GET /api/timeline/opportunities/{id}/timeline` returns at least the 9 required
   milestone kinds when matching text is present in the tender pack.
 - A2: undated events do not break sorting or export.
-- A3: iCal export contains one `VEVENT` per dated milestone.
+- A3: iCal export contains one `VEVENT` per dated milestone and every `DTSTART` ends with `Z` and represents UTC.
 
 ## Out of scope
 

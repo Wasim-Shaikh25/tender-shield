@@ -56,6 +56,9 @@ provenance and deterministic severity.
   patterns by `validated_only=True` when the workspace plan is `pro`, `scale`,
   `paygo`, or `internal`. Free/internal demo workspaces may include unvalidated
   patterns with a visible confidence badge.
+- **B9 (classifier robustness):** `AnthropicClassifier` extracts only the JSON
+  array from the response, validates each row against a strict schema, drops malformed
+  rows, and fails closed (returns empty list) on any parse or network error.
 
 ## Acceptance criteria
 
@@ -68,6 +71,8 @@ provenance and deterministic severity.
 - A6: `AnthropicClassifier` uses a valid, current Anthropic model identifier.
 - A7: `severity.evaluate_severity` fails safe on missing facts and never silently
   treats an absent fact as `0`/`False`.
+- A8: `AnthropicClassifier` rejects non-array or schema-invalid LLM output and
+  returns an empty classification list without raising.
 
 ## Out of scope
 

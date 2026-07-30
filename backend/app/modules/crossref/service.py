@@ -28,8 +28,13 @@ class CrossRefService:
         if not query_tokens:
             return []
 
-        docs = {str(d.id): d for d in svc.list_documents(workspace_id, opportunity_id)}
-        clauses = svc.list_clauses(workspace_id, opportunity_id)
+        # Fetch a bounded candidate set from the DB; score in memory and return top `limit`.
+        candidate_limit = min(max(limit * 10, 100), 1000)
+        docs = {
+            str(d.id): d
+            for d in svc.list_documents(workspace_id, opportunity_id, limit=candidate_limit)
+        }
+        clauses = svc.list_clauses(workspace_id, opportunity_id, limit=candidate_limit)
 
         scored = []
         for c in clauses:

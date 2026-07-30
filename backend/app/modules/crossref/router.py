@@ -25,6 +25,11 @@ def search(
 ):
     if not q.strip():
         raise HTTPException(422, "query_required")
+    # Avoid unbounded search payloads.
+    if limit < 1:
+        limit = 1
+    if limit > 100:
+        limit = 100
     return {
         "query": q,
         "results": _service(request, session).search(

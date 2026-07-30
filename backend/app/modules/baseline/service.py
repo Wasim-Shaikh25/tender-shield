@@ -12,7 +12,7 @@ import json
 import uuid
 from collections.abc import Callable
 
-from sqlalchemy import func, select
+from sqlalchemy import func, insert, select
 from sqlalchemy.orm import Session
 
 from app.modules.baseline.models import AwardDocument, Baseline
@@ -336,25 +336,28 @@ class BaselineService:
         self._gate_ok(workspace_id, opportunity_id)
         snapshot = self._build_snapshot(workspace_id, opportunity_id, source)
         opp = uuid.UUID(str(opportunity_id))
-        next_version = (
-            self.s.scalar(
-                select(func.coalesce(func.max(Baseline.version), 0)).where(
-                    Baseline.opportunity_id == opp
-                )
+        # Compute the next version atomically inside the insert so concurrent
+        # freezes cannot race on the same opportunity.
+        next_version_expr = (
+            select(func.coalesce(func.max(Baseline.version), 0) + 1)
+            .where(Baseline.opportunity_id == opp)
+            .scalar_subquery()
+        )
+        stmt = (
+            insert(Baseline)
+            .values(
+                workspace_id=uuid.UUID(str(workspace_id)),
+                opportunity_id=opp,
+                version=next_version_expr,
+                source=source,
+                content_sha256=self._hash(snapshot),
+                snapshot=snapshot,
+                note=note,
+                sealed_by=uuid.UUID(str(sealer_id)) if sealer_id else None,
             )
-            + 1
+            .returning(Baseline)
         )
-        row = Baseline(
-            workspace_id=uuid.UUID(str(workspace_id)),
-            opportunity_id=opp,
-            version=next_version,
-            source=source,
-            content_sha256=self._hash(snapshot),
-            snapshot=snapshot,
-            note=note,
-            sealed_by=uuid.UUID(str(sealer_id)) if sealer_id else None,
-        )
-        self.s.add(row)
+        row = self.s.scalars(stmt).one()
         self.s.commit()
         # Audit the seal through the review module's append-only log if present.
         if self._review_factory is not None:
@@ -364,14 +367,14 @@ class BaselineService:
                 action="baseline.sealed",
                 object_type="baseline",
                 object_id=row.id,
-                detail={"version": next_version, "source": source, "hash": row.content_sha256},
+                detail={"version": row.version, "source": source, "hash": row.content_sha256},
             )
         self._publish(
             "baseline.sealed",
             {
                 "opportunity_id": str(opp),
                 "baseline_id": str(row.id),
-                "version": next_version,
+                "version": row.version,
                 "source": source,
             },
         )

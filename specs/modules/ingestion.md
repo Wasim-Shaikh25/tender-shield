@@ -81,6 +81,9 @@ document is re-registered or re-uploaded.
   rejected as unsupported.
 - **B10 (resumable upload):** tus endpoints support creation, PATCH chunking, and HEAD offset queries; completed uploads are validated, stored, and processed identically to multipart uploads.
 - **B11 (async extraction):** `?async=1` creates a pending document and enqueues a Celery task; the SSE endpoint streams `PROGRESS`/`done`/`error` events, sleeps between polls, stops on client disconnect, and has a hard timeout. Celery falls back to eager execution when Redis is not configured.
+- **B12 (deadline scoping):** `POST /opportunities/{id}/deadlines/{deadline_id}/confirm`
+  verifies that the deadline belongs to the opportunity in the URL path; a mismatch
+  returns 404.
 
 ## Acceptance criteria
 
@@ -92,6 +95,7 @@ document is re-registered or re-uploaded.
 - A6: S3-backed storage with `moto` stores files under the workspace prefix.
 - A7: SSE stream stops on client disconnect, polls with a sleep, and times out after
   a bounded interval.
+- A8: confirming a deadline for a different `opportunity_id` returns 404.
 
 ## Out of scope
 

@@ -65,8 +65,15 @@ class ComparisonService:
         submission_due = self._submission_due(workspace_id, opportunity_id)
         days_to_submission = None
         if submission_due:
-            ref = datetime.now(UTC) if submission_due.tzinfo else datetime.now()
-            delta = submission_due - ref
+            # Treat naive datetimes as UTC so the calculation is deterministic and
+            # never mixes in the server's local time.
+            ref = datetime.now(UTC)
+            due = (
+                submission_due
+                if submission_due.tzinfo
+                else submission_due.replace(tzinfo=UTC)
+            )
+            delta = due - ref
             days_to_submission = max(0, delta.days)
 
         risk = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}

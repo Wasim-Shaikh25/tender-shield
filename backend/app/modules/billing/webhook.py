@@ -31,7 +31,12 @@ def verify_signature(raw_body: bytes, signature: str, secret: str | SecretStr | 
 def verify_stripe_signature(
     raw_body: bytes, signature: str, secret: str | SecretStr | None
 ) -> dict | None:
-    """Verify a Stripe webhook signature and return the event dict, or None."""
+    """Verify a Stripe webhook signature and return the event dict, or None.
+
+    Only `SignatureVerificationError` (bad signature) and `ValueError` (malformed
+    payload) are swallowed; all other exceptions are allowed to propagate so SDK or
+    runtime errors do not silently fail as a bad signature.
+    """
     secret_value = _secret_to_bytes(secret).decode() if secret else ""
     if not signature or not secret_value:
         return None
@@ -43,6 +48,7 @@ def verify_stripe_signature(
             sig_header=signature,
             secret=secret_value,
         )
-    except Exception as exc:
-        logger.exception("stripe webhook verification failed: %s", exc)
+    except stripe.error.SignatureVerificationError:
+        return None
+    except ValueError:
         return None

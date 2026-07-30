@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import func, insert, select
 from sqlalchemy.orm import Session
 
 from app.modules.drafting.generator import build_body, render_text
@@ -134,23 +134,26 @@ class DraftingService:
         validate(render_text(body), FactTable.from_findings(findings))
 
         opp = uuid.UUID(str(opportunity_id))
-        next_version = (
-            self.s.scalar(
-                select(func.coalesce(func.max(Artifact.version), 0)).where(
-                    Artifact.opportunity_id == opp, Artifact.kind == kind
-                )
+        # Compute the next version atomically inside the insert so concurrent
+        # artifact generations cannot race on the same (opportunity_id, kind) pair.
+        next_version_expr = (
+            select(func.coalesce(func.max(Artifact.version), 0) + 1)
+            .where(Artifact.opportunity_id == opp, Artifact.kind == kind)
+            .scalar_subquery()
+        )
+        stmt = (
+            insert(Artifact)
+            .values(
+                workspace_id=uuid.UUID(str(workspace_id)),
+                opportunity_id=opp,
+                kind=kind,
+                version=next_version_expr,
+                body=body,
+                model_meta={"generator": "deterministic", "findings": len(findings)},
             )
-            + 1
+            .returning(Artifact)
         )
-        artifact = Artifact(
-            workspace_id=uuid.UUID(str(workspace_id)),
-            opportunity_id=opp,
-            kind=kind,
-            version=next_version,
-            body=body,
-            model_meta={"generator": "deterministic", "findings": len(findings)},
-        )
-        self.s.add(artifact)
+        artifact = self.s.scalars(stmt).one()
         self.s.commit()
         return artifact
 

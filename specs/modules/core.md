@@ -60,9 +60,11 @@ None (core owns no business tables).
 - **B4 (discovery):** modules are discovered from `app/modules/*` packages
   containing `module.py`; explicit `TS_ENABLED_MODULES` wins over discovery.
 - **B5 (production startup guard):** `create_app` raises if `TS_ENV=prod` and
-  required secrets (`TS_RAZORPAY_WEBHOOK_SECRET`, JWT keys) are missing or if
-  any CORS origin or allowed host is a wildcard (`*` ), including values hidden in
-  a comma-separated list.
+  required secrets (JWT keys, Redis, notification sender, at least one payment
+  provider with its webhook secret) are missing or invalid. It also rejects
+  wildcard CORS/allowed-hosts, malformed JWT keypairs, weak placeholder webhook
+  secrets, `SameSite=None` without Secure cookies, and unknown `TS_COOKIE_SAMESITE`
+  values.
 - **B6 (security headers):** every HTTP response carries `X-Content-Type-Options`,
   `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and CSP.
 - **B7 (rate limiting):** public routes can declare per-IP limits; storage is

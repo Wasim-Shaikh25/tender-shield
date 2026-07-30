@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import JSON, ForeignKey, Integer, Numeric, String, Uuid
+from sqlalchemy import JSON, Integer, Numeric, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base, WorkspaceScopedMixin
@@ -15,9 +15,7 @@ from app.core.db import Base, WorkspaceScopedMixin
 class FindingRow(Base, WorkspaceScopedMixin):
     _tablename_ = "findings"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    opportunity_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("opportunities.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    opportunity_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
     # `producer` scopes idempotent re-runs (a risk re-run replaces only risk rows).
     producer: Mapped[str] = mapped_column(String, nullable=False, index=True)
     kind: Mapped[str] = mapped_column(String, nullable=False)

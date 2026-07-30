@@ -6,6 +6,9 @@ module. This test is the architecture; do not weaken it.
 import ast
 from pathlib import Path
 
+import app.modules.findings.models  # noqa: F401 - ensure Base registers the table
+from app.modules.findings.models import FindingRow
+
 MODULES_DIR = Path(__file__).resolve().parents[1] / "app" / "modules"
 
 
@@ -31,3 +34,9 @@ def test_no_cross_module_imports():
                 ):
                     violations.append(f"{py.relative_to(MODULES_DIR.parent)}: imports {imported}")
     assert not violations, "hard cross-module dependencies found:\n" + "\n".join(violations)
+
+
+def test_findings_opportunity_id_has_no_foreign_key():
+    """TS-114: findings.opportunity_id must not be a ForeignKey into another module's table."""
+    fks = {fk.column.table.name for fk in FindingRow.__table__.foreign_keys}
+    assert "opportunities" not in fks, "findings.opportunity_id still references opportunities.id"

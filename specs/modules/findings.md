@@ -2,7 +2,7 @@
 
 **Status:** implemented
 **Requirement refs:** Doc §3.2, §6.3, §6.4, §11.4
-**Task refs:** TS-017, TS-018, TS-049, TS-054, TS-055, TS-056
+**Task refs:** TS-017, TS-018, TS-049, TS-054, TS-055, TS-056, TS-114
 
 ## Purpose
 
@@ -63,6 +63,9 @@ Columns:
 - **B6 — Beta disclaimer:** `risk` producers set `disclaimer` on findings generated
   from `unvalidated` rule-patterns when the workspace is allowed to see them
   (free workspace, or paying workspace with `TS_BETA_UNVALIDATED=true`).
+- **B7 — No cross-module FKs:** `findings.opportunity_id` is a plain `Uuid` column;
+  it is not declared as a `ForeignKey` to `opportunities` (or any other module-owned
+  table). The store enforces opportunity scoping in code and via RLS.
 
 ## Acceptance criteria
 
@@ -72,6 +75,8 @@ Columns:
   its review state after a re-run of a different producer.
 - A3: `GET /api/findings/opportunities/{id}` returns only findings for the
   caller's org.
+- A4: `FindingRow.opportunity_id` has no `ForeignKey` to `opportunities` and the
+  metadata architecture test asserts this.
 
 ## Out of scope
 

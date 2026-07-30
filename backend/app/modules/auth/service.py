@@ -1395,15 +1395,19 @@ class AuthService:
         }
 
     def _user_detail(self, user: User) -> dict:
-        workspaces = [
-            {"workspace_id": str(w.id), "name": w.name, "role": "owner"}
-            for w in self.s.scalars(select(Workspace).where(Workspace.owner_id == user.id))
-        ]
+        seen: set[uuid.UUID] = set()
+        workspaces = []
+        for w in self.s.scalars(select(Workspace).where(Workspace.owner_id == user.id)):
+            seen.add(w.id)
+            workspaces.append({"workspace_id": str(w.id), "name": w.name, "role": "owner"})
         for m in self.s.scalars(
             select(WorkspaceMember).where(WorkspaceMember.user_id == user.id)
         ):
+            if m.workspace_id in seen:
+                continue
             ws = self.s.get(Workspace, m.workspace_id)
             if ws:
+                seen.add(ws.id)
                 workspaces.append(
                     {"workspace_id": str(ws.id), "name": ws.name, "role": m.role}
                 )

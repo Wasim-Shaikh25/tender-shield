@@ -6,6 +6,39 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-30 (TS-186/187/188: AI assistant scoping, Office MCP, and dynamic plan dashboard)
+
+- **TS-186**: Scoped the AI assistant to the logged-in user's account/workspace.
+  - Assistant system prompt now includes `user_id`, `workspace_id`, and `role` and
+    refuses cross-tenant queries.
+  - `AssistantService` re-binds the workspace context and defends in depth with a
+    workspace membership check when the auth capability is available.
+  - Added `POST /api/assistant/admin/chat` (super-admin only), audit-logged, which
+    answers a specific `workspace_id`/`opportunity_id` without persisting a session.
+  - Updated `specs/modules/assistant.md` with user-bound sessions, identity-in-prompt,
+    and admin-mode acceptance criteria.
+- **TS-187**: Added a standalone Microsoft Office MCP server for QS engineers.
+  - `mcp-servers/office-mcp/` exposes tools to read `.docx`/`.xlsx`, append comments
+    to Word, append rows to Excel, and create summary Word documents.
+  - Added `specs/modules/mcp-office.md` and `docs/integrations/office-mcp.md`.
+- **TS-188**: Built an AI-generated dynamic tender plan dashboard.
+  - `POST /api/analytics/plan` accepts a natural-language query and returns structured
+    JSON (KPI, table, chart, Mermaid diagram, or text sections).
+  - `PlanDashboardAgent` grounds the response in workspace facts (findings, deadlines,
+    documents) and validates section shapes, falling back to a safe text section.
+  - New `/plan` page in the frontend renders the structured dashboard with `recharts`
+    charts and `mermaid` diagrams.
+  - Added `specs/modules/plan-dashboard.md`.
+
+### Next
+
+- TS-189 — add backend tests and audit-log verification for assistant user scoping,
+  admin chat mode, and plan dashboard generation.
+- TS-190 — integrate the Office MCP server with the TenderShield API so QS engineers
+  can pull opportunities/findings directly into Word/Excel.
+- TS-191 — add `/plan` dashboard templates, saved snapshots, and export to
+  PowerPoint/PDF.
+
 ### Done — 2026-07-30 (TS-185: billing usage/payments/invoices belong to user account, not workspace)
 
 - Moved `billing_provider` and `billing_settings` from `workspaces` to `users`.

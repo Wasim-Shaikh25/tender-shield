@@ -343,6 +343,8 @@ export const api = {
     req<Record<string, unknown>>("/analytics/deadline-dashboard", {}, token),
   boqDefectSummary: (token: string) =>
     req<Record<string, unknown>>("/analytics/boq-defect-summary", {}, token),
+  planDashboard: (token: string, opportunity_id: string, query: string) =>
+    req<Record<string, unknown>>("/analytics/plan", { method: "POST", body: JSON.stringify({ opportunity_id, query }) }, token),
   exportReport: async (token: string, format: string, filter: string) => {
     const params = new URLSearchParams({ format, filter });
     const res = await fetch(`${API_BASE}/analytics/reports/export?${params.toString()}`, {

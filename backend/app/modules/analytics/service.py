@@ -8,11 +8,14 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 from collections import Counter, defaultdict
 from collections.abc import Callable
 from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
+
+from app.modules.analytics.plan_agent import PlanDashboardAgent
 
 _STATUSES = {"proposed", "accepted", "edited", "rejected", "false_positive", "needs_clarification"}
 
@@ -221,6 +224,100 @@ class AnalyticsService:
             for trade in trades:
                 by_trade[trade][category] += 1
         return {"total": len(boq), "by_trade": {k: dict(v) for k, v in by_trade.items()}}
+
+    def plan_dashboard(
+        self,
+        workspace_id,
+        opportunity_id,
+        query: str,
+        *,
+        identity: dict | None = None,
+        agent: PlanDashboardAgent | None = None,
+    ) -> dict:
+        """Generate an AI-structured dashboard for a tender/opportunity.
+
+        All facts are pulled deterministically from the workspace; the LLM only
+        decides how to visualize and summarize.
+        """
+        context = self._plan_context(workspace_id, opportunity_id)
+        if agent is None:
+            return {
+                "title": "Dashboard (no model)",
+                "summary": "Set TS_OPENROUTER_API_KEY to enable AI-generated visualizations.",
+                "sections": [
+                    {
+                        "type": "text",
+                        "title": "Facts",
+                        "data": {"content": json.dumps(context, default=str, indent=2)},
+                    }
+                ],
+                "citations": [],
+            }
+        return agent.generate(query, context, identity=identity)
+
+    def _plan_context(self, workspace_id, opportunity_id) -> dict:
+        opp = None
+        if self._ingestion_factory:
+            ing = self._ingestion_factory(self.s)
+            if hasattr(ing, "get_opportunity"):
+                opp = ing.get_opportunity(workspace_id, opportunity_id)
+
+        deadlines: list = []
+        docs: list = []
+        if self._ingestion_factory:
+            ing = self._ingestion_factory(self.s)
+            if hasattr(ing, "list_deadlines"):
+                deadlines = [
+                    {
+                        "kind": d.kind,
+                        "due_at": d.due_at.isoformat() if d.due_at else None,
+                        "page": d.source_page,
+                        "confirmed": getattr(d, "confirmed", False),
+                    }
+                    for d in ing.list_deadlines(workspace_id, opportunity_id)
+                ]
+            if hasattr(ing, "list_documents"):
+                docs = [
+                    {
+                        "filename": d.filename,
+                        "kind": getattr(d, "kind", "other"),
+                        "pages": getattr(d, "pages", None),
+                    }
+                    for d in ing.list_documents(workspace_id, opportunity_id)
+                ]
+
+        findings: list = []
+        if self._findings_factory:
+            find = self._findings_factory(self.s)
+            if hasattr(find, "list"):
+                findings = [
+                    {
+                        "severity": getattr(f, "severity", "unknown"),
+                        "category": getattr(f, "category", "unknown"),
+                        "title": getattr(f, "title", ""),
+                        "producer": getattr(f, "producer", "unknown"),
+                        "page": getattr(f, "source_page", None),
+                        "amount_exposure": getattr(f, "amount_exposure", 0) or 0,
+                    }
+                    for f in find.list(workspace_id, opportunity_id)
+                ]
+
+        by_severity: Counter = Counter(f["severity"] for f in findings)
+        by_category: Counter = Counter(f["category"] for f in findings)
+        total_exposure = sum(f["amount_exposure"] for f in findings)
+
+        return {
+            "opportunity_title": getattr(opp, "title", None) if opp else None,
+            "risk_summary": {
+                "total": len(findings),
+                "by_severity": dict(by_severity),
+                "by_category": dict(by_category),
+                "total_exposure_minor": total_exposure,
+            },
+            "deadlines": deadlines,
+            "documents": docs,
+            "sample_findings": findings[:20],
+        }
 
     def export_report(self, workspace_id, filter_type: str, format: str) -> dict:
         if filter_type == "risk":

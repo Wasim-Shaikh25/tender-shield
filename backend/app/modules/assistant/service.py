@@ -12,12 +12,16 @@ TS-069 adds conversation/session persistence and an SSE `/chat` stream endpoint.
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 
 from sqlalchemy import select
 
+from app.core.db import bind_workspace_context
 from app.modules.assistant import tools
 from app.modules.assistant.models import ChatMessage, ChatSession
+
+logger = logging.getLogger(__name__)
 
 _SEVERITIES = {"critical", "high", "medium", "low"}
 _REFUSAL = (
@@ -36,12 +40,49 @@ class AssistantService:
         findings_factory=None,
         loader=None,
         agent=None,
+        workspace_factory=None,
     ):
         self.s = session
         self._ing = ingestion_factory
         self._find = findings_factory
         self._loader = loader
         self._agent = agent
+        self._workspace_factory = workspace_factory
+
+    # ---- workspace binding & access checks ---------------------------------
+    def _bind_workspace(self, workspace_id, user_id=None) -> None:
+        """Re-bind the RLS GUC to the requested workspace (admin mode needs this)."""
+        try:
+            bind_workspace_context(self.s, workspace_id, user_id=user_id)
+        except Exception:
+            logger.exception("Failed to bind workspace context")
+
+    def _can_access(self, workspace_id, user_id) -> bool:
+        """Defence-in-depth membership check when auth capability is available."""
+        if self._workspace_factory is None:
+            return True  # graceful fallback: rely on RLS + principal
+        try:
+            admin = self._workspace_factory(self.s)
+            ws = admin.get(workspace_id)
+            if ws is None:
+                return False
+            if str(ws.owner_id) == str(user_id):
+                return True
+            return any(
+                str(m["user_id"]) == str(user_id)
+                for m in admin.list_members(workspace_id)
+            )
+        except Exception:
+            logger.exception("workspace access check failed")
+            return False
+
+    def _identity(self, user_id, workspace_id, role, is_superadmin=False) -> dict:
+        return {
+            "user_id": str(user_id),
+            "workspace_id": str(workspace_id),
+            "role": role,
+            "is_superadmin": bool(is_superadmin),
+        }
 
     # ---- sessions & history ------------------------------------------------
     def create_session(self, workspace_id, opportunity_id, title: str | None = None) -> ChatSession:
@@ -94,7 +135,15 @@ class AssistantService:
         self.s.commit()
         return msg
 
-    def answer_and_store(self, workspace_id, session_id, opportunity_id, message: str) -> dict:
+    def answer_and_store(
+        self,
+        workspace_id,
+        session_id,
+        opportunity_id,
+        message: str,
+        *,
+        identity: dict | None = None,
+    ) -> dict:
         user_msg = ChatMessage(
             workspace_id=uuid.UUID(str(workspace_id)),
             session_id=uuid.UUID(str(session_id)),
@@ -105,11 +154,19 @@ class AssistantService:
         )
         self.s.add(user_msg)
         self.s.commit()
-        answer = self.answer(workspace_id, opportunity_id, message)
+        answer = self.answer(workspace_id, opportunity_id, message, identity=identity)
         self._add_message(workspace_id, session_id, "assistant", answer)
         return answer
 
-    def answer_stream(self, workspace_id, session_id, opportunity_id, message: str):
+    def answer_stream(
+        self,
+        workspace_id,
+        session_id,
+        opportunity_id,
+        message: str,
+        *,
+        identity: dict | None = None,
+    ):
         """Generator of SSE `data:` lines for the chat response."""
         user_msg = ChatMessage(
             workspace_id=uuid.UUID(str(workspace_id)),
@@ -122,7 +179,7 @@ class AssistantService:
         self.s.add(user_msg)
         self.s.commit()
 
-        answer = self.answer(workspace_id, opportunity_id, message)
+        answer = self.answer(workspace_id, opportunity_id, message, identity=identity)
         payload = json.dumps(answer)
         yield f"data: {payload}\n\n"
 
@@ -130,7 +187,19 @@ class AssistantService:
         yield "event: done\ndata: {}\n\n"
 
     # ---- answer logic ------------------------------------------------------
-    def answer(self, workspace_id, opportunity_id, message: str) -> dict:
+    def answer(
+        self,
+        workspace_id,
+        opportunity_id,
+        message: str,
+        *,
+        identity: dict | None = None,
+    ) -> dict:
+        self._bind_workspace(workspace_id, user_id=identity.get("user_id") if identity else None)
+        if identity and not identity.get("is_superadmin"):
+            if not self._can_access(workspace_id, identity["user_id"]):
+                return {"answer": _REFUSAL, "grounded": True, "source": "refusal"}
+
         m = message.lower()
 
         if any(w in m for w in ("deadline", "due", "submission", "pre-bid", "clarification cut")):
@@ -161,9 +230,25 @@ class AssistantService:
                 "deadlines": tools.list_deadlines(self._ing, self.s, workspace_id, opportunity_id),
                 "findings": tools.filter_findings(self._find, self.s, workspace_id, opportunity_id),
             }
-            reply = self._agent.answer(message, context)
+            reply = self._agent.answer(message, context, identity=identity)
             return {"answer": reply, "grounded": True, "source": "llm"}
         return {"answer": _REFUSAL, "grounded": True, "source": "refusal"}
+
+    def admin_answer(
+        self,
+        workspace_id,
+        opportunity_id,
+        message: str,
+        *,
+        identity: dict,
+    ) -> dict:
+        """Super-admin research mode: rebind to the requested workspace and answer.
+
+        The caller is already verified as super-admin by the router; this method
+        just ensures the database context matches the explicit workspace.
+        """
+        self._bind_workspace(workspace_id, user_id=identity.get("user_id"))
+        return self.answer(workspace_id, opportunity_id, message, identity=identity)
 
     # ---- deterministic intent handlers -------------------------------------
     def _deadlines(self, workspace_id, opportunity_id) -> dict:

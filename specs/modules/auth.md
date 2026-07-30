@@ -103,6 +103,8 @@ endpoints under `/api/auth/admin/*`.
   verification token.
 - A16: `POST /api/auth/workspaces/{id}/switch` rotates the refresh token and persists the new
   refresh-token row before returning tokens.
+- A17: Google OIDC login links a verified Google email to an existing password account instead of
+  raising an `IntegrityError`/500; unverified accounts are rejected.
 
 ## Out of scope
 

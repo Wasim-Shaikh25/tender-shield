@@ -191,6 +191,7 @@ _STATUS = {
     "invalid_refresh": 401,
     "reuse_detected": 401,
     "no_workspace": 401,
+    "email_not_verified": 403,
     "no_such_user": 400,
     "no_such_project": 400,
     "bad_role": 400,

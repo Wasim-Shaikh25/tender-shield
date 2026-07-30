@@ -43,6 +43,12 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   persisted.
 - Added `specs/modules/auth.md` acceptance criterion A16.
 
+### Done — 2026-07-29 (TS-100: Google account linking on existing email)
+
+- `AuthService.google_login` now looks up an existing user by verified email and
+  links the `google_sub` instead of crashing with an `IntegrityError`/500.
+- Added `email_not_verified` error mapping and `specs/modules/auth.md` A17.
+
 ### Done — 2026-07-29 (TS-094: end-to-end production readiness audit)
 
 - **TS-094** — Full end-to-end production readiness audit of trunk

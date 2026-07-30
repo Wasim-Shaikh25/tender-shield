@@ -106,18 +106,29 @@ class AuthService:
             raise AuthError("google_email_missing")
         user = self.s.scalar(select(User).where(User.google_sub == google_sub))
         if not user:
-            # First Google sign-in: create user and a personal workspace.
-            user = User(
-                email=email,
-                google_sub=google_sub,
-                email_verified=claims.get("email_verified", False),
-            )
-            self.s.add(user)
-            self.s.flush()
-            workspace = Workspace(owner_id=user.id, name="Personal", country="IN")
-            self.s.add(workspace)
-            self.s.flush()
-            self.s.add(WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role="owner"))
+            # Account linking: a verified Google email may belong to an existing password user.
+            existing = self.s.scalar(select(User).where(User.email == email))
+            if existing:
+                if not (claims.get("email_verified") or existing.email_verified):
+                    raise AuthError("email_not_verified")
+                user = existing
+                user.google_sub = google_sub
+                user.email_verified = True
+            else:
+                # First Google sign-in: create user and a personal workspace.
+                user = User(
+                    email=email,
+                    google_sub=google_sub,
+                    email_verified=claims.get("email_verified", False),
+                )
+                self.s.add(user)
+                self.s.flush()
+                workspace = Workspace(owner_id=user.id, name="Personal", country="IN")
+                self.s.add(workspace)
+                self.s.flush()
+                self.s.add(
+                    WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role="owner")
+                )
         else:
             user.email_verified = claims.get("email_verified", False)
         self.s.commit()

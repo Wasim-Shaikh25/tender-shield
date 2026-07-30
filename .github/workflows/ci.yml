@@ -36,6 +36,42 @@ jobs:
           alembic upgrade head
           alembic downgrade base
 
+  rls-postgres:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tendershield
+          POSTGRES_PASSWORD: tendershield
+          POSTGRES_DB: tendershield
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install
+        run: pip install -e ".[dev,storage,redis,billing,scheduler,celery,auth]"
+      - name: Migrate
+        env:
+          TS_DATABASE_URL: postgresql+psycopg://tendershield:tendershield@localhost/tendershield
+        run: alembic upgrade head
+      - name: RLS tests
+        env:
+          TS_DATABASE_URL: postgresql+psycopg://tendershield:tendershield@localhost/tendershield
+        run: pytest tests/test_rls_postgres.py -q
+
   frontend:
     runs-on: ubuntu-latest
     defaults:

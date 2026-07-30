@@ -11,7 +11,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.db import Base, WorkspaceScopedMixin
+from app.core.db import WORKSPACE_SCOPED_TABLES, Base, WorkspaceScopedMixin
 
 COUNTRIES = ("IN", "AE", "SA", "QA", "GB")
 
@@ -87,6 +87,12 @@ class WorkspaceMember(Base):
         Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
     role: Mapped[str] = mapped_column(String, nullable=False)
+
+
+# Register membership tables for RLS even though they do not use WorkspaceScopedMixin
+# (they have composite primary keys and cannot inherit the simple workspace_id column).
+WORKSPACE_SCOPED_TABLES.add("workspace_members")
+WORKSPACE_SCOPED_TABLES.add("project_members")
 
 
 class Project(Base, WorkspaceScopedMixin):

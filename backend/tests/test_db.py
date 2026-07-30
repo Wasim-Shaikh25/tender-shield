@@ -24,13 +24,17 @@ class _SampleRow(Base, WorkspaceScopedMixin, TimestampMixin):
 
 def test_org_scoped_table_registered_for_rls():
     assert "sample_rows" in WORKSPACE_SCOPED_TABLES
+    assert "workspace_members" in WORKSPACE_SCOPED_TABLES
+    assert "project_members" in WORKSPACE_SCOPED_TABLES
 
 
 def test_rls_statements_shape():
     stmts = rls_statements("findings")
     assert stmts[0] == "ALTER TABLE findings ENABLE ROW LEVEL SECURITY"
-    assert "current_setting('app.workspace_id')::uuid" in stmts[1]
-    assert "CREATE POLICY workspace_isolation ON findings" in stmts[1]
+    assert stmts[1] == "ALTER TABLE findings FORCE ROW LEVEL SECURITY"
+    assert "current_setting('app.workspace_id', true)::uuid" in stmts[2]
+    assert "WITH CHECK" in stmts[2]
+    assert "CREATE POLICY workspace_isolation ON findings" in stmts[2]
 
 
 def test_session_roundtrip_on_sqlite():

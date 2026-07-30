@@ -15,9 +15,23 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Closed PR #20 and PR #19 as superseded by PR #21.
 - Renamed PR #21 to reflect it is the consolidated production-readiness audit + fixes PR.
 
+### Done — 2026-07-29 (TS-097 in progress)
+
+- `app.core.db.rls_statements` now emits `FORCE ROW LEVEL SECURITY`, `WITH CHECK`, and
+  `current_setting('app.workspace_id', true)` for fail-closed behaviour.
+- Registered `workspace_members` and `project_members` as workspace-scoped tables so the
+  RLS migration covers them.
+- `BillingService.process_razorpay_webhook`/`process_stripe_webhook` now bind the
+  workspace context before writing workspace-scoped tables, keeping webhooks correct
+  when RLS is enforced.
+- Added `tests/test_rls_postgres.py` with RLS isolation/integration tests and a new
+  `rls-postgres` CI job using a PostgreSQL service container.
+- Updated `specs/modules/core.md` acceptance criteria and public interface for RLS.
+
 ### Next
 
-- TS-097 — RLS structural fix (PostgreSQL `FORCE`, `WITH CHECK`, membership tables, CI).
+- TS-097 — finish RLS verification once CI postgres job runs; verify `WITH CHECK`
+  rejects cross-tenant writes.
 - TS-125 — Rulepack QS validation / beta-disclaimer flag for unvalidated patterns.
 - TS-103, TS-106, TS-107, TS-108, TS-109, TS-133..TS-162 — remaining medium/low audit
   follow-ups.

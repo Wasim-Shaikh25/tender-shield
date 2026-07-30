@@ -30,6 +30,12 @@ each other.
   `TS_ENABLED_MODULES`, `TS_ENV` (`dev|prod`), `TS_CORS_ORIGINS`, `TS_ALLOWED_HOSTS`,
   `TS_STORAGE_TYPE` (`local|s3`), S3 credentials (SecretStr), `TS_REDIS_URL`, and
   all secrets as `SecretStr`.
+- `app.core.db.WorkspaceScopedMixin` — adds `workspace_id` and registers the table
+  for RLS policy generation.
+- `app.core.db.rls_statements(table)` — returns PostgreSQL RLS DDL with `ENABLE`,
+  `FORCE`, `USING`, and `WITH CHECK` expressions that fail closed when the GUC is unset.
+- `app.core.db.bind_workspace_context` — `SET LOCAL app.workspace_id` on PostgreSQL;
+  a no-op on SQLite.
 - `app.core.ratelimit.RateLimiter` — pluggable per-IP rate limiting (memory or Redis)
   consumed by public routes.
 - `app.core.storage.Storage` protocol — `LocalStorage` and `S3Storage` adapters
@@ -79,6 +85,12 @@ None (core owns no business tables).
 - A9: `S3Storage` with `moto` stores and retrieves a file under a workspace prefix.
 - A10: rate-limited endpoints use `X-Forwarded-For` (rightmost) for the client IP
   and Redis rate limiting is atomic.
+- A11: RLS migration emits `ENABLE`, `FORCE`, and `WITH CHECK` policies using
+  `current_setting('app.workspace_id', true)`; every workspace-scoped table including
+  membership tables is covered.
+- A12: `bind_workspace_context` is a no-op on SQLite and `SET LOCAL` on PostgreSQL.
+- A13: PostgreSQL CI runs RLS integration tests proving cross-tenant reads/writes are
+  blocked and unbound sessions see no rows.
 
 ## Out of scope
 

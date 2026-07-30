@@ -57,12 +57,19 @@ class TimestampMixin:
 
 
 def rls_statements(table: str) -> list[str]:
-    """RLS enable + workspace-isolation policy for one table (PostgreSQL only)."""
+    """RLS enable + workspace-isolation policy for one table (PostgreSQL only).
+
+    FORCE is required: without it the table owner (the migration role) bypasses
+    RLS. WITH CHECK on the same expression prevents cross-tenant writes.
+    current_setting(..., true) fails closed (returns NULL) when the GUC is not set.
+    """
     return [
         f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY",
+        f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY",
         (
             f"CREATE POLICY workspace_isolation ON {table} "
-            "USING (workspace_id = current_setting('app.workspace_id')::uuid)"
+            "USING (workspace_id = current_setting('app.workspace_id', true)::uuid) "
+            "WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::uuid)"
         ),
     ]
 

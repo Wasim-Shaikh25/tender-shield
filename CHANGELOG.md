@@ -176,13 +176,20 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   to prevent regressions.
 - Updated `specs/modules/findings.md`.
 
+### Done — 2026-07-30 (TS-120: repository governance)
+
+- Added `.github/CODEOWNERS` with the default owner (`@Wasim-Shaikh25`).
+- Added `docs/governance.md` documenting the default branch, branch-protection
+  rules, status-check requirements, `CODEOWNERS` conventions, and the backend/frontend
+  venv install steps.
+- Updated `README.md` repository map to link to `docs/governance.md`.
+
 ### Next
 
 - TS-116 — complete audit-log events for auth, membership, billing, and data-export actions.
 - TS-117 — data export and account deletion (GDPR/DPDP).
 - TS-118 — pagination + `/api/health/details` super-admin gate.
 - TS-119 — accessibility linting + WCAG assessment.
-- TS-120 — repository governance (CODEOWNERS, branch protection docs).
 - TS-159 — store `Finding.amount_exposure` and monetary thresholds in minor units.
 
 ### Done — 2026-07-30 (TS-110 / TS-157 / TS-160: tus and spreadsheet page markers)

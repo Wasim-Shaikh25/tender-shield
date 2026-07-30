@@ -103,6 +103,10 @@ one repo (`apps/web` later; starts as `frontend/`).
 - A10: `npm run generate:api` regenerates `lib/api-types.ts` from the running
   backend OpenAPI spec; `lib/api.ts` uses the generated types for all `/auth`
   responses (tokens, workspaces, members, invitations, settings).
+- A11: `.eslintrc.json` extends `plugin:jsx-a11y/recommended`; lint is clean.
+- A12: `npm run a11y` audits every server-rendered route in `.next/server/app`
+  against WCAG 2.1 AA using `axe-core` and `jsdom`; the CI job fails on any
+  critical or serious violation.
 
 ## Out of scope
 

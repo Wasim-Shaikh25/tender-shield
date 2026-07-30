@@ -162,6 +162,11 @@ class ChangePasswordBody(BaseModel):
         return _validate_password_field(v)
 
 
+class DeleteAccountBody(BaseModel):
+    password: str
+    confirm: bool = False
+
+
 class AddMemberBody(BaseModel):
     email: str
     role: str
@@ -602,6 +607,36 @@ def change_password(
             object_id=principal.user_id,
         )
         return {"ok": True}
+
+    return _handle(_do)
+
+
+@router.post("/export")
+def export_account_data(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(current_principal),
+):
+    """GDPR/DPDP portability export — return every workspace-scoped row the caller
+    owns or is a member of, plus user-owned auth rows."""
+    return _handle(lambda: _service(request, session).export_account_data(principal.user_id))
+
+
+@router.delete("/account")
+def delete_account(
+    body: DeleteAccountBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(current_principal),
+):
+    """GDPR/DPDP erasure — delete the caller's account and all owned workspace data."""
+    if not body.confirm:
+        raise HTTPException(400, "confirm_required")
+
+    def _do():
+        _service(request, session).delete_account(principal.user_id, body.password)
+        session.commit()
+        return {"ok": True, "deleted": True}
 
     return _handle(_do)
 

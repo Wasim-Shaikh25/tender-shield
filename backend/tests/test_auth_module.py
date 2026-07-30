@@ -351,3 +351,52 @@ def test_reset_password_rejects_expired_or_reused_token(client):
     )
     assert r.status_code == 400
     assert r.json()["detail"] == "invalid_reset_token"
+
+
+def test_export_account_data_returns_user_and_workspace_rows(client):
+    tokens = _login(client, email="export@example.com")
+    headers = {"authorization": f"Bearer {tokens['access_token']}"}
+
+    r = client.post("/api/auth/export", headers=headers)
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["user"]["email"] == "export@example.com"
+    assert "users" not in data["tables"]
+    assert "workspaces" in data
+    assert "workspace_members" in data["tables"]
+
+
+def test_delete_account_requires_confirmation(client):
+    tokens = _login(client, email="delete@example.com")
+    headers = {"authorization": f"Bearer {tokens['access_token']}"}
+
+    r = client.request(
+        "DELETE",
+        "/api/auth/account",
+        headers=headers,
+        json={"password": TEST_PASSWORD, "confirm": False},
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"] == "confirm_required"
+
+
+def test_delete_account_removes_user_and_owned_workspace(client):
+    tokens = _login(client, email="delete2@example.com")
+    headers = {"authorization": f"Bearer {tokens['access_token']}"}
+
+    r = client.request(
+        "DELETE",
+        "/api/auth/account",
+        headers=headers,
+        json={"password": TEST_PASSWORD, "confirm": True},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["deleted"] is True
+
+    # Login should fail after deletion.
+    r = client.post(
+        "/api/auth/login",
+        json={"email": "delete2@example.com", "password": TEST_PASSWORD},
+    )
+    assert r.status_code == 401
+    assert r.json()["detail"] == "invalid_credentials"

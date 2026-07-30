@@ -94,13 +94,14 @@ export default function SettingsPage() {
           <form onSubmit={updateProfile} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
-                <input readOnly value={settings.email} className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-500" />
+                <label htmlFor="settings-email" className="mb-1 block text-sm font-medium text-slate-700">Email</label>
+                <input id="settings-email" readOnly value={settings.email} className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-500" />
                 {settings.email_verified && <span className="text-xs text-green-600">Verified</span>}
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Phone</label>
+                <label htmlFor="settings-phone" className="mb-1 block text-sm font-medium text-slate-700">Phone</label>
                 <input
+                  id="settings-phone"
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -112,24 +113,27 @@ export default function SettingsPage() {
                 )}
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Organisation / Firm</label>
+                <label htmlFor="settings-org" className="mb-1 block text-sm font-medium text-slate-700">Organisation / Firm</label>
                 <input
+                  id="settings-org"
                   value={form.org_name}
                   onChange={(e) => setForm({ ...form, org_name: e.target.value })}
                   className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">City</label>
+                <label htmlFor="settings-city" className="mb-1 block text-sm font-medium text-slate-700">City</label>
                 <input
+                  id="settings-city"
                   value={form.city}
                   onChange={(e) => setForm({ ...form, city: e.target.value })}
                   className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Date of Birth</label>
+                <label htmlFor="settings-dob" className="mb-1 block text-sm font-medium text-slate-700">Date of Birth</label>
                 <input
+                  id="settings-dob"
                   type="date"
                   value={form.dob}
                   onChange={(e) => setForm({ ...form, dob: e.target.value })}
@@ -154,8 +158,9 @@ export default function SettingsPage() {
         <h2 className="mb-4 text-lg font-semibold text-ink">Security</h2>
         <form onSubmit={changePassword} className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Current password</label>
+            <label htmlFor="settings-current-password" className="mb-1 block text-sm font-medium text-slate-700">Current password</label>
             <input
+              id="settings-current-password"
               type="password"
               value={password.current}
               onChange={(e) => setPassword({ ...password, current: e.target.value })}
@@ -164,8 +169,9 @@ export default function SettingsPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">New password</label>
+            <label htmlFor="settings-new-password" className="mb-1 block text-sm font-medium text-slate-700">New password</label>
             <input
+              id="settings-new-password"
               type="password"
               value={password.new}
               onChange={(e) => setPassword({ ...password, new: e.target.value })}
@@ -175,8 +181,9 @@ export default function SettingsPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Confirm new password</label>
+            <label htmlFor="settings-confirm-password" className="mb-1 block text-sm font-medium text-slate-700">Confirm new password</label>
             <input
+              id="settings-confirm-password"
               type="password"
               value={password.confirm}
               onChange={(e) => setPassword({ ...password, confirm: e.target.value })}

@@ -14,12 +14,14 @@ def setup(ctx: AppContext) -> None:
             session, workspace_factory=reg.get("auth.workspace_factory")
         ),
     )
-    reg.provide(
-        "billing.record_usage",
-        lambda session, workspace_id, event, ref_id=None: BillingService(
+    def _record_usage(session, workspace_id, event, ref_id=None):
+        svc = BillingService(
             session, workspace_factory=reg.get("auth.workspace_factory")
-        ).record_usage(workspace_id, event, ref_id),
-    )
+        )
+        user_id = svc._user_for_workspace(workspace_id)
+        return svc.record_usage(user_id, event, ref_id, workspace_id=workspace_id)
+
+    reg.provide("billing.record_usage", _record_usage)
     # Share plan seat limits with auth so it can enforce plan seat caps.
     reg.provide(
         "billing.seat_limits",

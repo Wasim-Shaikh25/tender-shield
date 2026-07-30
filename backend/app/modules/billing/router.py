@@ -117,6 +117,7 @@ def checkout(
         raise HTTPException(400, "amount_mismatch")
 
     notes = {
+        "user_id": str(principal.user_id),
         "workspace_id": str(principal.workspace_id),
         "kind": body.kind,
         "original_amount_minor": expected,
@@ -202,7 +203,7 @@ def list_invoices(
             "paid_at": inv.paid_at.isoformat() if inv.paid_at else None,
             "created_at": inv.created_at.isoformat(),
         }
-        for inv in _service(request, session).list_invoices(principal.workspace_id)
+        for inv in _service(request, session).list_invoices(principal.user_id)
     ]
     return {"invoices": paginated_list_response(items, page, response)}
 
@@ -226,7 +227,7 @@ def list_payments(
             "status": p.status,
             "created_at": p.at.isoformat(),
         }
-        for p in _service(request, session).list_payments(principal.workspace_id)
+        for p in _service(request, session).list_payments(principal.user_id)
     ]
     return {"payments": paginated_list_response(items, page, response)}
 
@@ -328,7 +329,7 @@ def get_billing_settings(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("admin")),
 ):
-    return _service(request, session).get_billing_settings(principal.workspace_id)
+    return _service(request, session).get_billing_settings(principal.user_id)
 
 
 @router.put("/settings")
@@ -340,7 +341,7 @@ def update_billing_settings(
 ):
     try:
         settings = _service(request, session).update_billing_settings(
-            principal.workspace_id, body.model_dump(exclude_none=True)
+            principal.user_id, body.model_dump(exclude_none=True)
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
@@ -352,8 +353,8 @@ def update_billing_settings(
         workspace_id=principal.workspace_id,
         actor_user_id=principal.user_id,
         action="billing.settings_updated",
-        object_type="workspace",
-        object_id=principal.workspace_id,
+        object_type="user",
+        object_id=principal.user_id,
         detail=settings,
     )
     return settings

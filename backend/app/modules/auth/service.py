@@ -1341,7 +1341,7 @@ class AuthService:
             "owner_email": owner.email if owner else None,
             "plan": owner.plan if owner else "free",
             "country": ws.country,
-            "billing_provider": ws.billing_provider,
+            "billing_provider": owner.billing_provider if owner else None,
             "member_count": len(members),
             "members": members,
         }

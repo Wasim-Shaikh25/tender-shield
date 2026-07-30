@@ -98,6 +98,7 @@ class StripeProvider:
                 "metadata": metadata,
                 "mock": True,
             }
+        base_url = (self.settings.app_url or "https://example.com").rstrip("/")
         try:
             session = self._client.checkout.Session.create(
                 payment_method_types=["card"],
@@ -112,8 +113,8 @@ class StripeProvider:
                     }
                 ],
                 mode="payment",
-                success_url="https://example.com/success",
-                cancel_url="https://example.com/cancel",
+                success_url=f"{base_url}/billing?success=1",
+                cancel_url=f"{base_url}/billing?canceled=1",
                 metadata=metadata,
             )
             return {

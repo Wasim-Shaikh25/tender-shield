@@ -33,6 +33,7 @@ dev = [
     "uvicorn>=0.30",
     "mypy>=1.11",
     "pip-audit>=2.7",
+    "psycopg[binary]>=3.1",
 ]
 # OCR for scanned/image PDFs — offline, no cloud (ONNX models bundled).
 # Enable with TS_OCR_ENABLED=true after `pip install -e ".[ocr]"`.

@@ -32,7 +32,7 @@ def test_rls_statements_shape():
     stmts = rls_statements("findings")
     assert stmts[0] == "ALTER TABLE findings ENABLE ROW LEVEL SECURITY"
     assert stmts[1] == "ALTER TABLE findings FORCE ROW LEVEL SECURITY"
-    assert "current_setting('app.workspace_id', true)::uuid" in stmts[2]
+    assert "nullif(current_setting('app.workspace_id', true), '')::uuid" in stmts[2]
     assert "WITH CHECK" in stmts[2]
     assert "CREATE POLICY workspace_isolation ON findings" in stmts[2]
 

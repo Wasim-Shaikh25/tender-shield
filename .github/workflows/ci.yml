@@ -55,21 +55,33 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+    env:
+      PGUSER: tendershield
+      PGPASSWORD: tendershield
+      PGHOST: localhost
+      PGDATABASE: tendershield
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
-      - name: Install
-        run: pip install -e ".[dev,storage,redis,billing,scheduler,celery,auth]"
+      - name: Install dependencies
+        run: |
+          pip install -e ".[dev,storage,redis,billing,scheduler,celery,auth]"
+          pip install psycopg[binary]
+      - name: Create least-privilege role and database
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y postgresql-client
+          psql -c "CREATE USER app WITH PASSWORD 'app' NOSUPERUSER;"
+          psql -c "CREATE DATABASE app_db OWNER app;"
       - name: Migrate
         env:
-          TS_DATABASE_URL: postgresql+psycopg://tendershield:tendershield@localhost/tendershield
+          TS_DATABASE_URL: postgresql+psycopg://app:app@localhost/app_db
         run: alembic upgrade head
       - name: RLS tests
         env:
-          TS_DATABASE_URL: postgresql+psycopg://tendershield:tendershield@localhost/tendershield
+          TS_DATABASE_URL: postgresql+psycopg://app:app@localhost/app_db
         run: pytest tests/test_rls_postgres.py -q
 
   frontend:

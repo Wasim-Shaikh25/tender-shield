@@ -61,15 +61,17 @@ def rls_statements(table: str) -> list[str]:
 
     FORCE is required: without it the table owner (the migration role) bypasses
     RLS. WITH CHECK on the same expression prevents cross-tenant writes.
-    current_setting(..., true) fails closed (returns NULL) when the GUC is not set.
+    `nullif(current_setting(..., true), '')::uuid` treats an unset GUC as NULL, which
+    makes the predicate `workspace_id = NULL` — i.e. false for every row.
     """
+    guc = "nullif(current_setting('app.workspace_id', true), '')::uuid"
     return [
         f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY",
         f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY",
         (
             f"CREATE POLICY workspace_isolation ON {table} "
-            "USING (workspace_id = current_setting('app.workspace_id', true)::uuid) "
-            "WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::uuid)"
+            f"USING (workspace_id = {guc}) "
+            f"WITH CHECK (workspace_id = {guc})"
         ),
     ]
 
@@ -84,9 +86,9 @@ def bind_workspace_context(session: Session, workspace_id: uuid.UUID | str) -> N
     if session.get_bind().dialect.name != "postgresql":
         logger.debug("bind_workspace_context is a no-op on non-PostgreSQL dialects")
         return
-    session.execute(
-        text("SET LOCAL app.workspace_id = :workspace_id"), {"workspace_id": str(workspace_id)}
-    )
+    # `SET LOCAL` does not accept bind parameters, so we validate and inline the UUID.
+    ws = str(uuid.UUID(str(workspace_id)))
+    session.execute(text(f"SET LOCAL app.workspace_id = '{ws}'"))
 
 
 def make_engine(settings: Settings) -> Engine:

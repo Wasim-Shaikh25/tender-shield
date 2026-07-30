@@ -15,23 +15,24 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Closed PR #20 and PR #19 as superseded by PR #21.
 - Renamed PR #21 to reflect it is the consolidated production-readiness audit + fixes PR.
 
-### Done — 2026-07-29 (TS-097 in progress)
+### Done — 2026-07-29 (TS-097 follow-up: PostgreSQL RLS regressions + migration drift)
 
-- `app.core.db.rls_statements` now emits `FORCE ROW LEVEL SECURITY`, `WITH CHECK`, and
-  `current_setting('app.workspace_id', true)` for fail-closed behaviour.
-- Registered `workspace_members` and `project_members` as workspace-scoped tables so the
-  RLS migration covers them.
-- `BillingService.process_razorpay_webhook`/`process_stripe_webhook` now bind the
-  workspace context before writing workspace-scoped tables, keeping webhooks correct
-  when RLS is enforced.
-- Added `tests/test_rls_postgres.py` with RLS isolation/integration tests and a new
-  `rls-postgres` CI job using a PostgreSQL service container.
-- Updated `specs/modules/core.md` acceptance criteria and public interface for RLS.
+- `bind_workspace_context` now inlines the validated UUID string because `SET LOCAL`
+  does not accept SQLAlchemy bind parameters.
+- `rls_statements` uses `nullif(current_setting('app.workspace_id', true), '')::uuid`
+  so an unset GUC evaluates to NULL (fail-closed) instead of raising an empty-string
+  UUID cast error.
+- Rewrote `tests/test_rls_postgres.py` as a self-contained PostgreSQL-only suite that
+  creates/drops its own RLS sample table, backfills rows, and asserts cross-tenant
+  read/write blocking and owner-level `FORCE` enforcement.
+- Added `migrations/versions/3e8f87662b2f_*.py` to backfill `Invitation.token -> token_hash`
+  and add `users.mfa_totp_pending_secret`, fixing the `alembic upgrade head` drift
+  reported by the testing agent.
+- Added `psycopg[binary]` to `dev` extras and updated the `rls-postgres` CI job to
+  create a non-superuser `app`/`app_db` so `FORCE ROW LEVEL SECURITY` is actually tested.
 
 ### Next
 
-- TS-097 — finish RLS verification once CI postgres job runs; verify `WITH CHECK`
-  rejects cross-tenant writes.
 - TS-125 — Rulepack QS validation / beta-disclaimer flag for unvalidated patterns.
 - TS-103, TS-106, TS-107, TS-108, TS-109, TS-133..TS-162 — remaining medium/low audit
   follow-ups.

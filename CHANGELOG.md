@@ -30,14 +30,50 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
     charts and `mermaid` diagrams.
   - Added `specs/modules/plan-dashboard.md`.
 
+### Done — 2026-07-30 (TS-189: tests/audit-log for assistant scoping, admin chat, plan dashboard; alembic downgrade fix)
+
+- **TS-189**: Added backend tests and audit-log verification.
+  - `tests/test_assistant.py`: admin chat rejects non-super-admins, super-admin chat
+    can query a specific workspace/opportunity, and the query is written to the audit log.
+  - Workspace scoping: a second workspace's token cannot list or post to another
+    workspace's assistant session.
+  - `tests/test_analytics.py`: `POST /api/analytics/plan` returns a structured dashboard
+    payload; cross-workspace access for an alien `opportunity_id` is rejected.
+- Fixed `alembic downgrade base` for the billing/plan migrations (`d109c102dd39` and
+  `c7dac720f0e6`) by recreating the expected SQLite index names after table renames,
+  so CI `alembic upgrade head && alembic downgrade base` now passes.
+
+### Done — 2026-07-30 (TS-190: Office MCP server ↔ TenderShield API integration)
+
+- Added `TenderShieldClient` in `mcp-servers/office-mcp/tendershield_office_mcp/client.py`
+  that calls `TENDERSHIELD_API_BASE` with a `TENDERSHIELD_API_TOKEN`.
+- New MCP tools:
+  - `tendershield_list_opportunities`, `tendershield_get_opportunity_summary`,
+    `tendershield_get_findings`, `tendershield_plan_dashboard` (read-only lookups).
+  - `tendershield_export_findings_to_excel` and `tendershield_create_summary_doc`
+    (pull live findings/deadlines into Word/Excel outputs).
+- Updated `specs/modules/mcp-office.md`, `docs/integrations/office-mcp.md`, and the
+  `mcp-servers/office-mcp/README.md` with setup and tool descriptions.
+
+### Done — 2026-07-30 (TS-191: plan dashboard templates, snapshots, PDF/PPTX export)
+
+- Added `plan_snapshots` table and Alembic migration `319b6c25e064` to persist
+  AI-generated dashboards per user/workspace/opportunity.
+- New API endpoints under `/api/analytics/plan`:
+  - `GET /templates` — predefined queries for risk severity, deadline timeline,
+    BOQ defects, and bid readiness.
+  - `GET/POST/DELETE /snapshots` — save, list, load, and delete dashboard snapshots.
+  - `GET /snapshots/{id}/export?format=pdf|pptx` — export a snapshot as PDF or PowerPoint.
+- `PlanDashboardExporter` renders the structured dashboard to PDF (ReportLab) and
+  `.pptx` (python-pptx) with a slide per section.
+- `/plan` UI now has a template picker, snapshot title/save form, saved snapshot
+  list, and PDF/PPTX export buttons.
+- Updated `specs/modules/plan-dashboard.md` and added `python-pptx` to backend
+  dependencies.
+
 ### Next
 
-- TS-189 — add backend tests and audit-log verification for assistant user scoping,
-  admin chat mode, and plan dashboard generation.
-- TS-190 — integrate the Office MCP server with the TenderShield API so QS engineers
-  can pull opportunities/findings directly into Word/Excel.
-- TS-191 — add `/plan` dashboard templates, saved snapshots, and export to
-  PowerPoint/PDF.
+No tracked `todo` tasks remain in `tasks/backlog.md` for this PR.
 
 ### Done — 2026-07-30 (TS-185: billing usage/payments/invoices belong to user account, not workspace)
 

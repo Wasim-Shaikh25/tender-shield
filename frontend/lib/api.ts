@@ -385,7 +385,7 @@ export type UserDetail = {
   suspended_at: string | null;
   created_at: string | null;
   dob: string | null;
-  workspaces: Array<{ workspace_id: string; name: string; role: string }>;
+  workspaces: Array<{ workspace_id: string; name: string; role: string; plan: string | null }>;
 };
 
 export type WorkspaceDetail = {

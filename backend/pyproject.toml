@@ -52,6 +52,8 @@ scheduler = ["APScheduler>=3.10"]
 celery = ["celery[redis]>=5.4", "redis[hiredis]>=5.0,<6.5"]
 # OIDC providers (credential-gated; imported lazily).
 auth = ["google-auth>=2.32"]
+# Observability: Sentry error tracking (metrics are built-in and exposed at /api/health/metrics).
+observability = ["sentry-sdk[fastapi]>=2.0,<3.0"]
 
 [build-system]
 requires = ["setuptools>=68"]

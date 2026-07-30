@@ -66,6 +66,9 @@ intents, webhook-dedup records, plan state on `orgs`.
 - **B12 (webhook atomicity):** the idempotency marker (`WebhookEvent`) is claimed,
   the payment effect is applied, and `payment_log` rows are committed in a single
   transaction. Duplicate events are rejected without side effects.
+- **B13 (seat limits):** the billing module publishes `billing.seat_limits` from the
+  Doc §7 plan table so the auth module can enforce per-workspace seat caps during
+  member addition and invitation creation/acceptance.
 
 ## Acceptance criteria
 

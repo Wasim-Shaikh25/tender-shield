@@ -22,6 +22,7 @@ def _service(request: Request, session: Session) -> AuthService:
     settings = request.app.state.ctx.settings
     keys = request.app.state.ctx.registry.require("auth.keys")
     sender = request.app.state.ctx.registry.get("notifications.sender")
+    seat_limits = request.app.state.ctx.registry.get("billing.seat_limits")
     return AuthService(
         session,
         keys,
@@ -29,6 +30,7 @@ def _service(request: Request, session: Session) -> AuthService:
         access_ttl_min=settings.access_ttl_minutes,
         refresh_ttl_days=settings.refresh_ttl_days,
         sender=sender,
+        seat_limits=seat_limits,
     )
 
 
@@ -217,6 +219,7 @@ _STATUS = {
     "invalid_refresh": 401,
     "reuse_detected": 401,
     "no_workspace": 401,
+    "seat_limit_exceeded": 402,
     "email_not_verified": 403,
     "mobile_not_verified": 403,
     "no_such_user": 400,

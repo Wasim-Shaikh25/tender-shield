@@ -1,4 +1,5 @@
 from app.core.module import AppContext, ModuleSpec
+from app.modules.billing.plans import PLAN_LIMITS
 from app.modules.billing.providers import get_provider
 from app.modules.billing.router import router
 from app.modules.billing.service import BillingService
@@ -18,6 +19,15 @@ def setup(ctx: AppContext) -> None:
         lambda session, workspace_id, event, ref_id=None: BillingService(
             session, workspace_factory=reg.get("auth.workspace_factory")
         ).record_usage(workspace_id, event, ref_id),
+    )
+    # Share plan seat limits with auth so it can enforce plan seat caps.
+    reg.provide(
+        "billing.seat_limits",
+        lambda: {
+            plan: limits["seats"]
+            for plan, limits in PLAN_LIMITS.items()
+            if "seats" in limits
+        },
     )
     # Payment-provider adapters are selected by name; live keys are credential-gated.
     reg.provide("billing.provider_factory", lambda provider: get_provider(ctx.settings, provider))

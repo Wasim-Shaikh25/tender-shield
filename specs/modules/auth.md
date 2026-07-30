@@ -88,8 +88,9 @@ application-owner endpoints under `/api/auth/admin/*`.
 - **B16 — Account lockout:** 5 failed login attempts within 15 minutes lock the account
   for 15 minutes.
 - **B17 — Invitation tokens:** invitation tokens are generated with `secrets.token_urlsafe`
-  and stored as a SHA-256 hash. The raw token is exposed once in the invitation email or
-  dev/test fallback; `accept_invitation` hashes the supplied token before lookup.
+  and stored as a SHA-256 hash. In the dev/test fallback the token is prefixed with its
+  workspace_id (`<workspace_id>:<random>`) so `accept_invitation` can bind RLS to the
+  invitation's workspace before lookup. The random portion is hashed before lookup.
 - **B18 — No social login:** Google/Apple OIDC routes and settings are removed.
 - **B19 — Account settings:** `/api/auth/settings` returns/updates the current user's
   profile (org_name, phone, dob, city). `/api/auth/settings/password` changes the
@@ -100,6 +101,10 @@ application-owner endpoints under `/api/auth/admin/*`.
 - **B21 — Invitation lifecycle:** `GET /api/auth/invitations` lists pending
   invitations. `DELETE /api/auth/invitations/{id}` removes a pending invitation,
   revoking the token. Only `admin`+ roles can list, create, or revoke invitations.
+- **B22 — Seat limits:** `add_workspace_member`, `create_invitation`, and
+  `accept_invitation` enforce the workspace plan's seat cap. A pending invitation
+  reserves a seat until it is revoked, expires, or accepted. The canonical seat
+  limits are shared by the billing module through the registry (`billing.seat_limits`).
 
 ## Acceptance criteria
 
@@ -148,6 +153,8 @@ application-owner endpoints under `/api/auth/admin/*`.
   `/api/auth/refresh` and `/api/auth/workspaces/{id}/switch` preserve or return a workspace-bound
   token; a user with no workspaces gets an account-level access token and can call
   `/api/auth/workspaces` and `/api/auth/workspaces` create.
+- A28: `add_workspace_member`, `create_invitation`, and `accept_invitation` reject
+  requests that would exceed the workspace plan's seat limit with `seat_limit_exceeded`.
 
 ## Out of scope
 

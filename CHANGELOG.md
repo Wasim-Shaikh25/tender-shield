@@ -272,6 +272,20 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Added a scenario coverage matrix mapping each scenario group to the
   end-to-end audit prompt sections.
 
+### Done — 2026-07-30 (TS-168: assistant, document, OCR, Q&A fixtures and scenarios)
+
+- Added `evals/e2e/fixtures/` with synthetic NIT, GCC, pre-bid Q&A, addendum,
+  BOQ CSV/XLSX, combined tender pack DOCX/PDF, and standalone risk/Q&A PDFs.
+- Added a trimmed, public-domain World Bank sample bidding document PDF
+  (`sample_public_wb_tender.pdf`) for real-world OCR and clause-citation tests.
+- Added `evals/e2e/fixtures/generate.py` to regenerate DOCX, PDF, and XLSX
+  fixtures from the markdown/CSV sources.
+- Added scenarios 51–55 for assistant knowledge outside risk (deadlines,
+  costs, project info, sub-contracting, Q&A, addendum awareness), document
+  upload/download format coverage, OCR handling, pre-bid Q&A/addendum tests,
+  and assistant session continuity/metering.
+- Updated the scenario coverage matrix and fixture reference.
+
 ### Done — 2026-07-30 (TS-166: end-to-end automation scenarios and audit prompt)
 
 - Created `evals/e2e/scenarios.md` with user-journey, negative-case, security,

@@ -746,13 +746,15 @@ class AuthService:
             raise AuthError("not_workspace_member")
 
         row.used_at = datetime.now(UTC)
-        return self._issue_tokens(
+        tokens = self._issue_tokens(
             user.id,
             workspace_uuid,
             member.role if member else "owner",
             is_superadmin=user.is_superadmin,
             family_id=row.family_id,
         )
+        self.s.commit()
+        return tokens
 
     # ---- email verification ------------------------------------------------
 

@@ -101,6 +101,8 @@ endpoints under `/api/auth/admin/*`.
   `{id}` (super-admins excepted).
 - A15: `POST /api/auth/resend-verification` returns a generic status and never exposes the raw
   verification token.
+- A16: `POST /api/auth/workspaces/{id}/switch` rotates the refresh token and persists the new
+  refresh-token row before returning tokens.
 
 ## Out of scope
 

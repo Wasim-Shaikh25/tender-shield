@@ -36,6 +36,13 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   directly in the DB since the route no longer exposes the token.
 - Added `specs/modules/auth.md` acceptance criterion A15.
 
+### Done — 2026-07-29 (TS-122: switch_workspace persists rotated refresh token)
+
+- `AuthService.switch_workspace` now commits after issuing the rotated refresh
+  token, so the new `RefreshToken` row and the `used_at` mark on the old row are
+  persisted.
+- Added `specs/modules/auth.md` acceptance criterion A16.
+
 ### Done — 2026-07-29 (TS-094: end-to-end production readiness audit)
 
 - **TS-094** — Full end-to-end production readiness audit of trunk

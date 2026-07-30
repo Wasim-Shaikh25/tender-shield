@@ -59,7 +59,7 @@ Before going live, set real values for:
 - `TS_JWT_PRIVATE_KEY` / `TS_JWT_PUBLIC_KEY` — RS256 PEM keypair; rotate quarterly.
 - `TS_RAZORPAY_WEBHOOK_SECRET` — the only source of billing truth.
 - `TS_APPLE_*` — to enable Sign in with Apple.
-- `ANTHROPIC_API_KEY` — to enable LLM risk classification and assistant free-form answers.
+- `TS_OPENROUTER_API_KEY` (or `OPENROUTER_API_KEY`) and optional `TS_OPENROUTER_MODEL` — to enable LLM risk classification and assistant free-form answers via OpenRouter.
 - `NEXT_PUBLIC_API_URL` — public API base URL, consumed at build time by the frontend.
 
 ## Observability

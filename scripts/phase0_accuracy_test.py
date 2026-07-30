@@ -8,8 +8,8 @@ in a folder and prints findings with verbatim quotes, plus a quote-integrity
 check (any invented quote = automatic red flag, Doc §19.5).
 
 Usage:
-    pip install anthropic pypdf pyyaml
-    export ANTHROPIC_API_KEY=...
+    pip install openai pypdf pyyaml
+    export OPENROUTER_API_KEY=...           # or TS_OPENROUTER_API_KEY
     python scripts/phase0_accuracy_test.py tenders/                    # folder of PDFs
     python scripts/phase0_accuracy_test.py tenders/one.pdf             # single PDF
     # Try it now on the bundled synthetic tender (no PDF needed):
@@ -23,22 +23,22 @@ evals/in-works/sample_tender/gold_answer.yaml).
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import re
 import sys
 
-import anthropic
 import yaml
+from openai import OpenAI
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 PATTERNS_DIR = REPO_ROOT / "rulepacks" / "in-works" / "risk_patterns"
-MODEL = "claude-sonnet-5"
+MODEL = "openai/gpt-4o-mini"
 DOC_CHAR_CAP = 180_000  # crude cap for the throwaway test (Doc §19.3)
-
 SYSTEM = (
     "You are reviewing a construction tender for a contractor. For the asked "
-    "pattern, return ONLY JSON matching: {\"found\": bool, \"finding\": str, "
-    "\"severity\": \"critical|high|medium|low\", \"source_quote\": str "
+    'pattern, return ONLY JSON matching: {"found": bool, "finding": str, '
+    '"severity": "critical|high|medium|low", "source_quote": str '
     "(verbatim from the document, else empty), \"page_hint\": str}. "
     "If the risk is that something is ABSENT, found=true with finding "
     "describing the absence and source_quote empty. NEVER invent a quote. "
@@ -76,26 +76,40 @@ def quote_in_doc(quote: str, doc: str) -> bool:
     return bool(quote) and normalize(quote) in normalize(doc)
 
 
-def run_tender(client: anthropic.Anthropic, patterns: dict, pdf_path: pathlib.Path) -> dict:
+def client() -> OpenAI:
+    api_key = os.environ.get("OPENROUTER_API_KEY") or os.environ.get("TS_OPENROUTER_API_KEY")
+    if not api_key:
+        sys.exit("Set OPENROUTER_API_KEY or TS_OPENROUTER_API_KEY")
+    return OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=api_key,
+        default_headers={
+            "HTTP-Referer": os.environ.get("OPENROUTER_SITE_URL", ""),
+            "X-Title": "TenderShield Phase-0 Test",
+        },
+    )
+
+
+def run_tender(openai_client: OpenAI, patterns: dict, pdf_path: pathlib.Path) -> dict:
     doc = read_document(pdf_path)[:DOC_CHAR_CAP]
     results = {}
     for pattern_id, spec in patterns.items():
-        msg = client.messages.create(
+        response = openai_client.chat.completions.create(
             model=MODEL,
             max_tokens=800,
             temperature=0,
-            system=SYSTEM,
             messages=[
+                {"role": "system", "content": SYSTEM},
                 {
                     "role": "user",
                     "content": (
                         f"PATTERN: {spec['judgment_prompt']}\n\n"
                         f"<tender>\n{doc}\n</tender>"
                     ),
-                }
+                },
             ],
         )
-        raw = msg.content[0].text
+        raw = response.choices[0].message.content or ""
         try:
             finding = json.loads(raw[raw.index("{") : raw.rindex("}") + 1])
         except (ValueError, json.JSONDecodeError):
@@ -122,11 +136,11 @@ def main() -> None:
 
     patterns = load_patterns()
     print(f"# patterns: {', '.join(patterns)}  ·  model: {MODEL}", file=sys.stderr)
-    client = anthropic.Anthropic()
+    openai_client = client()
     for pdf in pdfs:
         print("=" * 70)
         print(f"TENDER: {pdf.name}")
-        print(json.dumps(run_tender(client, patterns, pdf), indent=2, default=str))
+        print(json.dumps(run_tender(openai_client, patterns, pdf), indent=2, default=str))
 
 
 if __name__ == "__main__":

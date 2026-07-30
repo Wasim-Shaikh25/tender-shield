@@ -1,8 +1,8 @@
 # Assistant ("Ask TenderShield") — Spec
 
-**Status:** implemented — grounded, tool-first Q&A: deterministic intents (deadlines, findings by severity, missing docs, rule-pack lookup) with citations work with no key; off-topic questions refused; free-form questions use an injected LLM agent only when ANTHROPIC_API_KEY is set (grounded-only). User input is sanitized, delimited, and scanned for prompt-injection patterns before reaching the LLM. Versioned artifact-edit tool is a follow-up.
+**Status:** implemented — grounded, tool-first Q&A: deterministic intents (deadlines, findings by severity, missing docs, rule-pack lookup) with citations work with no key; off-topic questions refused; free-form questions use an injected LLM agent only when `TS_OPENROUTER_API_KEY` or `OPENROUTER_API_KEY` is set (grounded-only). User input is sanitized, delimited, and scanned for prompt-injection patterns before reaching the LLM. Versioned artifact-edit tool is a follow-up.
 **Requirement refs:** Doc §8, §11.3
-**Task refs:** TS-024, TS-112, TS-145
+**Task refs:** TS-024, TS-112, TS-145, TS-164
 
 ## Purpose
 
@@ -52,7 +52,7 @@ capability, not direct table access.
 
 - A1: off-topic question is refused.
 - A2: a response with an uncited factual sentence is blocked/regenerated.
-- A3: `AnthropicAgent` uses a valid, current Anthropic model identifier.
+- A3: `OpenRouterAgent` uses a valid OpenRouter model identifier.
 - A4: a prompt-injection attempt returns the grounded-only refusal.
 - A5: a response citing a page not in tool context is rejected.
 - A6: `app.core.prompt_guard.sanitize_message` caps length and strips attempts to

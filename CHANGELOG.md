@@ -242,9 +242,20 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Added `npm run a11y` and a CI job that runs it after the build.
 - Updated `specs/frontend.md` acceptance criteria.
 
+### Done — 2026-07-30 (TS-164: replace Anthropic with OpenRouter)
+
+- Added `app.core.llm.openrouter_client()` factory and `Settings` fields for
+  `TS_OPENROUTER_API_KEY` / `OPENROUTER_API_KEY`, `TS_OPENROUTER_MODEL`,
+  `openrouter_base_url`, `openrouter_site_url`, `openrouter_app_name`.
+- Replaced `AnthropicAgent`/`AnthropicClassifier` with `OpenRouterAgent`/
+  `OpenRouterClassifier` using the OpenAI-compatible OpenRouter endpoint.
+- Updated `.env.*`, README, deployment docs, build doc, throwaway test script,
+  and specs for assistant/risk.
+- Added `openai` to backend dependencies.
+
 ### Next
 
-- No open audit follow-ups in this batch.
+- No open tasks in this batch.
 
 ### Done — 2026-07-30 (TS-110 / TS-157 / TS-160: tus and spreadsheet page markers)
 

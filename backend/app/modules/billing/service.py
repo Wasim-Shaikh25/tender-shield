@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.db import bind_workspace_context
 from app.modules.billing.models import Invoice, PaymentLog, UsageEvent, WebhookEvent
 from app.modules.billing.plans import (
     PAYGO_PRICE_INR_PAISE,
@@ -32,6 +33,10 @@ class BillingService:
         if self._workspace_factory is None:
             raise PaywallError("workspace_unavailable")
         return self._workspace_factory(self.s)
+
+    def _bind_workspace(self, workspace_id):
+        """Bind the RLS workspace GUC so webhook writes obey tenant isolation."""
+        bind_workspace_context(self.s, workspace_id or uuid.UUID(int=0))
 
     def _month_reviews(self, workspace_id) -> int:
         start = datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -136,6 +141,7 @@ class BillingService:
         event_id = evt.get("id", "")
         notes = _extract_notes(evt)
         workspace_id = notes.get("workspace_id")
+        self._bind_workspace(workspace_id)
 
         self._log(
             workspace_id,
@@ -212,6 +218,7 @@ class BillingService:
         event_id = evt.get("id", "") if isinstance(evt, dict) else ""
         event_type = evt.get("type", "unknown") if isinstance(evt, dict) else "unknown"
         status = "verified" if evt else "failed"
+        self._bind_workspace(None)
         self._log(None, "stripe", event_id, event_type, status=status, raw=evt)
         if not evt:
             self.s.commit()
@@ -221,6 +228,7 @@ class BillingService:
         obj = data.get("object", {}) if isinstance(data, dict) else {}
         metadata = obj.get("metadata", {}) if isinstance(obj, dict) else {}
         workspace_id = metadata.get("workspace_id")
+        self._bind_workspace(workspace_id)
 
         if event_type == "checkout.session.completed" and workspace_id:
             amount = obj.get("amount_total")

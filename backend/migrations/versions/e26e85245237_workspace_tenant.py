@@ -376,8 +376,11 @@ def upgrade() -> None:
     )
 
     # Enable RLS on every workspace-scoped table (PostgreSQL only).
+    # Membership tables are not WorkspaceScopedMixin subclasses (composite PKs), so add them
+    # explicitly before generating policies.
+    rls_tables = set(WORKSPACE_SCOPED_TABLES) | {"workspace_members", "project_members"}
     if op.get_bind().dialect.name == "postgresql":
-        for table in WORKSPACE_SCOPED_TABLES:
+        for table in rls_tables:
             for stmt in rls_statements(table):
                 op.execute(stmt)
     # ### end Alembic commands ###

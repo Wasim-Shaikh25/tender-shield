@@ -174,7 +174,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-094 | End-to-end production readiness audit of trunk (`d651d00`); report + reproduced exploit probes | `CLAUDE.md` §4; Doc §3.2, §5, §7 | `PRODUCTION_READINESS_AUDIT.md` | done |
 | TS-095 | **BLOCKER** Bind workspace-scoped routes to the caller's workspace; membership check in `add_workspace_member` | audit TS-A01; Doc §3.2, §5 | `specs/modules/auth.md` (update) | done |
 | TS-096 | **BLOCKER** Google login must use `member.role`, not a hardcoded `"owner"`; unify token issuance across providers | audit TS-A02; Doc §5 | `specs/modules/auth.md` (update) | done |
-| TS-097 | **BLOCKER** RLS: add `FORCE`, `WITH CHECK`, `current_setting(…, true)`; cover membership tables; add PostgreSQL to CI | audit TS-A03; Doc §3.2 | `specs/modules/core.md`, `specs/data-model.md` (update) | todo |
+| TS-097 | **BLOCKER** RLS: add `FORCE`, `WITH CHECK`, `current_setting(…, true)`; cover membership tables; add PostgreSQL to CI | audit TS-A03; Doc §3.2 | `specs/modules/core.md`, `specs/data-model.md` (update) | in-progress |
 | TS-098 | **BLOCKER** Server-owned per-currency price table; drop client `amount_minor`; validate paid amount at webhook activation | audit TS-B01; Doc §7, §15 | `specs/modules/billing.md` (update) | done |
 | TS-099 | Membership checks on workspace/project member-list endpoints | audit TS-A04; Doc §3.2 | `specs/modules/auth.md` (update) | done |
 | TS-100 | Google account linking on verified email; `IntegrityError` → 409 instead of 500 | audit TS-A05; Doc §5 | `specs/modules/auth.md` (update) | done |

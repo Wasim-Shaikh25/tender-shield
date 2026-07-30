@@ -680,20 +680,22 @@ class AuthService:
         user = self.s.get(User, uuid.UUID(str(user_id)))
         if not user:
             raise AuthError("no_such_user")
-        user.mfa_method = method
         user.mfa_phone = phone
         user.mfa_otp_code = None
         user.mfa_otp_expires_at = None
         if method == "totp":
-            user.mfa_totp_secret = mfa.new_secret()
+            # Store the secret in a pending state; mfa_verify confirms enrollment.
+            user.mfa_totp_pending_secret = mfa.new_secret()
             self.s.commit()
             return {
                 "method": method,
-                "secret": user.mfa_totp_secret,
-                "otpauth_uri": mfa.provisioning_uri(user.mfa_totp_secret, user.email),
+                "secret": user.mfa_totp_pending_secret,
+                "otpauth_uri": mfa.provisioning_uri(user.mfa_totp_pending_secret, user.email),
             }
         # email/sms: send a one-time code to verify enrolment
+        user.mfa_method = method
         user.mfa_totp_secret = None
+        user.mfa_totp_pending_secret = None
         code = mfa.new_otp_code()
         user.mfa_otp_code = code
         user.mfa_otp_expires_at = datetime.now(UTC) + timedelta(seconds=mfa.CODE_TTL_SECONDS)
@@ -705,6 +707,15 @@ class AuthService:
         user = self.s.get(User, uuid.UUID(str(user_id)))
         if not user:
             raise AuthError("no_such_user")
+        # Complete a pending TOTP enrollment on first successful verification.
+        if user.mfa_totp_pending_secret:
+            if not mfa.verify(user.mfa_totp_pending_secret, code):
+                raise AuthError("mfa_invalid")
+            user.mfa_method = "totp"
+            user.mfa_totp_secret = user.mfa_totp_pending_secret
+            user.mfa_totp_pending_secret = None
+            self.s.commit()
+            return True
         if user.mfa_method == "totp":
             if not user.mfa_totp_secret:
                 raise AuthError("mfa_not_enrolled")

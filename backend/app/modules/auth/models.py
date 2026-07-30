@@ -26,9 +26,10 @@ class User(Base):
     apple_id: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_superadmin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    mfa_method: Mapped[str] = mapped_column(String, nullable=False, default="totp")
+    mfa_method: Mapped[str] = mapped_column(String, nullable=False, default="")
     mfa_phone: Mapped[str | None] = mapped_column(String, nullable=True)
     mfa_totp_secret: Mapped[str | None] = mapped_column(String, nullable=True)
+    mfa_totp_pending_secret: Mapped[str | None] = mapped_column(String, nullable=True)
     mfa_otp_code: Mapped[str | None] = mapped_column(String, nullable=True)
     mfa_otp_expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

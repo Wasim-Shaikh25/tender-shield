@@ -119,6 +119,14 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - `accept_invitation` hashes the supplied token before lookup.
 - Added `specs/modules/auth.md` B17/A20.
 
+### Done — 2026-07-29 (TS-127: verify TOTP before completing enrollment)
+
+- Added `User.mfa_totp_pending_secret` and changed `mfa_method` default to empty.
+- `mfa_enroll` for TOTP stores the secret pending and returns the provisioning URI.
+- `mfa_verify` confirms the first TOTP code, then commits `mfa_method="totp"` and
+  moves the secret to `mfa_totp_secret`.
+- Added `specs/modules/auth.md` B8/A21.
+
 ### Done — 2026-07-29 (TS-101 / TS-102: upload size cap + SSE hardening)
 
 - `POST /api/ingestion/opportunities/{id}/upload` now reads at most

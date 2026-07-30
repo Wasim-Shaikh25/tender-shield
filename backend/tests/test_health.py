@@ -1,11 +1,27 @@
 """Health / module-discovery endpoint."""
 
+from datetime import timedelta
+
 import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
 from app.core.db import Base
 from app.main import create_app
+from app.modules.auth import security as sec
+
+
+def _superadmin_headers(client):
+    keys = client.app.state.ctx.registry.require("auth.keys")
+    token = sec.mint_access(
+        keys,
+        user_id="00000000-0000-0000-0000-000000000001",
+        workspace_id="00000000-0000-0000-0000-0000000000aa",
+        role="viewer",
+        is_superadmin=True,
+        ttl=timedelta(minutes=5),
+    )
+    return {"authorization": f"Bearer {token}"}
 
 
 @pytest.fixture
@@ -29,7 +45,7 @@ def test_health_returns_ok_and_version(client):
 
 
 def test_health_details_list_modules(client):
-    r = client.get("/api/health/details")
+    r = client.get("/api/health/details", headers=_superadmin_headers(client))
     assert r.status_code == 200
     names = {m["name"] for m in r.json()["modules"]}
     assert "health" in names
@@ -38,7 +54,7 @@ def test_health_details_list_modules(client):
 
 
 def test_health_details_lists_capabilities(client):
-    r = client.get("/api/health/details")
+    r = client.get("/api/health/details", headers=_superadmin_headers(client))
     caps = r.json()["capabilities"]
     assert "findings.store_factory" in caps
     assert "auth.authenticate" in caps

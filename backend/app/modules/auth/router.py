@@ -6,8 +6,10 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core import audit as audit_log
 from app.core.config import Settings
 from app.core.deps import current_principal, get_session, require
+from app.core.pagination import PaginationParams, paginated_list_response
 from app.core.ratelimit import RateLimitDep
 from app.modules.auth.deps import require_superadmin
 from app.modules.auth.models import User
@@ -23,6 +25,7 @@ def _service(request: Request, session: Session) -> AuthService:
     keys = request.app.state.ctx.registry.require("auth.keys")
     sender = request.app.state.ctx.registry.get("notifications.sender")
     seat_limits = request.app.state.ctx.registry.get("billing.seat_limits")
+    audit_factory = request.app.state.ctx.registry.get("review.service_factory")
     return AuthService(
         session,
         keys,
@@ -31,6 +34,7 @@ def _service(request: Request, session: Session) -> AuthService:
         refresh_ttl_days=settings.refresh_ttl_days,
         sender=sender,
         seat_limits=seat_limits,
+        audit_factory=audit_factory,
     )
 
 
@@ -544,6 +548,19 @@ def update_settings(
             user.mobile_verified = False
             _service(request, session).create_mobile_verification(user.id, phone=user.phone)
         session.commit()
+        audit_log.log(
+            request,
+            session,
+            workspace_id=principal.workspace_id,
+            actor_user_id=principal.user_id,
+            action="account.settings_updated",
+            object_type="user",
+            object_id=principal.user_id,
+            detail={
+                "changed": [f for f in ("org_name", "city", "dob", "phone") if getattr(body, f)]
+            },
+        )
+
         return {
             "email": user.email,
             "phone": user.phone,
@@ -575,6 +592,15 @@ def change_password(
         validate_password(body.new_password)
         user.password_hash = hash_password(body.new_password)
         session.commit()
+        audit_log.log(
+            request,
+            session,
+            workspace_id=principal.workspace_id,
+            actor_user_id=principal.user_id,
+            action="account.password_changed",
+            object_type="user",
+            object_id=principal.user_id,
+        )
         return {"ok": True}
 
     return _handle(_do)
@@ -600,10 +626,13 @@ def create_workspace(
 @router.get("/workspaces", response_model=list[WorkspaceResponse])
 def list_workspaces(
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     principal: Principal = Depends(current_principal),
+    page: PaginationParams = Depends(),
 ):
-    return _service(request, session).list_workspaces(principal.user_id)
+    items = _service(request, session).list_workspaces(principal.user_id)
+    return paginated_list_response(items, page, response)
 
 
 @router.post("/workspaces/{workspace_id}/switch", response_model=TokenResponse)
@@ -639,7 +668,9 @@ def add_workspace_member(
     if not principal.is_superadmin and str(principal.workspace_id) != workspace_id:
         raise HTTPException(403, "not_workspace_member")
     return _handle(
-        lambda: _service(request, session).add_workspace_member(workspace_id, body.email, body.role)
+        lambda: _service(request, session).add_workspace_member(
+            workspace_id, body.email, body.role, actor_user_id=principal.user_id
+        )
     )
 
 
@@ -647,12 +678,15 @@ def add_workspace_member(
 def list_workspace_members(
     workspace_id: str,
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     principal: Principal = Depends(current_principal),
+    page: PaginationParams = Depends(),
 ):
-    return _handle(
-        lambda: _service(request, session).list_workspace_members(workspace_id, principal.user_id)
-    )
+    def _do():
+        items = _service(request, session).list_workspace_members(workspace_id, principal.user_id)
+        return paginated_list_response(items, page, response)
+    return _handle(_do)
 
 
 @router.put("/workspaces/{workspace_id}/members/{user_id}", response_model=ChangeRoleResponse)
@@ -709,10 +743,13 @@ def create_project(
 def list_projects(
     workspace_id: str,
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     principal: Principal = Depends(current_principal),
+    page: PaginationParams = Depends(),
 ):
-    return _service(request, session).list_projects(principal.user_id, workspace_id)
+    items = _service(request, session).list_projects(principal.user_id, workspace_id)
+    return paginated_list_response(items, page, response)
 
 
 @router.post("/projects/{project_id}/members")
@@ -728,7 +765,8 @@ def add_project_member(
     # project membership is scoped to the active workspace from the token
     return _handle(
         lambda: _service(request, session).add_project_member(
-            principal.workspace_id, project_id, body.email, body.role
+            principal.workspace_id, project_id, body.email, body.role,
+            actor_user_id=principal.user_id,
         )
     )
 
@@ -737,12 +775,15 @@ def add_project_member(
 def list_project_members(
     project_id: str,
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     principal: Principal = Depends(current_principal),
+    page: PaginationParams = Depends(),
 ):
-    return _handle(
-        lambda: _service(request, session).list_project_members(project_id, principal.user_id)
-    )
+    def _do():
+        items = _service(request, session).list_project_members(project_id, principal.user_id)
+        return paginated_list_response(items, page, response)
+    return _handle(_do)
 
 
 @router.post("/invitations", response_model=InvitationCreateResponse)
@@ -756,7 +797,8 @@ def create_invitation(
         raise HTTPException(403, "email_not_verified")
     return _handle(
         lambda: _service(request, session).create_invitation(
-            principal.workspace_id, body.email, body.role, body.project_id
+            principal.workspace_id, body.email, body.role, body.project_id,
+            actor_user_id=principal.user_id,
         )
     )
 
@@ -774,14 +816,17 @@ def accept_invitation(
 @router.get("/invitations", response_model=list[InvitationResponse])
 def list_invitations(
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     principal: Principal = Depends(require("admin")),
+    page: PaginationParams = Depends(),
 ):
-    return _handle(
-        lambda: _service(request, session).list_invitations(
+    def _do():
+        items = _service(request, session).list_invitations(
             principal.workspace_id, principal.user_id
         )
-    )
+        return paginated_list_response(items, page, response)
+    return _handle(_do)
 
 
 @router.delete("/invitations/{invitation_id}", response_model=OkResponse)
@@ -871,19 +916,25 @@ def add_member(
 @router.get("/admin/users", response_model=list[AdminUserResponse])
 def admin_list_users(
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     principal: Principal = Depends(require_superadmin),
+    page: PaginationParams = Depends(),
 ):
-    return _service(request, session).list_users()
+    items = _service(request, session).list_users()
+    return paginated_list_response(items, page, response)
 
 
 @router.get("/admin/workspaces", response_model=list[AdminWorkspaceResponse])
 def admin_list_workspaces(
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     principal: Principal = Depends(require_superadmin),
+    page: PaginationParams = Depends(),
 ):
-    return _service(request, session).list_all_workspaces()
+    items = _service(request, session).list_all_workspaces()
+    return paginated_list_response(items, page, response)
 
 
 @router.post("/admin/users", response_model=TokenResponse)

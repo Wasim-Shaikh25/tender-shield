@@ -176,14 +176,54 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   to prevent regressions.
 - Updated `specs/modules/findings.md`.
 
+### Done — 2026-07-30 (TS-116: complete audit-log events for auth, membership, role, billing, and export)
+
+- Added `app.core.audit.log` helper that resolves the `review.service_factory`
+  capability and writes append-only `audit_log` rows without cross-module imports.
+- `AuthService` now records workspace creation, member add/role change/remove,
+  invitation create/accept/revoke, project creation, project member add, and
+  account settings/password updates (when a real workspace is selected).
+- Billing routers log checkout and payment-received webhooks.
+- Export and baseline routers log bid-review pack and handover downloads.
+- Webhook handlers return `workspace_id` so the router can record the event.
+- Added `tests/test_audit.py`.
+- Updated `specs/modules/core.md` and `specs/modules/review.md`.
+
+### Done — 2026-07-30 (TS-120: repository governance)
+
+- Added `.github/CODEOWNERS` with the default owner (`@Wasim-Shaikh25`).
+- Added `docs/governance.md` documenting the default branch, branch-protection
+  rules, status-check requirements, `CODEOWNERS` conventions, and the backend/frontend
+  venv install steps.
+- Updated `README.md` repository map to link to `docs/governance.md`.
+
+### Done — 2026-07-30 (TS-118: pagination and `/api/health/details` super-admin gate)
+
+- Added `app.core.pagination.PaginationParams` with default page size 50 and max 1000.
+- Added pagination query params to auth, billing, ingestion, findings, review, and
+  baseline list endpoints; response headers include `X-Total-Count`, `X-Next-Offset`,
+  `X-Prev-Offset`, and `X-Page-Limit`.
+- `/api/health/details` now requires a valid super-admin token whenever the auth
+  module is loaded; isolated module tests without auth still receive 200.
+- Updated affected tests to mint a super-admin token for `/api/health/details` calls.
+- Updated `specs/modules/core.md`.
+
+### Done — 2026-07-30 (TS-159: minor-unit monetary amounts)
+
+- `Finding.amount_exposure` changed from `Numeric(16,2)` (major-unit float) to
+  `BigInteger` (minor units / paise) in model, contract, and database.
+- `drafting` validators now parse `₹|Rs.|INR` amounts and store `amount_exposure`
+  in paise, comparing within a 50-paise tolerance.
+- Removed float conversions in baseline and drafting services; all internal money
+  for findings exposure now follows the paise invariant.
+- Added Alembic migration `f5c03761fb0c` to convert existing `amount_exposure`
+  values from rupees to paise on both PostgreSQL and SQLite.
+- Updated `specs/modules/findings.md` and `tasks/backlog.md`.
+
 ### Next
 
-- TS-116 — complete audit-log events for auth, membership, billing, and data-export actions.
 - TS-117 — data export and account deletion (GDPR/DPDP).
-- TS-118 — pagination + `/api/health/details` super-admin gate.
 - TS-119 — accessibility linting + WCAG assessment.
-- TS-120 — repository governance (CODEOWNERS, branch protection docs).
-- TS-159 — store `Finding.amount_exposure` and monetary thresholds in minor units.
 
 ### Done — 2026-07-30 (TS-110 / TS-157 / TS-160: tus and spreadsheet page markers)
 

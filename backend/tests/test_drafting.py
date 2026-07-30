@@ -21,7 +21,7 @@ FINDINGS = [
     {
         "source_quote": "no escalation shall be payable",
         "detail": "Firm price on a 30-month work. See Clause 14.",
-        "amount_exposure": 250000.0,
+        "amount_exposure": 25000000,
     }
 ]
 

@@ -193,11 +193,11 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-113 | Replace the virus-scan stub with a real scanner; quarantine on detection | audit TS-S01; Doc §11.2 | `specs/modules/core.md` (update) | done |
 | TS-114 | Remove the cross-module FK `findings.opportunity_id → opportunities`; add a metadata architecture test | audit TS-X01; `CLAUDE.md` §2 | `specs/modules/findings.md`, `specs/data-model.md` (update) | done |
 | TS-115 | Extend the production startup guard (Stripe secret, Redis, cookie policy, keypair parse) | audit TS-S02; Doc §11 | `specs/modules/core.md` (update) | done |
-| TS-116 | Complete the audit log: auth, membership, role, billing, and export events | audit §3.5 item 6; Doc §11.4 | `specs/modules/review.md` (update) | todo |
+| TS-116 | Complete the audit log: auth, membership, role, billing, and export events | audit §3.5 item 6; Doc §11.4 | `specs/modules/review.md` (update) | done |
 | TS-117 | Data export and account deletion (GDPR/DPDP) | audit §3.5 item 5; Doc §11.5 | `specs/modules/auth.md` (update) | todo |
-| TS-118 | Pagination on all list endpoints; `/api/health/details` super-admin gate in every environment | audit TS-L01, TS-L02 | `specs/modules/core.md` (update) | todo |
+| TS-118 | Pagination on all list endpoints; `/api/health/details` super-admin gate in every environment | audit TS-L01, TS-L02 | `specs/modules/core.md` (update) | done |
 | TS-119 | Accessibility: `eslint-plugin-jsx-a11y` + `axe-core` in CI, then WCAG 2.1 AA assessment | audit TS-L03; Doc §9 | `specs/frontend.md` (update) | todo |
-| TS-120 | Repository governance: default branch, branch protection, `CODEOWNERS`; document the venv install | audit TS-O03, TS-L04 | — | todo |
+| TS-120 | Repository governance: default branch, branch protection, `CODEOWNERS`; document the venv install | audit TS-O03, TS-L04 | `docs/governance.md`, `README.md` | done |
 
 ## Second-round production readiness audit (2026-07-29, commit `d651d00`)
 
@@ -267,7 +267,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-156 | Stripe webhook verifier swallows all exceptions and returns None | audit TS-B08; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/billing.md` (update) | done |
 | TS-157 | Tus endpoints perform synchronous file I/O and OPTIONS returns a non-compliant empty body | audit TS-I09; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | done |
 | TS-158 | POST /api/review/findings/{finding_id} does not scope by opportunity | audit TS-A16; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/review.md` (update) | done |
-| TS-159 | Finding.amount_exposure and monetary thresholds are stored/extracted as float major units, violating the minor-units invariant | audit TS-C01; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/findings.md` (update) | todo |
+| TS-159 | Finding.amount_exposure and monetary thresholds are stored/extracted as float major units, violating the minor-units invariant | audit TS-C01; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/findings.md` (update) | done |
 | TS-160 | XLSX/CSV text extraction does not emit page markers, so spreadsheet-derived deadlines and clauses lose page provenance | audit TS-I10; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | done |
 | TS-161 | Email/password login selects an arbitrary workspace for multi-workspace users | audit TS-A17; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/auth.md` (update) | done |
 | TS-162 | Severity evaluator silently defaults missing facts to 0 | audit TS-R03; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/risk.md` (update) | done |

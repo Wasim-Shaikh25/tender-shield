@@ -3,6 +3,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
+from app.core import audit as audit_log
 from app.core.deps import get_session, require
 from app.modules.export.service import ExportError, ExportService
 
@@ -42,6 +43,16 @@ def export_pack(
     except ExportError as exc:
         status = 403 if exc.code == "review_incomplete" else 400
         raise HTTPException(status, exc.code) from exc
+    audit_log.log(
+        request,
+        session,
+        workspace_id=principal.workspace_id,
+        actor_user_id=principal.user_id,
+        action="export.pack_created",
+        object_type="opportunity",
+        object_id=opportunity_id,
+        detail={"format": format, "filename": filename},
+    )
     return Response(
         content=data,
         media_type=media_type,

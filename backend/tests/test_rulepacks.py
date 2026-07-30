@@ -102,6 +102,16 @@ def test_api_exposes_packs_and_patterns():
         ttl=timedelta(minutes=5),
     )
     headers = {"authorization": f"Bearer {token}"}
+    super_token = sec.mint_access(
+        keys,
+        user_id="00000000-0000-0000-0000-000000000001",
+        workspace_id="00000000-0000-0000-0000-0000000000aa",
+        role="viewer",
+        is_superadmin=True,
+        email_verified=True,
+        ttl=timedelta(minutes=5),
+    )
+    super_headers = {"authorization": f"Bearer {super_token}"}
     client = TestClient(app)
     packs = client.get("/api/rulepacks", headers=headers).json()["packs"]
     assert any(p["id"] == "in-works" and p["patterns"] == 5 for p in packs)
@@ -109,7 +119,7 @@ def test_api_exposes_packs_and_patterns():
     assert {p["id"] for p in body["patterns"]} == PHASE0_PATTERN_IDS
     assert client.get("/api/rulepacks/nope/patterns", headers=headers).status_code == 404
     # capability is registered and visible via health details
-    caps = client.get("/api/health/details").json()["capabilities"]
+    caps = client.get("/api/health/details", headers=super_headers).json()["capabilities"]
     assert "rulepacks.loader" in caps
 
 

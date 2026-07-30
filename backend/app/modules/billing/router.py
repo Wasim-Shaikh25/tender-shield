@@ -1,10 +1,12 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.core import audit as audit_log
 from app.core.deps import get_session, require
+from app.core.pagination import PaginationParams, paginated_list_response
 from app.core.ratelimit import RateLimitDep
 from app.modules.billing.plans import PAYGO_PRICE_INR_PAISE, SUBSCRIPTION_PRICES, PaywallError
 from app.modules.billing.providers import BillingError
@@ -102,6 +104,22 @@ def checkout(
         ) from exc
 
     result["note"] = "activation happens via the signed webhook, never this response"
+    audit_log.log(
+        request,
+        session,
+        workspace_id=principal.workspace_id,
+        actor_user_id=principal.user_id,
+        action="billing.checkout",
+        object_type="workspace",
+        object_id=principal.workspace_id,
+        detail={
+            "provider": chosen_provider,
+            "kind": body.kind,
+            "plan": body.plan,
+            "amount_minor": amount,
+            "currency": currency,
+        },
+    )
     return result
 
 
@@ -125,24 +143,25 @@ def authorize_review(
 @router.get("/invoices")
 def list_invoices(
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
+    page: PaginationParams = Depends(),
 ):
-    return {
-        "invoices": [
-            {
-                "id": inv.id,
-                "invoice_number": inv.invoice_number,
-                "amount_minor": inv.amount_minor,
-                "currency": inv.currency,
-                "status": inv.status,
-                "provider": inv.provider,
-                "paid_at": inv.paid_at.isoformat() if inv.paid_at else None,
-                "created_at": inv.created_at.isoformat(),
-            }
-            for inv in _service(request, session).list_invoices(principal.workspace_id)
-        ]
-    }
+    items = [
+        {
+            "id": inv.id,
+            "invoice_number": inv.invoice_number,
+            "amount_minor": inv.amount_minor,
+            "currency": inv.currency,
+            "status": inv.status,
+            "provider": inv.provider,
+            "paid_at": inv.paid_at.isoformat() if inv.paid_at else None,
+            "created_at": inv.created_at.isoformat(),
+        }
+        for inv in _service(request, session).list_invoices(principal.workspace_id)
+    ]
+    return {"invoices": paginated_list_response(items, page, response)}
 
 
 @router.post("/webhooks/razorpay", dependencies=[Depends(RateLimitDep(50, 60))])
@@ -153,6 +172,17 @@ async def razorpay_webhook(request: Request, session: Session = Depends(get_sess
     result = _service(request, session).process_razorpay_webhook(raw, sig, secret)
     if not result.get("ok"):
         raise HTTPException(400, result.get("reason", "webhook_failed"))
+    if result.get("workspace_id"):
+        audit_log.log(
+            request,
+            session,
+            workspace_id=result["workspace_id"],
+            actor_user_id=None,
+            action="billing.payment_received",
+            object_type="workspace",
+            object_id=result["workspace_id"],
+            detail={"provider": "razorpay", "applied": result.get("applied")},
+        )
     return result
 
 
@@ -164,4 +194,15 @@ async def stripe_webhook(request: Request, session: Session = Depends(get_sessio
     result = _service(request, session).process_stripe_webhook(raw, sig, secret)
     if not result.get("ok"):
         raise HTTPException(400, result.get("reason", "webhook_failed"))
+    if result.get("workspace_id"):
+        audit_log.log(
+            request,
+            session,
+            workspace_id=result["workspace_id"],
+            actor_user_id=None,
+            action="billing.payment_received",
+            object_type="workspace",
+            object_id=result["workspace_id"],
+            detail={"provider": "stripe", "applied": result.get("applied")},
+        )
     return result

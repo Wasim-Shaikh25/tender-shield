@@ -65,9 +65,7 @@ class BaselineService:
                 "source_page": r.source_page,
                 "source_quote": r.source_quote,
                 "suggested_action": r.suggested_action,
-                "amount_exposure": (
-                    float(r.amount_exposure) if r.amount_exposure is not None else None
-                ),
+                "amount_exposure": r.amount_exposure,
                 "review_status": r.review_status,
             }
             for r in rows

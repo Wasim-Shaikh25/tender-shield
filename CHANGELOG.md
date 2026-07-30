@@ -259,6 +259,14 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Updated `docs/deployment.md` with an Object storage section covering MinIO,
   AWS S3, Cloudflare R2, Tigris, and Backblaze B2.
 
+### Done — 2026-07-30 (TS-166: end-to-end automation scenarios and audit prompt)
+
+- Created `evals/e2e/scenarios.md` with user-journey, negative-case, security,
+  and operational-readiness scenarios mapped to the audit prompt.
+- Checked the end-to-end audit prompt into `evals/e2e/END_TO_END_PRODUCTION_AUDIT_PROMPT.md`
+  so it can be run against evidence from these scenarios.
+- Updated task backlog.
+
 ### Next
 
 - No open tasks in this batch.

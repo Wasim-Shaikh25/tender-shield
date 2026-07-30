@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, 
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.core import audit as audit_log
 from app.core.deps import get_session, require
 from app.core.storage import StorageError, ValidationError, validate_and_store
 from app.modules.baseline.service import BaselineError, BaselineService
@@ -212,6 +213,16 @@ def handover_export(
         )
     except BaselineError as exc:
         _raise(exc)
+    audit_log.log(
+        request,
+        session,
+        workspace_id=principal.workspace_id,
+        actor_user_id=principal.user_id,
+        action="export.handover_created",
+        object_type="opportunity",
+        object_id=opportunity_id,
+        detail={"format": format, "filename": filename},
+    )
     return Response(
         content=data,
         media_type=media_type,

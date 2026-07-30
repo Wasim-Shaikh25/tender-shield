@@ -88,6 +88,10 @@ None (core owns no business tables).
   sanitizing free-form LLM input, detecting common prompt-injection/jailbreak
   patterns, and wrapping untrusted data in XML-style delimiters so the LLM is
   instructed to ignore any commands inside the tender text.
+- **B12 (audit helper):** `app.core.audit` exposes a router-safe `log()` helper
+  that resolves the `review.service_factory` capability and writes append-only
+  `audit_log` rows. It skips account-level contexts that have no real workspace and
+  never raises into the caller.
 
 ## Acceptance criteria
 
@@ -112,6 +116,8 @@ None (core owns no business tables).
   when `TS_CLAMD_SOCKET` is configured.
 - A15: `prompt_guard` detects common prompt-injection patterns, caps message length,
   strips delimiter mimicry, and wraps untrusted text in XML-style tags.
+- A16: `app.core.audit.log` writes an `audit_log` row through the review module
+  without raising, and skips non-UUID workspace contexts.
 
 ## Out of scope
 

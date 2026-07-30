@@ -176,9 +176,21 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   to prevent regressions.
 - Updated `specs/modules/findings.md`.
 
+### Done — 2026-07-30 (TS-116: complete audit-log events for auth, membership, role, billing, and export)
+
+- Added `app.core.audit.log` helper that resolves the `review.service_factory`
+  capability and writes append-only `audit_log` rows without cross-module imports.
+- `AuthService` now records workspace creation, member add/role change/remove,
+  invitation create/accept/revoke, project creation, project member add, and
+  account settings/password updates (when a real workspace is selected).
+- Billing routers log checkout and payment-received webhooks.
+- Export and baseline routers log bid-review pack and handover downloads.
+- Webhook handlers return `workspace_id` so the router can record the event.
+- Added `tests/test_audit.py`.
+- Updated `specs/modules/core.md` and `specs/modules/review.md`.
+
 ### Next
 
-- TS-116 — complete audit-log events for auth, membership, billing, and data-export actions.
 - TS-117 — data export and account deletion (GDPR/DPDP).
 - TS-118 — pagination + `/api/health/details` super-admin gate.
 - TS-119 — accessibility linting + WCAG assessment.

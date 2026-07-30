@@ -211,7 +211,8 @@ class BillingService:
             self._workspaces().set_plan(workspace_id, "free", commit=False)
 
         self.s.commit()
-        return {"ok": True, "applied": typ}
+        ws = str(workspace_id) if workspace_id else None
+        return {"ok": True, "applied": typ, "workspace_id": ws}
 
     def process_stripe_webhook(self, raw_body: bytes, signature: str, secret: str) -> dict:
         evt = verify_stripe_signature(raw_body, signature, secret)
@@ -282,7 +283,8 @@ class BillingService:
                     )
 
         self.s.commit()
-        return {"ok": True, "applied": event_type}
+        ws = str(workspace_id) if workspace_id else None
+        return {"ok": True, "applied": event_type, "workspace_id": ws}
 
     def _log(self, workspace_id, provider, event_id, event_type, *, status, raw):
         """Append a payment_log row. Callers commit."""

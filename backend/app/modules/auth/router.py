@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core import audit as audit_log
 from app.core.config import Settings
 from app.core.deps import current_principal, get_session, require
 from app.core.ratelimit import RateLimitDep
@@ -23,6 +24,7 @@ def _service(request: Request, session: Session) -> AuthService:
     keys = request.app.state.ctx.registry.require("auth.keys")
     sender = request.app.state.ctx.registry.get("notifications.sender")
     seat_limits = request.app.state.ctx.registry.get("billing.seat_limits")
+    audit_factory = request.app.state.ctx.registry.get("review.service_factory")
     return AuthService(
         session,
         keys,
@@ -31,6 +33,7 @@ def _service(request: Request, session: Session) -> AuthService:
         refresh_ttl_days=settings.refresh_ttl_days,
         sender=sender,
         seat_limits=seat_limits,
+        audit_factory=audit_factory,
     )
 
 
@@ -544,6 +547,19 @@ def update_settings(
             user.mobile_verified = False
             _service(request, session).create_mobile_verification(user.id, phone=user.phone)
         session.commit()
+        audit_log.log(
+            request,
+            session,
+            workspace_id=principal.workspace_id,
+            actor_user_id=principal.user_id,
+            action="account.settings_updated",
+            object_type="user",
+            object_id=principal.user_id,
+            detail={
+                "changed": [f for f in ("org_name", "city", "dob", "phone") if getattr(body, f)]
+            },
+        )
+
         return {
             "email": user.email,
             "phone": user.phone,
@@ -575,6 +591,15 @@ def change_password(
         validate_password(body.new_password)
         user.password_hash = hash_password(body.new_password)
         session.commit()
+        audit_log.log(
+            request,
+            session,
+            workspace_id=principal.workspace_id,
+            actor_user_id=principal.user_id,
+            action="account.password_changed",
+            object_type="user",
+            object_id=principal.user_id,
+        )
         return {"ok": True}
 
     return _handle(_do)
@@ -639,7 +664,9 @@ def add_workspace_member(
     if not principal.is_superadmin and str(principal.workspace_id) != workspace_id:
         raise HTTPException(403, "not_workspace_member")
     return _handle(
-        lambda: _service(request, session).add_workspace_member(workspace_id, body.email, body.role)
+        lambda: _service(request, session).add_workspace_member(
+            workspace_id, body.email, body.role, actor_user_id=principal.user_id
+        )
     )
 
 
@@ -728,7 +755,8 @@ def add_project_member(
     # project membership is scoped to the active workspace from the token
     return _handle(
         lambda: _service(request, session).add_project_member(
-            principal.workspace_id, project_id, body.email, body.role
+            principal.workspace_id, project_id, body.email, body.role,
+            actor_user_id=principal.user_id,
         )
     )
 
@@ -756,7 +784,8 @@ def create_invitation(
         raise HTTPException(403, "email_not_verified")
     return _handle(
         lambda: _service(request, session).create_invitation(
-            principal.workspace_id, body.email, body.role, body.project_id
+            principal.workspace_id, body.email, body.role, body.project_id,
+            actor_user_id=principal.user_id,
         )
     )
 

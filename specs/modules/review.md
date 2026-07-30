@@ -6,7 +6,7 @@ until no finding is `proposed` or `needs_clarification`). Consumes the findings
 store via capability; updates the review columns the findings module owns. Single-
 member attestation (Doc §11.4) and multi-reviewer chains are follow-ups.
 **Requirement refs:** Doc §1.1(7), §11.4, Phase 1.5 doc §5
-**Task refs:** TS-021, TS-055
+**Task refs:** TS-021, TS-055, TS-116
 
 ## Purpose
 
@@ -49,6 +49,14 @@ anything is exported; every decision is audited append-only.
 - **B7:** `review_finding` requires the `opportunity_id` of the opportunity under
   review and rejects the request when the finding does not belong to that
   opportunity.
+- **B8:** `app.core.audit` provides a thin router helper that resolves the
+  `review.service_factory` capability and writes append-only `audit_log` rows for
+  auth, membership, role, billing, and export events without creating cross-module
+  imports. Failures are logged and swallowed.
+- **B9:** auth and workspace lifecycle events are recorded: workspace creation,
+  member add/role change/remove, invitation create/accept/revoke, project creation,
+  project member add, account settings/password changes (when a real workspace is
+  selected), billing checkout/payment webhooks, and export pack/handover downloads.
 
 ## Acceptance criteria
 
@@ -58,6 +66,8 @@ anything is exported; every decision is audited append-only.
   review endpoint and persisted with `review_reason`.
 - A4: the queue response includes `review_reason` and `explanation` for each finding.
 - A5: reviewing a finding with a mismatched `opportunity_id` returns 404.
+- A6: workspace lifecycle and billing/export actions produce `audit_log` rows
+  with the correct `workspace_id`, `actor_user_id`, and `action`.
 
 ## Out of scope
 

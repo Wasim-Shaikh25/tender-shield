@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.core import audit as audit_log
 from app.core.deps import get_session, require
 from app.core.ratelimit import RateLimitDep
 from app.modules.billing.plans import PAYGO_PRICE_INR_PAISE, SUBSCRIPTION_PRICES, PaywallError
@@ -102,6 +103,22 @@ def checkout(
         ) from exc
 
     result["note"] = "activation happens via the signed webhook, never this response"
+    audit_log.log(
+        request,
+        session,
+        workspace_id=principal.workspace_id,
+        actor_user_id=principal.user_id,
+        action="billing.checkout",
+        object_type="workspace",
+        object_id=principal.workspace_id,
+        detail={
+            "provider": chosen_provider,
+            "kind": body.kind,
+            "plan": body.plan,
+            "amount_minor": amount,
+            "currency": currency,
+        },
+    )
     return result
 
 
@@ -153,6 +170,17 @@ async def razorpay_webhook(request: Request, session: Session = Depends(get_sess
     result = _service(request, session).process_razorpay_webhook(raw, sig, secret)
     if not result.get("ok"):
         raise HTTPException(400, result.get("reason", "webhook_failed"))
+    if result.get("workspace_id"):
+        audit_log.log(
+            request,
+            session,
+            workspace_id=result["workspace_id"],
+            actor_user_id=None,
+            action="billing.payment_received",
+            object_type="workspace",
+            object_id=result["workspace_id"],
+            detail={"provider": "razorpay", "applied": result.get("applied")},
+        )
     return result
 
 
@@ -164,4 +192,15 @@ async def stripe_webhook(request: Request, session: Session = Depends(get_sessio
     result = _service(request, session).process_stripe_webhook(raw, sig, secret)
     if not result.get("ok"):
         raise HTTPException(400, result.get("reason", "webhook_failed"))
+    if result.get("workspace_id"):
+        audit_log.log(
+            request,
+            session,
+            workspace_id=result["workspace_id"],
+            actor_user_id=None,
+            action="billing.payment_received",
+            object_type="workspace",
+            object_id=result["workspace_id"],
+            detail={"provider": "stripe", "applied": result.get("applied")},
+        )
     return result

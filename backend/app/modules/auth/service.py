@@ -4,6 +4,7 @@ session. This is the only place that touches auth tables."""
 from __future__ import annotations
 
 import hashlib
+import logging
 import secrets
 import uuid
 from datetime import UTC, date, datetime, timedelta
@@ -30,6 +31,8 @@ from app.modules.auth.models import (
     WorkspaceMember,
 )
 from app.modules.auth.rbac import ROLES, role_at_least
+
+logger = logging.getLogger(__name__)
 
 # Fallback seat limits; billing module provides the canonical mapping via registry.
 _SEAT_LIMITS = {"free": 2, "paygo": 3, "pro": 10, "scale": 25}
@@ -61,6 +64,7 @@ class AuthService:
         refresh_ttl_days=30,
         sender: Any | None = None,
         seat_limits: dict[str, int] | None = None,
+        audit_factory: Any | None = None,
     ):
         self.s = session
         self.keys = keys
@@ -69,6 +73,26 @@ class AuthService:
         self.refresh_ttl = timedelta(days=refresh_ttl_days)
         self._sender = sender
         self._seat_limits = seat_limits or _SEAT_LIMITS
+        self._audit_factory = audit_factory
+
+    def _audit(
+        self, workspace_id, actor_user_id, action, *,
+        object_type=None, object_id=None, detail=None,
+    ):
+        if self._audit_factory is None:
+            return
+        try:
+            svc = self._audit_factory(self.s)
+            svc.audit(
+                workspace_id,
+                actor=str(actor_user_id) if actor_user_id else None,
+                action=action,
+                object_type=object_type,
+                object_id=str(object_id) if object_id else None,
+                detail=detail or {},
+            )
+        except Exception:
+            logger.exception("audit log failed for action %r", action)
 
     # ---- registration -----------------------------------------------------
     def signup(
@@ -312,6 +336,11 @@ class AuthService:
         self.s.flush()
         self.s.add(WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role="owner"))
         self.s.commit()
+        self._audit(
+            workspace.id, user_id, "workspace.created",
+            object_type="workspace", object_id=workspace.id,
+            detail={"name": workspace.name, "country": workspace.country},
+        )
         return {"workspace_id": str(workspace.id), "name": workspace.name}
 
     def list_workspaces(self, user_id) -> list[dict]:
@@ -371,7 +400,7 @@ class AuthService:
         if used + count > limit:
             raise AuthError("seat_limit_exceeded")
 
-    def add_workspace_member(self, workspace_id, email: str, role: str) -> dict:
+    def add_workspace_member(self, workspace_id, email: str, role: str, actor_user_id=None) -> dict:
         if role not in ROLES:
             raise AuthError("bad_role")
         workspace_id = uuid.UUID(str(workspace_id))
@@ -385,11 +414,18 @@ class AuthService:
             )
         )
         if existing:
+            old_role = existing.role
             existing.role = role
         else:
             self._assert_seats_available(workspace_id)
+            old_role = None
             self.s.add(WorkspaceMember(workspace_id=workspace_id, user_id=user.id, role=role))
         self.s.commit()
+        self._audit(
+            workspace_id, actor_user_id, "workspace.member_added",
+            object_type="workspace", object_id=workspace_id,
+            detail={"target_user_id": str(user.id), "role": role, "old_role": old_role},
+        )
         return {"workspace_id": str(workspace_id), "user_id": str(user.id), "role": role}
 
     def list_workspace_members(self, workspace_id, user_id) -> list[dict]:
@@ -456,8 +492,21 @@ class AuthService:
         )
         if not member:
             raise AuthError("no_such_user")
+        old_role = member.role
         member.role = new_role
         self.s.commit()
+        self._audit(
+            workspace_id,
+            actor_user_id,
+            "workspace.member_role_changed",
+            object_type="workspace",
+            object_id=workspace_id,
+            detail={
+                "target_user_id": str(member_user_id),
+                "old_role": old_role,
+                "new_role": new_role,
+            },
+        )
         return {"user_id": str(member.user_id), "role": new_role}
 
     def remove_workspace_member(self, workspace_id, member_user_id, actor_user_id) -> dict:
@@ -473,6 +522,11 @@ class AuthService:
             raise AuthError("no_such_user")
         self.s.delete(member)
         self.s.commit()
+        self._audit(
+            workspace_id, actor_user_id, "workspace.member_removed",
+            object_type="workspace", object_id=workspace_id,
+            detail={"target_user_id": str(member_user_id)},
+        )
         return {"ok": True}
 
     def list_invitations(self, workspace_id, actor_user_id) -> list[dict]:
@@ -524,6 +578,11 @@ class AuthService:
             raise AuthError("insufficient_role")
         self.s.delete(invitation)
         self.s.commit()
+        self._audit(
+            invitation.workspace_id, actor_user_id, "workspace.invitation_revoked",
+            object_type="invitation", object_id=invitation.id,
+            detail={"email": invitation.email},
+        )
         return {"ok": True}
 
     def create_project(self, user_id, workspace_id, name: str, status: str = "planning") -> dict:
@@ -544,6 +603,11 @@ class AuthService:
             )
         )
         self.s.commit()
+        self._audit(
+            workspace_id, user_id, "project.created",
+            object_type="project", object_id=project.id,
+            detail={"name": project.name, "status": project.status},
+        )
         return {"project_id": str(project.id), "name": project.name, "status": project.status}
 
     def list_projects(self, user_id, workspace_id) -> list[dict]:
@@ -558,7 +622,9 @@ class AuthService:
         ).all()
         return [{"project_id": str(p.id), "name": p.name, "status": p.status} for (p,) in rows]
 
-    def add_project_member(self, workspace_id, project_id, email: str, role: str) -> dict:
+    def add_project_member(
+        self, workspace_id, project_id, email: str, role: str, actor_user_id=None
+    ) -> dict:
         if role not in ROLES:
             raise AuthError("bad_role")
         workspace_id = uuid.UUID(str(workspace_id))
@@ -587,6 +653,11 @@ class AuthService:
                 )
             )
         self.s.commit()
+        self._audit(
+            workspace_id, actor_user_id, "project.member_added",
+            object_type="project", object_id=project_id,
+            detail={"target_user_id": str(user.id), "role": role},
+        )
         return {"project_id": str(project_id), "user_id": str(user.id), "role": role}
 
     def list_project_members(self, project_id, user_id) -> list[dict]:
@@ -610,7 +681,12 @@ class AuthService:
         ]
 
     def create_invitation(
-        self, workspace_id, email: str, role: str, project_id: str | None = None
+        self,
+        workspace_id,
+        email: str,
+        role: str,
+        project_id: str | None = None,
+        actor_user_id=None,
     ) -> dict:
         if role not in ROLES:
             raise AuthError("bad_role")
@@ -634,6 +710,18 @@ class AuthService:
         )
         self.s.add(invitation)
         self.s.commit()
+        self._audit(
+            workspace_id,
+            actor_user_id,
+            "workspace.invitation_created",
+            object_type="invitation",
+            object_id=invitation.id,
+            detail={
+                "email": invitation.email,
+                "role": role,
+                "project_id": str(project_uuid) if project_uuid else None,
+            },
+        )
         if self._sender and self._sender.__class__.__name__ != "ConsoleSender":
             self._sender.send(
                 SimpleNamespace(
@@ -721,6 +809,18 @@ class AuthService:
                 )
         invitation.used_at = datetime.now(UTC)
         self.s.commit()
+        self._audit(
+            invitation.workspace_id,
+            user_id,
+            "workspace.invitation_accepted",
+            object_type="invitation",
+            object_id=invitation.id,
+            detail={
+                "email": invitation.email,
+                "role": invitation.role,
+                "workspace_id": str(invitation.workspace_id),
+            },
+        )
         return {"workspace_id": str(invitation.workspace_id), "role": invitation.role}
 
     # ---- MFA ---------------------------------------------------------------

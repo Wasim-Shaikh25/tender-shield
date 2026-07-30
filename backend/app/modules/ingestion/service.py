@@ -195,15 +195,20 @@ class IngestionService:
             )
         )
 
-    def list_clauses(self, workspace_id, opportunity_id) -> list[Clause]:
-        return list(
-            self.s.scalars(
-                select(Clause).where(
-                    Clause.opportunity_id == uuid.UUID(str(opportunity_id)),
-                    Clause.workspace_id == uuid.UUID(str(workspace_id)),
-                )
+    def list_clauses(
+        self, workspace_id, opportunity_id, *, limit: int | None = None
+    ) -> list[Clause]:
+        stmt = (
+            select(Clause)
+            .where(
+                Clause.opportunity_id == uuid.UUID(str(opportunity_id)),
+                Clause.workspace_id == uuid.UUID(str(workspace_id)),
             )
+            .order_by(Clause.id)
         )
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        return list(self.s.scalars(stmt))
 
     def list_clauses_for_document(self, workspace_id, document_id) -> list[Clause]:
         return list(
@@ -215,15 +220,20 @@ class IngestionService:
             )
         )
 
-    def list_documents(self, workspace_id, opportunity_id) -> list[Document]:
-        return list(
-            self.s.scalars(
-                select(Document).where(
-                    Document.opportunity_id == uuid.UUID(str(opportunity_id)),
-                    Document.workspace_id == uuid.UUID(str(workspace_id)),
-                )
+    def list_documents(
+        self, workspace_id, opportunity_id, *, limit: int | None = None
+    ) -> list[Document]:
+        stmt = (
+            select(Document)
+            .where(
+                Document.opportunity_id == uuid.UUID(str(opportunity_id)),
+                Document.workspace_id == uuid.UUID(str(workspace_id)),
             )
+            .order_by(Document.id)
         )
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        return list(self.s.scalars(stmt))
 
     def missing_doc_report(self, workspace_id, opportunity_id) -> dict:
         present = [d.kind for d in self.list_documents(workspace_id, opportunity_id)]

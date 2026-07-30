@@ -30,10 +30,11 @@ None. Reads documents and clauses through `ingestion`.
 
 ## Behavior
 
-- **B1 — Keyword search.** Query is tokenised into lowercase words. Each clause
-  is scored by token overlap against the query, normalised by the larger token set.
+- **B1 — Keyword search.** Query is tokenised into lowercase words. The DB returns
+  a bounded candidate clause set (`limit * 10`, capped at 1000); each candidate is
+  scored by token overlap against the query, normalised by the larger token set.
   Results include document filename/kind, clause ref, heading, page, and a
-  300-char text preview.
+  300-char text preview. The `limit` parameter is clamped to 1–100 at the router.
 - **B2 — Diff resolution.** If `document_id` is supplied, its `supersedes` column
   identifies the old version. Otherwise the service groups documents by `kind`
   and uses the two most recent uploads. If neither exists, it walks the
@@ -48,8 +49,8 @@ None. Reads documents and clauses through `ingestion`.
 
 ## Acceptance criteria
 
-- A1: `GET /opportunities/{id}?q=payment` returns clauses containing "payment"
-  ranked above unrelated clauses.
+- A1: `GET /opportunities/{id}?q=payment&limit=20` returns up to 20 clauses
+  containing "payment" ranked above unrelated clauses; `limit` > 100 is clamped.
 - A2: Uploading a second version of a document and calling `POST /api/crossref/opportunities/{id}/diff` reports
   the added/removed/changed clauses.
 - A3: Passing `document_id` of a document with `supersedes` set compares that

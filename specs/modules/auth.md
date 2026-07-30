@@ -4,7 +4,7 @@
 is created explicitly after login; platform-only registration/login; email + mobile verification;
 OTP required on every login. Social login (Google/Apple) removed.
 **Requirement refs:** Doc §5, §3.2, §16; user request (account-first, OTP login)
-**Task refs:** TS-011, TS-012, TS-035, TS-036, TS-074..TS-078, TS-079, TS-163
+**Task refs:** TS-011, TS-012, TS-035, TS-036, TS-074..TS-078, TS-079, TS-106, TS-163
 
 ## Purpose
 
@@ -29,10 +29,11 @@ application-owner endpoints under `/api/auth/admin/*`.
   - `/api/auth/forgot-password`, `/api/auth/reset-password`
   - `/api/auth/settings` (GET/PUT profile), `/api/auth/settings/password` (POST change password)
   - `/api/auth/workspaces` (create/list)
-  - `/api/auth/workspaces/{id}/members` (add/list)
+  - `/api/auth/workspaces/{id}/members` (add/list/change-role/remove)
   - `/api/auth/workspaces/{id}/projects` (create/list)
   - `/api/auth/projects/{id}/members` (add/list)
-  - `/api/auth/invitations` (create) + `/api/auth/invitations/{token}/accept`
+  - `/api/auth/invitations` (create/list) + `/api/auth/invitations/{token}/accept`
+  - `/api/auth/invitations/{id}` (revoke)
   - `/api/auth/mfa/enroll` + `/api/auth/mfa/verify`
   - `/api/auth/workspaces/{id}/switch`
   - `/api/auth/admin/*` (super-admin only: list/create users, set superadmin, list workspaces)
@@ -93,6 +94,12 @@ application-owner endpoints under `/api/auth/admin/*`.
 - **B19 — Account settings:** `/api/auth/settings` returns/updates the current user's
   profile (org_name, phone, dob, city). `/api/auth/settings/password` changes the
   password after re-authentication.
+- **B20 — Team management:** workspace `admin` and `owner` roles can list members,
+  change a member's role, and remove a member. An `admin` cannot promote a member
+  above their own role and cannot remove themselves.
+- **B21 — Invitation lifecycle:** `GET /api/auth/invitations` lists pending
+  invitations. `DELETE /api/auth/invitations/{id}` removes a pending invitation,
+  revoking the token. Only `admin`+ roles can list, create, or revoke invitations.
 
 ## Acceptance criteria
 
@@ -118,22 +125,26 @@ application-owner endpoints under `/api/auth/admin/*`.
   `{id}` (super-admins excepted).
 - A15: `POST /api/auth/resend-verification` returns a generic status and never exposes the raw
   verification token.
-- A16: `POST /api/auth/workspaces/{id}/switch` rotates the refresh token and persists the new
+- A16: `PUT` and `DELETE /api/auth/workspaces/{id}/members/{user_id}` enforce admin+ role,
+  prevent self-management, and prevent assigning a role above the actor's own role.
+- A17: `GET /api/auth/invitations` and `DELETE /api/auth/invitations/{id}` allow admin+ roles
+  to list and revoke pending invitations.
+- A18: `POST /api/auth/workspaces/{id}/switch` rotates the refresh token and persists the new
   refresh-token row before returning tokens.
-- A17: sign-up rejects mismatched `confirm_password` and missing required fields.
-- A18: `GET /api/auth/workspaces/{id}/members` and `GET /api/auth/projects/{id}/members` reject
+- A19: sign-up rejects mismatched `confirm_password` and missing required fields.
+- A20: `GET /api/auth/workspaces/{id}/members` and `GET /api/auth/projects/{id}/members` reject
   callers who are not members of the target workspace (super-admins excepted).
-- A19: `create_invitation` and `accept_invitation` verify that a supplied `project_id` belongs to
+- A21: `create_invitation` and `accept_invitation` verify that a supplied `project_id` belongs to
   the invitation's workspace.
-- A20: invitation tokens are stored as a SHA-256 hash; only the creator/email sender
+- A22: invitation tokens are stored as a SHA-256 hash; only the creator/email sender
   sees the raw token once.
-- A21: TOTP enrollment returns a pending secret and only sets `mfa_method=totp` after
+- A23: TOTP enrollment returns a pending secret and only sets `mfa_method=totp` after
   the first code is verified.
-- A22: `/api/auth/settings` returns and updates `org_name`, `phone`, `dob`, `city`.
-- A23: `/api/auth/settings/password` requires current password and rejects reused/weak passwords.
-- A24: sign-up sends separate email and mobile verification OTPs; both must be verified before
+- A24: `/api/auth/settings` returns and updates `org_name`, `phone`, `dob`, `city`.
+- A25: `/api/auth/settings/password` requires current password and rejects reused/weak passwords.
+- A26: sign-up sends separate email and mobile verification OTPs; both must be verified before
   login returns a usable access token.
-- A25: login always issues an account-level `mfa_token` (no workspace selected). After MFA,
+- A27: login always issues an account-level `mfa_token` (no workspace selected). After MFA,
   `/api/auth/refresh` and `/api/auth/workspaces/{id}/switch` preserve or return a workspace-bound
   token; a user with no workspaces gets an account-level access token and can call
   `/api/auth/workspaces` and `/api/auth/workspaces` create.

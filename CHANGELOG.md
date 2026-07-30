@@ -95,6 +95,20 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Updated `specs/modules/rulepacks.md` B2 and `specs/modules/findings.md` B6.
 - Added migration `857d8c12c3f6` for `findings.disclaimer`.
 
+### Done — 2026-07-30 (TS-106: team-management UI and invitation revocation API)
+
+- Added `/team` page: invite members, list members, change role, remove member,
+  list pending invitations, revoke invitations.
+- Linked `/team` from the header nav.
+- Extended the typed API client with team/invitation endpoints.
+- Added backend `AuthService` methods and REST endpoints:
+  - `PUT /api/auth/workspaces/{id}/members/{user_id}` — change role,
+  - `DELETE /api/auth/workspaces/{id}/members/{user_id}` — remove member,
+  - `GET /api/auth/invitations` — list pending invitations,
+  - `DELETE /api/auth/invitations/{id}` — revoke invitation.
+- Enforced admin+ role, no self-management, and role-rank limits in team operations.
+- Updated `specs/modules/auth.md` and `specs/frontend.md` with team behavior and acceptance criteria.
+
 ### Done — 2026-07-30 (TS-107: account & security settings UI)
 
 - Added `/settings` page with profile (org/firm, city, phone, DOB) and security
@@ -108,7 +122,6 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 - TS-103 — regenerate the TypeScript API client from the updated OpenAPI schema and
   remove hand-rolled API response mismatches.
-- TS-106 — Team-management UI (invite/list/role/remove) and invitation revocation API.
 - TS-108 — Observability (metrics, health probes, backup/rollback docs).
 - TS-109 — Enforce plan seat limits in `add_workspace_member` / `accept_invitation`.
 - TS-133..TS-162 — remaining medium/low audit follow-ups.

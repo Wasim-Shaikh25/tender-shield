@@ -29,8 +29,9 @@ one repo (`apps/web` later; starts as `frontend/`).
   help/                     # static how-to + honest QS-lifecycle scope + disclaimer
   billing/                  # plan selection, invoices, usage
   settings/                 # account profile + security (password, sessions)
+  team/                     # workspace members, role changes, invitations, revoke
   admin/                    # super-admin: users, workspaces, audit-log
-  team/ playbook/
+  playbook/
 ```
 
 ## Behavior (UX principles — binding)
@@ -66,6 +67,10 @@ one repo (`apps/web` later; starts as `frontend/`).
   (org/firm, city, DOB, phone) and security (change password, sign out). Phone
   changes trigger a re-verification flow; password changes require the current
   password and enforce the same policy as sign-up.
+- **B10:** the `/team` page lists workspace members and pending invitations,
+  lets `admin`+ roles invite new members, change member roles, remove members,
+  and revoke pending invitations. The invite form shows a dev/test token fallback
+  when email is not configured.
 - **B8:** the Help page (`/help`) is a static server component: an 8-step
   how-to-use walkthrough, the never-broken safety rules, a three-bucket
   QS-lifecycle coverage table (**Covered now** = Phase-1 pre-bid slice;
@@ -88,6 +93,8 @@ one repo (`apps/web` later; starts as `frontend/`).
 - A7: unverified hosting-region claims are removed from the landing page.
 - A8: `/settings` loads the profile from `/api/auth/settings`, saves updates, and
   allows changing the password via `/api/auth/settings/password`.
+- A9: `/team` lists members and pending invitations, lets admin+ users invite,
+  change role, remove members, and revoke invitations through the typed API client.
 
 ## Out of scope
 

@@ -245,7 +245,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-134 | BOQ run endpoint accepts unbounded CSV payloads | audit TS-I05; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/boq.md` (update) | todo |
 | TS-135 | Session provider keeps a stale workspace list after switch/refresh | audit TS-F02; `PRODUCTION_READINESS_AUDIT.md` | `specs/frontend.md` (update) | todo |
 | TS-136 | Risk classifier uses an invalid default Anthropic model name | audit TS-R02; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/risk.md` (update) | done |
-| TS-137 | Risk classifier uses brittle string slicing and no schema validation | audit TS-R01; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/risk.md` (update) | todo |
+| TS-137 | Risk classifier uses brittle string slicing and no schema validation | audit TS-R01; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/risk.md` (update) | done |
 | TS-138 | Days_to_submission mixes UTC and local time for naive deadlines | audit TS-D02; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/comparison.md` (update) | done |
 | TS-139 | Qualification matrix marks missing criteria as not_met with HIGH severity | audit TS-Q01; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/qualification.md` (update) | todo |
 | TS-140 | BOQ engine relies on DuckDB reading df from caller scope | audit TS-X02; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/boq.md` (update) | todo |

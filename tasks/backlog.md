@@ -185,7 +185,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-105 | Webhook atomicity: claim the idempotency marker first, single transaction, unique constraint | audit TS-B02; Doc §15.5 | `specs/modules/billing.md` (update) | done |
 | TS-106 | Team-management UI: invite, list, change role, remove member; member removal + invitation revocation API | audit §3.5 items 1, 3; Doc §5, §9 | `specs/frontend.md`, `specs/modules/auth.md` (update) | done |
 | TS-107 | Account & security settings UI: change password, MFA enrolment, resend verification, session list | audit §3.5 item 2; Doc §5, §9 | `specs/frontend.md` (update) | done |
-| TS-108 | Observability: metrics, error tracking, dependency-checking health probes, documented backup/rollback | audit TS-O02; Doc §16 | `specs/modules/health.md` (update) | todo |
+| TS-108 | Observability: metrics, error tracking, dependency-checking health probes, documented backup/rollback | audit TS-O02; Doc §16 | `specs/modules/health.md` (update) | done |
 | TS-109 | Enforce plan seat limits in `add_workspace_member` and `accept_invitation` | audit TS-B03; Doc §7 | `specs/modules/billing.md` (update) | done |
 | TS-110 | tus: `201` + `Location` header, shared chunk state, TTL sweeper, `upload_id` validation | audit TS-I03; Doc §11.1 | `specs/modules/ingestion.md` (update) | todo |
 | TS-111 | Deadline-alert deduplication table and per-user notification preferences | audit TS-N01; Doc §11.6 | `specs/modules/notifications.md` (update) | todo |

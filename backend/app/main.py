@@ -20,10 +20,12 @@ from app.core.db import make_engine, make_session_factory
 from app.core.deps import require
 from app.core.events import EventBus
 from app.core.loader import LoadReport, load_modules
+from app.core.metrics import MetricsMiddleware
 from app.core.module import AppContext
 from app.core.ratelimit import default_rate_limiter
 from app.core.registry import ServiceRegistry
 from app.core.scheduler import Scheduler
+from app.core.sentry import init_sentry
 from app.core.storage import StorageError, get_storage
 
 logger = logging.getLogger(__name__)
@@ -105,6 +107,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     report: LoadReport = load_modules(settings.enabled_module_names())
 
+    # Sentry is optional; when no DSN is configured this is a no-op.
+    init_sentry(settings)
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         scheduler.start()
@@ -141,6 +146,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     app.add_middleware(SecurityHeadersMiddleware)
+
+    # Metrics are recorded for every request and exposed at /api/health/metrics.
+    if settings.metrics_enabled:
+        app.add_middleware(MetricsMiddleware)
 
     app.state.ctx = ctx
     app.state.load_report = report

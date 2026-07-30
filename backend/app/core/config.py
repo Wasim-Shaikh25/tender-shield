@@ -86,7 +86,13 @@ class Settings(BaseSettings):
     # with a clear disclaimer. False hides unvalidated patterns from paid plans.
     beta_unvalidated: bool = False
 
-    @field_validator("s3_secret_access_key", "apple_private_key")
+    # Observability. Sentry is initialized when a DSN is configured.
+    sentry_dsn: SecretStr | None = None
+    sentry_environment: str = ""
+    sentry_traces_sample_rate: float = 0.0
+    metrics_enabled: bool = True
+
+    @field_validator("s3_secret_access_key", "apple_private_key", "sentry_dsn")
     @classmethod
     def _blank_secret_is_none(cls, v: SecretStr | None) -> SecretStr | None:
         if v is None:

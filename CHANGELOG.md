@@ -118,6 +118,18 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   typed API client; added `AccountSettings` type.
 - Updated `specs/frontend.md` with `/settings` structure, behavior B9, and acceptance A8.
 
+### Done — 2026-07-30 (TS-108: observability, health probes, and backup/rollback docs)
+
+- Added `/api/health/live` (liveness) and `/api/health/ready` (readiness) endpoints.
+- `/api/health/ready` probes DB, Redis, storage, and the Celery broker and returns 503 when
+  any critical dependency is unreachable.
+- Added `/api/health/metrics` with Prometheus-compatible request/latency metrics collected by
+  `MetricsMiddleware`.
+- Added optional Sentry integration via `TS_SENTRY_DSN`, loaded only when `sentry-sdk` is
+  installed.
+- Documented observability, backup/restore, rollback, and alerting in `docs/deployment.md`.
+- Updated `specs/modules/health.md` and `tests/test_health.py`.
+
 ### Done — 2026-07-30 (TS-103: align `/auth/workspaces` response and generate TS client)
 
 - `AuthService.list_workspaces` now returns `country` and `plan` alongside `workspace_id`,

@@ -62,4 +62,37 @@ Before going live, set real values for:
 - `ANTHROPIC_API_KEY` — to enable LLM risk classification and assistant free-form answers.
 - `NEXT_PUBLIC_API_URL` — public API base URL, consumed at build time by the frontend.
 
+## Observability
+
+TenderShield exposes the following health and metrics endpoints under `/api/health`:
+
+| Endpoint | Purpose | Auth |
+|---|---|---|
+| `GET /api/health` | Minimal public health status | none |
+| `GET /api/health/live` | Kubernetes liveness probe | none |
+| `GET /api/health/ready` | Readiness probe; checks DB, Redis, storage, and Celery broker | none |
+| `GET /api/health/metrics` | Prometheus exposition text (RED metrics per process) | none |
+| `GET /api/health/details` | Modules, capabilities, and dependency statuses | super-admin |
+
+Set `TS_SENTRY_DSN` (and optionally `TS_SENTRY_ENVIRONMENT` and `TS_SENTRY_TRACES_SAMPLE_RATE`)
+to enable Sentry error tracking. The `sentry-sdk` package must be installed (`pip install -e ".[observability]"`).
+
+## Backup and rollback
+
+**PostgreSQL**
+- Enable point-in-time recovery (PITR) using WAL archiving and managed backups. Target RPO ≤ 1 h, RTO ≤ 30 min.
+- Test restores to a separate environment quarterly.
+
+**Object storage**
+- S3 buckets and S3-compatible stores must have versioning enabled.
+- Define lifecycle rules to transition old objects to cheaper storage after 90 days.
+
+**Application rollback**
+- Deployments are containerised; keep the previous image tag in the registry.
+- Rollback procedure: revert the image tag, run `alembic downgrade -1` for database migrations that were introduced in the failed release, and restart pods.
+- Do not run `alembic downgrade` on a release that has already processed new user data; instead restore from the PITR backup.
+
+**Monitoring alerts**
+- Alert on 5xx rate > 1 % over 5 min, webhook signature verification failures, Celery queue depth > 100, and failed logins per account.
+
 Do not commit `.env` files. The committed `.env.local`/`.env.dev`/`.env.prod` contain example values only.

@@ -205,7 +205,7 @@ async def upload_attachment(
     storage = get_storage(settings)
     try:
         key = await storage.write(
-            f"support/{principal.workspace_id}/{ticket_id}/{filename}",
+            f"workspace/{principal.workspace_id}/support/tickets/{ticket_id}/{filename}",
             data,
             file.content_type or "application/octet-stream",
         )

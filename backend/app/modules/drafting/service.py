@@ -58,9 +58,7 @@ class DraftingService:
                 "detail": r.detail,
                 "source_quote": r.source_quote,
                 "source_page": r.source_page,
-                "amount_exposure": (
-                    float(r.amount_exposure) if r.amount_exposure is not None else None
-                ),
+                "amount_exposure": r.amount_exposure,
                 "suggested_action": r.suggested_action,
                 "explanation": r.explanation or {},
             }

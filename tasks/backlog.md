@@ -267,7 +267,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-156 | Stripe webhook verifier swallows all exceptions and returns None | audit TS-B08; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/billing.md` (update) | done |
 | TS-157 | Tus endpoints perform synchronous file I/O and OPTIONS returns a non-compliant empty body | audit TS-I09; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | done |
 | TS-158 | POST /api/review/findings/{finding_id} does not scope by opportunity | audit TS-A16; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/review.md` (update) | done |
-| TS-159 | Finding.amount_exposure and monetary thresholds are stored/extracted as float major units, violating the minor-units invariant | audit TS-C01; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/findings.md` (update) | todo |
+| TS-159 | Finding.amount_exposure and monetary thresholds are stored/extracted as float major units, violating the minor-units invariant | audit TS-C01; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/findings.md` (update) | done |
 | TS-160 | XLSX/CSV text extraction does not emit page markers, so spreadsheet-derived deadlines and clauses lose page provenance | audit TS-I10; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | done |
 | TS-161 | Email/password login selects an arbitrary workspace for multi-workspace users | audit TS-A17; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/auth.md` (update) | done |
 | TS-162 | Severity evaluator silently defaults missing facts to 0 | audit TS-R03; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/risk.md` (update) | done |

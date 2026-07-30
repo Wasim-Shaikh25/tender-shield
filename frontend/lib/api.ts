@@ -12,7 +12,21 @@ export type Tokens = components["schemas"]["TokenResponse"];
 export type LoginResponse = components["schemas"]["LoginResponse"];
 export type Workspace = components["schemas"]["WorkspaceResponse"];
 export type AccountSettings = components["schemas"]["AccountSettingsResponse"];
-export type User = { user_id: string; email: string; role?: string; is_superadmin?: boolean };
+export type User = {
+  user_id: string;
+  email: string;
+  phone?: string;
+  org_name?: string;
+  city?: string;
+  role?: string;
+  is_superadmin?: boolean;
+  email_verified?: boolean;
+  mobile_verified?: boolean;
+  suspended_at?: string | null;
+  created_at?: string | null;
+  dob?: string | null;
+  workspaces?: Array<{ workspace_id: string; name: string; role: string }>;
+};
 export type Opportunity = { id: string; title: string; status: string; submission_due?: string | null };
 export type MissingDocs = { present: string[]; missing: string[]; expected: string[] };
 export type Clause = { id: string; clause_ref: string | null; heading: string | null; page_from: number | null };
@@ -261,6 +275,141 @@ export const api = {
     req<OrgStandard>(`/standards/notice`, { method: "PUT", body: JSON.stringify(body) }, token),
   clearOrgStandard: (token: string) =>
     req<{ cleared: boolean }>(`/standards/notice`, { method: "DELETE" }, token),
+  // Account settings
+  deleteAccount: (token: string, body: { password: string; confirm: boolean }) =>
+    req<OkResponse>("/auth/account", { method: "DELETE", body: JSON.stringify(body) }, token),
+  exportAccount: (token: string) =>
+    req<Record<string, unknown>>("/auth/export", {}, token),
+  // Notification preferences
+  getNotificationPreferences: (token: string) =>
+    req<NotificationPreferences>("/notifications/preferences", {}, token),
+  updateNotificationPreferences: (token: string, body: Partial<NotificationPreferences>) =>
+    req<NotificationPreferences>("/notifications/preferences", { method: "PUT", body: JSON.stringify(body) }, token),
+  // Admin
+  adminDashboard: (token: string) =>
+    req<AdminDashboard>("/auth/admin/dashboard", {}, token),
+  adminSearchUsers: (token: string, q?: string) =>
+    req<{ total: number; items: User[] }>(`/auth/admin/users/search${q ? `?q=${encodeURIComponent(q)}` : ""}`, {}, token),
+  adminGetUser: (token: string, user_id: string) =>
+    req<UserDetail>(`/auth/admin/users/${user_id}`, {}, token),
+  adminSuspendUser: (token: string, user_id: string) =>
+    req<UserDetail>(`/auth/admin/users/${user_id}/suspend`, { method: "POST" }, token),
+  adminUnsuspendUser: (token: string, user_id: string) =>
+    req<UserDetail>(`/auth/admin/users/${user_id}/unsuspend`, { method: "POST" }, token),
+  adminDeleteUser: (token: string, user_id: string) =>
+    req<OkResponse>(`/auth/admin/users/${user_id}`, { method: "DELETE" }, token),
+  adminGetWorkspace: (token: string, workspace_id: string) =>
+    req<WorkspaceDetail>(`/auth/admin/workspaces/${workspace_id}`, {}, token),
+  adminSetWorkspacePlan: (token: string, workspace_id: string, plan: string) =>
+    req<WorkspaceDetail>(`/auth/admin/workspaces/${workspace_id}/plan`, { method: "POST", body: JSON.stringify({ plan }) }, token),
+  adminAuditLog: (token: string, workspace_id: string) =>
+    req<AuditLogEntry[]>(`/auth/admin/audit-log?workspace_id=${encodeURIComponent(workspace_id)}`, {}, token),
+  // Billing self-service
+  getBillingSettings: (token: string) =>
+    req<Record<string, unknown>>("/billing/settings", {}, token),
+  updateBillingSettings: (token: string, body: Record<string, unknown>) =>
+    req<Record<string, unknown>>("/billing/settings", { method: "PUT", body: JSON.stringify(body) }, token),
+  cancelSubscription: (token: string) =>
+    req<{ plan: string; previous_plan: string }>("/billing/cancel", { method: "POST" }, token),
+  // Support
+  listSupportTickets: (token: string) =>
+    req<SupportTicket[]>("/support/tickets", {}, token),
+  getSupportTicket: (token: string, ticket_id: string) =>
+    req<SupportTicket>(`/support/tickets/${ticket_id}`, {}, token),
+  createSupportTicket: (token: string, body: { title: string; body: string; category?: string }) =>
+    req<SupportTicket>("/support/tickets", { method: "POST", body: JSON.stringify(body) }, token),
+  replySupportTicket: (token: string, ticket_id: string, body: string) =>
+    req<SupportTicketReply>(`/support/tickets/${ticket_id}/replies`, { method: "POST", body: JSON.stringify({ body }) }, token),
+  // Analytics
+  riskSummary: (token: string) =>
+    req<Record<string, unknown>>("/analytics/risk-summary", {}, token),
+  deadlineDashboard: (token: string) =>
+    req<Record<string, unknown>>("/analytics/deadline-dashboard", {}, token),
+  boqDefectSummary: (token: string) =>
+    req<Record<string, unknown>>("/analytics/boq-defect-summary", {}, token),
+  exportReport: (token: string, format: string, filter: string) => {
+    const form = new FormData();
+    form.append("format", format);
+    form.append("filter", filter);
+    return req<Blob>("/analytics/reports/export", { method: "POST", body: form, headers: {} }, token);
+  },
+};
+
+export type NotificationPreferences = {
+  email_deadlines: boolean;
+  sms_deadlines: boolean;
+  email_digest: boolean;
+  sms_alerts: boolean;
+  marketing: boolean;
+  quiet_hours_start: number | null;
+  quiet_hours_end: number | null;
+};
+
+export type AdminDashboard = {
+  total_users: number;
+  suspended_users: number;
+  active_workspaces: number;
+  pending_verifications: number;
+  recent_signups: number;
+};
+
+export type UserDetail = {
+  user_id: string;
+  email: string;
+  phone: string;
+  org_name: string;
+  city: string;
+  email_verified: boolean;
+  mobile_verified: boolean;
+  is_superadmin: boolean;
+  suspended_at: string | null;
+  created_at: string | null;
+  dob: string | null;
+  workspaces: Array<{ workspace_id: string; name: string; role: string }>;
+};
+
+export type WorkspaceDetail = {
+  workspace_id: string;
+  name: string;
+  slug: string;
+  owner_id: string;
+  owner_email: string | null;
+  plan: string | null;
+  country: string | null;
+  billing_provider: string | null;
+  member_count: number;
+  members: Array<{ user_id: string; role: string }>;
+};
+
+export type AuditLogEntry = {
+  id: number;
+  actor_user_id: string | null;
+  action: string;
+  object_type: string;
+  object_id: string | null;
+  detail: Record<string, unknown>;
+  at: string | null;
+};
+
+export type SupportTicket = {
+  id: string;
+  workspace_id: string;
+  user_id: string;
+  title: string;
+  body: string;
+  category: string;
+  status: string;
+  created_at: string | null;
+  updated_at: string | null;
+  replies?: SupportTicketReply[];
+};
+
+export type SupportTicketReply = {
+  id: string;
+  ticket_id: string;
+  user_id: string;
+  body: string;
+  created_at: string | null;
 };
 
 export type OrgStandardCategory = {

@@ -6,6 +6,14 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### In progress — 2026-07-30 (TS-176: close remaining product needs)
+
+- TS-146 verified as already implemented; backlog status corrected.
+- Notification preferences API: `GET/PUT /api/notifications/preferences` with
+  `email_deadlines`, `sms_deadlines`, `email_digest`, `sms_alerts`, `marketing`,
+  and quiet-hours fields.
+- Added `TS-176` placeholder for the remaining UI/integrations/E2E work.
+
 ### Done — 2026-07-30 (TS-170: admin, billing self-service, support tickets, analytics, audit-log search)
 
 - Admin user/workspace management: `User.suspended_at`/`suspended_by`, workspace `billing_settings`;

@@ -10,6 +10,7 @@ from app.core.module import AppContext, ModuleSpec
 from app.modules.notifications import models  # noqa: F401 - register tables
 from app.modules.notifications.adapters import build_sender
 from app.modules.notifications.models import DeadlineAlertLog, NotificationPreference
+from app.modules.notifications.router import router
 from app.modules.notifications.sender import Message
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,14 @@ def _preference(session: Session, user_id: str) -> NotificationPreference:
     uid = uuid.UUID(str(user_id))
     pref = session.get(NotificationPreference, uid)
     if pref is None:
-        pref = NotificationPreference(user_id=uid, email_deadlines=True, sms_deadlines=False)
+        pref = NotificationPreference(
+            user_id=uid,
+            email_deadlines=True,
+            sms_deadlines=False,
+            email_digest=True,
+            sms_alerts=False,
+            marketing=False,
+        )
         session.add(pref)
     return pref
 
@@ -170,7 +178,7 @@ def setup(ctx: AppContext) -> None:
 module = ModuleSpec(
     name="notifications",
     version="0.1.0",
-    router=None,
+    router=router,
     soft_deps=("ingestion", "auth"),
     setup=setup,
 )

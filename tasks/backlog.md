@@ -254,7 +254,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-143 | Baseline freeze has a race condition on version numbering | audit TS-B05; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/baseline.md` (update) | done |
 | TS-144 | Uploaded filename can inject Content-Disposition header in file download | audit TS-S03; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/core.md` (update) | done |
 | TS-145 | Assistant agent has no output guard and includes user prompt verbatim | audit TS-A13; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/assistant.md` (update) | done |
-| TS-146 | Notifications deadline-alert scheduler calls a missing WorkspaceAdmin method | audit TS-N02; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/notifications.md` (update) | todo |
+| TS-146 | Notifications deadline-alert scheduler calls a missing WorkspaceAdmin method | audit TS-N02; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/notifications.md` (update) | done |
 | TS-147 | Register_document accepts unbounded sample_text and processes it synchronously | audit TS-I07; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | done |
 | TS-148 | Async process_document Celery task does not classify, segment clauses, update the submission deadline, or run OCR | audit TS-I08; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | done |
 | TS-149 | Assistant agent uses an invalid default Anthropic model name | audit TS-A14; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/assistant.md` (update) | done |
@@ -284,3 +284,4 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-173 | Support tickets module: create/reply/admin manage tickets with attachments | TS-170 | `backend/app/modules/support/`, `specs/modules/support.md` | done |
 | TS-174 | User analysis/reports: risk summary, deadline dashboard, BOQ defect summary, report export | TS-170 | `backend/app/modules/analytics/`, `specs/modules/analytics.md` | done |
 | TS-175 | Observability log search: admin audit-log/log search with filters | TS-170 | `backend/app/core/audit.py`, `backend/app/modules/auth/router.py`, `specs/modules/admin.md` | done |
+| TS-176 | Close remaining product needs: notification preferences UI, admin/billing/support/analytics UI, local infra, E2E automation, alerting runbooks | user request | `frontend/`, `docker-compose.yml`, `evals/e2e/playwright`, `docs/runbooks/` | in-progress |

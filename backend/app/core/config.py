@@ -8,6 +8,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="TS_", extra="ignore")
 
     env: str = "dev"
+
+    # Public application URL (used for payment redirect callbacks, emails, etc.).
+    app_url: str = ""
+
     # PostgreSQL 16 in all deployed environments; SQLite only for local tests.
     database_url: str = "sqlite:///./tendershield.db"
 

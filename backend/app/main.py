@@ -55,27 +55,89 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+def _validate_jwt_keypair(settings: Settings) -> str | None:
+    """Return an error string if the configured JWT keypair is missing,
+    malformed, or does not match."""
+    if not settings.jwt_private_key or not settings.jwt_public_key:
+        return "TS_JWT_PRIVATE_KEY and TS_JWT_PUBLIC_KEY are required in production"
+    try:
+        from cryptography.hazmat.primitives import serialization
+
+        priv_pem = settings.jwt_private_key.get_secret_value().encode()
+        pub_pem = settings.jwt_public_key.get_secret_value().encode()
+        priv = serialization.load_pem_private_key(priv_pem, password=None)
+        pub = serialization.load_pem_public_key(pub_pem)
+        if priv.public_key().public_numbers() != pub.public_numbers():
+            return "TS_JWT_PRIVATE_KEY and TS_JWT_PUBLIC_KEY do not form a matching pair"
+    except Exception:
+        return "TS_JWT_PRIVATE_KEY / TS_JWT_PUBLIC_KEY is not a valid RSA keypair"
+    return None
+
+
 def _validate_prod_settings(settings: Settings) -> None:
     """Fail fast in production when unsafe defaults are present."""
     if not settings.is_prod():
         return
 
     errors: list[str] = []
-    if not settings.razorpay_webhook_secret:
-        errors.append("TS_RAZORPAY_WEBHOOK_SECRET is required in production")
-    if not settings.jwt_private_key or not settings.jwt_public_key:
-        errors.append("TS_JWT_PRIVATE_KEY and TS_JWT_PUBLIC_KEY are required in production")
+
+    jwt_error = _validate_jwt_keypair(settings)
+    if jwt_error:
+        errors.append(jwt_error)
+
     if not settings.cors_origin_list() or "*" in settings.cors_origin_list():
         errors.append("TS_CORS_ORIGINS must be explicit in production (no wildcard)")
     if not settings.allowed_host_list() or "*" in settings.allowed_host_list():
         errors.append("TS_ALLOWED_HOSTS must be explicit in production (no wildcard)")
 
-    # Reject obviously dev/test placeholder secrets.
+    if not settings.redis_url:
+        errors.append("TS_REDIS_URL is required in production")
+
+    # Cookie policy: SameSite=None requires Secure; SameSite must be lax/strict/none.
+    samesite = settings.cookie_samesite.lower()
+    if samesite not in {"lax", "strict", "none"}:
+        errors.append("TS_COOKIE_SAMESITE must be 'lax', 'strict', or 'none'")
+    elif samesite == "none" and not settings.cookie_is_secure():
+        errors.append("TS_COOKIE_SAMESITE='none' requires Secure cookies in production")
+
+    # Notifications: at least one sender must be configured.
+    ses_ok = bool(
+        settings.email_from
+        and settings.ses_region
+        and settings.ses_access_key_id
+        and settings.ses_secret_access_key
+    )
+    msg91_ok = bool(settings.msg91_auth_key and settings.msg91_sender_id)
+    if not ses_ok and not msg91_ok:
+        errors.append(
+            "At least one notification sender is required in production (SES or MSG91)"
+        )
+
+    # Billing: whichever payment provider is configured must have its webhook secret.
+    if settings.razorpay_key_id or settings.razorpay_key_secret:
+        if not settings.razorpay_webhook_secret:
+            errors.append("TS_RAZORPAY_WEBHOOK_SECRET is required when Razorpay is configured")
+    if settings.stripe_secret_key:
+        if not settings.stripe_webhook_secret:
+            errors.append("TS_STRIPE_WEBHOOK_SECRET is required when Stripe is configured")
+        if not settings.app_url:
+            errors.append("TS_APP_URL is required when Stripe is configured")
+    # A production deployment must have at least one payment provider configured.
+    if not (settings.razorpay_key_id or settings.stripe_secret_key):
+        errors.append(
+            "At least one payment provider (Razorpay or Stripe) is required in production"
+        )
+
+    # Reject obviously dev/test placeholder secrets and short secrets.
     bad_secrets = {"dev-razorpay-secret", "secret", "changeme"}
-    if settings.razorpay_webhook_secret:
-        secret_val = settings.razorpay_webhook_secret.get_secret_value() or ""
-        if secret_val.lower() in bad_secrets or len(secret_val) < 16:
-            errors.append("TS_RAZORPAY_WEBHOOK_SECRET is too weak/placeholder")
+    for secret_name, secret in (
+        ("TS_RAZORPAY_WEBHOOK_SECRET", settings.razorpay_webhook_secret),
+        ("TS_STRIPE_WEBHOOK_SECRET", settings.stripe_webhook_secret),
+    ):
+        if secret:
+            secret_val = secret.get_secret_value() or ""
+            if secret_val.lower() in bad_secrets or len(secret_val) < 16:
+                errors.append(f"{secret_name} is too weak/placeholder")
 
     if errors:
         raise RuntimeError("Production settings unsafe: " + "; ".join(errors))

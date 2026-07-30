@@ -49,6 +49,12 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   links the `google_sub` instead of crashing with an `IntegrityError`/500.
 - Added `email_not_verified` error mapping and `specs/modules/auth.md` A17.
 
+### Done — 2026-07-29 (TS-099: cross-tenant member list isolation)
+
+- `list_workspace_members` and `list_project_members` now require the caller to
+  be a member of the target workspace (or super-admin) before returning emails/roles.
+- Added `specs/modules/auth.md` acceptance criterion A18.
+
 ### Done — 2026-07-29 (TS-094: end-to-end production readiness audit)
 
 - **TS-094** — Full end-to-end production readiness audit of trunk

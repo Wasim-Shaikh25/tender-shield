@@ -418,7 +418,9 @@ def list_workspace_members(
     session: Session = Depends(get_session),
     principal: Principal = Depends(current_principal),
 ):
-    return _service(request, session).list_workspace_members(workspace_id)
+    return _handle(
+        lambda: _service(request, session).list_workspace_members(workspace_id, principal.user_id)
+    )
 
 
 @router.post("/workspaces/{workspace_id}/projects")
@@ -471,7 +473,9 @@ def list_project_members(
     session: Session = Depends(get_session),
     principal: Principal = Depends(current_principal),
 ):
-    return _service(request, session).list_project_members(project_id)
+    return _handle(
+        lambda: _service(request, session).list_project_members(project_id, principal.user_id)
+    )
 
 
 @router.post("/invitations")

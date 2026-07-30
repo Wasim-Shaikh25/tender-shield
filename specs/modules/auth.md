@@ -105,6 +105,8 @@ endpoints under `/api/auth/admin/*`.
   refresh-token row before returning tokens.
 - A17: Google OIDC login links a verified Google email to an existing password account instead of
   raising an `IntegrityError`/500; unverified accounts are rejected.
+- A18: `GET /api/auth/workspaces/{id}/members` and `GET /api/auth/projects/{id}/members` reject
+  callers who are not members of the target workspace (super-admins excepted).
 
 ## Out of scope
 

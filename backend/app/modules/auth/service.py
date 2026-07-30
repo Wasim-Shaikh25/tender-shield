@@ -446,11 +446,15 @@ class AuthService:
         self.s.commit()
         return {"workspace_id": str(workspace_id), "user_id": str(user.id), "role": role}
 
-    def list_workspace_members(self, workspace_id) -> list[dict]:
+    def list_workspace_members(self, workspace_id, user_id) -> list[dict]:
+        workspace_uuid = uuid.UUID(str(workspace_id))
+        user = self.s.get(User, uuid.UUID(str(user_id)))
+        if not user or not (user.is_superadmin or self._workspace_member(workspace_uuid, user_id)):
+            raise AuthError("not_workspace_member")
         rows = self.s.execute(
             select(WorkspaceMember, User)
             .join(User, WorkspaceMember.user_id == User.id)
-            .where(WorkspaceMember.workspace_id == uuid.UUID(str(workspace_id)))
+            .where(WorkspaceMember.workspace_id == workspace_uuid)
         ).all()
         return [
             {"user_id": str(user.id), "email": user.email, "role": member.role}
@@ -520,12 +524,20 @@ class AuthService:
         self.s.commit()
         return {"project_id": str(project_id), "user_id": str(user.id), "role": role}
 
-    def list_project_members(self, project_id) -> list[dict]:
-        project_id = uuid.UUID(str(project_id))
+    def list_project_members(self, project_id, user_id) -> list[dict]:
+        project_uuid = uuid.UUID(str(project_id))
+        project = self.s.get(Project, project_uuid)
+        if not project:
+            raise AuthError("no_such_project")
+        user = self.s.get(User, uuid.UUID(str(user_id)))
+        if not user or not (
+            user.is_superadmin or self._workspace_member(project.workspace_id, user_id)
+        ):
+            raise AuthError("not_workspace_member")
         rows = self.s.execute(
             select(ProjectMember, User)
             .join(User, ProjectMember.user_id == User.id)
-            .where(ProjectMember.project_id == project_id)
+            .where(ProjectMember.project_id == project_uuid)
         ).all()
         return [
             {"user_id": str(user.id), "email": user.email, "role": member.role}

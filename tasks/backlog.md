@@ -275,3 +275,4 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-164 | Replace Anthropic LLM integration with OpenRouter (OpenAI-compatible API) for risk classifier and assistant agent | user request; `PRODUCTION_READINESS_AUDIT.md` TS-R02/TS-A14 | `specs/modules/risk.md`, `specs/modules/assistant.md`, `docs/deployment.md` | done |
 | TS-165 | Add MinIO storage example to production env and deployment docs | user request | `.env.prod`, `docs/deployment.md` | done |
 | TS-166 | Create end-to-end automation test scenarios doc and check in the end-to-end audit prompt | user request | `evals/e2e/` | done |
+| TS-167 | Expand end-to-end scenarios to cover security, concurrency, performance, compliance, integrations, and edge cases | user request | `evals/e2e/scenarios.md` | done |

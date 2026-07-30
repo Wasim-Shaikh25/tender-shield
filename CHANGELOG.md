@@ -259,6 +259,19 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Updated `docs/deployment.md` with an Object storage section covering MinIO,
   AWS S3, Cloudflare R2, Tigris, and Backblaze B2.
 
+### Done — 2026-07-30 (TS-167: expand end-to-end scenarios)
+
+- Expanded `evals/e2e/scenarios.md` from 13 to 50 scenario groups covering
+  every module and angle: auth/MFA/session, workspace/team/roles,
+  opportunity/document/ingestion, risk/BOQ/review/baseline/handover,
+  assistant, billing, notifications, admin, security, accessibility,
+  performance/concurrency, data integrity, privacy/GDPR, integrations
+  (OpenRouter, MinIO/S3, Redis/Celery, email/SMS, billing webhooks),
+  observability, backup/restore, cross-browser, configuration guards,
+  and fuzz/exploratory testing.
+- Added a scenario coverage matrix mapping each scenario group to the
+  end-to-end audit prompt sections.
+
 ### Done — 2026-07-30 (TS-166: end-to-end automation scenarios and audit prompt)
 
 - Created `evals/e2e/scenarios.md` with user-journey, negative-case, security,

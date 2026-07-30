@@ -398,6 +398,617 @@
 
 ---
 
+## Scenario 14: Authentication edge cases and session lifecycle
+
+**Audit prompt mapping:** §3, §7
+
+### Steps
+
+1. Sign up with an email already in use by an unverified account; verify whether the existing unverified row is reused or rejected.
+2. Sign up with a mobile number already linked to another account.
+3. Request email verification token twice; verify the second token invalidates the first.
+4. Verify email and then attempt to verify again with the same token; expected `400`.
+5. Log in with a valid password, capture `refresh_token` cookie, then log out and confirm the refresh token is rejected.
+6. Use refresh token rotation: obtain a new access token, then try to reuse the old refresh token; expected `401` reuse detection.
+7. Log in from two different browsers simultaneously and verify each has its own refresh token family.
+8. Leave the session idle beyond access-token expiry; verify the next API call triggers a silent refresh and succeeds.
+
+### Negative cases
+
+- Login with non-existent email → `401` `invalid_credentials`.
+- Login with correct password but unverified email → `403` or `401` with a verification-required message.
+- Verify mobile with a code generated for email → `400`.
+- Access a protected route with only an expired access token and no refresh cookie → `401`.
+
+---
+
+## Scenario 15: Password policy and account recovery
+
+**Audit prompt mapping:** §3, §7
+
+### Steps
+
+1. Attempt sign-up with passwords: `short`, `nouppercase1!`, `NOLOWERCASE1!`, `NoSpecial123`, `NoDigits!aa` — all should fail.
+2. Reset password via `/api/auth/forgot-password`; read the reset token from console log.
+3. Use the reset token within TTL and set a compliant new password.
+4. Try the reset token again after use; expected `400`.
+5. Request a reset for an unregistered email; verify the response does not leak whether the email exists (returns success to the UI).
+6. Change password from `/settings` with the wrong current password; expected `400`.
+7. Change password and verify old refresh tokens are revoked.
+
+---
+
+## Scenario 16: MFA/TOTP enrollment and fallback
+
+**Audit prompt mapping:** §3, §7
+
+### Steps
+
+1. Enroll TOTP for an account (`POST /api/auth/mfa/enroll` with `method=totp`).
+2. Scan or parse the `otpauth_uri` and generate a valid TOTP code.
+3. Verify the TOTP code; confirm `mfa_method` becomes `totp`.
+4. Log out and log back in; supply the TOTP code in the challenge.
+5. Switch MFA method from `totp` to `email`/`sms`; verify the method updates and the next login uses email/SMS OTP.
+6. Enroll with an invalid phone format for `sms`; expected `422`.
+
+### Negative cases
+
+- Verify TOTP with a wrong code three times; verify the account is not locked out but the challenge keeps returning `mfa_invalid`.
+- Attempt to enroll TOTP while email/mobile is unverified → `403` or `400`.
+
+---
+
+## Scenario 17: Workspace lifecycle and boundaries
+
+**Audit prompt mapping:** §3, §5, §7
+
+### Steps
+
+1. Create a workspace with a reserved/suspicious name (e.g. HTML/JS tags); verify it is stored as plain text.
+2. Rename a workspace and verify the change reflects across all sessions.
+3. Create two workspaces with the same name by the same user; verify both succeed and are distinguishable by ID.
+4. Delete a workspace the user does not own but is a member of; expected `403`.
+5. Transfer workspace ownership to another admin (if supported).
+6. List workspaces for an account that belongs to 0, 1, and 50 workspaces; verify pagination if applicable.
+7. Verify a workspace cannot be created with an empty name or malformed country code.
+
+---
+
+## Scenario 18: Invitation lifecycle and seat accounting
+
+**Audit prompt mapping:** §3, §5, §7
+
+### Steps
+
+1. Send an invitation to an email; revoke it before acceptance; verify the token is no longer valid.
+2. Send an invitation; accept it; then try to accept the same token again; expected `400`.
+3. Send invitations up to the workspace plan seat limit and attempt one more; verify `403` `seat_limit`.
+4. Remove a member and immediately invite another to the same workspace; verify the seat count updates and the new invitation succeeds.
+5. Invite a user who is already a member; expected `409` or `400`.
+6. Verify expired invitations are cleaned up (or rejected) after TTL.
+7. Resend an invitation token; verify the old token is invalidated.
+
+---
+
+## Scenario 19: Role-based access control matrix
+
+**Audit prompt mapping:** §3, §5, §7
+
+### Steps
+
+For each role (`owner`, `admin`, `member`, `viewer`), verify access to:
+
+- `POST /api/opportunities` (create)
+- `POST /api/ingestion/opportunities/{id}/documents` (upload)
+- `POST /api/risk/opportunities/{id}/run` (run risk)
+- `POST /api/review/opportunities/{id}/findings/{fid}` (review)
+- `POST /api/billing/checkout` (billing)
+- `POST /api/auth/invitations` (invite)
+- `PATCH /api/auth/members/{id}/role` (change role)
+- `DELETE /api/auth/members/{id}` (remove member)
+- `GET /api/admin/*` (super admin)
+
+Expected: `owner` and `admin` can manage team; `member` can create and review; `viewer` read-only; billing reserved for owner/admin.
+
+---
+
+## Scenario 20: Opportunity CRUD and search
+
+**Audit prompt mapping:** §4, §6, §7
+
+### Steps
+
+1. Create an opportunity with all fields; verify the response contains `id`, `workspace_id`, `title`, `client`, `deadline`.
+2. Update the opportunity deadline; verify the countdown wall updates.
+3. Create 60 opportunities and verify `GET /api/opportunities` returns paginated results with `total`, `page`, `page_size`.
+4. Search opportunities by title, client, and location.
+5. Sort by deadline, value, and status.
+6. Delete an opportunity and verify it disappears from the list and its documents/clauses/findings are removed or soft-deleted.
+7. Attempt to update an opportunity in another workspace; expected `403` or `404`.
+
+---
+
+## Scenario 21: Document upload variants and tus protocol
+
+**Audit prompt mapping:** §2, §4, §6
+
+### Steps
+
+1. Upload a small `.txt` file via multipart.
+2. Upload a `.pdf` via tus protocol: `OPTIONS` → `POST` → `PATCH` → `HEAD`.
+3. Upload a `.xlsx` with 1000 rows and verify ingestion completes.
+4. Upload a `.csv` with page-marker headers and verify `sample_text` includes `[pN]` markers.
+5. Upload a `.docx` and verify text extraction.
+6. Upload a file with a non-standard but valid extension (e.g. `.rar`); verify it is rejected or handled.
+7. Upload a `.pdf` with scanned pages while `TS_OCR_ENABLED=false`; verify `needs_ocr=true` and no text is invented.
+
+### Negative cases
+
+- Send `POST` to tus without `Upload-Length`; expected `400` or `412`.
+- Resume an upload with an invalid/short upload ID; expected `404`.
+- Upload a file exceeding `MAX_FILE_SIZE`; expected `413`.
+- Upload an empty file; expected `400`.
+
+---
+
+## Scenario 22: File storage and retrieval
+
+**Audit prompt mapping:** §2, §7
+
+### Steps
+
+1. Upload a document and record the returned `storage_key`.
+2. Download the file via `GET /api/ingestion/documents/{id}/download`; verify `Content-Disposition` filename is sanitized.
+3. Verify the downloaded file matches the uploaded bytes (checksum).
+4. With `TS_STORAGE_TYPE=s3` or MinIO, verify the object exists in the bucket and is not world-readable.
+5. Request a file from another workspace using a forged `storage_key` or document ID; expected `403`/`404`.
+
+### Negative cases
+
+- Path traversal in filename (e.g. `../../../etc/passwd`); verify stored name is sanitized.
+- Request a deleted document; expected `404`.
+
+---
+
+## Scenario 23: Ingestion edge cases and provenance
+
+**Audit prompt mapping:** §4, §6
+
+### Steps
+
+1. Ingest a document with duplicate clause text on multiple pages; verify each clause keeps its own `source_page`.
+2. Ingest a document with no recognizable text (blank PDF); verify no invented clauses and `status=ready` with empty results.
+3. Re-upload the same document under the same opportunity; verify version handling or replacement.
+4. Upload a document with page numbers in the text (e.g. "Clause 5 [p12]") and verify the parser does not double-count page markers.
+5. Ingest a tender pack ZIP if supported; verify each contained file is processed.
+
+---
+
+## Scenario 24: Risk engine behavior matrix
+
+**Audit prompt mapping:** §4, §6, §7
+
+### Steps
+
+1. Run risk review with `TS_OPENROUTER_API_KEY` set; verify LLM classifications and deterministic severity.
+2. Run risk review with no key; verify `NullClassifier` still produces absence findings for known patterns.
+3. Upload a GCC with a missing escalation clause; verify an absence finding fires for the escalation pattern.
+4. Upload a GCC with a penalty cap and verify severity is `critical` when the cap is missing.
+5. Run risk review on a workspace with `validated_only=true` and unvalidated patterns; verify unvalidated patterns are excluded or badged.
+6. Run risk review twice on the same opportunity; verify results are deterministic (same inputs → same findings).
+
+### Negative cases
+
+- Inject instructions into `sample_text` (e.g. "Ignore all previous instructions..."); verify `looks_like_injection` returns refusal/empty classification.
+- Classify a pattern with a prompt that itself contains injection markers; expected empty result.
+- Cite a page not present in the document; verify finding is rejected or confidence lowered.
+
+---
+
+## Scenario 25: BOQ engine edge cases
+
+**Audit prompt mapping:** §4, §6
+
+### Steps
+
+1. Upload a BOQ with non-standard units (`nos`, `rm`, `kg`, `m2`, `m3`, etc.); verify unit canonicalization.
+2. Upload a BOQ with arithmetic errors in totals; verify each line is flagged with the expected-vs-actual difference.
+3. Upload a BOQ with missing mandatory columns; expected `400`/`422`.
+4. Upload a 50,000-row BOQ and verify response time is acceptable.
+5. Upload a BOQ where the same trade has both over- and under-billed amounts; verify scope-gap findings.
+6. Verify `amount_exposure` is always an integer in paise, even when the CSV contains decimals.
+
+---
+
+## Scenario 26: Review workbench and audit trail
+
+**Audit prompt mapping:** §4, §6, §7
+
+### Steps
+
+1. Create multiple findings and review each with `decision=accept`, `decision=reject`, or `decision=needs_review`.
+2. Verify `GET /api/review/opportunities/{id}/queue` returns only findings for that opportunity.
+3. Verify the audit log records each review action with `actor_id`, `workspace_id`, `opportunity_id`, `finding_id`, and `action`.
+4. Set a finding decision and then attempt to change it without the correct role; expected `403`.
+5. Attempt to review a finding from another opportunity; expected `403`/`404`.
+6. Export the review report before all findings are reviewed; expected `403` export-gate.
+
+---
+
+## Scenario 27: Baseline lock and versioning
+
+**Audit prompt mapping:** §4, §6
+
+### Steps
+
+1. Lock the baseline after full review; record the `content_hash`.
+2. Attempt to lock the baseline before all findings are reviewed; expected `409`.
+3. Lock baseline, then upload an addendum, then re-lock; verify a new version and hash.
+4. Verify the baseline cannot be mutated after locking.
+5. Compare the latest baseline with an older one; verify the delta shows added/deleted/changed clauses.
+
+---
+
+## Scenario 28: Artifact generation and export gating
+
+**Audit prompt mapping:** §4, §6, §7
+
+### Steps
+
+1. Generate a bid-decision letter; verify the content contains the factor table and a "commercial judgment call" disclaimer.
+2. Generate a clarification letter with assumptions; verify each assumption has a citation.
+3. Generate a handover pack (DOCX/XLSX/PDF) and verify it has the review-approval stamp.
+4. Attempt to generate an artifact before review is complete; expected `403` or `409`.
+5. Generate an artifact, then accept a new finding, then re-generate; verify the version bumps and the old artifact is immutable.
+6. Verify generated artifacts do not contain invented numbers or uncited clauses.
+
+---
+
+## Scenario 29: Assistant behavior matrix
+
+**Audit prompt mapping:** §4, §7
+
+### Steps
+
+1. Ask a question about an extracted deadline; verify the answer cites `[p<page>]`.
+2. Ask an off-topic question (e.g. "What is the weather?"); verify a polite refusal.
+3. Ask "Should we bid?"; verify the response contains the factor table and a "commercial judgment call" banner.
+4. Send a prompt-injection attempt through the assistant chat; verify refusal.
+5. Ask a question while `TS_OPENROUTER_API_KEY` is unset; verify deterministic tool fallback or refusal.
+6. Start a chat session, add messages, and verify `/api/assistant/sessions/{id}/messages` returns history.
+7. Verify message counts respect free/paid caps and metered usage is logged.
+
+---
+
+## Scenario 30: Billing webhook and subscription lifecycle
+
+**Audit prompt mapping:** §4, §7, §8
+
+### Steps
+
+1. Complete a checkout and capture the client redirect.
+2. Verify the subscription is **not** activated by the redirect alone.
+3. Send a valid billing webhook with the correct secret; verify subscription status updates.
+4. Send an invalid webhook (wrong signature, duplicate event, malformed body); verify rejection.
+5. Upgrade from `free` to `pro`; verify invoice, seat limit, and feature flags.
+6. Downgrade; verify proration or credit handling.
+7. Cancel subscription; verify workspace reverts to `free` at period end or immediately depending on policy.
+8. Verify invoice sequential numbering and GST computation (CGST/SGST vs IGST).
+
+---
+
+## Scenario 31: Notifications and preferences
+
+**Audit prompt mapping:** §4, §8
+
+### Steps
+
+1. Create an opportunity with a deadline 2 days away; trigger the deadline digest and verify the notification is queued.
+2. Create an opportunity with a deadline in the past; verify no notification is sent.
+3. Disable email notifications in preferences; verify email channel is skipped.
+4. Disable SMS notifications; verify SMS channel is skipped.
+5. Trigger the digest twice for the same deadline window; verify deduplication (one notification per user per opportunity per window).
+6. Verify notification content includes the opportunity title, deadline, and a link.
+
+---
+
+## Scenario 32: Admin, audit, and governance
+
+**Audit prompt mapping:** §3, §7, §8
+
+### Steps
+
+1. As super-admin, list all users and verify pagination.
+2. List all workspaces and verify each workspace has an owner and creation date.
+3. View the audit log and filter by `actor_id`, `workspace_id`, `action`.
+4. Verify the audit log cannot be modified by any API.
+5. Impersonate a normal user calling `/api/admin/*`; expected `403`.
+6. Verify the `CODEOWNERS` and branch-protection rules are present in the repo.
+7. Run `alembic upgrade head` and `alembic downgrade base` cleanly on a fresh database.
+
+---
+
+## Scenario 33: Security — authentication bypass and injection
+
+**Audit prompt mapping:** §7
+
+### Steps
+
+1. Attempt to access `/api/auth/export` without authentication; expected `401`.
+2. Try to set `is_superadmin=true` during sign-up or profile update; verify the server ignores it.
+3. Send `DELETE /api/auth/account` with an empty password; expected `400`.
+4. Pass a malformed JWT (wrong signature, expired, missing claims); verify `401`.
+5. Send SQL injection patterns in opportunity title, search query, and file name; verify no SQL errors or unexpected data leakage.
+6. Send XSS payloads in opportunity title and finding comments; verify they are escaped or stripped in API response and rendered UI.
+7. Send a `Content-Type: application/json` request with XML/XXE payload; verify safe rejection.
+
+---
+
+## Scenario 34: Security — IDOR and cross-tenant isolation
+
+**Audit prompt mapping:** §5, §7
+
+### Steps
+
+1. User A creates opportunity `O1`. User B (same workspace) can access `O1`.
+2. User C (different workspace) attempts `GET /api/opportunities/{O1}`; expected `403` or `404`.
+3. User C attempts `POST /api/review/opportunities/{O1}/findings/{fid}`; expected `403`/`404`.
+4. User C attempts `GET /api/billing/invoices` with a forged `workspace_id` header; verify only their own invoices are returned.
+5. Test every list endpoint (`/api/opportunities`, `/api/findings`, `/api/billing/invoices`, `/api/team/members`) with multiple tenants and verify no leakage.
+6. If PostgreSQL is used, run direct SQL as a non-superuser and verify RLS blocks reads/writes across `workspace_id`.
+
+---
+
+## Scenario 35: Security — file and request abuse
+
+**Audit prompt mapping:** §7
+
+### Steps
+
+1. Upload a file named `<script>alert(1)</script>.pdf`; verify safe filename in storage and response.
+2. Upload a `.zip` bomb / very large compressed file; verify `413` or early abort.
+3. Upload a `.pdf` that contains an embedded executable; verify it is stored but not executed and antivirus scan (if enabled) quarantines or rejects it.
+4. Send `1000` rapid login attempts from one IP; verify rate-limit response (`429`) or account lockout.
+5. Send `1000` rapid API requests with a valid token; verify rate-limit response.
+6. Try to read `/etc/passwd` or `..\..\web.config` through any file endpoint; verify `404`/`400`.
+
+---
+
+## Scenario 36: Accessibility and UI
+
+**Audit prompt mapping:** §4, §7
+
+### Steps
+
+1. Run `npm run a11y` after `npm run build`; verify 0 critical/serious WCAG 2.1 AA violations.
+2. Navigate every page using only the keyboard (Tab/Enter/Escape); verify focus order and visible focus indicators.
+3. Verify form inputs have associated `<label>` or `aria-label`.
+4. Run the UI through a screen reader (or `axe-core` + NVDA/JAWS checklist) and verify headings, landmarks, and button labels are announced.
+5. Test color contrast on all text/background combinations in the default Tailwind theme.
+
+---
+
+## Scenario 37: Performance and load
+
+**Audit prompt mapping:** §8
+
+### Steps
+
+1. Upload a 10 MB tender PDF and measure ingestion time; expected under 60 seconds in dev.
+2. Upload a 50,000-row BOQ and measure BOQ check time; expected under 30 seconds.
+3. Create 1,000 opportunities and measure `GET /api/opportunities` response time with `page_size=50`; expected under 500 ms.
+4. Run 10 concurrent risk reviews on the same opportunity; verify no race conditions or duplicate findings.
+5. Run 50 concurrent logins and verify rate limiting and DB connection pool hold.
+6. Measure `GET /api/health/ready` response time; expected under 200 ms.
+
+---
+
+## Scenario 38: Concurrency and race conditions
+
+**Audit prompt mapping:** §6, §7, §8
+
+### Steps
+
+1. Two users edit the same opportunity simultaneously; verify last-write-wins or optimistic locking behavior and no 500 errors.
+2. Two admins invite the last available seat at the same time; verify one succeeds and the other gets `seat_limit`.
+3. Two users accept the same invitation token concurrently; verify only one succeeds.
+4. Two users call `POST /api/billing/checkout` for the same workspace; verify one checkout session is active at a time or handled idempotently.
+5. Two risk reviews run concurrently; verify findings are not duplicated.
+
+---
+
+## Scenario 39: Data integrity and migrations
+
+**Audit prompt mapping:** §2, §6, §8
+
+### Steps
+
+1. Run `alembic upgrade head` on a fresh database and verify all tables are created.
+2. Run `alembic downgrade -1` repeatedly to base and back to head; verify no errors.
+3. Verify foreign keys and constraints match `Base.metadata` (e.g. `users.phone` unique, `workspaces.owner_id` FK).
+4. Delete a user and verify cascade deletes `workspaces`, `refresh_tokens`, `workspace_members`, `project_members`, `password_resets`, `verifications`.
+5. Delete an opportunity and verify related `documents`, `clauses`, `findings`, `audit_log` rows are handled per policy.
+6. Verify `amount_exposure`, `invoice.total`, `boq.amount` are stored as integers (paise) in the DB.
+
+---
+
+## Scenario 40: Privacy, GDPR, and data export/erasure
+
+**Audit prompt mapping:** §3, §5, §7
+
+### Steps
+
+1. `POST /api/auth/export` for an owner of two workspaces; verify the export contains the user profile and all workspace-scoped rows for both workspaces.
+2. Verify the export does **not** contain other users' data or other workspaces' data.
+3. `DELETE /api/auth/account` with correct password and `confirm: true`; verify the user, memberships, refresh tokens, and owned workspace data are removed.
+4. Verify the audit log still references the deleted user by anonymized ID or hashed reference (or by ID if append-only audit permits).
+5. Verify exported JSON is machine-readable and contains `created_at` timestamps in ISO 8601.
+6. Test export without auth → `401`; with wrong password on deletion → `400`.
+
+---
+
+## Scenario 41: Integrations — OpenRouter and LLM
+
+**Audit prompt mapping:** §2, §4, §7
+
+### Steps
+
+1. With a valid `TS_OPENROUTER_API_KEY`, run risk review and verify `OpenRouterClassifier` returns findings.
+2. With `TS_OPENROUTER_MODEL=openrouter/free`, run risk review and verify the `model` in the response is a free model.
+3. With an invalid/expired key, verify the classifier fails closed (returns empty list) and the app stays healthy.
+4. With `TS_OPENROUTER_MODEL` set to a non-existent slug, verify graceful error and fallback.
+5. Verify no LLM prompt or response is logged with PII or full tender text.
+
+---
+
+## Scenario 42: Integrations — storage (MinIO/S3)
+
+**Audit prompt mapping:** §2, §7, §8
+
+### Steps
+
+1. Start MinIO locally and configure `TS_STORAGE_TYPE=s3` with MinIO endpoint.
+2. Upload a document; verify the object appears in the MinIO bucket.
+3. Download the document and verify bytes match.
+4. Restart the backend with a fresh bucket; verify uploads still work.
+5. Configure `TS_STORAGE_TYPE=local` and verify files land in `TS_STORAGE_DIR`.
+6. Test with `TS_S3_ENDPOINT_URL` using HTTPS and custom DNS.
+
+---
+
+## Scenario 43: Integrations — Redis and Celery
+
+**Audit prompt mapping:** §2, §8
+
+### Steps
+
+1. Start Redis locally and set `TS_REDIS_URL`.
+2. Trigger a long ingestion job and verify it is queued in Celery.
+3. Verify the deadline-digest scheduler runs from Celery beat.
+4. Stop Redis and verify the app degrades to in-memory fallback (with warnings) and still serves requests.
+5. Restart Redis and verify queued tasks resume (if persistence enabled) or new tasks queue correctly.
+
+---
+
+## Scenario 44: Integrations — email and SMS (real and fallback)
+
+**Audit prompt mapping:** §2, §4, §8
+
+### Steps
+
+1. Configure `TS_SES_*` + `TS_EMAIL_FROM` and sign up; verify a real email arrives.
+2. Configure `TS_MSG91_*` and sign up; verify a real SMS arrives.
+3. Without credentials, verify the console fallback prints the OTP and the flow still completes.
+4. Test email verification with a malformed token; expected `400`.
+5. Test mobile verification with a non-Indian number when MSG91 sender is India-only; expected `400` or fallback.
+
+---
+
+## Scenario 45: Integrations — billing webhooks
+
+**Audit prompt mapping:** §7, §8
+
+### Steps
+
+1. Configure Razorpay test keys and webhook secret.
+2. Create a checkout, capture the `razorpay_payment_id`, and send Razorpay's test webhook.
+3. Verify the invoice and subscription status update.
+4. Repeat with Stripe and `TS_STRIPE_WEBHOOK_SECRET`.
+5. Send a webhook with a forged signature; verify `400` and no state change.
+6. Send a duplicate event ID; verify idempotent handling.
+
+---
+
+## Scenario 46: Error handling and observability
+
+**Audit prompt mapping:** §8
+
+### Steps
+
+1. Stop the database and call `GET /api/health/ready`; verify `503` with a clear JSON body.
+2. Trigger an unhandled exception and verify it is captured in Sentry (when `TS_SENTRY_DSN` is set).
+3. Verify logs include `request_id`, `workspace_id`, `user_id`, and `duration_ms` where applicable.
+4. Verify `GET /api/health/metrics` includes `http_requests_total`, `http_request_duration_seconds`, and module-specific counters.
+5. Verify 404 responses are JSON (`{"detail":"Not Found"}`) and not HTML.
+
+---
+
+## Scenario 47: Backup, restore, and disaster recovery
+
+**Audit prompt mapping:** §8
+
+### Steps
+
+1. Create an opportunity, upload documents, and run risk review.
+2. Take a PostgreSQL dump (`pg_dump`) and a storage backup.
+3. Restore to a fresh database and storage bucket.
+4. Verify all opportunities, documents, clauses, findings, and audit logs are restored.
+5. Verify file hashes match after restore.
+6. Verify `alembic upgrade head` runs cleanly on the restored DB.
+
+---
+
+## Scenario 48: Cross-browser and device matrix
+
+**Audit prompt mapping:** §4
+
+### Steps
+
+1. Run the sign-up/login flow in Chrome, Firefox, and Safari.
+2. Run on a mobile viewport (360x640, 390x844, 768x1024) and verify no horizontal overflow.
+3. Test with JavaScript disabled partially (e.g. network throttling); verify server-rendered pages still show.
+4. Test with `localStorage` cleared and verify no crash.
+
+---
+
+## Scenario 49: Configuration and environment guards
+
+**Audit prompt mapping:** §2, §7, §8
+
+### Steps
+
+1. Start the app with `TS_ENV=prod` and `TS_CORS_ORIGINS=*`; verify startup fails or logs a fatal guard error.
+2. Start with `TS_ENV=prod` and no `TS_JWT_PRIVATE_KEY`; verify startup fails.
+3. Start with `TS_ENV=prod` and no `TS_RAZORPAY_WEBHOOK_SECRET`/`TS_STRIPE_WEBHOOK_SECRET`; verify startup fails (if billing enabled).
+4. Start with `TS_ENV=dev` and missing keys; verify dev startup succeeds with warnings.
+
+---
+
+## Scenario 50: Fuzz and exploratory
+
+**Audit prompt mapping:** §7
+
+### Steps
+
+1. Send random Unicode strings (emoji, RTL, zero-width joiners) in text fields; verify storage and display.
+2. Send very long strings (10,000 chars) in title/description; verify truncation or `400`.
+3. Send negative numbers, zero, and very large numbers in numeric fields; verify validation.
+4. Rapidly alternate between two workspaces and verify tokens remain valid for the active workspace.
+5. Close the browser mid-upload and verify tus resume on reopen.
+
+---
+
+## Scenario coverage matrix
+
+| # | Area | Audit prompt sections |
+|---|---|---|
+| 1–3 | Auth / MFA | §3, §7 |
+| 4–5 | Workspace / tenant isolation | §3, §5, §7 |
+| 6–9 | Ingestion / storage | §2, §4, §6 |
+| 10–11 | Risk / BOQ | §4, §6, §7 |
+| 12–14 | Review / baseline / artifacts | §4, §6, §7 |
+| 15 | Assistant | §4, §7 |
+| 16–18 | Billing / notifications | §4, §7, §8 |
+| 19–21 | Admin / security | §3, §5, §7, §8 |
+| 22–24 | Accessibility / performance / concurrency | §4, §7, §8 |
+| 25–26 | Data integrity / privacy | §2, §3, §5, §6, §7 |
+| 27–30 | Integrations | §2, §4, §7, §8 |
+| 31–34 | Observability / DR / config / cross-browser | §8 |
+
+Run scenarios in order where later scenarios depend on earlier ones, or use independent fixtures.
+
+---
+
 ## Automation notes
 
 - Use `Playwright` with `test.use({ baseURL: "http://localhost:3000" })`.

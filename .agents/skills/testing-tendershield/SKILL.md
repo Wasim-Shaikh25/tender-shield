@@ -121,6 +121,43 @@ description: |
 - **Admin user search:** Fixed in commit `7a2cb80` — user list/search works and user detail now includes the `workspaces` list. Note: the UI currently duplicates the same workspace twice in the Workspaces list for single-workspace users (minor rendering issue, not a blocker).
 - **Login workspace flow:** Fixed in commit `79ee819` — `SessionProvider` now keeps the access token in a `useRef` (`tokenRef`), so `switchWorkspace` and `createWorkspace` can be called immediately after `signIn` and the returning-user login correctly binds to the first workspace. Returning users now see the workspace name in the header and workspace-scoped pages work without a manual switch.
 
+## Observability demo (Jaeger + Grafana)
+
+To record a demo of the OpenTelemetry/Jaeger/Grafana stack:
+
+1. Start a shared Docker bridge network so Grafana's provisioned `http://jaeger:16686` URL resolves:
+   ```bash
+   docker network create ts-obs
+   docker run -d --name jaeger-demo --rm --network ts-obs --network-alias jaeger \
+     -p 16686:16686 -p 4317:4317 -p 4318:4318 \
+     -e COLLECTOR_OTLP_ENABLED=true jaegertracing/all-in-one:latest
+   ```
+2. Start the backend with OTLP enabled:
+   ```bash
+   cd /home/ubuntu/repos/tender-shield/backend
+   . .venv/bin/activate
+   set -a && source ../.env.local && set +a
+   TS_OTEL_ENABLED=true \
+     TS_OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318/v1/traces \
+     uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
+   ```
+3. Generate traces by calling `/api/health`, `/api/health/ready`, `/api/health/metrics`, and `/api/health/details`.
+4. Open `http://localhost:16686/search?service=tendershield-backend`.
+5. Start Grafana on the same network (anonymous access avoids the login-form typing issue):
+   ```bash
+   docker run -d --name grafana-demo --rm --network ts-obs -p 3100:3000 \
+     -e GF_AUTH_ANONYMOUS_ENABLED=true -e GF_AUTH_ANONYMOUS_ORG_ROLE=Admin \
+     -v /home/ubuntu/repos/tender-shield/observability/grafana/provisioning:/etc/grafana/provisioning:ro \
+     grafana/grafana:latest
+   ```
+6. Open `http://localhost:3100/connections/datasources`, click **Jaeger**, and click **Test**.
+
+### Known gotchas
+
+- The pre-provisioned Grafana datasource points to `http://jaeger:16686`. Without a shared Docker network, the raw `docker run` commands will not resolve `jaeger` from the Grafana container.
+- Grafana's default `admin`/`admin` login form is a React controlled component; native typing through the screen automation layer may not update the form state. Use anonymous auth for a demo, or set the password via `GF_SECURITY_ADMIN_PASSWORD` and use the browser console to dispatch input events.
+- FastAPI is the only instrumented component in the current branch, so expect each trace to contain the request span plus a few ASGI `http send` children, not nested SQLAlchemy/Redis spans.
+
 ## UI testing tips
 
 - The dev server uses `next dev` and can be confused by a stale `.next` folder

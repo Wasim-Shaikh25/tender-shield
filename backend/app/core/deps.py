@@ -26,11 +26,14 @@ def get_session(request: Request) -> Iterator[Session]:
 
 def current_principal(request: Request, session: Session = Depends(get_session)) -> Any:
     """Returns the auth module's Principal (structural: has user_id/workspace_id/role).
-    Binds RLS as a side effect via auth.authenticate."""
+    Binds RLS as a side effect via auth.authenticate and stores the principal on
+    request.state so middleware can enrich logs/traces without re-decoding the token."""
     authenticate = request.app.state.ctx.registry.get("auth.authenticate")
     if authenticate is None:
         raise HTTPException(503, "auth_unavailable")
-    return authenticate(request, session)
+    principal = authenticate(request, session)
+    request.state.principal = principal
+    return principal
 
 
 def require(min_role: str):

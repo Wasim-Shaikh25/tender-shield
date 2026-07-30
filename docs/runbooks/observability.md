@@ -48,16 +48,36 @@ Run the included script:
 
 This script starts a temporary Jaeger container, boots the backend with OTLP enabled, calls `/api/health`, and polls Jaeger until the trace appears. It prints the Jaeger search URL on success.
 
-## What to look for in Jaeger
+## Request access logs
 
-After generating traffic:
+Every request is logged to the `tendershield.access` logger:
+
+```
+GET /api/support/tickets/abc 200 12.5ms user=<uuid> workspace=<uuid> role=admin request_id=...
+```
+
+Set `TS_ACCESS_LOG_ENABLED=false` to disable. To log request/response body previews
+(for short-term debugging), set `TS_LOG_REQUEST_BODIES=true`; sensitive keys are
+redacted and previews are capped at 4 KB.
+
+## Tracing a particular user or ticket
+
+When OTel is enabled, spans are enriched with principal and path parameter attributes:
+
+- `user.id` — authenticated user UUID
+- `workspace.id` — current workspace UUID
+- `user.role` — e.g. `owner`, `admin`, `viewer`
+- `ticket.id` — from `/api/support/tickets/{ticket_id}`
+- `opportunity.id` — from `/api/opportunities/{opportunity_id}`
+- `http.request_id` — propagated/correlation ID
+
+In Jaeger:
 
 1. Open http://localhost:16686/search?service=tendershield-backend
-2. Select a trace to see request spans.
-3. Look for:
-   - `GET /api/health` and other route spans
-   - Long-running database or external-API calls nested under request spans
-   - Error spans (tagged `error=true`) when a 5xx or exception occurs
+2. Use the **Tags** box to filter, e.g. `user.id=<uuid>` or `ticket.id=<ticket-uuid>`.
+3. Select a trace to see the route span and any nested database/external-call spans.
+4. Error spans are tagged `error=true`; 5xx responses and exceptions are captured
+   automatically by the FastAPI instrumentor.
 
 ## Production notes
 

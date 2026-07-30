@@ -6,7 +6,15 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
-### In progress — 2026-07-30 (TS-179: testing skill observability demo notes)
+### Done — 2026-07-30 (TS-180: request access logs and trace enrichment)
+
+- Add per-request access logging with method, path, status, duration, user, and
+  workspace (and optional request/response body logging behind a flag).
+- Enrich OpenTelemetry spans with `user.id`, `workspace.id`, `user.role`, and
+  path parameters such as `ticket.id` so Jaeger/Grafana can filter by user or
+  support ticket.
+
+### Done — 2026-07-30 (TS-179: testing skill observability demo notes)
 
 - Add Jaeger/Grafana Docker network note, OTLP backend command, and anonymous
   Grafana access tip to `.agents/skills/testing-tendershield/SKILL.md`.

@@ -116,6 +116,10 @@ class Settings(BaseSettings):
     otel_exporter_otlp_endpoint: str = "http://localhost:4318/v1/traces"
     otel_exporter_otlp_headers: str = ""
 
+    # Per-request access logging and optional body logging.
+    access_log_enabled: bool = True
+    log_request_bodies: bool = False
+
     @field_validator("s3_secret_access_key", "apple_private_key", "sentry_dsn")
     @classmethod
     def _blank_secret_is_none(cls, v: SecretStr | None) -> SecretStr | None:

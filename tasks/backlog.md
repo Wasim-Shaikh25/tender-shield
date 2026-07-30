@@ -287,4 +287,5 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-176 | Close remaining product needs: notification preferences UI, admin/billing/support/analytics UI, local infra, E2E automation, alerting runbooks | user request | `frontend/`, `docker-compose.yml`, `evals/e2e/playwright`, `docs/runbooks/` | done |
 | TS-177 | Format analytics dashboard: render risk/deadline/BOQ summaries as cards and tables instead of raw JSON | user request | `frontend/app/analytics/page.tsx` | done |
 | TS-178 | Add OpenTelemetry tracing and self-hosted Jaeger/Grafana observability stack with automation to verify traces | user request | `backend/app/core/tracing.py`, `docker-compose.yml`, `docs/runbooks/observability.md`, `scripts/verify-traces.sh` | done |
-| TS-179 | Update testing skill with observability demo notes (Jaeger/Grafana/network) | TS-178 | `.agents/skills/testing-tendershield/SKILL.md` | in-progress |
+| TS-179 | Update testing skill with observability demo notes (Jaeger/Grafana/network) | TS-178 | `.agents/skills/testing-tendershield/SKILL.md` | done |
+| TS-180 | Add request access logging and enrich traces with user/workspace/ticket attributes for observability | user request | `backend/app/core/logging_middleware.py`, `backend/app/core/tracing.py`, `backend/app/core/deps.py` | done |

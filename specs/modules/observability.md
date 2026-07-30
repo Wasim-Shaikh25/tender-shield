@@ -2,7 +2,7 @@
 
 **Status:** implemented  
 **Requirement refs:** Build Doc §11.1 (health), §12 (production readiness), audit `TS-108`  
-**Task refs:** TS-178
+**Task refs:** TS-178, TS-180
 
 ## Purpose
 
@@ -18,10 +18,16 @@ are fully wired so any deployment can turn it on.
   - `TS_OTEL_SERVICE_NAME` — service name reported to collectors (default `tendershield-backend`).
   - `TS_OTEL_EXPORTER_OTLP_ENDPOINT` — OTLP trace endpoint (default `http://localhost:4318/v1/traces`).
   - `TS_OTEL_EXPORTER_OTLP_HEADERS` — optional `key1=val1,key2=val2` headers for hosted OTLP.
+  - `TS_ACCESS_LOG_ENABLED` — emit one access log line per request (default true).
+  - `TS_LOG_REQUEST_BODIES` — optionally include redacted request/response body previews (default false).
 - **Runtime behavior**
   - `init_tracing(app, settings)` instruments the FastAPI application and sets the
     global tracer provider when `TS_OTEL_ENABLED=true`.
   - Every HTTP request creates a span with the route and HTTP attributes.
+  - `TracingAttributesMiddleware` enriches each span with `user.id`, `workspace.id`,
+    `user.role`, and path parameters such as `ticket.id`.
+  - `AccessLogMiddleware` writes one `tendershield.access` log line per request with
+    method, path, status, duration, user, workspace, and request ID.
   - Spans are exported asynchronously via `BatchSpanProcessor`.
 - **Observability services**
   - Jaeger all-in-one: OTLP gRPC/HTTP collector + UI at `http://localhost:16686`.
@@ -41,17 +47,24 @@ B1. Tracing is disabled by default; the app boots and runs normally when
 B2. When enabled, `init_tracing` configures a `TracerProvider` with a
     `BatchSpanProcessor` pointing at the configured OTLP endpoint.
 B3. `FastAPIInstrumentor` wraps the application so every request becomes a span.
-B4. The exporter uses OTLP/HTTP by default to avoid gRPC client complexity.
-B5. The docker-compose `observability` profile starts Jaeger and Grafana with
+B4. `TracingAttributesMiddleware` runs inside the OTel span and copies principal and
+    known path parameters to span attributes.
+B5. `AccessLogMiddleware` logs every request/response with timing and principal info.
+    Bodies are not logged unless `TS_LOG_REQUEST_BODIES=true`; when enabled, sensitive
+    keys are redacted and previews are capped at 4 KB.
+B6. The exporter uses OTLP/HTTP by default to avoid gRPC client complexity.
+B7. The docker-compose `observability` profile starts Jaeger and Grafana with
     pre-provisioned data source configuration.
-B6. `scripts/verify-traces.sh` is the acceptance test for the tracing pipeline.
+B8. `scripts/verify-traces.sh` is the acceptance test for the tracing pipeline.
 
 ## Acceptance criteria
 
 A1. `TS_OTEL_ENABLED=true` does not break local dev boot or tests.  
 A2. A request to `/api/health` produces a trace visible in Jaeger within 60 seconds.  
 A3. `scripts/verify-traces.sh` exits 0 and prints the Jaeger search URL.  
-A4. The docker-compose observability profile starts both Jaeger (16686) and Grafana (3100).
+A4. The docker-compose observability profile starts both Jaeger (16686) and Grafana (3100).  
+A5. Access logs include `user=` and `workspace=` for authenticated requests.  
+A6. A Jaeger trace for `GET /api/support/tickets/{ticket_id}` carries a `ticket.id` attribute.
 
 ## Out of scope
 

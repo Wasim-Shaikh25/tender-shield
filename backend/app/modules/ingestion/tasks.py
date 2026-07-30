@@ -15,10 +15,10 @@ from app.core.celery import make_celery_app
 from app.core.config import Settings
 from app.core.db import bind_workspace_context, make_engine, make_session_factory
 from app.core.storage import StorageError, get_storage
-from app.modules.ingestion.deadlines import extract_deadlines
-from app.modules.ingestion.doc_text import persist_chunks
 from app.modules.ingestion.extract import extract_upload
 from app.modules.ingestion.models import Document
+from app.modules.ingestion.ocr import NullOcrProvider, RapidOcrProvider
+from app.modules.ingestion.service import IngestionService
 
 logger = logging.getLogger(__name__)
 app = make_celery_app()
@@ -39,6 +39,11 @@ def _load_file(key: str):
     return asyncio.run(storage.read(key))
 
 
+def _get_ocr():
+    settings = Settings()
+    return RapidOcrProvider() if settings.ocr_enabled else NullOcrProvider()
+
+
 def _publish_progress(task, step: str, page: int, total: int):
     try:
         task.update_state(
@@ -51,7 +56,7 @@ def _publish_progress(task, step: str, page: int, total: int):
 
 @app.task(bind=True, name="ingestion.process_document")
 def process_document(self, document_id: str, workspace_id: str, opportunity_id: str):
-    """Async text extraction + deadline extraction for an uploaded document."""
+    """Async text extraction, classification, segmentation, deadlines, and OCR."""
     session = _get_session(workspace_id)
     try:
         doc = session.get(Document, uuid.UUID(document_id))
@@ -66,34 +71,18 @@ def process_document(self, document_id: str, workspace_id: str, opportunity_id: 
         data = _load_file(doc.s3_key)
 
         _publish_progress(self, "extracting", 0, 0)
-        text, ocr_status = extract_upload(doc.filename, data, ocr=None)
+        ocr = _get_ocr()
+        text, ocr_status = extract_upload(doc.filename, data, ocr=ocr)
 
         pages = text.split("[p") if "[p" in text else [text]
         total = max(len(pages), 1)
         for i, _ in enumerate(pages, start=1):
             _publish_progress(self, "parsing", i, total)
 
-        doc.ocr_status = ocr_status
-        session.commit()
-
-        persist_chunks(session, workspace_id, opportunity_id, document_id, text)
-
-        # Extract deadlines from the full text and store them.
-        for ex in extract_deadlines(text):
-            from app.modules.ingestion.models import Deadline
-
-            session.add(
-                Deadline(
-                    workspace_id=uuid.UUID(workspace_id),
-                    opportunity_id=uuid.UUID(opportunity_id),
-                    kind=ex.kind,
-                    due_at=ex.due_at,
-                    description=ex.description,
-                    source_page=ex.source_page,
-                    source_quote=ex.source_quote,
-                )
-            )
-        session.commit()
+        # Re-classify, segment clauses, extract deadlines, persist chunks, and update
+        # the opportunity submission_due using the same service logic as the sync path.
+        svc = IngestionService(session, loader_provider=None)
+        svc.process_text(doc, text, ocr_status=ocr_status)
 
         _publish_progress(self, "done", total, total)
         return {"status": "done", "chars": len(text), "pages": total, "ocr_status": ocr_status}

@@ -84,6 +84,17 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - `tests/test_rls_postgres.py` now catches `(IntegrityError, ProgrammingError)` for
   RLS `WITH CHECK` violations (`InsufficientPrivilege` is a `ProgrammingError` in psycopg).
 
+### Done — 2026-07-30 (TS-125: rulepack validation / beta-disclaimer flag)
+
+- Added `disclaimer` to the shared `Finding` contract and `findings` table.
+- Added `TS_BETA_UNVALIDATED` setting. Paying workspaces see only `validated`
+  patterns by default; when the flag is enabled, unvalidated patterns are still
+  surfaced with a clear beta disclaimer.
+- `RiskService` sets `validated_only=True` for paying workspaces unless the beta
+  flag is on; `run_patterns` tags findings from `confidence: unvalidated` patterns.
+- Updated `specs/modules/rulepacks.md` B2 and `specs/modules/findings.md` B6.
+- Added migration `857d8c12c3f6` for `findings.disclaimer`.
+
 ### Next
 
 - TS-103 — regenerate the TypeScript API client from the updated OpenAPI schema and

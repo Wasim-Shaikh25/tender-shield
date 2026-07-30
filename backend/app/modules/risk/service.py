@@ -6,6 +6,7 @@ so the LLM boundary is swappable."""
 
 from __future__ import annotations
 
+from app.core.config import Settings
 from app.core.contracts.findings import Finding
 from app.modules.risk.classifier import NullClassifier
 from app.modules.risk.engine import run_patterns
@@ -24,6 +25,7 @@ class RiskService:
         store_factory=None,
         workspace_factory=None,
         pack_id="in-works",
+        settings: Settings | None = None,
     ):
         self.session = session
         self._ingestion_factory = ingestion_factory
@@ -32,6 +34,7 @@ class RiskService:
         self._store_factory = store_factory
         self._workspace_factory = workspace_factory
         self._pack_id = pack_id
+        self._settings = settings or Settings()
 
     def _is_paying(self, workspace_id) -> bool:
         if not self._workspace_factory:
@@ -61,11 +64,25 @@ class RiskService:
     def run_opportunity(self, workspace_id, opportunity_id) -> list[Finding]:
         if not self._loader:
             return []
-        validated_only = self._is_paying(workspace_id)
+        paying = self._is_paying(workspace_id)
+        # Paying workspaces see only validated patterns unless the beta/disclaimer
+        # flag is explicitly enabled (TS-125). When enabled, unvalidated patterns
+        # are still tagged with a disclaimer so users know they are unverified.
+        validated_only = paying and not self._settings.beta_unvalidated
         patterns = self._loader.list_patterns(self._pack_id, validated_only=validated_only)
+        # Tag unvalidated patterns with a disclaimer whenever they may appear in
+        # the result set (free workspaces or beta-enabled paying workspaces).
+        disclaimer = None
+        if not paying or self._settings.beta_unvalidated:
+            disclaimer = (
+                "This risk pattern has not been QS-validated; "
+                "treat as a beta suggestion and verify independently."
+            )
         clauses = self._clauses(workspace_id, opportunity_id)
         facts = self._opp_facts(workspace_id, opportunity_id)
-        findings = run_patterns(patterns, clauses, self._classifier, facts)
+        findings = run_patterns(
+            patterns, clauses, self._classifier, facts, disclaimer=disclaimer
+        )
         # Persist through the findings store when available (idempotent re-run);
         # if the findings module is disabled, still return the in-memory result.
         if self._store_factory is not None:

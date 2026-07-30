@@ -65,3 +65,4 @@ class Finding(BaseModel):
     review_status: ReviewStatus = ReviewStatus.PROPOSED
     review_reason: str | None = None
     explanation: dict | None = None
+    disclaimer: str | None = None

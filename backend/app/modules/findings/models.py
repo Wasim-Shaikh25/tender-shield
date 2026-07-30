@@ -39,3 +39,4 @@ class FindingRow(Base, WorkspaceScopedMixin):
     review_reason: Mapped[str | None] = mapped_column(String, nullable=True)
     reviewed_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     explanation: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    disclaimer: Mapped[str | None] = mapped_column(String, nullable=True)

@@ -82,6 +82,10 @@ class Settings(BaseSettings):
     enabled_modules: str = ""
     rulepacks_dir: str = ""
 
+    # Product flag: when True, paying workspaces may see unvalidated rule-patterns
+    # with a clear disclaimer. False hides unvalidated patterns from paid plans.
+    beta_unvalidated: bool = False
+
     @field_validator("s3_secret_access_key", "apple_private_key")
     @classmethod
     def _blank_secret_is_none(cls, v: SecretStr | None) -> SecretStr | None:

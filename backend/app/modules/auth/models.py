@@ -8,7 +8,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Uuid, func
+from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Integer, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import WORKSPACE_SCOPED_TABLES, Base, WorkspaceScopedMixin
@@ -28,6 +28,8 @@ class User(Base):
     email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     mobile_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_superadmin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    suspended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    suspended_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     mfa_method: Mapped[str] = mapped_column(String, nullable=False, default="")
     mfa_phone: Mapped[str | None] = mapped_column(String, nullable=True)
     mfa_totp_secret: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -78,6 +80,7 @@ class Workspace(Base):
     plan: Mapped[str] = mapped_column(String, nullable=False, default="free")
     free_review_used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     billing_provider: Mapped[str | None] = mapped_column(String, nullable=True)
+    billing_settings: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=dict)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

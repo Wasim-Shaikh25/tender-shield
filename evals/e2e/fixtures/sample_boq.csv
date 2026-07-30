@@ -1,0 +1,21 @@
+Item No.,Description,Unit,Quantity,Rate (INR),Amount (INR),Trade
+1,Earthwork in excavation for foundation,m³,450,850,382500,Civil
+2,PCC 1:4:8 in foundation,m³,120,5200,624000,Civil
+3,RCC M25 in columns,m³,85,12500,1062500,Civil
+4,RCC M25 in beams,m³,110,11800,1298000,Civil
+5,RCC M25 in slab,m³,180,11200,2016000,Civil
+6,Brick masonry in superstructure,m³,320,6500,2080000,Civil
+7,Internal plastering 12 mm thick,m²,1800,320,576000,Civil
+8,External plastering 18 mm thick,m²,1200,450,540000,Civil
+9, vitrified tile flooring 600x600 mm,m²,950,1200,1140000,Finishes
+10, Ceramic wall tiles 300x450 mm,m²,650,850,552500,Finishes
+11, Aluminium windows with glass, sqm,80,8500,680000,Aluminium
+12, Wooden flush doors,nos,24,12500,300000,Doors
+13, Mild steel rolling shutters,nos,2,45000,90000,Doors
+14, Internal electrification including wiring,points,75,3500,262500,Electrical
+15, LED panel lights 2x2 ft,nos,120,2800,336000,Electrical
+16, Air conditioning split units 1.5 TR,nos,18,45000,810000,HVAC
+17, MS water supply piping,m,450,420,189000,Plumbing
+18, Sanitary fixtures set,nos,30,8500,255000,Plumbing
+19, External water supply line,m,200,650,130000,Plumbing
+20, Rainwater downpipes PVC,m,180,380,68400,Plumbing

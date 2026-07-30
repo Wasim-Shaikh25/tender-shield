@@ -42,6 +42,14 @@ class CheckoutBody(BaseModel):
     amount_minor: int | None = None
 
 
+class BillingSettingsBody(BaseModel):
+    gstin: str | None = None
+    pan: str | None = None
+    billing_address: str | None = None
+    state: str | None = None
+    payment_method_id: str | None = None
+
+
 @router.get("/status")
 def status(
     request: Request,
@@ -162,6 +170,70 @@ def list_invoices(
         for inv in _service(request, session).list_invoices(principal.workspace_id)
     ]
     return {"invoices": paginated_list_response(items, page, response)}
+
+
+@router.get("/settings")
+def get_billing_settings(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    return _service(request, session).get_billing_settings(principal.workspace_id)
+
+
+@router.put("/settings")
+def update_billing_settings(
+    body: BillingSettingsBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    try:
+        settings = _service(request, session).update_billing_settings(
+            principal.workspace_id, body.model_dump(exclude_none=True)
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except PaywallError as exc:
+        raise HTTPException(402, exc.code) from exc
+    audit_log.log(
+        request,
+        session,
+        workspace_id=principal.workspace_id,
+        actor_user_id=principal.user_id,
+        action="billing.settings_updated",
+        object_type="workspace",
+        object_id=principal.workspace_id,
+        detail=settings,
+    )
+    return settings
+
+
+@router.post("/cancel")
+def cancel_subscription(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    try:
+        result = _service(request, session).cancel_subscription(
+            principal.workspace_id, principal.user_id
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except PaywallError as exc:
+        raise HTTPException(402, exc.code) from exc
+    audit_log.log(
+        request,
+        session,
+        workspace_id=principal.workspace_id,
+        actor_user_id=principal.user_id,
+        action="billing.subscription_cancelled",
+        object_type="workspace",
+        object_id=principal.workspace_id,
+        detail={"previous_plan": result.get("previous_plan")},
+    )
+    return result
 
 
 @router.post("/webhooks/razorpay", dependencies=[Depends(RateLimitDep(50, 60))])

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core import audit as audit_log
 from app.core.config import Settings
+from app.core.db import bind_workspace_context
 from app.core.deps import current_principal, get_session, require
 from app.core.pagination import PaginationParams, paginated_list_response
 from app.core.ratelimit import RateLimitDep
@@ -328,6 +329,38 @@ class AdminWorkspaceResponse(BaseModel):
     country: str | None = None
 
 
+class AdminUserDetailResponse(BaseModel):
+    user_id: str
+    email: str
+    phone: str
+    org_name: str
+    city: str
+    email_verified: bool
+    mobile_verified: bool
+    is_superadmin: bool
+    suspended_at: str | None = None
+    created_at: str | None = None
+    dob: str | None = None
+    workspaces: list[dict]
+
+
+class AdminDashboardResponse(BaseModel):
+    total_users: int
+    suspended_users: int
+    active_workspaces: int
+    pending_verifications: int
+    recent_signups: int
+
+
+class SetWorkspacePlanBody(BaseModel):
+    plan: str
+
+
+class AdminSearchResponse(BaseModel):
+    total: int
+    items: list[AdminUserDetailResponse]
+
+
 class OkResponse(BaseModel):
     ok: bool = True
 
@@ -365,6 +398,7 @@ _STATUS = {
     "invalid_verification_token": 400,
     "email_not_configured": 503,
     "account_locked": 429,
+    "account_suspended": 403,
     "password_too_short": 400,
     "password_missing_uppercase": 400,
     "password_missing_lowercase": 400,
@@ -995,3 +1029,137 @@ def admin_set_superadmin(
     return _handle(
         lambda: _service(request, session).set_superadmin(user_id, body.is_superadmin)
     )
+
+
+@router.get("/admin/dashboard", response_model=AdminDashboardResponse)
+def admin_dashboard(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require_superadmin),
+):
+    return _service(request, session).admin_dashboard()
+
+
+@router.get("/admin/users/search", response_model=AdminSearchResponse)
+def admin_search_users(
+    request: Request,
+    response: Response,
+    q: str | None = None,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require_superadmin),
+    page: PaginationParams = Depends(),
+):
+    result = _service(request, session).search_users(
+        q, limit=page.size, offset=page.offset
+    )
+    items = paginated_list_response(result["items"], page, response)
+    return {"total": result["total"], "items": items}
+
+
+@router.get("/admin/users/{user_id}", response_model=AdminUserDetailResponse)
+def admin_get_user(
+    user_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require_superadmin),
+):
+    return _handle(lambda: _service(request, session).get_user(user_id))
+
+
+@router.post("/admin/users/{user_id}/suspend", response_model=AdminUserDetailResponse)
+def admin_suspend_user(
+    user_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require_superadmin),
+):
+    return _handle(
+        lambda: _service(request, session).suspend_user(user_id, principal.user_id)
+    )
+
+
+@router.post("/admin/users/{user_id}/unsuspend", response_model=AdminUserDetailResponse)
+def admin_unsuspend_user(
+    user_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require_superadmin),
+):
+    return _handle(lambda: _service(request, session).unsuspend_user(user_id))
+
+
+@router.delete("/admin/users/{user_id}", response_model=OkResponse)
+def admin_delete_user(
+    user_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require_superadmin),
+):
+    return _handle(lambda: _service(request, session).admin_delete_user(user_id))
+
+
+@router.get("/admin/workspaces/{workspace_id}", response_model=AdminWorkspaceResponse)
+def admin_get_workspace(
+    workspace_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require_superadmin),
+):
+    return _handle(lambda: _service(request, session).get_workspace_detail(workspace_id))
+
+
+@router.post("/admin/workspaces/{workspace_id}/plan", response_model=AdminWorkspaceResponse)
+def admin_set_workspace_plan(
+    workspace_id: str,
+    body: SetWorkspacePlanBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require_superadmin),
+):
+    return _handle(
+        lambda: _service(request, session).set_workspace_plan(
+            workspace_id, body.plan, principal.user_id
+        )
+    )
+
+
+@router.get("/admin/audit-log")
+def admin_audit_log(
+    request: Request,
+    workspace_id: str,
+    user_id: str | None = None,
+    action: str | None = None,
+    object_type: str | None = None,
+    from_date: str | None = None,
+    to_date: str | None = None,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require_superadmin),
+):
+    bind_workspace_context(session, workspace_id)
+    review_factory = request.app.state.ctx.registry.get("review.service_factory")
+    if review_factory is None:
+        raise HTTPException(503, "review_unavailable")
+    svc = review_factory(session)
+    rows = svc.audit_trail(workspace_id)
+    if user_id:
+        rows = [r for r in rows if r.actor_user_id == uuid.UUID(str(user_id))]
+    if action:
+        rows = [r for r in rows if r.action == action]
+    if object_type:
+        rows = [r for r in rows if r.object_type == object_type]
+    if from_date:
+        rows = [r for r in rows if r.at and r.at.isoformat() >= from_date]
+    if to_date:
+        rows = [r for r in rows if r.at and r.at.isoformat() <= to_date]
+    return [
+        {
+            "id": r.id,
+            "actor_user_id": str(r.actor_user_id) if r.actor_user_id else None,
+            "action": r.action,
+            "object_type": r.object_type,
+            "object_id": str(r.object_id) if r.object_id else None,
+            "detail": r.detail or {},
+            "at": r.at.isoformat() if r.at else None,
+        }
+        for r in rows
+    ]

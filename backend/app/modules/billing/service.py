@@ -130,6 +130,44 @@ class BillingService:
             self.s.commit()
         return inv
 
+    # ---- billing self-service ---------------------------------------------
+    def get_billing_settings(self, workspace_id) -> dict:
+        return self._workspaces().get_billing_settings(workspace_id)
+
+    def update_billing_settings(self, workspace_id, settings: dict) -> dict:
+        ws = self._workspaces().get(workspace_id)
+        if ws is None:
+            raise PaywallError("no_workspace")
+        if ws.country.upper() == "IN":
+            gstin = (settings.get("gstin") or "").strip()
+            pan = (settings.get("pan") or "").strip()
+            if gstin and len(gstin) != 15:
+                raise ValueError("invalid_gstin")
+            if pan and len(pan) != 10:
+                raise ValueError("invalid_pan")
+        self._workspaces().set_billing_settings(workspace_id, settings)
+        return settings
+
+    def cancel_subscription(self, workspace_id, user_id) -> dict:
+        ws = self._workspaces().get(workspace_id)
+        if ws is None:
+            raise PaywallError("no_workspace")
+        old_plan = ws.plan
+        if old_plan == "free":
+            raise ValueError("already_free")
+        ws.plan = "free"
+        ws.free_review_used = False
+        self._log(
+            workspace_id,
+            "internal",
+            None,
+            "subscription_cancelled",
+            status="applied",
+            raw={"cancelled_by": str(user_id), "previous_plan": old_plan},
+        )
+        self.s.commit()
+        return {"plan": "free", "previous_plan": old_plan}
+
     # ---- webhook: the only billing truth (Doc §15.5) ----------------------
     def process_razorpay_webhook(self, raw_body: bytes, signature: str, secret: str) -> dict:
         # 1) log receipt BEFORE trusting anything (fraud/debug trail, §16.5)

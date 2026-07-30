@@ -6,6 +6,24 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-30 (TS-170: admin, billing self-service, support tickets, analytics, audit-log search)
+
+- Admin user/workspace management: `User.suspended_at`/`suspended_by`, workspace `billing_settings`;
+  new `/api/auth/admin/dashboard`, `/api/auth/admin/users/search`, `/api/auth/admin/users/{id}`
+  (detail, suspend, unsuspend, delete), and `/api/auth/admin/workspaces/{id}/plan`.
+- Billing self-service: `GET/PUT /api/billing/settings` for billing address/GSTIN/payment method,
+  and `POST /api/billing/cancel` to downgrade a paid workspace to `free`.
+- New `support` module: workspace-scoped `support_tickets`, `support_ticket_replies`,
+  `support_attachments`; `POST /api/support/tickets`, `GET /api/support/tickets/{id}`,
+  `POST /api/support/tickets/{id}/replies`, `POST /api/support/tickets/{id}/attachments`,
+  plus super-admin ticket management under `/api/support/admin/tickets`.
+- Analytics reports: `GET /api/analytics/risk-summary`, `deadline-dashboard`, `boq-defect-summary`,
+  and `POST /api/analytics/reports/export` (`csv`/`xlsx`).
+- Observability log search: super-admin `GET /api/auth/admin/audit-log` with workspace,
+  action, object_type, actor, and date filters.
+- Alembic migration `f94c5d977344` adds the new auth columns and support tables.
+- Backend: `ruff`, `mypy`, `pytest` clean; `alembic upgrade head` passes.
+
 ### Done — 2026-07-29 (PR consolidation)
 
 - Merged the two older audit-only branches (`devin/fourth-round-audit` and
@@ -258,6 +276,41 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Added commented MinIO example config to `.env.prod` and `.env.example`.
 - Updated `docs/deployment.md` with an Object storage section covering MinIO,
   AWS S3, Cloudflare R2, Tigris, and Backblaze B2.
+
+### Done — 2026-07-30 (TS-167: expand end-to-end scenarios)
+
+- Expanded `evals/e2e/scenarios.md` from 13 to 50 scenario groups covering
+  every module and angle: auth/MFA/session, workspace/team/roles,
+  opportunity/document/ingestion, risk/BOQ/review/baseline/handover,
+  assistant, billing, notifications, admin, security, accessibility,
+  performance/concurrency, data integrity, privacy/GDPR, integrations
+  (OpenRouter, MinIO/S3, Redis/Celery, email/SMS, billing webhooks),
+  observability, backup/restore, cross-browser, configuration guards,
+  and fuzz/exploratory testing.
+- Added a scenario coverage matrix mapping each scenario group to the
+  end-to-end audit prompt sections.
+
+### Done — 2026-07-30 (TS-169: account settings, admin, payments, tickets, analysis, observability scenarios)
+
+- Added scenarios 56–66 covering account profile/security/delete, password change
+  and forgot-password, super-admin login and dashboard, user search/suspend/delete,
+  workspace and billing oversight, payment settings, support tickets, user-raised
+  analysis/reports, observability/log inspection, and alerting/backup/restore runbooks.
+- Updated the scenario coverage matrix.
+
+### Done — 2026-07-30 (TS-168: assistant, document, OCR, Q&A fixtures and scenarios)
+
+- Added `evals/e2e/fixtures/` with synthetic NIT, GCC, pre-bid Q&A, addendum,
+  BOQ CSV/XLSX, combined tender pack DOCX/PDF, and standalone risk/Q&A PDFs.
+- Added a trimmed, public-domain World Bank sample bidding document PDF
+  (`sample_public_wb_tender.pdf`) for real-world OCR and clause-citation tests.
+- Added `evals/e2e/fixtures/generate.py` to regenerate DOCX, PDF, and XLSX
+  fixtures from the markdown/CSV sources.
+- Added scenarios 51–55 for assistant knowledge outside risk (deadlines,
+  costs, project info, sub-contracting, Q&A, addendum awareness), document
+  upload/download format coverage, OCR handling, pre-bid Q&A/addendum tests,
+  and assistant session continuity/metering.
+- Updated the scenario coverage matrix and fixture reference.
 
 ### Done — 2026-07-30 (TS-166: end-to-end automation scenarios and audit prompt)
 

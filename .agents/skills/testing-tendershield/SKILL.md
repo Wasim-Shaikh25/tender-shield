@@ -111,6 +111,16 @@ description: |
   when the GUC is unset, so casting it directly to `uuid` can raise
   `invalid input syntax for type uuid: ""`. Use `nullif(..., '')::uuid` to fail closed.
 
+## New UI routes (PR #54 and later)
+
+- **Navigation:** Always use client-side navigation (`window.next.router.push('/path')`) when moving between authenticated routes. `window.location.href = '/settings'` forces a full reload; protected pages (`/settings`, `/billing/settings`, `/support/tickets`, `/analytics`, `/admin/*`) immediately redirect to `/login` because their `if (!session)` guard runs before `SessionProvider` finishes refreshing the token.
+- **MFA / verification codes:** In dev, `POST /api/auth/signup` returns `email_verification_token` and `mobile_verification_token`, and `POST /api/auth/login` returns `mfa_code` in the JSON body. These values are NOT printed to the backend log. For a manual walkthrough, read the code from the network response (or temporarily pre-fill the UI input for testing and revert).
+- **Cancel subscription:** The billing settings page calls `window.confirm("Cancel subscription? ...")`. Override `window.confirm = () => true` in the browser console to test the flow without a system dialog. On a `free` plan the backend returns `already_free`; change the workspace plan to `pro` first (via `/admin/workspaces/{id}`) to see a successful cancel.
+- **Document upload:** The tender upload button hides a real `<input type="file">`. The system file dialog cannot be automated, so seed the document and run BOQ via the API, then refresh the opportunity detail page to verify the tabs populate.
+- **Analytics export:** The frontend `api.exportReport` currently sends `FormData` in the body, but `POST /api/analytics/reports/export` expects `format` and `filter` as **query parameters**. CSV/XLSX exports fail in the UI until this is aligned; the backend itself works when called with `?format=csv&filter=all`.
+- **Admin user search:** `/admin/users` calls `/api/auth/admin/users/search`, which crashes with `AttributeError: 'PaginationParams' object has no attribute 'size'` because `PaginationParams` exposes `page` and `page_size`, not `size`.
+- **Login workspace flow:** After `/auth/mfa/challenge`, the access token has a null `workspace_id`. The login page unconditionally shows "Create your workspace" if `isNoWorkspace(tokens.workspace_id)` is true, even when `SessionProvider` already loaded existing workspaces. Returning users can be trapped on this step instead of being switched to their existing workspace.
+
 ## UI testing tips
 
 - The dev server uses `next dev` and can be confused by a stale `.next` folder

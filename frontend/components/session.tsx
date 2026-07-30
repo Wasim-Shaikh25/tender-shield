@@ -19,7 +19,7 @@ type Ctx = {
   workspaces: Workspace[];
   activeWorkspace: Workspace | null;
   loading: boolean;
-  signIn: (t: Tokens) => Promise<void>;
+  signIn: (t: Tokens) => Promise<Workspace[]>;
   signOut: () => void;
   refreshSession: () => Promise<boolean>;
   switchWorkspace: (id: string) => Promise<void>;
@@ -31,7 +31,7 @@ const SessionContext = createContext<Ctx>({
   workspaces: [],
   activeWorkspace: null,
   loading: true,
-  signIn: async () => {},
+  signIn: async () => [],
   signOut: () => {},
   refreshSession: async () => false,
   switchWorkspace: async () => {},
@@ -91,6 +91,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const signIn = async (t: Tokens) => {
     const all = await loadWorkspaces(t.access_token);
     applyTokens(t, all);
+    return all;
   };
 
   const signOut = async () => {

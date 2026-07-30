@@ -10,7 +10,7 @@ from app.core import audit as audit_log
 from app.core.config import Settings
 from app.core.db import bind_workspace_context
 from app.core.deps import current_principal, get_session, require
-from app.core.pagination import PaginationParams, paginated_list_response
+from app.core.pagination import PaginationParams, paginated_list_response, set_pagination_headers
 from app.core.ratelimit import RateLimitDep
 from app.modules.auth.deps import require_superadmin
 from app.modules.auth.models import User
@@ -1115,10 +1115,10 @@ def admin_search_users(
     page: PaginationParams = Depends(),
 ):
     result = _service(request, session).search_users(
-        q, limit=page.size, offset=page.offset
+        q, limit=page.limit, offset=page.offset
     )
-    items = paginated_list_response(result["items"], page, response)
-    return {"total": result["total"], "items": items}
+    set_pagination_headers(response, page, result["total"])
+    return {"total": result["total"], "items": result["items"]}
 
 
 @router.get("/admin/users/{user_id}", response_model=AdminUserDetailResponse)

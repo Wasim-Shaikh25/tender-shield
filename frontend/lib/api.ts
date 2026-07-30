@@ -339,12 +339,9 @@ export const api = {
   boqDefectSummary: (token: string) =>
     req<Record<string, unknown>>("/analytics/boq-defect-summary", {}, token),
   exportReport: async (token: string, format: string, filter: string) => {
-    const form = new FormData();
-    form.append("format", format);
-    form.append("filter", filter);
-    const res = await fetch(`${API_BASE}/analytics/reports/export`, {
+    const params = new URLSearchParams({ format, filter });
+    const res = await fetch(`${API_BASE}/analytics/reports/export?${params.toString()}`, {
       method: "POST",
-      body: form,
       credentials: "include",
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     });

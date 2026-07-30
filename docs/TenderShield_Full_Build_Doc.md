@@ -219,7 +219,7 @@ rulepacks/
        │  PostgreSQL 16 (+pgvector) · Redis (queues/cache/limits)          │
        │  S3 vault (KMS, per-org prefix) · Append-only audit (PG + S3 lock)│
        └───────────────────────────────────────────────────────────────────┘
-       External: Claude API · Textract/Google Vision OCR · Razorpay+Stripe
+       External: OpenRouter API · Textract/Google Vision OCR · Razorpay+Stripe
                  SES/Resend · MSG91 (OTP/WhatsApp) · tusd (resumable upload)
 ```
 
@@ -431,7 +431,7 @@ Outcome recorded → learning loop (pattern precision dashboard, §11.5)
 | Files | **S3 + SSE-KMS**; tusd for resumable uploads; Object Lock audit bucket | 1GB tender ZIPs on patchy site connections |
 | BOQ engine | **Pandas + DuckDB + openpyxl** | 50k-row BOQs in seconds, SQL-testable checks |
 | OCR | **AWS Textract** (TABLES mode) primary, **Google Vision** fallback | Scanned BOQ tables are the hard 20% |
-| LLM | **Claude API** — Sonnet-class: clause/risk extraction & drafting; Haiku-class: classification, assistant routing | Long context (whole GCC in one window), structured output, zero-retention |
+| LLM | **OpenRouter API** — model-agnostic OpenAI-compatible endpoint; default `openai/gpt-4o-mini` for classification & assistant routing, configurable for larger context models | Long context (whole GCC in one window), structured output, zero-retention |
 | Export | Jinja2 → **docxtpl** (DOCX), WeasyPrint (PDF), openpyxl (XLSX registers) | Bid Review Pack must look like the contractor's own letterhead |
 | Auth | Custom FastAPI (§5) — argon2id, RS256 JWT, rotating refresh | Trust-critical; no vendor lock |
 | Payments | **Razorpay** (IN) + **Stripe** (GCC/UK) behind one interface | §7 |
@@ -1373,7 +1373,7 @@ A conversational assistant for the **superadmin only**, to investigate issues, q
 Superadmin: "why is Acme's BOQ review stuck and did their payment go through?"
         │
         ▼
-  OPS COPILOT (Claude, tool-calling)  — superadmin-scoped, separate service
+  OPS COPILOT (OpenRouter-hosted model, tool-calling)  — superadmin-scoped, separate service
         │  system prompt: read-only reasoning; may PROPOSE actions, never execute
         ▼
   READ TOOLS (no side effects):
@@ -1549,9 +1549,15 @@ You are testing ONE question: **when the AI reads a real tender, does it catch t
 ```python
 # throwaway_accuracy_test.py — NOT production code. Delete after.
 # Goal: measure whether AI risk-extraction matches a human gold answer.
-import anthropic, pypdf, json, pathlib
+import json, os, pathlib
+import pypdf
+from openai import OpenAI
 
-client = anthropic.Anthropic()
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=os.environ.get("TS_OPENROUTER_API_KEY") or os.environ.get("OPENROUTER_API_KEY"),
+    default_headers={"HTTP-Referer": "https://tendershield.io", "X-Title": "TenderShield Test"},
+)
 
 # The 5 patterns you drafted from public sources (Part 14.1), as plain prompts.
 PATTERNS = {
@@ -1580,11 +1586,13 @@ def run(tender_path):
     doc = read_pdf(tender_path)[:180_000]           # crude cap for the test
     results = {}
     for name, ask in PATTERNS.items():
-        msg = client.messages.create(
-            model="claude-sonnet-4-6", max_tokens=800, temperature=0,
-            system=SYSTEM,
-            messages=[{"role":"user","content":f"PATTERN: {ask}\n\nTENDER:\n{doc}"}])
-        results[name] = msg.content[0].text
+        response = client.chat.completions.create(
+            model="openai/gpt-4o-mini", max_tokens=800, temperature=0,
+            messages=[
+                {"role": "system", "content": SYSTEM},
+                {"role": "user", "content": f"PATTERN: {ask}\n\nTENDER:\n{doc}"},
+            ])
+        results[name] = response.choices[0].message.content
     return results
 
 for t in pathlib.Path("tenders").glob("*.pdf"):

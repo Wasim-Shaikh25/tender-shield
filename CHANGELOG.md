@@ -244,7 +244,7 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ### Next
 
-- No open audit follow-ups in this batch.
+- TS-164 — replace Anthropic with OpenRouter for risk classifier and assistant agent.
 
 ### Done — 2026-07-30 (TS-110 / TS-157 / TS-160: tus and spreadsheet page markers)
 

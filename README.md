@@ -84,7 +84,8 @@ Health check + loaded modules: `GET http://localhost:8000/api/health`.
 | `TS_CORS_ORIGINS` | `*` | Allowed SPA origins. |
 | `TS_RAZORPAY_WEBHOOK_SECRET` | `dev-razorpay-secret` | Verifies the billing webhook (the only billing truth). |
 | `TS_APPLE_*` | *(unset)* | Sign in with Apple credentials. Empty = disabled. |
-| `ANTHROPIC_API_KEY` | *(unset)* | Env (no `TS_` prefix). When set, the risk engine's LLM classifier and the assistant's free-form answers activate; unset = deterministic paths only. |
+| `TS_OPENROUTER_API_KEY` / `OPENROUTER_API_KEY` | *(unset)* | OpenRouter API key. When set, the risk engine's LLM classifier and the assistant's free-form answers activate via any OpenRouter model; unset = deterministic paths only. |
+| `TS_OPENROUTER_MODEL` | `openai/gpt-4o-mini` | OpenRouter model identifier. |
 
 ### 2. Frontend
 
@@ -127,7 +128,7 @@ Details in `CLAUDE.md` §1. No code without a task ID; no push without a changel
 
 ## What's left
 
-- **Assistant free-form answers + LLM judgment** need `ANTHROPIC_API_KEY` (deterministic
+- **Assistant free-form answers + LLM judgment** need `TS_OPENROUTER_API_KEY` (deterministic
   paths work without it).
 - **Done in the hardening pass (no creds):** real file upload + extraction, **OCR
   (offline RapidOCR) + PDF table reading (pdfplumber)**, PDF export, GST computation,

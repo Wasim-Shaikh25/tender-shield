@@ -11,7 +11,7 @@ description: |
 ## Devin Secrets Needed
 
 - None for local dev. The repo ships `.env.local` with SQLite and no cloud secrets.
-- Optional: `ANTHROPIC_API_KEY` if you want LLM risk findings; without it the
+- Optional: `TS_OPENROUTER_API_KEY` (or `OPENROUTER_API_KEY`) if you want LLM risk findings; without it the
   engine uses `NullClassifier` and returns zero risk findings.
 
 ## Quick start
@@ -65,7 +65,7 @@ description: |
    a cookie but **never committed** in `auth/service.py`. The next
    `POST /api/auth/refresh` returns `401 {"detail":"invalid_refresh"}` and the
    user is signed out. This is **not** a PR regression.
-3. **No Anthropic key** means risk review returns `count:0, findings:[]`.
+3. **No OpenRouter key** means risk review returns `count:0, findings:[]`.
    Deterministic BOQ checks still work.
 4. **Environment variables must be exported.** Use `set -a` before `source .env.local`
    so `TS_*` vars are visible to the server process:

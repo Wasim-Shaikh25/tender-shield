@@ -257,7 +257,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
           {!findings ? (
             <p className="text-sm text-slate-500">
               Run the risk review to populate the register. Absence findings appear even without an
-              LLM key; clause judgments need <code>ANTHROPIC_API_KEY</code> on the server.
+              LLM key; clause judgments need <code>TS_OPENROUTER_API_KEY</code> on the server.
             </p>
           ) : riskFindings.length === 0 ? (
             <p className="text-sm text-slate-500">No risk findings yet — upload the tender and run again.</p>

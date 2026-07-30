@@ -2,9 +2,9 @@
 
 **Status:** implemented — retrieval, deterministic severity, quote verification,
 absence detection, explainability (TS-017, TS-054). LLM classifier is injected
-(NullClassifier without a key; AnthropicClassifier with one).
+(NullClassifier without a key; OpenRouterClassifier with one).
 **Requirement refs:** Doc §6.3, §11.3
-**Task refs:** TS-017, TS-054, TS-112
+**Task refs:** TS-017, TS-054, TS-112, TS-164
 
 ## Purpose
 
@@ -15,9 +15,9 @@ provenance and deterministic severity.
 ## Public interface
 
 - **Capabilities published:**
-  - `risk.classifier` → `Classifier` instance (Anthropic when `ANTHROPIC_API_KEY`
-    is set; `NullClassifier` otherwise so absence detection still runs
-    deterministically without an LLM key).
+  - `risk.classifier` → `Classifier` instance (OpenRouter when `TS_OPENROUTER_API_KEY`
+    or `OPENROUTER_API_KEY` is set; `NullClassifier` otherwise so absence detection
+    still runs deterministically without an LLM key).
 - **Capabilities consumed (soft):**
   - `rulepacks.loader` (patterns + playbook defaults).
   - `ingestion.service_factory` (clauses + opportunity facts).
@@ -56,10 +56,10 @@ provenance and deterministic severity.
   patterns by `validated_only=True` when the workspace plan is `pro`, `scale`,
   `paygo`, or `internal`. Free/internal demo workspaces may include unvalidated
   patterns with a visible confidence badge.
-- **B9 (classifier robustness):** `AnthropicClassifier` extracts only the JSON
+- **B9 (classifier robustness):** `OpenRouterClassifier` extracts only the JSON
   array from the response, validates each row against a strict schema, drops malformed
   rows, and fails closed (returns empty list) on any parse or network error.
-- **B10 (prompt-injection guard):** `AnthropicClassifier` wraps all tender text in
+- **B10 (prompt-injection guard):** `OpenRouterClassifier` wraps all tender text in
   `<clauses>` delimiters and skips classification if `pattern.judgment_prompt` matches
   common override/jailbreak patterns.
 
@@ -71,12 +71,12 @@ provenance and deterministic severity.
 - A4: every risk finding returned by `run_pattern` includes a non-null
   `explanation` with `matched_pattern.id` equal to the pattern id.
 - A5: paid workspace `run` excludes `confidence: unvalidated` patterns.
-- A6: `AnthropicClassifier` uses a valid, current Anthropic model identifier.
+- A6: `OpenRouterClassifier` uses a valid OpenRouter model identifier.
 - A7: `severity.evaluate_severity` fails safe on missing facts and never silently
   treats an absent fact as `0`/`False`.
-- A8: `AnthropicClassifier` rejects non-array or schema-invalid LLM output and
+- A8: `OpenRouterClassifier` rejects non-array or schema-invalid LLM output and
   returns an empty classification list without raising.
-- A9: `AnthropicClassifier` returns an empty list when the pattern prompt matches
+- A9: `OpenRouterClassifier` returns an empty list when the pattern prompt matches
   common prompt-injection/jailbreak markers.
 
 ## Out of scope

@@ -64,6 +64,14 @@ class Settings(BaseSettings):
     msg91_auth_key: SecretStr | None = None
     msg91_sender_id: str = ""
 
+    # LLM via OpenRouter (OpenAI-compatible API). No key → assistant free-form
+    # answers and the risk LLM classifier are disabled, deterministic paths still run.
+    openrouter_api_key: SecretStr | None = None
+    openrouter_model: str = "openai/gpt-4o-mini"
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_site_url: str = ""
+    openrouter_app_name: str = "TenderShield"
+
     # Sign in with Apple (Doc §5). PEM private key may contain escaped newlines.
     apple_team_id: str = ""
     apple_services_id: str = ""

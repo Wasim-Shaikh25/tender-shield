@@ -56,29 +56,42 @@ class TimestampMixin:
     )
 
 
-def rls_statements(table: str) -> list[str]:
+def rls_statements(table: str, user_id_column: str | None = None) -> list[str]:
     """RLS enable + workspace-isolation policy for one table (PostgreSQL only).
 
     FORCE is required: without it the table owner (the migration role) bypasses
     RLS. WITH CHECK on the same expression prevents cross-tenant writes.
     `nullif(current_setting(..., true), '')::uuid` treats an unset GUC as NULL, which
     makes the predicate `workspace_id = NULL` — i.e. false for every row.
+
+    Membership tables (`workspace_members`, `project_members`) additionally allow a
+    row when the row's user_id matches `app.user_id`, so an account-level session
+    (no workspace selected) can still read/write the caller's own memberships.
     """
-    guc = "nullif(current_setting('app.workspace_id', true), '')::uuid"
+    workspace_guc = "nullif(current_setting('app.workspace_id', true), '')::uuid"
+    user_guc = "nullif(current_setting('app.user_id', true), '')::uuid"
+    predicate = f"workspace_id = {workspace_guc}"
+    if user_id_column:
+        predicate = f"({predicate} OR {user_id_column} = {user_guc})"
     return [
         f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY",
         f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY",
         (
             f"CREATE POLICY workspace_isolation ON {table} "
-            f"USING (workspace_id = {guc}) "
-            f"WITH CHECK (workspace_id = {guc})"
+            f"USING ({predicate}) "
+            f"WITH CHECK ({predicate})"
         ),
     ]
 
 
-def bind_workspace_context(session: Session, workspace_id: uuid.UUID | str) -> None:
-    """SET LOCAL app.workspace_id for the current transaction — the RLS binding every
-    request must perform before touching workspace data (Doc §5, §3.2).
+def bind_workspace_context(
+    session: Session,
+    workspace_id: uuid.UUID | str,
+    user_id: uuid.UUID | str | None = None,
+) -> None:
+    """SET LOCAL app.workspace_id (and optionally app.user_id) for the current
+    transaction — the RLS binding every request must perform before touching
+    workspace data (Doc §5, §3.2).
 
     A no-op on SQLite (tests): SQLite has no RLS, so cross-workspace isolation is
     exercised by dedicated integration tests against PostgreSQL.
@@ -86,9 +99,12 @@ def bind_workspace_context(session: Session, workspace_id: uuid.UUID | str) -> N
     if session.get_bind().dialect.name != "postgresql":
         logger.debug("bind_workspace_context is a no-op on non-PostgreSQL dialects")
         return
-    # `SET LOCAL` does not accept bind parameters, so we validate and inline the UUID.
+    # `SET LOCAL` does not accept bind parameters, so we validate and inline the UUIDs.
     ws = str(uuid.UUID(str(workspace_id)))
     session.execute(text(f"SET LOCAL app.workspace_id = '{ws}'"))
+    if user_id is not None:
+        uid = str(uuid.UUID(str(user_id)))
+        session.execute(text(f"SET LOCAL app.user_id = '{uid}'"))
 
 
 def make_engine(settings: Settings) -> Engine:

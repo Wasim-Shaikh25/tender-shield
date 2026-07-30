@@ -61,13 +61,34 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   and SQLite.
 - Verified `alembic upgrade head` and `alembic downgrade base` on SQLite.
 
+### Done — 2026-07-30 (TS-163 re-analysis: account-first auth flow hardening)
+
+- Re-analyzed open TODOs against the new account-centric auth flow; the auth-related
+  open items (TS-103, TS-106, TS-107, TS-135, TS-161, TS-163 frontend) are now driven
+  by account → workspace selection after login.
+- `AuthService.login` now always issues an account-level `mfa_token` with no workspace
+  selected; `mfa_challenge` returns an account-level access token.
+- `AuthService.refresh` preserves the workspace bound to the refresh-token row instead
+  of picking an arbitrary workspace; `refresh_tokens.workspace_id` column added.
+- `bind_workspace_context` now also sets `app.user_id`; membership-table RLS policies
+  (`workspace_members`, `project_members`) allow a user to read/write their own rows
+  even in an account-level session, so `/api/auth/workspaces` create/list and switch work.
+- `rls_statements` supports an optional `user_id_column` for membership tables.
+- Updated `specs/modules/auth.md` (B2, B3, A25).
+- Frontend updated for the new flow: `login/page.tsx` has account-only signup with
+  org/firm name, email, mobile, city, DOB, password + confirm, email/mobile
+  verification, OTP login, and workspace creation; `session.tsx` drives workspace
+  selection; `api.ts` and `admin/page.tsx` align with backend response shapes.
+
 ### Next
 
-- TS-163 frontend: update `frontend/app/login/page.tsx` and `frontend/lib/api.ts` for the
-  new account-only sign-up, email/mobile OTP verification, and workspace creation UI.
-- TS-125 — Rulepack QS validation / beta-disclaimer flag for unvalidated patterns.
-- TS-103, TS-106, TS-107, TS-108, TS-109, TS-133..TS-162 — remaining medium/low audit
-  follow-ups.
+- TS-103 — regenerate the TypeScript API client from the updated OpenAPI schema and
+  remove hand-rolled API response mismatches.
+- TS-106 — Team-management UI (invite/list/role/remove) and invitation revocation API.
+- TS-107 — Account & security settings UI.
+- TS-108 — Observability (metrics, health probes, backup/rollback docs).
+- TS-109 — Enforce plan seat limits in `add_workspace_member` / `accept_invitation`.
+- TS-133..TS-162 — remaining medium/low audit follow-ups.
 
 ### Done — 2026-07-29 (TS-132: 61-finding implementation tracker)
 

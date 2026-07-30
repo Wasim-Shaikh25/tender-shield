@@ -50,8 +50,11 @@ application-owner endpoints under `/api/auth/admin/*`.
   ≥ 1 lower, ≥ 1 digit, and ≥ 1 special character; length ≥ 8.
 - **B2:** access JWT RS256, 15-min TTL, `kid`-headered for key rotation; claims
   `sub`, `workspace`, `role`, `is_superadmin`, `email_verified`, `mobile_verified`, `iss=tendershield`, `aud=tendershield-api`, `jti`.
+  The `workspace` claim is a sentinel UUID when no workspace is selected (account-level session).
 - **B3:** refresh tokens 30-day, httpOnly Secure cookie, hashed at rest, rotated
   on every use; **reuse detection revokes the whole token family** and audits.
+  Refresh-token rows store the selected `workspace_id` so `/api/auth/refresh` preserves
+  the user's current workspace instead of falling back to an arbitrary membership.
 - **B4:** RBAC ranks `viewer<reviewer<estimator<admin<owner`; `require(min_role)`.
 - **B5:** every authenticated request executes `SET LOCAL app.workspace_id` before any
   query (RLS binding, Doc §3.2 — non-negotiable). A nil `workspace` claim uses a
@@ -130,6 +133,10 @@ application-owner endpoints under `/api/auth/admin/*`.
 - A23: `/api/auth/settings/password` requires current password and rejects reused/weak passwords.
 - A24: sign-up sends separate email and mobile verification OTPs; both must be verified before
   login returns a usable access token.
+- A25: login always issues an account-level `mfa_token` (no workspace selected). After MFA,
+  `/api/auth/refresh` and `/api/auth/workspaces/{id}/switch` preserve or return a workspace-bound
+  token; a user with no workspaces gets an account-level access token and can call
+  `/api/auth/workspaces` and `/api/auth/workspaces` create.
 
 ## Out of scope
 

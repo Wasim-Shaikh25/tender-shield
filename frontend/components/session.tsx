@@ -3,6 +3,8 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { api, type Tokens, type Workspace } from "@/lib/api";
 
+const NO_WORKSPACE = "00000000-0000-0000-0000-000000000000";
+
 // Access token is kept in memory only. Refresh token lives in an httpOnly cookie.
 // On reload we call /auth/refresh to get a new access token.
 type Session = {
@@ -17,10 +19,11 @@ type Ctx = {
   workspaces: Workspace[];
   activeWorkspace: Workspace | null;
   loading: boolean;
-  signIn: (t: Tokens) => void;
+  signIn: (t: Tokens) => Promise<void>;
   signOut: () => void;
   refreshSession: () => Promise<boolean>;
   switchWorkspace: (id: string) => Promise<void>;
+  createWorkspace: (name: string, country?: string) => Promise<string>;
 };
 
 const SessionContext = createContext<Ctx>({
@@ -28,11 +31,16 @@ const SessionContext = createContext<Ctx>({
   workspaces: [],
   activeWorkspace: null,
   loading: true,
-  signIn: () => {},
+  signIn: async () => {},
   signOut: () => {},
   refreshSession: async () => false,
   switchWorkspace: async () => {},
+  createWorkspace: async () => "",
 });
+
+function isNoWorkspace(id: string | undefined) {
+  return !id || id === NO_WORKSPACE;
+}
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session>(null);
@@ -47,15 +55,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       workspaceId: t.workspace_id,
       is_superadmin: t.is_superadmin,
     });
-    const match = (all ?? workspaces).find((w) => w.id === t.workspace_id);
-    if (match) {
-      setWorkspaces((prev) => (prev.length ? prev : all ?? prev));
-    }
+    const list = all ?? workspaces;
+    if (list.length) setWorkspaces(list);
   };
 
   const loadWorkspaces = async (token: string) => {
     try {
-      const { workspaces: list } = await api.listWorkspaces(token);
+      const list = await api.listWorkspaces(token);
       setWorkspaces(list);
       return list;
     } catch {
@@ -106,7 +112,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     applyTokens(t, all);
   };
 
-  const activeWorkspace = workspaces.find((w) => w.id === session?.workspaceId) ?? null;
+  const createWorkspace = async (name: string, country = "IN") => {
+    if (!session) throw new Error("not_signed_in");
+    const created = await api.createWorkspace(session.token, { name, country });
+    const workspaceId = created.workspace_id;
+    await switchWorkspace(workspaceId);
+    return workspaceId;
+  };
+
+  const activeWorkspace =
+    workspaces.find((w) => w.workspace_id === session?.workspaceId) ?? null;
 
   return (
     <SessionContext.Provider
@@ -119,6 +134,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         signOut,
         refreshSession,
         switchWorkspace,
+        createWorkspace,
       }}
     >
       {children}
@@ -127,3 +143,4 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 }
 
 export const useSession = () => useContext(SessionContext);
+export { isNoWorkspace };

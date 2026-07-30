@@ -5,14 +5,22 @@ export const API_BASE =
 
 export type Tokens = {
   access_token: string;
+  refresh_token?: string;
   role: string;
   workspace_id: string;
   is_superadmin?: boolean;
   mfa_required?: boolean;
   mfa_token?: string;
 };
-export type Workspace = { id: string; name: string; plan: string; country: string; role: string };
-export type User = { id: string; email: string; role: string; is_superadmin: boolean };
+export type Workspace = {
+  workspace_id: string;
+  name: string;
+  role?: string;
+  country?: string;
+  plan?: string;
+  owner_id?: string;
+};
+export type User = { user_id: string; email: string; role?: string; is_superadmin?: boolean };
 export type Opportunity = { id: string; title: string; status: string; submission_due?: string | null };
 export type MissingDocs = { present: string[]; missing: string[]; expected: string[] };
 export type Clause = { id: string; clause_ref: string | null; heading: string | null; page_from: number | null };
@@ -62,10 +70,25 @@ async function req<T>(path: string, opts: RequestInit = {}, token?: string): Pro
 }
 
 export const api = {
-  signup: (email: string, password: string, workspace_name: string) =>
-    req<{ user_id: string; workspace_id: string }>("/auth/signup", {
+  signup: (body: {
+    email: string;
+    phone: string;
+    password: string;
+    confirm_password: string;
+    org_name: string;
+    city: string;
+    dob?: string;
+  }) =>
+    req<{
+      user_id: string;
+      status: string;
+      email_verified: boolean;
+      mobile_verified: boolean;
+      email_verification_token?: string;
+      mobile_verification_token?: string;
+    }>("/auth/signup", {
       method: "POST",
-      body: JSON.stringify({ email, password, workspace_name }),
+      body: JSON.stringify(body),
     }),
   login: (email: string, password: string) =>
     req<Tokens>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
@@ -85,16 +108,44 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ mfa_token, code }),
     }),
-  me: (token: string) => req<{ user_id: string; workspace_id: string; role: string; is_superadmin?: boolean }>("/auth/me", {}, token),
-  listWorkspaces: (token: string) => req<{ workspaces: Workspace[] }>("/auth/workspaces", {}, token),
+  verifyEmail: (token: string) =>
+    req<boolean>("/auth/verify-email", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    }),
+  verifyMobile: (token: string) =>
+    req<boolean>("/auth/verify-mobile", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    }),
+  me: (token: string) =>
+    req<{
+      user_id: string;
+      workspace_id: string;
+      role: string;
+      is_superadmin?: boolean;
+      email: string;
+      phone: string;
+      org_name: string;
+      city: string;
+      dob?: string | null;
+      email_verified: boolean;
+      mobile_verified: boolean;
+    }>("/auth/me", {}, token),
+  listWorkspaces: (token: string) => req<Workspace[]>("/auth/workspaces", {}, token),
   switchWorkspace: (token: string, workspace_id: string) =>
     req<Tokens>(`/auth/workspaces/${workspace_id}/switch`, { method: "POST" }, token),
+  createWorkspace: (token: string, body: { name: string; country?: string }) =>
+    req<{ workspace_id: string; name: string }>("/auth/workspaces", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }, token),
   billingStatus: (token: string) => req<{ plan: string; reviews_used: number; reviews_limit: number | null; seats: number }>("/billing/status", {}, token),
   listInvoices: (token: string) => req<{ invoices: { id: string; invoice_number: string; amount_minor: number; currency: string; status: string; provider: string; paid_at: string | null; created_at: string }[] }>("/billing/invoices", {}, token),
   checkout: (token: string, body: { provider?: string; kind: string; plan?: string; amount_minor?: number }) =>
     req<{ provider: string; order_id?: string; session_id?: string; mock: boolean; note: string }>("/billing/checkout", { method: "POST", body: JSON.stringify(body) }, token),
-  adminUsers: (token: string) => req<{ users: User[] }>("/auth/admin/users", {}, token),
-  adminWorkspaces: (token: string) => req<{ workspaces: Workspace[] }>("/auth/admin/workspaces", {}, token),
+  adminUsers: (token: string) => req<User[]>("/auth/admin/users", {}, token),
+  adminWorkspaces: (token: string) => req<Workspace[]>("/auth/admin/workspaces", {}, token),
   adminSetSuperadmin: (token: string, user_id: string, is_superadmin: boolean) =>
     req<{ ok: boolean }>(`/auth/admin/users/${user_id}/superadmin`, { method: "POST", body: JSON.stringify({ is_superadmin }) }, token),
   listOpportunities: (token: string) =>

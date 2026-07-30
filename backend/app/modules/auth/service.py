@@ -153,10 +153,7 @@ class AuthService:
         if not user.mobile_verified:
             raise AuthError("mobile_not_verified")
 
-        member = self.s.scalar(select(WorkspaceMember).where(WorkspaceMember.user_id == user.id))
-        workspace_id = member.workspace_id if member else None
-        role = member.role if member else "owner"
-
+        # Login is account-level. The user selects/creates a workspace after MFA.
         # Every login requires an OTP challenge.
         code = mfa.new_otp_code()
         user.mfa_otp_code = code
@@ -168,8 +165,8 @@ class AuthService:
             "mfa_token": sec.mint_mfa_token(
                 self.keys,
                 user_id=str(user.id),
-                workspace_id=str(workspace_id) if workspace_id else self._NO_WORKSPACE,
-                role=role,
+                workspace_id=self._NO_WORKSPACE,
+                role="owner",
                 is_superadmin=user.is_superadmin,
                 email_verified=user.email_verified,
                 mobile_verified=user.mobile_verified,
@@ -197,24 +194,28 @@ class AuthService:
             raise AuthError("invalid_refresh")
         row.used_at = datetime.now(UTC)
         user = self.s.get(User, row.user_id)
-        member = self.s.scalar(
-            select(WorkspaceMember).where(WorkspaceMember.user_id == row.user_id)
-        )
-        if not member:
-            if user and user.is_superadmin:
-                tokens = self._issue_tokens(
-                    row.user_id, None, "owner", is_superadmin=True, family_id=row.family_id
+        # Preserve the workspace from the refresh-token row; fall back to account-level.
+        workspace_id = row.workspace_id
+        role = "owner"
+        if workspace_id:
+            member = self.s.scalar(
+                select(WorkspaceMember).where(
+                    WorkspaceMember.workspace_id == workspace_id,
+                    WorkspaceMember.user_id == row.user_id,
                 )
-            else:
-                raise AuthError("no_workspace")
-        else:
-            tokens = self._issue_tokens(
-                row.user_id,
-                member.workspace_id,
-                member.role,
-                is_superadmin=user.is_superadmin if user else False,
-                family_id=row.family_id,
             )
+            if member:
+                role = member.role
+            else:
+                # Membership was removed; drop to account-level.
+                workspace_id = None
+        tokens = self._issue_tokens(
+            row.user_id,
+            workspace_id,
+            role,
+            is_superadmin=user.is_superadmin if user else False,
+            family_id=row.family_id,
+        )
         self.s.commit()
         return tokens
 
@@ -261,10 +262,13 @@ class AuthService:
             email_verified = user.email_verified if user else False
         if mobile_verified is None:
             mobile_verified = user.mobile_verified if user else False
+        # Normalize sentinel/no workspace to None for the DB row; keep the sentinel in the token.
+        no_ws = str(workspace_id) == self._NO_WORKSPACE
+        ws_uuid = uuid.UUID(str(workspace_id)) if workspace_id and not no_ws else None
         access = sec.mint_access(
             self.keys,
             user_id=str(user_id),
-            workspace_id=str(workspace_id) if workspace_id else self._NO_WORKSPACE,
+            workspace_id=str(ws_uuid) if ws_uuid else self._NO_WORKSPACE,
             role=role,
             is_superadmin=is_superadmin,
             email_verified=email_verified,
@@ -276,6 +280,7 @@ class AuthService:
         self.s.add(
             RefreshToken(
                 user_id=user_id,
+                workspace_id=ws_uuid,
                 family_id=fam,
                 token_hash=token_hash,
                 expires_at=datetime.now(UTC) + self.refresh_ttl,
@@ -287,7 +292,7 @@ class AuthService:
             "access_token": access,
             "refresh_token": raw,
             "role": role,
-            "workspace_id": str(workspace_id) if workspace_id else self._NO_WORKSPACE,
+            "workspace_id": str(ws_uuid) if ws_uuid else self._NO_WORKSPACE,
             "is_superadmin": is_superadmin,
         }
 

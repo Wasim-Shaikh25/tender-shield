@@ -68,10 +68,11 @@ capabilities and copied into the frozen snapshot by value.
   `source_page`, `source_quote`), all **confirmed** deadlines, and the derived
   notice-rule register. Rejected/proposed findings and unconfirmed deadlines are
   excluded.
-- **B3 — Immutability + hashing.** `content_sha256` is a SHA-256 over the
+- **B3 — Immutability + hashing + atomic version.** `content_sha256` is a SHA-256 over the
   canonical JSON of the snapshot **excluding** the volatile `sealed_at`. Sealed
-  rows are never mutated; a re-freeze always inserts `version = max+1`. `verify`
-  recomputes the hash from the stored snapshot and reports a mismatch (tamper
+  rows are never mutated; a re-freeze always inserts the next version computed
+  atomically by the database so concurrent freezes cannot duplicate a version.
+  `verify` recomputes the hash from the stored snapshot and reports a mismatch (tamper
   detection) — the doc's "baseline freeze (hashes)" requirement.
 - **B4 — Notice-rule register is deterministic.** Notice windows are extracted by
   regex over the accepted findings **and the segmented contract clauses** —

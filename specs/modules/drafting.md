@@ -60,7 +60,8 @@ with `evidence_refs[]` + `citations[]`; `model_meta`).
 - **B7 (formats):** artifact bodies are JSON; DOCX/PDF/XLSX rendering is performed
   by the `export` module.
 - **B8 (immutability):** new generation = new version; approved artifacts are
-  never mutated.
+  never mutated. The version number is assigned atomically by the database so
+  concurrent generations cannot produce duplicate versions.
 
 ## Acceptance criteria
 

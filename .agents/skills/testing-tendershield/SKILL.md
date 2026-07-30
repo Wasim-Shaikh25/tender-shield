@@ -158,6 +158,43 @@ To record a demo of the OpenTelemetry/Jaeger/Grafana stack:
 - Grafana's default `admin`/`admin` login form is a React controlled component; native typing through the screen automation layer may not update the form state. Use anonymous auth for a demo, or set the password via `GF_SECURITY_ADMIN_PASSWORD` and use the browser console to dispatch input events.
 - FastAPI is the only instrumented component in the current branch, so expect each trace to contain the request span plus a few ASGI `http send` children, not nested SQLAlchemy/Redis spans.
 
+## Access-log UI demo
+
+To demonstrate the `tendershield.access` logger from the UI:
+
+1. The logger has **no handler by default** under the stock Uvicorn logging config, so
+   `TS_ACCESS_LOG_ENABLED=true` alone produces no console output. Add a temporary
+   `--log-config` that declares a `tendershield.access` handler, e.g.:
+   ```yaml
+   version: 1
+   disable_existing_loggers: false
+   formatters:
+     default:
+       (): uvicorn.logging.DefaultFormatter
+       fmt: "%(levelprefix)s %(message)s"
+   handlers:
+     default:
+       class: logging.StreamHandler
+       formatter: default
+       stream: ext://sys.stderr
+   loggers:
+     tendershield.access:
+       handlers: [default]
+       level: INFO
+       propagate: false
+   root:
+     level: INFO
+     handlers: [default]
+   ```
+2. Authenticate via the UI (log in with dev `mfa_code`, or pre-fill the OTP input
+   temporarily and revert), then navigate to `/support/tickets`, `/analytics`, and
+   `/settings` to generate `GET`/`POST`/`PUT` requests.
+3. Keep a terminal tailing the backend log open; expect lines like:
+   ```
+   INFO:     GET /api/support/tickets 200 26.35ms user=<uuid> workspace=<uuid> role=owner request_id=...
+   INFO:     PUT /api/auth/settings 200 10.34ms user=<uuid> workspace=<uuid> role=owner request_id=...
+   ```
+
 ## UI testing tips
 
 - The dev server uses `next dev` and can be confused by a stale `.next` folder

@@ -6,6 +6,11 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-30 (TS-181: access logger handler fix)
+
+- Ensure `tendershield.access` logs are emitted even when Uvicorn's default
+  logging config has no root handler.
+
 ### Done — 2026-07-30 (TS-180: request access logs and trace enrichment)
 
 - Add per-request access logging with method, path, status, duration, user, and

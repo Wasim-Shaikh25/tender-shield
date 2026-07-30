@@ -28,6 +28,7 @@ one repo (`apps/web` later; starts as `frontend/`).
   standards/                # org-custom notice standards editor (prevail / side-by-side)
   help/                     # static how-to + honest QS-lifecycle scope + disclaimer
   billing/                  # plan selection, invoices, usage
+  settings/                 # account profile + security (password, sessions)
   admin/                    # super-admin: users, workspaces, audit-log
   team/ playbook/
 ```
@@ -61,6 +62,10 @@ one repo (`apps/web` later; starts as `frontend/`).
   baselines with their content hashes, shows the deterministic notice-rule
   register with page citations, the award-vs-tender delta when two baselines
   exist, and the commercial handover pack (sealed hash + key obligations).
+- **B9:** the `/settings` page is a client route for account profile
+  (org/firm, city, DOB, phone) and security (change password, sign out). Phone
+  changes trigger a re-verification flow; password changes require the current
+  password and enforce the same policy as sign-up.
 - **B8:** the Help page (`/help`) is a static server component: an 8-step
   how-to-use walkthrough, the never-broken safety rules, a three-bucket
   QS-lifecycle coverage table (**Covered now** = Phase-1 pre-bid slice;
@@ -81,6 +86,8 @@ one repo (`apps/web` later; starts as `frontend/`).
 - A5: `/opportunities/[id]` does not show sample-load buttons unless demo mode is on.
 - A6: `/billing` renders plan status and `/admin` lists workspaces for a super-admin.
 - A7: unverified hosting-region claims are removed from the landing page.
+- A8: `/settings` loads the profile from `/api/auth/settings`, saves updates, and
+  allows changing the password via `/api/auth/settings/password`.
 
 ## Out of scope
 

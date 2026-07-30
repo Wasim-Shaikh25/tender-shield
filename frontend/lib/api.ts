@@ -45,6 +45,17 @@ export type Finding = {
   source_quote: string | null;
   pattern_id?: string | null;
   review_status?: string;
+  disclaimer?: string | null;
+};
+
+export type AccountSettings = {
+  email: string;
+  phone: string;
+  org_name: string;
+  city: string;
+  dob?: string | null;
+  email_verified: boolean;
+  mobile_verified: boolean;
 };
 
 async function req<T>(path: string, opts: RequestInit = {}, token?: string): Promise<T> {
@@ -135,6 +146,11 @@ export const api = {
   listWorkspaces: (token: string) => req<Workspace[]>("/auth/workspaces", {}, token),
   switchWorkspace: (token: string, workspace_id: string) =>
     req<Tokens>(`/auth/workspaces/${workspace_id}/switch`, { method: "POST" }, token),
+  getSettings: (token: string) => req<AccountSettings>("/auth/settings", {}, token),
+  updateSettings: (token: string, body: Partial<Omit<AccountSettings, "email" | "email_verified" | "mobile_verified">>) =>
+    req<AccountSettings>("/auth/settings", { method: "PUT", body: JSON.stringify(body) }, token),
+  changePassword: (token: string, body: { current_password: string; new_password: string; confirm_password: string }) =>
+    req<{ ok: boolean }>("/auth/settings/password", { method: "POST", body: JSON.stringify(body) }, token),
   createWorkspace: (token: string, body: { name: string; country?: string }) =>
     req<{ workspace_id: string; name: string }>("/auth/workspaces", {
       method: "POST",

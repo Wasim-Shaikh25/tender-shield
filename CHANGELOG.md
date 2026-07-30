@@ -6,6 +6,15 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-29 (PR consolidation)
+
+- Merged the two older audit-only branches (`devin/fourth-round-audit` and
+  `claude/production-readiness-audit-ts130-1753815240`) into the consolidated
+  branch using `merge -s ours` so their history is preserved but the current
+  report/fixes remain authoritative.
+- Closed PR #20 and PR #19 as superseded by PR #21.
+- Renamed PR #21 to reflect it is the consolidated production-readiness audit + fixes PR.
+
 ### Next
 
 - TS-097 — RLS structural fix (PostgreSQL `FORCE`, `WITH CHECK`, membership tables, CI).

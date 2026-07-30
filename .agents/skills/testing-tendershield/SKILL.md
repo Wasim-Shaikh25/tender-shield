@@ -113,13 +113,13 @@ description: |
 
 ## New UI routes (PR #54 and later)
 
-- **Navigation:** Always use client-side navigation (`window.next.router.push('/path')`) when moving between authenticated routes. `window.location.href = '/settings'` forces a full reload; protected pages (`/settings`, `/billing/settings`, `/support/tickets`, `/analytics`, `/admin/*`) immediately redirect to `/login` because their `if (!session)` guard runs before `SessionProvider` finishes refreshing the token.
+- **Navigation:** Use `window.next.router.push('/path')` for normal transitions. `AuthGate` now protects all pages at the layout level, so a hard reload (`window.location.href = '/settings'`) will briefly show "Loading session…" and then render the protected page instead of redirecting to `/login`.
 - **MFA / verification codes:** In dev, `POST /api/auth/signup` returns `email_verification_token` and `mobile_verification_token`, and `POST /api/auth/login` returns `mfa_code` in the JSON body. These values are NOT printed to the backend log. For a manual walkthrough, read the code from the network response (or temporarily pre-fill the UI input for testing and revert).
 - **Cancel subscription:** The billing settings page calls `window.confirm("Cancel subscription? ...")`. Override `window.confirm = () => true` in the browser console to test the flow without a system dialog. On a `free` plan the backend returns `already_free`; change the workspace plan to `pro` first (via `/admin/workspaces/{id}`) to see a successful cancel.
 - **Document upload:** The tender upload button hides a real `<input type="file">`. The system file dialog cannot be automated, so seed the document and run BOQ via the API, then refresh the opportunity detail page to verify the tabs populate.
-- **Analytics export:** The frontend `api.exportReport` currently sends `FormData` in the body, but `POST /api/analytics/reports/export` expects `format` and `filter` as **query parameters**. CSV/XLSX exports fail in the UI until this is aligned; the backend itself works when called with `?format=csv&filter=all`.
-- **Admin user search:** `/admin/users` calls `/api/auth/admin/users/search`, which crashes with `AttributeError: 'PaginationParams' object has no attribute 'size'` because `PaginationParams` exposes `page` and `page_size`, not `size`.
-- **Login workspace flow:** After `/auth/mfa/challenge`, the access token has a null `workspace_id`. The login page unconditionally shows "Create your workspace" if `isNoWorkspace(tokens.workspace_id)` is true, even when `SessionProvider` already loaded existing workspaces. Returning users can be trapped on this step instead of being switched to their existing workspace.
+- **Analytics export:** Fixed in PR #54 — `api.exportReport` now appends `?format=csv&filter=all` (or `xlsx`). CSV and XLSX downloads succeed in the UI; PDF still correctly fails because the backend only supports `csv` and `xlsx`.
+- **Admin user search:** In the re-test, `/admin/users` still fails with a backend `ResponseValidationError` because the response items are missing a required `workspaces` field in `UserAdminResponse`. The `PaginationParams` crash appears fixed, but the endpoint now fails on response model validation.
+- **Login workspace flow:** The "Create your workspace" trap is fixed — returning users now redirect to `/opportunities` after MFA. However, the access token still has a null `workspace_id`, so `activeWorkspace` is null, the workspace switcher does not render, and workspace-scoped actions (`/billing/settings` save, `/support/tickets` create, `/billing/cancel`) fail with `no_workspace` / `workspace_required`. The fix must bind the token to an existing workspace (call `switchWorkspace` on the first workspace) before redirecting.
 
 ## UI testing tips
 
@@ -147,5 +147,5 @@ CURL="curl -s -c cookies.txt -b cookies.txt"
 Expected local baseline:
 - `ruff check .` clean
 - `mypy app` clean
-- `pytest -q` 147 passed, 4 skipped
+- `pytest -q` 184 passed, 4 skipped
 - `npm run lint`, `npm run typecheck`, `npm run build` clean

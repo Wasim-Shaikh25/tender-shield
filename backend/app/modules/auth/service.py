@@ -1275,7 +1275,7 @@ class AuthService:
         users = list(
             self.s.scalars(stmt.order_by(User.created_at.desc()).limit(limit).offset(offset))
         )
-        return {"total": total, "items": [self._user_summary(u) for u in users]}
+        return {"total": total, "items": [self._user_detail(u) for u in users]}
 
     def get_user(self, user_id) -> dict:
         user = self.s.get(User, uuid.UUID(str(user_id)))

@@ -190,7 +190,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-110 | tus: `201` + `Location` header, shared chunk state, TTL sweeper, `upload_id` validation | audit TS-I03; Doc §11.1 | `specs/modules/ingestion.md` (update) | done |
 | TS-111 | Deadline-alert deduplication table and per-user notification preferences | audit TS-N01; Doc §11.6 | `specs/modules/notifications.md` (update) | todo |
 | TS-112 | Prompt-injection hardening: delimit untrusted tender text; adversarial eval fixtures | audit TS-P01; Doc §11.3 | `specs/modules/assistant.md` (update) | todo |
-| TS-113 | Replace the virus-scan stub with a real scanner; quarantine on detection | audit TS-S01; Doc §11.2 | `specs/modules/ingestion.md` (update) | todo |
+| TS-113 | Replace the virus-scan stub with a real scanner; quarantine on detection | audit TS-S01; Doc §11.2 | `specs/modules/core.md` (update) | done |
 | TS-114 | Remove the cross-module FK `findings.opportunity_id → opportunities`; add a metadata architecture test | audit TS-X01; `CLAUDE.md` §2 | `specs/modules/findings.md`, `specs/data-model.md` (update) | todo |
 | TS-115 | Extend the production startup guard (Stripe secret, Redis, cookie policy, keypair parse) | audit TS-S02; Doc §11 | `specs/modules/core.md` (update) | done |
 | TS-116 | Complete the audit log: auth, membership, role, billing, and export events | audit §3.5 item 6; Doc §11.4 | `specs/modules/review.md` (update) | todo |
@@ -243,7 +243,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 |---|---|---|---|---|
 | TS-133 | Synchronous extraction blocks the async event loop in upload_document | audit TS-I04; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | done |
 | TS-134 | BOQ run endpoint accepts unbounded CSV payloads | audit TS-I05; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/boq.md` (update) | done |
-| TS-135 | Session provider keeps a stale workspace list after switch/refresh | audit TS-F02; `PRODUCTION_READINESS_AUDIT.md` | `specs/frontend.md` (update) | todo |
+| TS-135 | Session provider keeps a stale workspace list after switch/refresh | audit TS-F02; `PRODUCTION_READINESS_AUDIT.md` | `specs/frontend.md` (update) | done |
 | TS-136 | Risk classifier uses an invalid default Anthropic model name | audit TS-R02; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/risk.md` (update) | done |
 | TS-137 | Risk classifier uses brittle string slicing and no schema validation | audit TS-R01; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/risk.md` (update) | done |
 | TS-138 | Days_to_submission mixes UTC and local time for naive deadlines | audit TS-D02; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/comparison.md` (update) | done |

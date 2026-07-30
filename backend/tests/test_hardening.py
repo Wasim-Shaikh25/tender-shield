@@ -1,6 +1,7 @@
 """Production-hardening features that run without live creds: GST computation,
 deadline digest, MFA primitives, PDF export, and real file upload + extraction."""
 
+import asyncio
 import io
 from datetime import datetime
 
@@ -14,6 +15,7 @@ import app.modules.ingestion.models  # noqa: F401
 import app.modules.review.models  # noqa: F401
 from app.core.config import Settings
 from app.core.db import Base
+from app.core.storage import ValidationError, VirusScanError, validate_and_store
 from app.main import create_app
 from app.modules.auth import mfa
 from app.modules.billing.gst import compute_invoice, invoice_number
@@ -83,6 +85,28 @@ def test_extract_csv_and_boq_detection():
     assert "[p2]" in text
     assert looks_like_boq_csv("boq.csv", csv)
     assert not looks_like_boq_csv("notes.txt", csv)
+
+
+# ---- virus scan (no live clamd) -------------------------------------------
+
+
+def test_virus_detected_is_quarantined_and_rejected(tmp_path, monkeypatch):
+    def _fake_scan(socket_path, data):
+        raise VirusScanError("Eicar-Test-Signature FOUND")
+
+    monkeypatch.setattr("app.core.storage._clamd_scan", _fake_scan)
+    qdir = tmp_path / "quarantine"
+    settings = Settings(
+        storage_type="local",
+        storage_dir=str(tmp_path / "store"),
+        clamd_socket="/tmp/clamd.ctl",
+        quarantine_dir=str(qdir),
+    )
+    # File extension must be in the allow-list and must not fail magic checks.
+    data = b"X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
+    with pytest.raises(ValidationError):
+        asyncio.run(validate_and_store(settings, "test.csv", "text/csv", data))
+    assert list(qdir.iterdir())
 
 
 # ---- integration: upload + PDF export ------------------------------------

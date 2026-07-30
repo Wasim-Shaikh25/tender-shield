@@ -80,6 +80,10 @@ None (core owns no business tables).
   stripped of control characters, path separators, quotes, and other dangerous
   punctuation before being used as a storage key or in a `Content-Disposition`
   header. File downloads quote the filename and escape embedded quotes.
+- **B10 (virus scanning):** every uploaded file is streamed through a local clamd
+  daemon when `TS_CLAMD_SOCKET` is configured; detected files are quarantined to
+  `TS_QUARANTINE_DIR` and rejected with a `ValidationError`. When no scanner is
+  configured the step is skipped and a warning is logged.
 
 ## Acceptance criteria
 
@@ -100,6 +104,8 @@ None (core owns no business tables).
 - A12: `bind_workspace_context` is a no-op on SQLite and `SET LOCAL` on PostgreSQL.
 - A13: PostgreSQL CI runs RLS integration tests proving cross-tenant reads/writes are
   blocked and unbound sessions see no rows.
+- A14: a simulated virus signature in an uploaded file is quarantined and rejected
+  when `TS_CLAMD_SOCKET` is configured.
 
 ## Out of scope
 

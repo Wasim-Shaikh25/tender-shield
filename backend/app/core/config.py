@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     # + needs the `ocr` extra); when off, scanned docs are flagged needs_ocr.
     ocr_enabled: bool = False
 
+    # Virus scanning (Doc §11.2). clamd socket path/address; when empty, scanning is
+    # skipped and a warning is logged. Detected files are written to quarantine_dir.
+    clamd_socket: str = ""  # e.g. /var/run/clamav/clamd.ctl or tcp://127.0.0.1:3310
+    quarantine_dir: str = "./.tender_quarantine"
+
     # Auth (Doc §5). Keys are PEM strings; when absent an ephemeral RSA keypair
     # is generated at startup for dev/test only (never rely on it in prod).
     jwt_private_key: SecretStr | None = None

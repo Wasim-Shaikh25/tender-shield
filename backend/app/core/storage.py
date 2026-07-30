@@ -12,6 +12,8 @@ import logging
 import mimetypes
 import pathlib
 import re
+import socket
+import struct
 from typing import Any, Protocol
 
 from app.core.config import Settings
@@ -89,11 +91,11 @@ class StorageError(Exception):
     pass
 
 
-class VirusScanError(StorageError):
+class ValidationError(StorageError):
     pass
 
 
-class ValidationError(StorageError):
+class VirusScanError(ValidationError):
     pass
 
 
@@ -214,9 +216,65 @@ def get_storage(settings: Settings) -> StorageBackend:
     return LocalStorage(root)
 
 
-def _scan_stub(_data: bytes) -> None:
-    """Placeholder virus scan. Production should call a sandboxed scanner or API."""
-    return
+def _clamd_scan(socket_path: str, data: bytes) -> None:
+    """Stream `data` to a local clamd daemon and fail closed on any FOUND reply."""
+    try:
+        if socket_path.startswith("tcp://"):
+            host, _, port = socket_path[6:].partition(":")
+            sock = socket.create_connection((host, int(port)), timeout=10)
+        else:
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            sock.settimeout(10)
+            sock.connect(socket_path)
+    except OSError as exc:
+        raise VirusScanError(f"scanner_unavailable: {exc}") from exc
+
+    try:
+        sock.sendall(b"zINSTREAM\0")
+        chunk_size = 4096
+        for i in range(0, len(data), chunk_size):
+            chunk = data[i : i + chunk_size]
+            sock.sendall(struct.pack(">I", len(chunk)) + chunk)
+        sock.sendall(struct.pack(">I", 0))
+        response = b""
+        while True:
+            try:
+                part = sock.recv(4096)
+                if not part:
+                    break
+                response += part
+            except TimeoutError:
+                break
+    finally:
+        sock.close()
+
+    if b"FOUND" in response:
+        finding = response.decode("utf-8", errors="replace").strip()
+        raise VirusScanError(f"virus_detected: {finding}")
+    if not response.strip().endswith(b"OK"):
+        raise VirusScanError(f"scan_unavailable: {response.decode('utf-8', errors='replace')}")
+
+
+def _quarantine(quarantine_dir: str, filename: str, data: bytes) -> None:
+    qdir = pathlib.Path(quarantine_dir)
+    qdir.mkdir(parents=True, exist_ok=True)
+    safe = sanitize_filename(filename) or "quarantine"
+    qpath = qdir / f"{safe}.{hashlib.sha256(data).hexdigest()[:16]}"
+    qpath.write_bytes(data)
+
+
+def _scan(settings: Settings, filename: str, data: bytes) -> None:
+    """Validate an upload with a configured clamd scanner; quarantine and reject on detection."""
+    socket_path = settings.clamd_socket
+    if not socket_path:
+        logger.warning("Virus scanning skipped: TS_CLAMD_SOCKET not configured")
+        return
+    try:
+        _clamd_scan(socket_path, data)
+    except VirusScanError:
+        if settings.quarantine_dir:
+            _quarantine(settings.quarantine_dir, filename, data)
+        raise
 
 
 async def validate_and_store(
@@ -275,7 +333,7 @@ async def validate_and_store(
         raise ValidationError(f"file_too_large: limit {limit} bytes")
 
     if scan:
-        _scan_stub(data)
+        _scan(settings, filename, data)
 
     storage = get_storage(settings)
 

@@ -132,6 +132,17 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   all tests that call the review endpoint.
 - Updated `specs/modules/review.md` and `specs/modules/core.md`.
 
+### Done — 2026-07-30 (TS-113 / TS-135: virus scanning and frontend session provider)
+
+- `core`: `validate_and_store` now streams uploads through a local clamd daemon when
+  `TS_CLAMD_SOCKET` is configured. Detected files are quarantined to
+  `TS_QUARANTINE_DIR` and rejected with `ValidationError`. When no scanner is
+  configured the step is skipped with a warning (TS-113).
+- `frontend`: `SessionProvider.applyTokens` always replaces the workspace list with
+  the freshly loaded result, so deleting workspaces or switching contexts no longer
+  leaves stale entries (TS-135).
+- Updated `specs/modules/core.md`, `specs/frontend.md`, `tasks/backlog.md`, and tests.
+
 ### Done — 2026-07-30 (TS-110 / TS-157 / TS-160: tus and spreadsheet page markers)
 
 - `ingestion`: tus `OPTIONS` returns tus 1.0.0 capability headers and `204`; `POST`

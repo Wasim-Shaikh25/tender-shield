@@ -52,7 +52,9 @@ one repo (`apps/web` later; starts as `frontend/`).
   response models are added.
 - **B8:** workspace switcher in the nav lists the user's workspaces and calls
   `/api/auth/workspaces/{id}/switch`. The `/api/auth/workspaces` response includes
-  `workspace_id`, `name`, `role`, `country`, and `plan`.
+  `workspace_id`, `name`, `role`, `country`, and `plan`. After every sign-in,
+  refresh, or switch the provider reloads the workspace list and replaces (not
+  appends to) the cached list, so deleted workspaces and stale tokens are not kept.
 - **B9:** demo/sample data is removed from the main opportunity workbench;
   sample loading is gated behind `NEXT_PUBLIC_DEMO_MODE`.
 

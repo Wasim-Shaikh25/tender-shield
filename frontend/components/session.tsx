@@ -55,8 +55,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       workspaceId: t.workspace_id,
       is_superadmin: t.is_superadmin,
     });
-    const list = all ?? workspaces;
-    if (list.length) setWorkspaces(list);
+    if (all !== undefined) {
+      setWorkspaces(all);
+    }
   };
 
   const loadWorkspaces = async (token: string) => {

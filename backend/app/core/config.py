@@ -120,6 +120,13 @@ class Settings(BaseSettings):
     access_log_enabled: bool = True
     log_request_bodies: bool = False
 
+    # Log persistence. Files are rotated daily/weekly; Promtail ships them to Loki.
+    log_file: str = "logs/tendershield-access.log"
+    app_log_file: str = "logs/tendershield-app.log"
+    log_json: bool = True
+    log_max_bytes: int = 10 * 1024 * 1024
+    log_backup_count: int = 5
+
     @field_validator("s3_secret_access_key", "apple_private_key", "sentry_dsn")
     @classmethod
     def _blank_secret_is_none(cls, v: SecretStr | None) -> SecretStr | None:

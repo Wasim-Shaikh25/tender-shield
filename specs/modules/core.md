@@ -59,7 +59,10 @@ None (core owns no business tables).
 - **B6 (security headers):** every HTTP response carries `X-Content-Type-Options`,
   `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and CSP.
 - **B7 (rate limiting):** public routes can declare per-IP limits; storage is
-  in-memory by default and Redis when `TS_REDIS_URL` is set.
+  in-memory by default and Redis when `TS_REDIS_URL` is set. The Redis backend uses
+  wall-clock timestamps, atomic add-only-under-limit Lua scripts, and unique
+  members per attempt. The client IP prefers `X-Forwarded-For` (rightmost entry)
+  and falls back to the transport peer.
 - **B8 (storage adapter):** `Storage` supports local files and S3 via
   `TS_STORAGE_TYPE`; S3 uses per-workspace prefixes and presigned GET URLs.
 
@@ -74,6 +77,8 @@ None (core owns no business tables).
 - A7: response headers include `X-Frame-Options: DENY` and CSP.
 - A8: in-memory rate limiter blocks a 6th request within the limit window.
 - A9: `S3Storage` with `moto` stores and retrieves a file under a workspace prefix.
+- A10: rate-limited endpoints use `X-Forwarded-For` (rightmost) for the client IP
+  and Redis rate limiting is atomic.
 
 ## Out of scope
 

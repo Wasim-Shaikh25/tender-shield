@@ -40,14 +40,16 @@ class WorkspaceAdmin:
         )
         return [{"email": r[0]} for r in rows]
 
-    def mark_free_review_used(self, workspace_id) -> None:
+    def mark_free_review_used(self, workspace_id, *, commit: bool = True) -> None:
         workspace = self.get(workspace_id)
         if workspace:
             workspace.free_review_used = True
-            self.s.commit()
+            if commit:
+                self.s.commit()
 
-    def set_plan(self, workspace_id, plan: str) -> None:
+    def set_plan(self, workspace_id, plan: str, *, commit: bool = True) -> None:
         workspace = self.get(workspace_id)
         if workspace:
             workspace.plan = plan
-            self.s.commit()
+            if commit:
+                self.s.commit()

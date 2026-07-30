@@ -75,21 +75,23 @@ document is re-registered or re-uploaded.
   in every prompt (prompt-injection defense, Doc §11.3).
 - **B7 (uploads):** multipart upload with size cap, magic-byte/MIME validation,
   allowed-extension set, virus-scan stub, and S3 per-workspace prefixes. LocalStorage
-  in dev/tests.
+  in dev/tests. The size cap is enforced before the full file is buffered into memory.
 - **B8 (upload limits):** ingestion cap 2 GB, BOQ cap 100 MB.
 - **B9 (no blind decoding):** unknown extensions are not decoded as text; they are
   rejected as unsupported.
 - **B10 (resumable upload):** tus endpoints support creation, PATCH chunking, and HEAD offset queries; completed uploads are validated, stored, and processed identically to multipart uploads.
-- **B11 (async extraction):** `?async=1` creates a pending document and enqueues a Celery task; the SSE endpoint streams `PROGRESS`/`done`/`error` events. Celery falls back to eager execution when Redis is not configured.
+- **B11 (async extraction):** `?async=1` creates a pending document and enqueues a Celery task; the SSE endpoint streams `PROGRESS`/`done`/`error` events, sleeps between polls, stops on client disconnect, and has a hard timeout. Celery falls back to eager execution when Redis is not configured.
 
 ## Acceptance criteria
 
 - A1: anchor classifier labels fixture NIT/GCC/SCC/BOQ correctly, no LLM call.
 - A2: deadline rows without a verifiable quote are flagged low-confidence.
 - A3: missing-doc checklist flags an absent SCC referenced by the NIT fixture.
-- A4: oversized upload returns 413.
+- A4: oversized upload returns 413 before the full file is buffered.
 - A5: invalid MIME/extension returns 415/422.
 - A6: S3-backed storage with `moto` stores files under the workspace prefix.
+- A7: SSE stream stops on client disconnect, polls with a sleep, and times out after
+  a bounded interval.
 
 ## Out of scope
 

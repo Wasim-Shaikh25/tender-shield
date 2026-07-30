@@ -9,10 +9,17 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.modules.billing.models import Invoice, PaymentLog, UsageEvent, WebhookEvent
-from app.modules.billing.plans import Grant, PaywallError, authorize
+from app.modules.billing.plans import (
+    PAYGO_PRICE_INR_PAISE,
+    SUBSCRIPTION_PRICES,
+    Grant,
+    PaywallError,
+    authorize,
+)
 from app.modules.billing.webhook import verify_signature, verify_stripe_signature
 
 
@@ -39,7 +46,7 @@ class BillingService:
             or 0
         )
 
-    def record_usage(self, workspace_id, event: str, ref_id=None) -> None:
+    def record_usage(self, workspace_id, event: str, ref_id=None, *, commit: bool = True) -> None:
         self.s.add(
             UsageEvent(
                 workspace_id=uuid.UUID(str(workspace_id)),
@@ -47,7 +54,8 @@ class BillingService:
                 ref_id=uuid.UUID(str(ref_id)) if ref_id else None,
             )
         )
-        self.s.commit()
+        if commit:
+            self.s.commit()
 
     def authorize_review(self, workspace_id) -> Grant:
         """Meter a review at processing start (Doc §7). Raises PaywallError with
@@ -96,6 +104,7 @@ class BillingService:
         provider_invoice_id: str | None = None,
         raw: dict | None = None,
         status: str = "pending",
+        commit: bool = True,
     ) -> Invoice:
         inv = Invoice(
             workspace_id=uuid.UUID(str(workspace_id)),
@@ -112,7 +121,8 @@ class BillingService:
         inv.invoice_number = f"INV-{inv.id:06d}"
         if status == "paid":
             inv.paid_at = datetime.now(UTC)
-        self.s.commit()
+        if commit:
+            self.s.commit()
         return inv
 
     # ---- webhook: the only billing truth (Doc §15.5) ----------------------
@@ -136,19 +146,37 @@ class BillingService:
             raw=evt,
         )
         if not verified:
+            self.s.commit()
             return {"ok": False, "reason": "bad_signature"}
 
-        # 2) idempotency — a replayed event id is a no-op
-        if event_id and self.s.scalar(
-            select(WebhookEvent).where(WebhookEvent.provider_event_id == event_id)
-        ):
-            return {"ok": True, "duplicate": True}
-
-        # 3) apply effect
+        # 2) validate amount against server-owned price table
         typ = evt.get("event")
         amount = _extract_amount(evt)
+        currency = _extract_currency(evt)
+        kind = notes.get("kind", "paygo")
+        plan = notes.get("plan")
+        if amount is not None and not _valid_amount(currency, kind, plan, amount):
+            self._log(
+                workspace_id,
+                "razorpay",
+                event_id,
+                typ or "unknown",
+                status="amount_mismatch",
+                raw=evt,
+            )
+            self.s.commit()
+            return {"ok": False, "reason": "amount_mismatch"}
+
+        # 3) idempotency: claim the event marker atomically as part of the effect tx
+        if event_id and not self._claim_event_id(workspace_id, event_id, "razorpay"):
+            self.s.commit()
+            return {"ok": True, "duplicate": True}
+
+        # 4) apply effect
         if typ == "order.paid" and workspace_id:
-            self.record_usage(workspace_id, "review_paid", ref_id=notes.get("opportunity_id"))
+            self.record_usage(
+                workspace_id, "review_paid", ref_id=notes.get("opportunity_id"), commit=False
+            )
             if amount:
                 self.create_invoice(
                     workspace_id,
@@ -157,9 +185,10 @@ class BillingService:
                     provider_invoice_id=event_id,
                     raw=evt,
                     status="paid",
+                    commit=False,
                 )
         elif typ == "subscription.charged" and workspace_id:
-            self._workspaces().set_plan(workspace_id, notes.get("plan", "pro"))
+            self._workspaces().set_plan(workspace_id, notes.get("plan", "pro"), commit=False)
             if amount:
                 self.create_invoice(
                     workspace_id,
@@ -168,20 +197,13 @@ class BillingService:
                     provider_invoice_id=event_id,
                     raw=evt,
                     status="paid",
+                    commit=False,
                 )
         elif typ == "subscription.activated" and workspace_id:
-            self._workspaces().set_plan(workspace_id, notes.get("plan", "pro"))
+            self._workspaces().set_plan(workspace_id, notes.get("plan", "pro"), commit=False)
         elif typ in ("subscription.halted", "subscription.cancelled") and workspace_id:
-            self._workspaces().set_plan(workspace_id, "free")
+            self._workspaces().set_plan(workspace_id, "free", commit=False)
 
-        if event_id:
-            self.s.add(
-                WebhookEvent(
-                    workspace_id=uuid.UUID(str(workspace_id)) if workspace_id else uuid.UUID(int=0),
-                    provider="razorpay",
-                    provider_event_id=event_id,
-                )
-            )
         self.s.commit()
         return {"ok": True, "applied": typ}
 
@@ -192,13 +214,8 @@ class BillingService:
         status = "verified" if evt else "failed"
         self._log(None, "stripe", event_id, event_type, status=status, raw=evt)
         if not evt:
+            self.s.commit()
             return {"ok": False, "reason": "bad_signature"}
-
-        # Idempotency: replays are no-ops
-        if event_id and self.s.scalar(
-            select(WebhookEvent).where(WebhookEvent.provider_event_id == event_id)
-        ):
-            return {"ok": True, "duplicate": True}
 
         data = evt.get("data", {}) if isinstance(evt, dict) else {}
         obj = data.get("object", {}) if isinstance(data, dict) else {}
@@ -209,9 +226,27 @@ class BillingService:
             amount = obj.get("amount_total")
             currency = obj.get("currency", "INR").upper()
             kind = metadata.get("kind", "paygo")
+            plan = metadata.get("plan")
+            if amount is not None and not _valid_amount(currency, kind, plan, int(amount)):
+                self._log(
+                    workspace_id,
+                    "stripe",
+                    event_id,
+                    event_type,
+                    status="amount_mismatch",
+                    raw=evt,
+                )
+                self.s.commit()
+                return {"ok": False, "reason": "amount_mismatch"}
+
+            # Idempotency: claim the event marker atomically as part of the effect tx
+            if event_id and not self._claim_event_id(workspace_id, event_id, "stripe"):
+                self.s.commit()
+                return {"ok": True, "duplicate": True}
+
             if kind == "paygo":
                 self.record_usage(
-                    workspace_id, "review_paid", ref_id=metadata.get("opportunity_id")
+                    workspace_id, "review_paid", ref_id=metadata.get("opportunity_id"), commit=False
                 )
                 if amount:
                     self.create_invoice(
@@ -222,9 +257,10 @@ class BillingService:
                         provider_invoice_id=obj.get("id") or event_id,
                         raw=evt,
                         status="paid",
+                        commit=False,
                     )
             elif kind == "subscription":
-                self._workspaces().set_plan(workspace_id, metadata.get("plan", "pro"))
+                self._workspaces().set_plan(workspace_id, plan or "pro", commit=False)
                 if amount:
                     self.create_invoice(
                         workspace_id,
@@ -234,20 +270,14 @@ class BillingService:
                         provider_invoice_id=obj.get("id") or event_id,
                         raw=evt,
                         status="paid",
+                        commit=False,
                     )
 
-        if event_id:
-            self.s.add(
-                WebhookEvent(
-                    workspace_id=uuid.UUID(str(workspace_id)) if workspace_id else uuid.UUID(int=0),
-                    provider="stripe",
-                    provider_event_id=event_id,
-                )
-            )
         self.s.commit()
         return {"ok": True, "applied": event_type}
 
     def _log(self, workspace_id, provider, event_id, event_type, *, status, raw):
+        """Append a payment_log row. Callers commit."""
         self.s.add(
             PaymentLog(
                 workspace_id=uuid.UUID(str(workspace_id)) if workspace_id else uuid.UUID(int=0),
@@ -258,7 +288,30 @@ class BillingService:
                 raw=raw,
             )
         )
-        self.s.commit()
+
+    def _claim_event_id(self, workspace_id, event_id: str, provider: str) -> bool:
+        """Insert a webhook event idempotency marker; return True if this is a new event.
+
+        Uses a savepoint so an existing event only rolls back the marker insert,
+        not the rest of the transaction (e.g. the payment_log row).
+        """
+        if not event_id:
+            return True
+        try:
+            with self.s.begin_nested():
+                self.s.add(
+                    WebhookEvent(
+                        workspace_id=uuid.UUID(str(workspace_id))
+                        if workspace_id
+                        else uuid.UUID(int=0),
+                        provider=provider,
+                        provider_event_id=event_id,
+                    )
+                )
+                self.s.flush()
+        except IntegrityError:
+            return False
+        return True
 
 
 def _extract_notes(evt: dict) -> dict:
@@ -283,3 +336,26 @@ def _extract_amount(evt: dict) -> int | None:
             except ValueError:
                 continue
     return None
+
+
+def _extract_currency(evt: dict) -> str:
+    """Best-effort currency from a Razorpay payment event; defaults to INR."""
+    payload = evt.get("payload", {})
+    for wrapper in payload.values():
+        entity = wrapper.get("entity", {}) if isinstance(wrapper, dict) else {}
+        currency = entity.get("currency")
+        if isinstance(currency, str):
+            return currency.upper()
+    return "INR"
+
+
+def _valid_amount(currency: str, kind: str, plan: str | None, amount: int) -> bool:
+    """Return True if the paid amount matches the server-owned price for the currency."""
+    currency = currency.upper()
+    if kind == "paygo":
+        expected = PAYGO_PRICE_INR_PAISE
+    elif kind == "subscription" and plan:
+        expected = SUBSCRIPTION_PRICES.get(currency, {}).get(plan)
+    else:
+        return True
+    return expected is None or amount == expected

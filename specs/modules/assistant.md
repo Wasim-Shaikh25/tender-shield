@@ -48,6 +48,7 @@ capability, not direct table access.
 
 - A1: off-topic question is refused.
 - A2: a response with an uncited factual sentence is blocked/regenerated.
+- A3: `AnthropicAgent` uses a valid, current Anthropic model identifier.
 
 ## Out of scope
 

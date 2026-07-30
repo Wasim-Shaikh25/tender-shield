@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
 from app.core.ratelimit import RateLimitDep
-from app.modules.billing.plans import PAYGO_PRICE_INR_PAISE, PaywallError
+from app.modules.billing.plans import PAYGO_PRICE_INR_PAISE, SUBSCRIPTION_PRICES, PaywallError
 from app.modules.billing.providers import BillingError
 from app.modules.billing.service import BillingService
 
@@ -16,12 +16,6 @@ router = APIRouter()
 def _service(request: Request, session: Session) -> BillingService:
     reg = request.app.state.ctx.registry
     return BillingService(session, workspace_factory=reg.get("auth.workspace_factory"))
-
-
-SUBSCRIPTION_PRICES_INR_PAISE: dict[str, int] = {
-    "pro": 4_999_00,
-    "scale": 14_999_00,
-}
 
 
 COUNTRY_CURRENCY: dict[str, str] = {
@@ -67,25 +61,29 @@ def checkout(
     if not (principal.is_superadmin or principal.email_verified):
         raise HTTPException(403, "email_not_verified")
 
+    svc = _service(request, session)
+    workspace = svc._workspaces().get(principal.workspace_id)
+    country = getattr(workspace, "country", None) or DEFAULT_COUNTRY
+    currency = _currency_for_country(country)
+
     if body.kind == "paygo":
-        amount = body.amount_minor or PAYGO_PRICE_INR_PAISE
+        expected = PAYGO_PRICE_INR_PAISE
     elif body.kind == "subscription":
-        amount = body.amount_minor or SUBSCRIPTION_PRICES_INR_PAISE.get(body.plan or "", 0)
-        if not amount:
+        expected = SUBSCRIPTION_PRICES.get(currency, {}).get(body.plan or "")
+        if not expected:
             raise HTTPException(400, "unknown_subscription_plan")
     else:
         raise HTTPException(400, "unknown_checkout_kind")
+
+    if body.amount_minor is not None and body.amount_minor != expected:
+        raise HTTPException(400, "amount_mismatch")
+    amount = expected
 
     notes = {"workspace_id": str(principal.workspace_id), "kind": body.kind}
     if body.opportunity_id:
         notes["opportunity_id"] = body.opportunity_id
     if body.plan:
         notes["plan"] = body.plan
-
-    svc = _service(request, session)
-    workspace = svc._workspaces().get(principal.workspace_id)
-    country = getattr(workspace, "country", None) or DEFAULT_COUNTRY
-    currency = _currency_for_country(country)
 
     chosen_provider = body.provider
     if not chosen_provider:

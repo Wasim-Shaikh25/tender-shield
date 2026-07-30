@@ -106,27 +106,48 @@ class AuthService:
             raise AuthError("google_email_missing")
         user = self.s.scalar(select(User).where(User.google_sub == google_sub))
         if not user:
-            # First Google sign-in: create user and a personal workspace.
-            user = User(
-                email=email,
-                google_sub=google_sub,
-                email_verified=claims.get("email_verified", False),
-            )
-            self.s.add(user)
-            self.s.flush()
-            workspace = Workspace(owner_id=user.id, name="Personal", country="IN")
-            self.s.add(workspace)
-            self.s.flush()
-            self.s.add(WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role="owner"))
+            # Account linking: a verified Google email may belong to an existing password user.
+            existing = self.s.scalar(select(User).where(User.email == email))
+            if existing:
+                if not (claims.get("email_verified") or existing.email_verified):
+                    raise AuthError("email_not_verified")
+                user = existing
+                user.google_sub = google_sub
+                user.email_verified = True
+            else:
+                # First Google sign-in: create user and a personal workspace.
+                user = User(
+                    email=email,
+                    google_sub=google_sub,
+                    email_verified=claims.get("email_verified", False),
+                )
+                self.s.add(user)
+                self.s.flush()
+                workspace = Workspace(owner_id=user.id, name="Personal", country="IN")
+                self.s.add(workspace)
+                self.s.flush()
+                self.s.add(
+                    WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role="owner")
+                )
         else:
             user.email_verified = claims.get("email_verified", False)
         self.s.commit()
+        member = self.s.scalar(
+            select(WorkspaceMember)
+            .where(WorkspaceMember.user_id == user.id)
+            .order_by(WorkspaceMember.workspace_id)
+            .limit(1)
+        )
+        if not member:
+            if user.is_superadmin:
+                return self._issue_tokens(
+                    user.id, None, "owner", is_superadmin=True, new_family=True
+                )
+            raise AuthError("no_workspace")
         return self._issue_tokens(
             user.id,
-            self.s.scalar(
-                select(WorkspaceMember.workspace_id).where(WorkspaceMember.user_id == user.id)
-            ),
-            "owner",
+            member.workspace_id,
+            member.role,
             is_superadmin=user.is_superadmin,
             new_family=True,
         )
@@ -425,11 +446,15 @@ class AuthService:
         self.s.commit()
         return {"workspace_id": str(workspace_id), "user_id": str(user.id), "role": role}
 
-    def list_workspace_members(self, workspace_id) -> list[dict]:
+    def list_workspace_members(self, workspace_id, user_id) -> list[dict]:
+        workspace_uuid = uuid.UUID(str(workspace_id))
+        user = self.s.get(User, uuid.UUID(str(user_id)))
+        if not user or not (user.is_superadmin or self._workspace_member(workspace_uuid, user_id)):
+            raise AuthError("not_workspace_member")
         rows = self.s.execute(
             select(WorkspaceMember, User)
             .join(User, WorkspaceMember.user_id == User.id)
-            .where(WorkspaceMember.workspace_id == uuid.UUID(str(workspace_id)))
+            .where(WorkspaceMember.workspace_id == workspace_uuid)
         ).all()
         return [
             {"user_id": str(user.id), "email": user.email, "role": member.role}
@@ -499,12 +524,20 @@ class AuthService:
         self.s.commit()
         return {"project_id": str(project_id), "user_id": str(user.id), "role": role}
 
-    def list_project_members(self, project_id) -> list[dict]:
-        project_id = uuid.UUID(str(project_id))
+    def list_project_members(self, project_id, user_id) -> list[dict]:
+        project_uuid = uuid.UUID(str(project_id))
+        project = self.s.get(Project, project_uuid)
+        if not project:
+            raise AuthError("no_such_project")
+        user = self.s.get(User, uuid.UUID(str(user_id)))
+        if not user or not (
+            user.is_superadmin or self._workspace_member(project.workspace_id, user_id)
+        ):
+            raise AuthError("not_workspace_member")
         rows = self.s.execute(
             select(ProjectMember, User)
             .join(User, ProjectMember.user_id == User.id)
-            .where(ProjectMember.project_id == project_id)
+            .where(ProjectMember.project_id == project_uuid)
         ).all()
         return [
             {"user_id": str(user.id), "email": user.email, "role": member.role}
@@ -518,14 +551,19 @@ class AuthService:
             raise AuthError("bad_role")
         workspace_id = uuid.UUID(str(workspace_id))
         project_uuid = uuid.UUID(str(project_id)) if project_id else None
-        token = uuid.uuid4().hex
+        if project_uuid:
+            project = self.s.get(Project, project_uuid)
+            if not project or project.workspace_id != workspace_id:
+                raise AuthError("no_such_project")
+        token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
         expires_at = datetime.now(UTC) + timedelta(days=7)
         invitation = Invitation(
             workspace_id=workspace_id,
             project_id=project_uuid,
             email=email.strip().lower(),
             role=role,
-            token=token,
+            token_hash=token_hash,
             expires_at=expires_at,
         )
         self.s.add(invitation)
@@ -551,7 +589,8 @@ class AuthService:
 
     def accept_invitation(self, user_id, token: str) -> dict:
         user_id = uuid.UUID(str(user_id))
-        invitation = self.s.scalar(select(Invitation).where(Invitation.token == token))
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        invitation = self.s.scalar(select(Invitation).where(Invitation.token_hash == token_hash))
         if not invitation:
             raise AuthError("invalid_invitation")
         expires_at = invitation.expires_at
@@ -564,6 +603,10 @@ class AuthService:
         user = self.s.get(User, user_id)
         if not user or user.email != invitation.email:
             raise AuthError("invitation_email_mismatch")
+        if invitation.project_id:
+            project = self.s.get(Project, invitation.project_id)
+            if not project or project.workspace_id != invitation.workspace_id:
+                raise AuthError("no_such_project")
         existing = self.s.scalar(
             select(WorkspaceMember).where(
                 WorkspaceMember.workspace_id == invitation.workspace_id,
@@ -637,20 +680,22 @@ class AuthService:
         user = self.s.get(User, uuid.UUID(str(user_id)))
         if not user:
             raise AuthError("no_such_user")
-        user.mfa_method = method
         user.mfa_phone = phone
         user.mfa_otp_code = None
         user.mfa_otp_expires_at = None
         if method == "totp":
-            user.mfa_totp_secret = mfa.new_secret()
+            # Store the secret in a pending state; mfa_verify confirms enrollment.
+            user.mfa_totp_pending_secret = mfa.new_secret()
             self.s.commit()
             return {
                 "method": method,
-                "secret": user.mfa_totp_secret,
-                "otpauth_uri": mfa.provisioning_uri(user.mfa_totp_secret, user.email),
+                "secret": user.mfa_totp_pending_secret,
+                "otpauth_uri": mfa.provisioning_uri(user.mfa_totp_pending_secret, user.email),
             }
         # email/sms: send a one-time code to verify enrolment
+        user.mfa_method = method
         user.mfa_totp_secret = None
+        user.mfa_totp_pending_secret = None
         code = mfa.new_otp_code()
         user.mfa_otp_code = code
         user.mfa_otp_expires_at = datetime.now(UTC) + timedelta(seconds=mfa.CODE_TTL_SECONDS)
@@ -662,6 +707,15 @@ class AuthService:
         user = self.s.get(User, uuid.UUID(str(user_id)))
         if not user:
             raise AuthError("no_such_user")
+        # Complete a pending TOTP enrollment on first successful verification.
+        if user.mfa_totp_pending_secret:
+            if not mfa.verify(user.mfa_totp_pending_secret, code):
+                raise AuthError("mfa_invalid")
+            user.mfa_method = "totp"
+            user.mfa_totp_secret = user.mfa_totp_pending_secret
+            user.mfa_totp_pending_secret = None
+            self.s.commit()
+            return True
         if user.mfa_method == "totp":
             if not user.mfa_totp_secret:
                 raise AuthError("mfa_not_enrolled")
@@ -736,13 +790,15 @@ class AuthService:
             raise AuthError("not_workspace_member")
 
         row.used_at = datetime.now(UTC)
-        return self._issue_tokens(
+        tokens = self._issue_tokens(
             user.id,
             workspace_uuid,
             member.role if member else "owner",
             is_superadmin=user.is_superadmin,
             family_id=row.family_id,
         )
+        self.s.commit()
+        return tokens
 
     # ---- email verification ------------------------------------------------
 

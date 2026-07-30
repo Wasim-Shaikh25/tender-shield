@@ -172,17 +172,17 @@ Audit only — no source changes. Findings and full remediation detail live in
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
 | TS-094 | End-to-end production readiness audit of trunk (`d651d00`); report + reproduced exploit probes | `CLAUDE.md` §4; Doc §3.2, §5, §7 | `PRODUCTION_READINESS_AUDIT.md` | done |
-| TS-095 | **BLOCKER** Bind workspace-scoped routes to the caller's workspace; membership check in `add_workspace_member` | audit TS-A01; Doc §3.2, §5 | `specs/modules/auth.md` (update) | todo |
-| TS-096 | **BLOCKER** Google login must use `member.role`, not a hardcoded `"owner"`; unify token issuance across providers | audit TS-A02; Doc §5 | `specs/modules/auth.md` (update) | todo |
+| TS-095 | **BLOCKER** Bind workspace-scoped routes to the caller's workspace; membership check in `add_workspace_member` | audit TS-A01; Doc §3.2, §5 | `specs/modules/auth.md` (update) | done |
+| TS-096 | **BLOCKER** Google login must use `member.role`, not a hardcoded `"owner"`; unify token issuance across providers | audit TS-A02; Doc §5 | `specs/modules/auth.md` (update) | done |
 | TS-097 | **BLOCKER** RLS: add `FORCE`, `WITH CHECK`, `current_setting(…, true)`; cover membership tables; add PostgreSQL to CI | audit TS-A03; Doc §3.2 | `specs/modules/core.md`, `specs/data-model.md` (update) | todo |
-| TS-098 | **BLOCKER** Server-owned per-currency price table; drop client `amount_minor`; validate paid amount at webhook activation | audit TS-B01; Doc §7, §15 | `specs/modules/billing.md` (update) | todo |
-| TS-099 | Membership checks on workspace/project member-list endpoints | audit TS-A04; Doc §3.2 | `specs/modules/auth.md` (update) | todo |
-| TS-100 | Google account linking on verified email; `IntegrityError` → 409 instead of 500 | audit TS-A05; Doc §5 | `specs/modules/auth.md` (update) | todo |
-| TS-101 | Cap upload size before buffering (`Content-Length` + streamed read); enforce at the proxy | audit TS-I01; Doc §11.1 | `specs/modules/ingestion.md` (update) | todo |
-| TS-102 | Async SSE generator: sleep, client-disconnect check, hard timeout | audit TS-I02; Doc §11.1 | `specs/modules/ingestion.md` (update) | todo |
+| TS-098 | **BLOCKER** Server-owned per-currency price table; drop client `amount_minor`; validate paid amount at webhook activation | audit TS-B01; Doc §7, §15 | `specs/modules/billing.md` (update) | done |
+| TS-099 | Membership checks on workspace/project member-list endpoints | audit TS-A04; Doc §3.2 | `specs/modules/auth.md` (update) | done |
+| TS-100 | Google account linking on verified email; `IntegrityError` → 409 instead of 500 | audit TS-A05; Doc §5 | `specs/modules/auth.md` (update) | done |
+| TS-101 | Cap upload size before buffering (`Content-Length` + streamed read); enforce at the proxy | audit TS-I01; Doc §11.1 | `specs/modules/ingestion.md` (update) | done |
+| TS-102 | Async SSE generator: sleep, client-disconnect check, hard timeout | audit TS-I02; Doc §11.1 | `specs/modules/ingestion.md` (update) | done |
 | TS-103 | Align `/auth/workspaces` response contract with the frontend client; generate the TS client from OpenAPI | audit TS-F01; Doc §9 | `specs/frontend.md` (update) | todo |
-| TS-104 | Rate limiting: wall-clock Redis scores, unique members, `X-Forwarded-For` with configured hop count | audit TS-O01; Doc §11.3 | `specs/modules/core.md` (update) | todo |
-| TS-105 | Webhook atomicity: claim the idempotency marker first, single transaction, unique constraint | audit TS-B02; Doc §15.5 | `specs/modules/billing.md` (update) | todo |
+| TS-104 | Rate limiting: wall-clock Redis scores, unique members, `X-Forwarded-For` with configured hop count | audit TS-O01; Doc §11.3 | `specs/modules/core.md` (update) | done |
+| TS-105 | Webhook atomicity: claim the idempotency marker first, single transaction, unique constraint | audit TS-B02; Doc §15.5 | `specs/modules/billing.md` (update) | done |
 | TS-106 | Team-management UI: invite, list, change role, remove member; member removal + invitation revocation API | audit §3.5 items 1, 3; Doc §5, §9 | `specs/frontend.md`, `specs/modules/auth.md` (update) | todo |
 | TS-107 | Account & security settings UI: change password, MFA enrolment, resend verification, session list | audit §3.5 item 2; Doc §5, §9 | `specs/frontend.md` (update) | todo |
 | TS-108 | Observability: metrics, error tracking, dependency-checking health probes, documented backup/rollback | audit TS-O02; Doc §16 | `specs/modules/health.md` (update) | todo |
@@ -204,16 +204,70 @@ Audit only — no source changes. Findings and full remediation detail live in
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
 | TS-121 | Second-round production readiness audit: re-verify TS-* findings, review rulepacks, auth, and packaging; update `PRODUCTION_READINESS_AUDIT.md` | `END_TO_END_PRODUCTION_AUDIT_PROMPT.md` | `PRODUCTION_READINESS_AUDIT.md` | done |
-| TS-122 | **BLOCKER** `switch_workspace` must commit the rotated refresh-token session | audit TS-A06; Doc §5 | `specs/modules/auth.md` (update) | todo |
-| TS-123 | **BLOCKER** `resend-verification` must not return the raw verification token; send via email only | audit TS-A07; Doc §5 | `specs/modules/auth.md` (update) | todo |
-| TS-124 | **BLOCKER** `backend/Dockerfile` must install runtime extras (`celery`, `billing`, `scheduler`, `ocr`) and boot in CI | audit TS-O04; Doc §16 | `specs/deployment.md` (create) | todo |
+| TS-122 | **BLOCKER** `switch_workspace` must commit the rotated refresh-token session | audit TS-A06; Doc §5 | `specs/modules/auth.md` (update) | done |
+| TS-123 | **BLOCKER** `resend-verification` must not return the raw verification token; send via email only | audit TS-A07; Doc §5 | `specs/modules/auth.md` (update) | done |
+| TS-124 | **BLOCKER** `backend/Dockerfile` must install runtime extras (`celery`, `billing`, `scheduler`, `ocr`) and boot in CI | audit TS-O04; Doc §16 | `specs/deployment.md` (create) | done |
 | TS-125 | **PRODUCT BLOCKER** Complete rulepack QS validation or add a beta/disclaimer flag so paid workspaces see unvalidated patterns | audit TS-P02; Doc §14 | `specs/modules/rulepacks.md` (update) | todo |
-| TS-126 | Hash `Invitation.token` instead of storing it plaintext | audit TS-A08; Doc §5 | `specs/modules/auth.md` (update) | todo |
-| TS-127 | Require TOTP verification before committing `mfa_method=totp` | audit TS-A09; Doc §5 | `specs/modules/auth.md` (update) | todo |
+| TS-126 | Hash `Invitation.token` instead of storing it plaintext | audit TS-A08; Doc §5 | `specs/modules/auth.md` (update) | done |
+| TS-127 | Require TOTP verification before committing `mfa_method=totp` | audit TS-A09; Doc §5 | `specs/modules/auth.md` (update) | done |
 
 ## Third-round production readiness audit (2026-07-29, commit `d651d00`)
 
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
 | TS-128 | Third-round production readiness audit rerun from scratch: re-verify all `TS-*` findings, search for new auth/tenant/deployment/product issues, update `PRODUCTION_READINESS_AUDIT.md` | `END_TO_END_PRODUCTION_AUDIT_PROMPT.md` | `PRODUCTION_READINESS_AUDIT.md` | done |
-| TS-129 | **BLOCKER** `create_invitation` and `accept_invitation` must verify `project_id` belongs to the invitation's workspace before persisting `ProjectMember` | audit TS-A10; Doc §5 | `specs/modules/auth.md` (update) | todo |
+| TS-129 | **BLOCKER** `create_invitation` and `accept_invitation` must verify `project_id` belongs to the invitation's workspace before persisting `ProjectMember` | audit TS-A10; Doc §5 | `specs/modules/auth.md` (update) | done |
+
+## Fifth-round production readiness audit (2026-07-29)
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-130 | Fifth-round end-to-end re-audit of trunk: review notifications, drafting, timeline, risk/assistant adapters, ingestion async/direct routes; skip existing `TS-*` findings and append new gaps | `END_TO_END_PRODUCTION_AUDIT_PROMPT.md` | `PRODUCTION_READINESS_AUDIT.md` | done |
+
+## Sixth-round production readiness audit (2026-07-29)
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-131 | Sixth-round end-to-end re-audit of trunk: review core storage, CORS/allowed-hosts guard, Stripe provider, tus I/O, and review/authz scoping; skip existing `TS-*` findings and append new gaps | `END_TO_END_PRODUCTION_AUDIT_PROMPT.md` | `PRODUCTION_READINESS_AUDIT.md` | done |
+
+## Seventh-round production readiness audit (2026-07-29)
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-132 | Seventh-round end-to-end re-audit of trunk: audit product invariants (money as minor units, source-page provenance, deterministic severity, multi-workspace auth); skip existing `TS-*` findings and append new gaps | `END_TO_END_PRODUCTION_AUDIT_PROMPT.md` | `PRODUCTION_READINESS_AUDIT.md` | done |
+
+
+## Post-audit implementation tasks (generated from 61-finding tracker)
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-133 | Synchronous extraction blocks the async event loop in upload_document | audit TS-I04; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | todo |
+| TS-134 | BOQ run endpoint accepts unbounded CSV payloads | audit TS-I05; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/boq.md` (update) | todo |
+| TS-135 | Session provider keeps a stale workspace list after switch/refresh | audit TS-F02; `PRODUCTION_READINESS_AUDIT.md` | `specs/frontend.md` (update) | todo |
+| TS-136 | Risk classifier uses an invalid default Anthropic model name | audit TS-R02; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/risk.md` (update) | done |
+| TS-137 | Risk classifier uses brittle string slicing and no schema validation | audit TS-R01; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/risk.md` (update) | todo |
+| TS-138 | Days_to_submission mixes UTC and local time for naive deadlines | audit TS-D02; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/comparison.md` (update) | todo |
+| TS-139 | Qualification matrix marks missing criteria as not_met with HIGH severity | audit TS-Q01; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/qualification.md` (update) | todo |
+| TS-140 | BOQ engine relies on DuckDB reading df from caller scope | audit TS-X02; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/boq.md` (update) | todo |
+| TS-141 | Cross-reference search loads all clauses regardless of limit | audit TS-A11; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/crossref.md` (update) | todo |
+| TS-142 | Confirm_deadline does not verify the deadline belongs to the opportunity | audit TS-I06; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | todo |
+| TS-143 | Baseline freeze has a race condition on version numbering | audit TS-B05; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/baseline.md` (update) | todo |
+| TS-144 | Uploaded filename can inject Content-Disposition header in file download | audit TS-S03; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/core.md` (update) | todo |
+| TS-145 | Assistant agent has no output guard and includes user prompt verbatim | audit TS-A13; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/assistant.md` (update) | todo |
+| TS-146 | Notifications deadline-alert scheduler calls a missing WorkspaceAdmin method | audit TS-N02; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/notifications.md` (update) | todo |
+| TS-147 | Register_document accepts unbounded sample_text and processes it synchronously | audit TS-I07; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | todo |
+| TS-148 | Async process_document Celery task does not classify, segment clauses, update the submission deadline, or run OCR | audit TS-I08; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | todo |
+| TS-149 | Assistant agent uses an invalid default Anthropic model name | audit TS-A14; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/assistant.md` (update) | done |
+| TS-150 | Review audit trail endpoint ignores opportunity_id | audit TS-A15; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/review.md` (update) | todo |
+| TS-151 | Artifact.version uses a non-atomic read-modify-write increment | audit TS-B06; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/drafting.md` (update) | todo |
+| TS-152 | Timeline ICS export appends Z to naive or local datetimes; synthetic tender_published uses created_at | audit TS-D03; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/timeline.md` (update) | todo |
+| TS-153 | LocalStorage async methods perform synchronous file I/O | audit TS-S04; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/core.md` (update) | todo |
+| TS-154 | Production guard for CORS and allowed hosts can be bypassed with a comma-separated wildcard | audit TS-O05; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/core.md` (update) | todo |
+| TS-155 | Stripe checkout uses hardcoded example.com redirect URLs | audit TS-B07; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/billing.md` (update) | todo |
+| TS-156 | Stripe webhook verifier swallows all exceptions and returns None | audit TS-B08; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/billing.md` (update) | todo |
+| TS-157 | Tus endpoints perform synchronous file I/O and OPTIONS returns a non-compliant empty body | audit TS-I09; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | todo |
+| TS-158 | POST /api/review/findings/{finding_id} does not scope by opportunity | audit TS-A16; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/review.md` (update) | todo |
+| TS-159 | Finding.amount_exposure and monetary thresholds are stored/extracted as float major units, violating the minor-units invariant | audit TS-C01; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/findings.md` (update) | todo |
+| TS-160 | XLSX/CSV text extraction does not emit page markers, so spreadsheet-derived deadlines and clauses lose page provenance | audit TS-I10; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | todo |
+| TS-161 | Email/password login selects an arbitrary workspace for multi-workspace users | audit TS-A17; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/auth.md` (update) | todo |
+| TS-162 | Severity evaluator silently defaults missing facts to 0 | audit TS-R03; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/risk.md` (update) | done |

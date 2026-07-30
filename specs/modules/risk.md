@@ -65,6 +65,9 @@ provenance and deterministic severity.
 - A4: every risk finding returned by `run_pattern` includes a non-null
   `explanation` with `matched_pattern.id` equal to the pattern id.
 - A5: paid workspace `run` excludes `confidence: unvalidated` patterns.
+- A6: `AnthropicClassifier` uses a valid, current Anthropic model identifier.
+- A7: `severity.evaluate_severity` fails safe on missing facts and never silently
+  treats an absent fact as `0`/`False`.
 
 ## Out of scope
 

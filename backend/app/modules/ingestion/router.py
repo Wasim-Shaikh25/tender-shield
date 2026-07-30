@@ -1,3 +1,6 @@
+import asyncio
+import pathlib
+import time
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
@@ -6,7 +9,13 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
-from app.core.storage import StorageError, ValidationError, validate_and_store
+from app.core.storage import (
+    DEFAULT_MAX_UPLOAD_SIZE,
+    MAX_UPLOAD_SIZES,
+    StorageError,
+    ValidationError,
+    validate_and_store,
+)
 from app.modules.ingestion import tus
 from app.modules.ingestion.extract import extract_upload
 from app.modules.ingestion.service import IngestionService
@@ -124,13 +133,20 @@ async def upload_document(
     svc = _service(request, session)
     if not svc.get_opportunity(principal.workspace_id, opportunity_id):
         raise HTTPException(404, "not_found")
-    data = await file.read()
+
+    ext = pathlib.Path(file.filename or "").suffix.lower()
+    max_size = MAX_UPLOAD_SIZES.get(ext, DEFAULT_MAX_UPLOAD_SIZE)
+    data = await file.read(max_size + 1)
+    if len(data) > max_size:
+        raise HTTPException(413, "upload_too_large")
+
     try:
         stored = await validate_and_store(
             request.app.state.ctx.settings,
             file.filename,
             file.content_type,
             data,
+            max_size=max_size,
             workspace_id=str(principal.workspace_id),
         )
     except ValidationError as exc:
@@ -197,18 +213,25 @@ async def document_stream(
     if not svc.get_document(principal.workspace_id, document_id):
         raise HTTPException(404, "not_found")
 
-    def _events():
+    async def _events():
         app = request.app.state.ctx.registry.get("celery.app")
         if not app:
             yield _sse_event("error", "celery not configured")
             return
         result = AsyncResult(task_id, app=app)
         prev = {}
+        started = time.monotonic()
         while not result.ready():
+            if await request.is_disconnected():
+                return
+            if time.monotonic() - started > 600:
+                yield _sse_event("error", "timeout")
+                return
             meta = result.info or {}
             if meta != prev:
                 prev = meta.copy()
                 yield _sse_event(meta.get("step", "progress"), meta)
+            await asyncio.sleep(0.5)
         if result.successful():
             yield _sse_event("done", result.result)
         else:

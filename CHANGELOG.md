@@ -6,6 +6,152 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-29 (PR consolidation)
+
+- Merged the two older audit-only branches (`devin/fourth-round-audit` and
+  `claude/production-readiness-audit-ts130-1753815240`) into the consolidated
+  branch using `merge -s ours` so their history is preserved but the current
+  report/fixes remain authoritative.
+- Closed PR #20 and PR #19 as superseded by PR #21.
+- Renamed PR #21 to reflect it is the consolidated production-readiness audit + fixes PR.
+
+### Next
+
+- TS-097 — RLS structural fix (PostgreSQL `FORCE`, `WITH CHECK`, membership tables, CI).
+- TS-125 — Rulepack QS validation / beta-disclaimer flag for unvalidated patterns.
+- TS-103, TS-106, TS-107, TS-108, TS-109, TS-133..TS-162 — remaining medium/low audit
+  follow-ups.
+
+### Done — 2026-07-29 (TS-132: 61-finding implementation tracker)
+
+- Generated `tasks/audit_fix_tracker.md` mapping every `TS-*` finding to its requirement,
+  recommended solution, and task ID.
+- Added 30 implementation task rows (TS-133..TS-162) to `tasks/backlog.md` for findings
+  that did not already have a fix task.
+- Added `scripts/build_audit_tracker.py` to regenerate the tracker from
+  `PRODUCTION_READINESS_AUDIT.md`.
+
+### Done — 2026-07-29 (TS-096: Google OIDC role fix)
+
+- `AuthService.google_login` now issues tokens with the user's actual workspace role
+  (queried from `WorkspaceMember`) instead of the hardcoded `"owner"` literal.
+- Added `specs/modules/auth.md` acceptance criterion A13 covering OIDC role binding.
+
+### Done — 2026-07-29 (TS-095: workspace-scoped member addition)
+
+- `POST /api/auth/workspaces/{workspace_id}/members` now verifies the caller's
+  `principal.workspace_id` matches `{workspace_id}` (super-admins bypass), preventing
+  any admin of one workspace from joining or adding members to another workspace.
+- Added `specs/modules/auth.md` acceptance criterion A14 covering workspace binding.
+
+### Done — 2026-07-29 (TS-123: resend-verification no longer leaks token)
+
+- `POST /api/auth/resend-verification` now returns `{"status": "ok"}` and no longer
+  echoes the raw verification token.
+- Updated `tests/test_auth_module.py` `_login` helper to mark test users verified
+  directly in the DB since the route no longer exposes the token.
+- Added `specs/modules/auth.md` acceptance criterion A15.
+
+### Done — 2026-07-29 (TS-122: switch_workspace persists rotated refresh token)
+
+- `AuthService.switch_workspace` now commits after issuing the rotated refresh
+  token, so the new `RefreshToken` row and the `used_at` mark on the old row are
+  persisted.
+- Added `specs/modules/auth.md` acceptance criterion A16.
+
+### Done — 2026-07-29 (TS-100: Google account linking on existing email)
+
+- `AuthService.google_login` now looks up an existing user by verified email and
+  links the `google_sub` instead of crashing with an `IntegrityError`/500.
+- Added `email_not_verified` error mapping and `specs/modules/auth.md` A17.
+
+### Done — 2026-07-29 (TS-099: cross-tenant member list isolation)
+
+- `list_workspace_members` and `list_project_members` now require the caller to
+  be a member of the target workspace (or super-admin) before returning emails/roles.
+- Added `specs/modules/auth.md` acceptance criterion A18.
+
+### Done — 2026-07-29 (TS-124: Dockerfile runtime extras)
+
+- `backend/Dockerfile` now installs all runtime extras (`storage`, `redis`,
+  `celery`, `billing`, `scheduler`, `ocr`, `auth`) plus `uvicorn`, instead of
+  only `dev`/`storage`/`redis`.
+- Created `specs/deployment.md` covering production image requirements.
+
+### Done — 2026-07-29 (TS-129: invitation project_id verification)
+
+- `create_invitation` now rejects a `project_id` that does not belong to the
+  invitation's workspace.
+- `accept_invitation` also verifies project/workspace consistency before adding
+  a `ProjectMember`.
+- Added `specs/modules/auth.md` acceptance criterion A19.
+
+### Done — 2026-07-29 (TS-098: server-owned billing prices + webhook validation)
+
+- `POST /api/billing/checkout` no longer trusts the client `amount_minor`; it
+  uses the server price table in `plans.py` and rejects mismatches.
+- `process_razorpay_webhook` and `process_stripe_webhook` validate the paid
+  amount against the server price table before activating a plan or crediting
+  a paygo review.
+- Added `SUBSCRIPTION_PRICES` currency/plan table and `PAYGO_PRICE_INR_PAISE`.
+- Added `specs/modules/billing.md` B11 and A5.
+
+### Done — 2026-07-29 (TS-136 / TS-149: valid Anthropic model identifiers)
+
+- Replaced the invalid `claude-sonnet-5` default with `claude-3-5-sonnet-20241022`
+  in both `AnthropicClassifier` and `AnthropicAgent`.
+- Added `specs/modules/risk.md` A6 and `specs/modules/assistant.md` A3.
+
+### Done — 2026-07-29 (TS-162: severity evaluator missing-fact safety)
+
+- `severity.evaluate_severity` now raises on missing facts instead of silently
+  defaulting to `0`/`False`; the top-level `try/except` falls back to the safe
+  `default` severity.
+- Updated `tests/test_risk.py` to expect fallback behavior.
+- Added `specs/modules/risk.md` A7.
+
+### Done — 2026-07-29 (TS-104: rate limiting hardening)
+
+- `RedisRateLimitStorage` now uses wall-clock `time.time()` scores (comparable
+  across workers), atomic add-only-under-limit Lua scripts, and unique members
+  per attempt.
+- `RateLimitDep` prefers the rightmost `X-Forwarded-For` entry and falls back to
+  the transport peer.
+- Added `specs/modules/core.md` B7/A10.
+
+### Done — 2026-07-29 (TS-105: webhook atomicity)
+
+- `process_razorpay_webhook` and `process_stripe_webhook` now claim the
+  `WebhookEvent` idempotency marker via a savepoint, apply the billing effect
+  with `commit=False`, and commit everything in one transaction.
+- `WorkspaceAdmin.set_plan` and `BillingService` helpers accept `commit=False` for
+  callers that manage the transaction boundary.
+- Added `specs/modules/billing.md` B12/A6.
+
+### Done — 2026-07-29 (TS-126: hash invitation tokens at rest)
+
+- `Invitation.token` renamed to `token_hash`; raw tokens are generated with
+  `secrets.token_urlsafe` and stored as SHA-256.
+- `accept_invitation` hashes the supplied token before lookup.
+- Added `specs/modules/auth.md` B17/A20.
+
+### Done — 2026-07-29 (TS-127: verify TOTP before completing enrollment)
+
+- Added `User.mfa_totp_pending_secret` and changed `mfa_method` default to empty.
+- `mfa_enroll` for TOTP stores the secret pending and returns the provisioning URI.
+- `mfa_verify` confirms the first TOTP code, then commits `mfa_method="totp"` and
+  moves the secret to `mfa_totp_secret`.
+- Added `specs/modules/auth.md` B8/A21.
+
+### Done — 2026-07-29 (TS-101 / TS-102: upload size cap + SSE hardening)
+
+- `POST /api/ingestion/opportunities/{id}/upload` now reads at most
+  `MAX_UPLOAD_SIZES[suffix] + 1` bytes and returns 413 before buffering the full
+  oversized file.
+- SSE document-processing stream now uses an async generator with `await`
+  disconnect checks, `asyncio.sleep(0.5)` polling, and a 600-second hard timeout.
+- Updated `specs/modules/ingestion.md` B7, B11, A4, A7.
+
 ### Done — 2026-07-29 (TS-094: end-to-end production readiness audit)
 
 - **TS-094** — Full end-to-end production readiness audit of trunk
@@ -63,6 +209,57 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
     enrollment lacks verification), and `TS-P02` (rulepacks still unvalidated; paying
     workspaces receive zero findings).
   - Updated counts: **30 findings (5 Critical, 10 High, 11 Medium, 4 Low), 13 release-blocking**.
+  - Updated remediation plan and final recommendation remains **NO-GO**.
+  - Baseline recorded: `ruff` clean, `mypy` clean (143 files), 145 backend tests passing,
+    frontend lint/typecheck/build clean, `npm audit` 0 vulnerabilities, `pip-audit` 0.
+
+### Done — 2026-07-29 (TS-130: fifth-round production readiness audit rerun)
+
+- **TS-130** — Fifth-round end-to-end re-audit of trunk (`claude/dev-workflow-modules-58dpqw`) per
+  `END_TO_END_PRODUCTION_AUDIT_PROMPT.md`. **Audit only — no source files were changed.**
+  `PRODUCTION_READINESS_AUDIT.md` updated with:
+  - All prior `TS-*` findings re-verified and still present.
+  - Eight new findings: `TS-N02` (notifications scheduler calls missing `WorkspaceAdmin` method),
+    `TS-I08` (async `process_document` does not classify/segment or use OCR),
+    `TS-I07` (`register_document` accepts unbounded `sample_text` with synchronous processing),
+    `TS-R02` (risk classifier default Anthropic model name is invalid),
+    `TS-A14` (assistant agent default Anthropic model name is invalid),
+    `TS-A15` (`review` audit trail ignores `opportunity_id` and `AuditLog` lacks the column),
+    `TS-B06` (`Artifact.version` read-modify-write race), and
+    `TS-D03` (timeline ICS export appends `Z` to naive/local datetimes).
+  - Updated counts: **51 findings (5 Critical, 15 High, 27 Medium, 4 Low), 18 release-blocking**.
+  - Updated remediation plan and final recommendation remains **NO-GO**.
+  - Baseline recorded: `ruff` clean, `mypy` clean (143 files), 145 backend tests passing,
+    frontend lint/typecheck/build clean, `npm audit` 0 vulnerabilities, `pip-audit` 0.
+
+### Done — 2026-07-29 (TS-131: sixth-round production readiness audit rerun)
+
+- **TS-131** — Sixth-round end-to-end re-audit of trunk (`claude/dev-workflow-modules-58dpqw`) per
+  `END_TO_END_PRODUCTION_AUDIT_PROMPT.md`. **Audit only — no source files were changed.**
+  `PRODUCTION_READINESS_AUDIT.md` updated with:
+  - All prior `TS-*` findings re-verified and still present.
+  - Six new findings: `TS-S04` (`LocalStorage` async methods run synchronous file I/O),
+    `TS-O05` (production guard allows a comma-separated wildcard in `CORS`/`allowed_hosts`),
+    `TS-B07` (Stripe checkout hardcodes `example.com` redirect URLs),
+    `TS-B08` (Stripe webhook verifier swallows all exceptions),
+    `TS-I09` (tus endpoints perform synchronous file I/O and `OPTIONS` is non-compliant),
+    and `TS-A16` (`review_finding` does not scope by `opportunity_id`).
+  - Updated counts: **57 findings (5 Critical, 15 High, 33 Medium, 4 Low), 18 release-blocking**.
+  - Updated remediation plan and final recommendation remains **NO-GO**.
+  - Baseline recorded: `ruff` clean, `mypy` clean (143 files), 145 backend tests passing,
+    frontend lint/typecheck/build clean, `npm audit` 0 vulnerabilities, `pip-audit` 0.
+
+### Done — 2026-07-29 (TS-132: seventh-round production readiness audit rerun)
+
+- **TS-132** — Seventh-round end-to-end re-audit of trunk (`claude/dev-workflow-modules-58dpqw`) per
+  `END_TO_END_PRODUCTION_AUDIT_PROMPT.md`. **Audit only — no source files were changed.**
+  `PRODUCTION_READINESS_AUDIT.md` updated with:
+  - All prior `TS-*` findings re-verified and still present.
+  - Four new findings: `TS-C01` (monetary amounts represented as `float` / `Numeric(16,2)` major units),
+    `TS-I10` (XLSX/CSV ingestion loses page provenance), `TS-A17` (email/password login selects an
+    arbitrary workspace for multi-workspace users), and `TS-R03` (severity evaluator silently defaults
+    missing facts to `0`).
+  - Updated counts: **61 findings (5 Critical, 15 High, 37 Medium, 4 Low), 18 release-blocking**.
   - Updated remediation plan and final recommendation remains **NO-GO**.
   - Baseline recorded: `ruff` clean, `mypy` clean (143 files), 145 backend tests passing,
     frontend lint/typecheck/build clean, `npm audit` 0 vulnerabilities, `pip-audit` 0.

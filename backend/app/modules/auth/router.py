@@ -191,6 +191,7 @@ _STATUS = {
     "invalid_refresh": 401,
     "reuse_detected": 401,
     "no_workspace": 401,
+    "email_not_verified": 403,
     "no_such_user": 400,
     "no_such_project": 400,
     "bad_role": 400,
@@ -340,9 +341,11 @@ def resend_verification(
     session: Session = Depends(get_session),
     principal: Principal = Depends(current_principal),
 ):
-    return _handle(
-        lambda: _service(request, session).create_email_verification(principal.user_id)
-    )
+    def _do():
+        _service(request, session).create_email_verification(principal.user_id)
+        return {"status": "ok"}
+
+    return _handle(_do)
 
 
 # ---- workspaces & projects ---------------------------------------------
@@ -401,6 +404,8 @@ def add_workspace_member(
 ):
     if not principal_requires_verified(principal):
         raise HTTPException(403, "email_not_verified")
+    if not principal.is_superadmin and str(principal.workspace_id) != workspace_id:
+        raise HTTPException(403, "not_workspace_member")
     return _handle(
         lambda: _service(request, session).add_workspace_member(workspace_id, body.email, body.role)
     )
@@ -413,7 +418,9 @@ def list_workspace_members(
     session: Session = Depends(get_session),
     principal: Principal = Depends(current_principal),
 ):
-    return _service(request, session).list_workspace_members(workspace_id)
+    return _handle(
+        lambda: _service(request, session).list_workspace_members(workspace_id, principal.user_id)
+    )
 
 
 @router.post("/workspaces/{workspace_id}/projects")
@@ -466,7 +473,9 @@ def list_project_members(
     session: Session = Depends(get_session),
     principal: Principal = Depends(current_principal),
 ):
-    return _service(request, session).list_project_members(project_id)
+    return _handle(
+        lambda: _service(request, session).list_project_members(project_id, principal.user_id)
+    )
 
 
 @router.post("/invitations")

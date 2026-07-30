@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+import uuid
 from collections import deque
 from typing import Any, Protocol
 
@@ -68,6 +69,7 @@ class MemoryRateLimitStorage:
 class RedisRateLimitStorage:
     """Redis-backed sliding-window rate limiter using sorted sets.
 
+    Uses wall-clock seconds so scores are comparable across processes/workers.
     Requires the ``redis`` package and a ``TS_REDIS_URL``.
     """
 
@@ -77,17 +79,29 @@ class RedisRateLimitStorage:
         self._client = redis.from_url(url)
 
     async def is_allowed(self, key: str, limit: int, window: float) -> bool:
-        now = time.monotonic()
-        pipe = self._client.pipeline()
-        pipe.zremrangebyscore(key, 0, now - window)
-        pipe.zrange(key, 0, -1)
-        pipe.zadd(key, {str(now): now})
-        pipe.pexpire(key, int(window * 1000))
-        _, members, _, _ = await pipe.execute()
-        return len(members) < limit
+        now = time.time()
+        score = now
+        member = f"{now}:{uuid.uuid4().hex}"
+        expire_ms = int(window * 1000)
+        # Atomically trim, count, and add only if under the limit.
+        lua = """
+        redis.call('zremrangebyscore', KEYS[1], 0, ARGV[1])
+        local count = redis.call('zcard', KEYS[1])
+        if count < tonumber(ARGV[2]) then
+            redis.call('zadd', KEYS[1], ARGV[3], ARGV[4])
+            redis.call('pexpire', KEYS[1], ARGV[5])
+            return 1
+        else
+            return 0
+        end
+        """
+        allowed = await self._client.eval(
+            lua, 1, key, now - window, limit, score, member, expire_ms
+        )
+        return bool(allowed)
 
     async def count(self, key: str, window: float) -> int:
-        now = time.monotonic()
+        now = time.time()
         await self._client.zremrangebyscore(key, 0, now - window)
         return await self._client.zcard(key)
 
@@ -126,8 +140,7 @@ class RateLimitDep:
         limiter = request.app.state.ctx.registry.get("core.rate_limiter")
         if limiter is None:
             return
-        client = request.client
-        host = client.host if client else "unknown"
+        host = _client_host(request)
         # include the path so each endpoint has its own bucket
         key = f"{host}:{request.url.path}"
         if not await limiter.is_allowed(key, self.limit, self.window):
@@ -136,6 +149,21 @@ class RateLimitDep:
                 detail="rate_limit",
                 headers={"Retry-After": str(int(self.window))},
             )
+
+
+def _client_host(request: Request) -> str:
+    """Pick the client IP, preferring the rightmost X-Forwarded-For value.
+
+    The rightmost entry is the closest trusted proxy and cannot be spoofed by
+    the original client; it falls back to the transport-level peer.
+    """
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        parts = [p.strip() for p in xff.split(",") if p.strip()]
+        if parts:
+            return parts[-1]
+    client = request.client
+    return client.host if client else "unknown"
 
 
 def default_rate_limiter(settings: Any) -> RateLimiter:

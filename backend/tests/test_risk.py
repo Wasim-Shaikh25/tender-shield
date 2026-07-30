@@ -28,8 +28,8 @@ def test_severity_rules_from_pack():
 
 
 def test_severity_missing_facts_default_and_bad_rule_fallback():
-    # missing name → 0 → falls through
-    assert evaluate_severity("critical if cap_absent else low", {}) == "low"
+    # missing fact is an error → falls back to default instead of silently 0
+    assert evaluate_severity("critical if cap_absent else low", {}) == "medium"
     # malformed rule → default
     assert evaluate_severity("this is not valid python !!", {}) == "medium"
     # non-severity result → default

@@ -65,3 +65,16 @@ class WorkspaceAdmin:
             workspace.plan = plan
             if commit:
                 self.s.commit()
+
+    def get_billing_settings(self, workspace_id) -> dict:
+        workspace = self.get(workspace_id)
+        if workspace is None:
+            return {}
+        return workspace.billing_settings or {}
+
+    def set_billing_settings(self, workspace_id, settings: dict, *, commit: bool = True) -> None:
+        workspace = self.get(workspace_id)
+        if workspace:
+            workspace.billing_settings = settings
+            if commit:
+                self.s.commit()

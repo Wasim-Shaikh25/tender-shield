@@ -1,8 +1,8 @@
 # Internal Accuracy Dashboard — Spec
 
-**Status:** implemented (TS-057)  
-**Requirement refs:** Phase 1.5 doc §10  
-**Task ref:** TS-057
+**Status:** implemented (TS-057, expanded TS-174)  
+**Requirement refs:** Phase 1.5 doc §10, user request (end-to-end scenarios §64)  
+**Task refs:** TS-057, TS-174
 
 ## Purpose
 
@@ -21,6 +21,10 @@ performance telemetry.
 - **Events:** none.
 - **API routes** (prefix `/api/analytics`):
   - `GET /accuracy` — admin-only accuracy dashboard.
+  - `GET /risk-summary` — workspace risk findings grouped by severity and category.
+  - `GET /deadline-dashboard` — opportunities expiring in 7/15/30 days and overdue.
+  - `GET /boq-defect-summary` — BOQ defects by trade and defect type.
+  - `POST /reports/export` — export a filtered report to CSV/XLSX/PDF.
 
 ## Data owned
 
@@ -45,6 +49,16 @@ None. Read-only aggregator over findings and opportunities.
   descending.
 - **B7 — Graceful degradation.** If `findings` is unavailable the dashboard
   returns zeros/nulls, never 500.
+- **B8 — Risk summary.** `GET /risk-summary` returns counts of findings by
+  `severity` and `category` for the workspace, plus a total exposure in minor units.
+- **B9 — Deadline dashboard.** `GET /deadline-dashboard` returns opportunities
+  grouped by `overdue`, `7_days`, `15_days`, `30_days`, and `later`, based on the
+  earliest `submission_due` for each opportunity.
+- **B10 — BOQ defect summary.** `GET /boq-defect-summary` returns BOQ findings
+  (`producer='boq'`) grouped by `affected_trades` and `category`.
+- **B11 — Report export.** `POST /reports/export` accepts `format` (`csv|xlsx|pdf`)
+  and `filter` (`risk|boq|deadlines|all`) and returns a downloadable file. Export
+  runs are bounded by the workspace context and respect date-range filters.
 
 ## Response shape
 
@@ -77,6 +91,11 @@ None. Read-only aggregator over findings and opportunities.
 - A2: Summary counts match the org's findings review states.
 - A3: Per-pattern precision is consistent with the summary formula.
 - A4: The dashboard degrades to zeros when no findings exist.
+- A5: `GET /risk-summary` matches the workspace's findings by severity/category.
+- A6: `GET /deadline-dashboard` buckets opportunities by submission due date.
+- A7: `GET /boq-defect-summary` groups only findings with `producer='boq'`.
+- A8: `POST /reports/export` returns a downloadable file and rejects unsupported
+  formats with `400`.
 
 ## Out of scope
 

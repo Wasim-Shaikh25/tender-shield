@@ -6,8 +6,11 @@ proxies where real golden labels are absent.
 
 from __future__ import annotations
 
+import csv
+import io
 from collections import Counter, defaultdict
 from collections.abc import Callable
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
@@ -160,3 +163,175 @@ class AnalyticsService:
             for r in ranked
             if r["rejected"] + r["false_positive"] > 0
         ]
+
+    def risk_summary(self, workspace_id) -> dict:
+        findings = self._findings(workspace_id)
+        risk = [f for f in findings if getattr(f, "producer", "unknown") != "boq"]
+        by_severity: dict[str, int] = Counter()
+        by_category: dict[str, int] = Counter()
+        total_exposure = 0
+        for f in risk:
+            by_severity[getattr(f, "severity", "unknown")] += 1
+            by_category[getattr(f, "category", "unknown")] += 1
+            total_exposure += getattr(f, "amount_exposure", 0) or 0
+        return {
+            "total": len(risk),
+            "by_severity": dict(by_severity),
+            "by_category": dict(by_category),
+            "total_exposure_minor": total_exposure,
+        }
+
+    def deadline_dashboard(self, workspace_id) -> dict:
+        opportunities = []
+        if self._ingestion_factory:
+            ing = self._ingestion_factory(self.s)
+            if hasattr(ing, "list_opportunities"):
+                opportunities = ing.list_opportunities(workspace_id)
+        now = datetime.now(UTC)
+        buckets: dict[str, list[str]] = {
+            "overdue": [], "7_days": [], "15_days": [], "30_days": [], "later": []
+        }
+        for opp in opportunities:
+            due = getattr(opp, "submission_due", None)
+            if due is None:
+                buckets["later"].append(str(opp.id))
+                continue
+            if due.tzinfo is None:
+                due = due.replace(tzinfo=UTC)
+            delta = (due - now).days
+            if delta < 0:
+                buckets["overdue"].append(str(opp.id))
+            elif delta <= 7:
+                buckets["7_days"].append(str(opp.id))
+            elif delta <= 15:
+                buckets["15_days"].append(str(opp.id))
+            elif delta <= 30:
+                buckets["30_days"].append(str(opp.id))
+            else:
+                buckets["later"].append(str(opp.id))
+        return {"now": now.isoformat(), "buckets": buckets}
+
+    def boq_defect_summary(self, workspace_id) -> dict:
+        findings = self._findings(workspace_id)
+        boq = [f for f in findings if getattr(f, "producer", None) == "boq"]
+        by_trade: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        for f in boq:
+            trades = getattr(f, "affected_trades", []) or ["unknown"]
+            category = getattr(f, "category", "unknown")
+            for trade in trades:
+                by_trade[trade][category] += 1
+        return {"total": len(boq), "by_trade": {k: dict(v) for k, v in by_trade.items()}}
+
+    def export_report(self, workspace_id, filter_type: str, format: str) -> dict:
+        if filter_type == "risk":
+            rows = self._findings(workspace_id)
+        elif filter_type == "boq":
+            rows = [
+                f for f in self._findings(workspace_id)
+                if getattr(f, "producer", None) == "boq"
+            ]
+        elif filter_type == "deadlines":
+            rows = []
+            if self._ingestion_factory:
+                ing = self._ingestion_factory(self.s)
+                if hasattr(ing, "list_opportunities"):
+                    rows = ing.list_opportunities(workspace_id)
+        elif filter_type == "all":
+            rows = self._findings(workspace_id)
+        else:
+            raise ValueError("invalid_filter")
+
+        if format == "csv":
+            return self._to_csv(rows, filter_type)
+        if format == "xlsx":
+            return self._to_xlsx(rows, filter_type)
+        raise ValueError("invalid_format")
+
+    def _to_csv(self, rows: list, kind: str) -> dict:
+        output = io.StringIO()
+        if kind == "deadlines":
+            writer = csv.DictWriter(output, fieldnames=["id", "title", "submission_due"])
+            writer.writeheader()
+            for r in rows:
+                writer.writerow(
+                    {
+                        "id": str(getattr(r, "id", "")),
+                        "title": getattr(r, "title", ""),
+                        "submission_due": (
+                            getattr(r, "submission_due", "").isoformat()
+                            if getattr(r, "submission_due", None)
+                            else ""
+                        ),
+                    }
+                )
+        else:
+            writer = csv.DictWriter(
+                output,
+                fieldnames=[
+                    "id", "kind", "category", "severity", "title", "producer",
+                    "amount_exposure",
+                ],
+            )
+            writer.writeheader()
+            for r in rows:
+                writer.writerow(
+                    {
+                        "id": str(getattr(r, "id", "")),
+                        "kind": getattr(r, "kind", ""),
+                        "category": getattr(r, "category", ""),
+                        "severity": getattr(r, "severity", ""),
+                        "title": getattr(r, "title", ""),
+                        "producer": getattr(r, "producer", ""),
+                        "amount_exposure": getattr(r, "amount_exposure", 0),
+                    }
+                )
+        return {
+            "content": output.getvalue().encode("utf-8"),
+            "content_type": "text/csv",
+            "filename": f"{kind}_report.csv",
+        }
+
+    def _to_xlsx(self, rows: list, kind: str) -> dict:
+        from openpyxl import Workbook
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Report"
+        if kind == "deadlines":
+            ws.append(["id", "title", "submission_due"])
+            for r in rows:
+                ws.append(
+                    [
+                        str(getattr(r, "id", "")),
+                        getattr(r, "title", ""),
+                        (
+                            getattr(r, "submission_due", "").isoformat()
+                            if getattr(r, "submission_due", None)
+                            else ""
+                        ),
+                    ]
+                )
+        else:
+            ws.append([
+                "id", "kind", "category", "severity", "title", "producer",
+                "amount_exposure",
+            ])
+            for r in rows:
+                ws.append(
+                    [
+                        str(getattr(r, "id", "")),
+                        getattr(r, "kind", ""),
+                        getattr(r, "category", ""),
+                        getattr(r, "severity", ""),
+                        getattr(r, "title", ""),
+                        getattr(r, "producer", ""),
+                        getattr(r, "amount_exposure", 0),
+                    ]
+                )
+        output = io.BytesIO()
+        wb.save(output)
+        return {
+            "content": output.getvalue(),
+            "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "filename": f"{kind}_report.xlsx",
+        }

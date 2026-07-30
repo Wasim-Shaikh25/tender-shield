@@ -2,7 +2,7 @@
 
 **Status:** implemented — free-tier metering + paywall (pure), Razorpay webhook (HMAC-verified, idempotent, payment_log ledger), plan activation via webhook only; checkout returns a handle (live keys wire in later); GST invoice computation (CGST/SGST vs IGST + sequential numbering) done; Stripe webhook verification and processing implemented (credential-gated); Razorpay/Stripe provider skeletons in place
 **Requirement refs:** Doc §7, §15, §16.5
-**Task refs:** TS-022, TS-037
+**Task refs:** TS-022, TS-037, TS-172
 
 ## Purpose
 
@@ -28,6 +28,9 @@ invoicing, and the append-only `payment_log`.
   - `POST /api/billing/checkout` (admin)
   - `POST /api/billing/authorize-review` (estimator)
   - `GET /api/billing/invoices` (viewer)
+  - `GET /api/billing/settings` (admin)
+  - `PUT /api/billing/settings` (admin)
+  - `POST /api/billing/cancel` (admin — cancel subscription and downgrade to free)
   - `POST /api/billing/webhooks/razorpay` (unauthenticated, HMAC-verified)
   - `POST /api/billing/webhooks/stripe` (unauthenticated, signature-verified)
 
@@ -74,6 +77,14 @@ intents, webhook-dedup records, plan state on `orgs`.
 - **B15 (Stripe verifier):** Stripe webhook signature verification only treats
   `SignatureVerificationError` and `ValueError` as a bad signature; all other SDK or
   runtime errors propagate so silent failures do not swallow billing outages.
+- **B16 (Billing settings):** `GET/PUT /api/billing/settings` lets workspace admins
+  store a billing profile (GSTIN, PAN, billing address, state, payment method
+  identifier) on the workspace. GSTIN and PAN are validated for Indian workspaces
+  (15 and 10 characters respectively); invalid values return `400`.
+- **B17 (Subscription cancel):** `POST /api/billing/cancel` allows a workspace admin
+  to cancel a paid subscription immediately. The workspace plan is set to `free`,
+  `free_review_used` is reset to `false`, and a `billing.subscription_cancelled`
+  event is recorded in `payment_log`.
 
 ## Acceptance criteria
 
@@ -90,6 +101,10 @@ intents, webhook-dedup records, plan state on `orgs`.
 - A7: Stripe checkout `success_url`/`cancel_url` are derived from `TS_APP_URL`.
 - A8: a malformed Stripe payload or invalid signature returns a 400 without raising,
   but a Stripe SDK outage raises.
+- A9: `PUT /api/billing/settings` validates GSTIN length 15 and PAN length 10 for
+  Indian workspaces and persists the billing profile.
+- A10: `POST /api/billing/cancel` downgrades the workspace to `free`, resets
+  `free_review_used`, and writes a `subscription_cancelled` payment log row.
 
 ## Out of scope
 

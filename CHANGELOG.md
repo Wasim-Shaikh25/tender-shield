@@ -6,6 +6,24 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-30 (TS-170: admin, billing self-service, support tickets, analytics, audit-log search)
+
+- Admin user/workspace management: `User.suspended_at`/`suspended_by`, workspace `billing_settings`;
+  new `/api/auth/admin/dashboard`, `/api/auth/admin/users/search`, `/api/auth/admin/users/{id}`
+  (detail, suspend, unsuspend, delete), and `/api/auth/admin/workspaces/{id}/plan`.
+- Billing self-service: `GET/PUT /api/billing/settings` for billing address/GSTIN/payment method,
+  and `POST /api/billing/cancel` to downgrade a paid workspace to `free`.
+- New `support` module: workspace-scoped `support_tickets`, `support_ticket_replies`,
+  `support_attachments`; `POST /api/support/tickets`, `GET /api/support/tickets/{id}`,
+  `POST /api/support/tickets/{id}/replies`, `POST /api/support/tickets/{id}/attachments`,
+  plus super-admin ticket management under `/api/support/admin/tickets`.
+- Analytics reports: `GET /api/analytics/risk-summary`, `deadline-dashboard`, `boq-defect-summary`,
+  and `POST /api/analytics/reports/export` (`csv`/`xlsx`).
+- Observability log search: super-admin `GET /api/auth/admin/audit-log` with workspace,
+  action, object_type, actor, and date filters.
+- Alembic migration `f94c5d977344` adds the new auth columns and support tables.
+- Backend: `ruff`, `mypy`, `pytest` clean; `alembic upgrade head` passes.
+
 ### Done — 2026-07-29 (PR consolidation)
 
 - Merged the two older audit-only branches (`devin/fourth-round-audit` and

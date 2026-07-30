@@ -4,7 +4,7 @@
 is created explicitly after login; platform-only registration/login; email + mobile verification;
 OTP required on every login. Social login (Google/Apple) removed.
 **Requirement refs:** Doc §5, §3.2, §16; user request (account-first, OTP login)
-**Task refs:** TS-011, TS-012, TS-035, TS-036, TS-074..TS-078, TS-079, TS-106, TS-163
+**Task refs:** TS-011, TS-012, TS-035, TS-036, TS-074..TS-078, TS-079, TS-106, TS-163, TS-171
 
 ## Purpose
 
@@ -39,11 +39,21 @@ application-owner endpoints under `/api/auth/admin/*`.
   - `/api/auth/mfa/enroll` + `/api/auth/mfa/verify`
   - `/api/auth/workspaces/{id}/switch`
   - `/api/auth/admin/*` (super-admin only: list/create users, set superadmin, list workspaces)
+  - `/api/auth/admin/users/search` (super-admin: search by email, phone, org_name, workspace name)
+  - `/api/auth/admin/users/{id}` (super-admin: user detail, including workspaces and last login)
+  - `/api/auth/admin/users/{id}/suspend` (super-admin: suspend account)
+  - `/api/auth/admin/users/{id}/unsuspend` (super-admin: restore account)
+  - `/api/auth/admin/users/{id}` (DELETE — super-admin: delete user account)
+  - `/api/auth/admin/workspaces/{id}` (super-admin: workspace detail, members, invoices)
+  - `/api/auth/admin/workspaces/{id}/plan` (super-admin: change workspace plan)
+  - `/api/auth/admin/dashboard` (super-admin: KPI summary)
+  - `/api/auth/admin/audit-log` (super-admin: search audit log by workspace/action/object/actor/date)
 
 ## Data owned
 
 `users` (`email`, `phone` unique, `password_hash`, `org_name`, `dob`, `city`,
-`email_verified`, `mobile_verified`, `is_superadmin`, `mfa_method`, `mfa_phone`),
+`email_verified`, `mobile_verified`, `is_superadmin`, `suspended_at`, `suspended_by`,
+`mfa_method`, `mfa_phone`),
 `mobile_verifications`, `workspaces`, `workspace_members`, `projects`, `project_members`,
 `invitations`, `password_resets`, `refresh_tokens` (family-tracked).
 
@@ -107,6 +117,23 @@ application-owner endpoints under `/api/auth/admin/*`.
   `accept_invitation` enforce the workspace plan's seat cap. A pending invitation
   reserves a seat until it is revoked, expires, or accepted. The canonical seat
   limits are shared by the billing module through the registry (`billing.seat_limits`).
+- **B23 — Account suspension:** super-admins can suspend a user via
+  `POST /api/auth/admin/users/{id}/suspend`. A suspended user cannot log in; any
+  active refresh tokens are revoked. `POST .../unsuspend` restores access. Suspension
+  sets `suspended_at` and records `suspended_by`; login checks `suspended_at` before
+  password verification and returns `account_suspended`.
+- **B24 — Admin user search:** super-admins can search users by email, phone,
+  `org_name`, or workspace name. Results are paginated and never expose password
+  hashes, MFA secrets, or verification tokens.
+- **B25 — Admin user detail and deletion:** super-admins can view a user, their
+  workspaces, and delete the account. Deletion follows the same workspace-scoped
+  erasure flow as self-service `DELETE /api/auth/account`.
+- **B26 — Admin workspace plan change:** super-admins can change a workspace plan
+  through `POST /api/auth/admin/workspaces/{id}/plan`. The change is logged to the
+  audit trail and reflected in the workspace's billing status.
+- **B27 — Admin dashboard KPIs:** `GET /api/auth/admin/dashboard` returns counts of
+  total users, suspended users, active workspaces, pending verifications, and
+  recent sign-ups (last 30 days).
 
 ## Acceptance criteria
 
@@ -164,6 +191,14 @@ application-owner endpoints under `/api/auth/admin/*`.
 - A30: `DELETE /api/auth/account` requires the caller's password and `confirm=true`. It
   deletes the user row and, before cascading, explicitly erases all workspace-scoped rows
   in any workspace the user belongs to. This implements the GDPR/DPDP right to erasure.
+- A31: `POST /api/auth/admin/users/{id}/suspend` revokes the user's refresh tokens
+  and subsequent logins return `account_suspended`.
+- A32: `GET /api/auth/admin/users/search` and `GET /api/auth/admin/users` never
+  include `password_hash`, `mfa_*` secrets, or verification token hashes.
+- A33: `GET /api/auth/admin/dashboard` returns total users, suspended users,
+  active workspaces, pending verifications, and recent sign-ups.
+- A34: `POST /api/auth/admin/workspaces/{id}/plan` updates the workspace plan and
+  logs an `admin.workspace_plan_changed` audit event.
 
 ## Out of scope
 

@@ -12,7 +12,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.db import Base, bind_workspace_context
@@ -160,6 +160,8 @@ class AuthService:
         now = datetime.now(UTC)
         if user and user.locked_until and user.locked_until > now:
             raise AuthError("account_locked")
+        if user and user.suspended_at:
+            raise AuthError("account_suspended")
 
         if (
             not user
@@ -1210,6 +1212,161 @@ class AuthService:
             "mobile_verified": user.mobile_verified,
         }
 
+    # ---- super-admin user/workspace management -----------------------------
+
+    def search_users(self, query: str | None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        stmt = select(User)
+        if query:
+            like = f"%{query}%"
+            stmt = stmt.where(
+                or_(
+                    User.email.ilike(like),
+                    User.phone.ilike(like),
+                    User.org_name.ilike(like),
+                )
+            )
+        total = self.s.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+        users = list(
+            self.s.scalars(stmt.order_by(User.created_at.desc()).limit(limit).offset(offset))
+        )
+        return {"total": total, "items": [self._user_summary(u) for u in users]}
+
+    def get_user(self, user_id) -> dict:
+        user = self.s.get(User, uuid.UUID(str(user_id)))
+        if not user:
+            raise AuthError("no_such_user")
+        return self._user_detail(user)
+
+    def suspend_user(self, user_id, admin_user_id) -> dict:
+        user = self.s.get(User, uuid.UUID(str(user_id)))
+        if not user:
+            raise AuthError("no_such_user")
+        user.suspended_at = datetime.now(UTC)
+        user.suspended_by = uuid.UUID(str(admin_user_id))
+        # revoke all refresh tokens for this user
+        for row in self.s.scalars(
+            select(RefreshToken).where(RefreshToken.user_id == user.id)
+        ):
+            row.revoked = True
+        self.s.commit()
+        return self._user_summary(user)
+
+    def unsuspend_user(self, user_id) -> dict:
+        user = self.s.get(User, uuid.UUID(str(user_id)))
+        if not user:
+            raise AuthError("no_such_user")
+        user.suspended_at = None
+        user.suspended_by = None
+        self.s.commit()
+        return self._user_summary(user)
+
+    def admin_delete_user(self, user_id) -> None:
+        """Super-admin deletion of a user account."""
+        uid = uuid.UUID(str(user_id))
+        user = self.s.get(User, uid)
+        if not user:
+            raise AuthError("no_such_user")
+        # reuse the workspace-scoped erasure logic from delete_account
+        self._erase_user(user)
+
+    def get_workspace_detail(self, workspace_id) -> dict:
+        ws = self.s.get(Workspace, uuid.UUID(str(workspace_id)))
+        if not ws:
+            raise AuthError("no_such_workspace")
+        owner = self.s.get(User, ws.owner_id)
+        members = [
+            {"user_id": str(m.user_id), "role": m.role}
+            for m in self.s.scalars(
+                select(WorkspaceMember).where(WorkspaceMember.workspace_id == ws.id)
+            )
+        ]
+        return {
+            "workspace_id": str(ws.id),
+            "name": ws.name,
+            "slug": ws.slug,
+            "owner_id": str(ws.owner_id),
+            "owner_email": owner.email if owner else None,
+            "plan": ws.plan,
+            "country": ws.country,
+            "billing_provider": ws.billing_provider,
+            "member_count": len(members),
+            "members": members,
+        }
+
+    def set_workspace_plan(self, workspace_id, plan: str, admin_user_id) -> dict:
+        ws = self.s.get(Workspace, uuid.UUID(str(workspace_id)))
+        if not ws:
+            raise AuthError("no_such_workspace")
+        old = ws.plan
+        ws.plan = plan
+        self.s.commit()
+        self._audit(
+            workspace_id=ws.id,
+            actor_user_id=admin_user_id,
+            action="admin.workspace_plan_changed",
+            object_type="workspace",
+            object_id=ws.id,
+            detail={"old_plan": old, "new_plan": plan},
+        )
+        return self.get_workspace_detail(workspace_id)
+
+    def admin_dashboard(self) -> dict:
+        now = datetime.now(UTC)
+        thirty_days_ago = now - timedelta(days=30)
+        total_users = self.s.scalar(select(func.count(User.id)))
+        suspended_users = self.s.scalar(
+            select(func.count(User.id)).where(User.suspended_at.isnot(None))
+        )
+        active_workspaces = self.s.scalar(select(func.count(Workspace.id)))
+        pending_verifications = self.s.scalar(
+            select(func.count(User.id)).where(
+                or_(User.email_verified.is_(False), User.mobile_verified.is_(False))
+            )
+        )
+        recent_signups = self.s.scalar(
+            select(func.count(User.id)).where(User.created_at >= thirty_days_ago)
+        )
+        return {
+            "total_users": total_users or 0,
+            "suspended_users": suspended_users or 0,
+            "active_workspaces": active_workspaces or 0,
+            "pending_verifications": pending_verifications or 0,
+            "recent_signups": recent_signups or 0,
+        }
+
+    def _user_summary(self, user: User) -> dict:
+        return {
+            "user_id": str(user.id),
+            "email": user.email,
+            "phone": user.phone,
+            "org_name": user.org_name,
+            "city": user.city,
+            "email_verified": user.email_verified,
+            "mobile_verified": user.mobile_verified,
+            "is_superadmin": user.is_superadmin,
+            "suspended_at": user.suspended_at.isoformat() if user.suspended_at else None,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+        }
+
+    def _user_detail(self, user: User) -> dict:
+        workspaces = [
+            {"workspace_id": str(w.id), "name": w.name, "role": "owner"}
+            for w in self.s.scalars(select(Workspace).where(Workspace.owner_id == user.id))
+        ]
+        for m in self.s.scalars(
+            select(WorkspaceMember).where(WorkspaceMember.user_id == user.id)
+        ):
+            ws = self.s.get(Workspace, m.workspace_id)
+            if ws:
+                workspaces.append(
+                    {"workspace_id": str(ws.id), "name": ws.name, "role": m.role}
+                )
+        return {
+            **self._user_summary(user),
+            "dob": user.dob.isoformat() if user.dob else None,
+            "workspaces": workspaces,
+        }
+
     def _revoke_family(self, family_id) -> None:
         for row in self.s.scalars(select(RefreshToken).where(RefreshToken.family_id == family_id)):
             row.revoked = True
@@ -1293,7 +1450,11 @@ class AuthService:
             raise AuthError("user_not_found")
         if not sec.verify_password(password, user.password_hash):
             raise AuthError("invalid_password")
+        self._erase_user(user)
 
+    def _erase_user(self, user: User) -> None:
+        """Internal account erasure; used by self-service and super-admin deletion."""
+        uid = user.id
         ws_ids = self._user_workspaces(uid)
         if ws_ids:
             # Nullify self-referential foreign keys inside the workspace tables to avoid
@@ -1326,3 +1487,4 @@ class AuthService:
         # The auth tables have ON DELETE CASCADE to users. Deleting the user row
         # removes workspaces, projects, memberships, refresh tokens, etc.
         self.s.delete(user)
+        self.s.commit()

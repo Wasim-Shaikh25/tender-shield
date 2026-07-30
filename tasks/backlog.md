@@ -278,3 +278,9 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-167 | Expand end-to-end scenarios to cover security, concurrency, performance, compliance, integrations, and edge cases | user request | `evals/e2e/scenarios.md` | done |
 | TS-168 | Add assistant non-risk scenarios and sample tender/Q&A fixtures to end-to-end tests | user request | `evals/e2e/scenarios.md`, `evals/e2e/fixtures/` | done |
 | TS-169 | Add account settings, admin, payment settings, tickets, user analysis, and log-observability end-to-end scenarios | user request | `evals/e2e/scenarios.md` | done |
+| TS-170 | Implement missing admin, billing self-service, support tickets, user analytics, and observability log features (parent) | user request; scenarios TS-169 | `tasks/backlog.md`, `specs/modules/auth.md`, `specs/modules/billing.md`, `specs/modules/support.md`, `specs/modules/analytics.md`, `specs/modules/admin.md` | done |
+| TS-171 | Admin user/workspace management: suspend/unsuspend/delete/search user, workspace detail, plan change | TS-170 | `backend/app/modules/auth/`, `specs/modules/auth.md` | done |
+| TS-172 | Billing self-service: payment settings, subscription/cancel plan | TS-170 | `backend/app/modules/billing/`, `specs/modules/billing.md` | done |
+| TS-173 | Support tickets module: create/reply/admin manage tickets with attachments | TS-170 | `backend/app/modules/support/`, `specs/modules/support.md` | done |
+| TS-174 | User analysis/reports: risk summary, deadline dashboard, BOQ defect summary, report export | TS-170 | `backend/app/modules/analytics/`, `specs/modules/analytics.md` | done |
+| TS-175 | Observability log search: admin audit-log/log search with filters | TS-170 | `backend/app/core/audit.py`, `backend/app/modules/auth/router.py`, `specs/modules/admin.md` | done |

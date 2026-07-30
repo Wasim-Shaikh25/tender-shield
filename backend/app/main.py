@@ -26,7 +26,7 @@ from app.core.ratelimit import default_rate_limiter
 from app.core.registry import ServiceRegistry
 from app.core.scheduler import Scheduler
 from app.core.sentry import init_sentry
-from app.core.storage import StorageError, get_storage
+from app.core.storage import StorageError, get_storage, sanitize_filename
 
 logger = logging.getLogger(__name__)
 
@@ -65,9 +65,9 @@ def _validate_prod_settings(settings: Settings) -> None:
         errors.append("TS_RAZORPAY_WEBHOOK_SECRET is required in production")
     if not settings.jwt_private_key or not settings.jwt_public_key:
         errors.append("TS_JWT_PRIVATE_KEY and TS_JWT_PUBLIC_KEY are required in production")
-    if settings.cors_origins == "*":
+    if not settings.cors_origin_list() or "*" in settings.cors_origin_list():
         errors.append("TS_CORS_ORIGINS must be explicit in production (no wildcard)")
-    if settings.allowed_hosts == "*":
+    if not settings.allowed_host_list() or "*" in settings.allowed_host_list():
         errors.append("TS_ALLOWED_HOSTS must be explicit in production (no wildcard)")
 
     # Reject obviously dev/test placeholder secrets.
@@ -181,12 +181,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             data = await storage.read(key)
         except StorageError:
             raise HTTPException(404, "not_found") from None
-        filename = _pathlib.Path(key).name
+        filename = sanitize_filename(_pathlib.Path(key).name)
         content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        # Escape quotes inside the filename to prevent header injection.
+        escaped = filename.replace("\\", "\\\\").replace('"', '\\"')
         return StreamingResponse(
             iter([data]),
             media_type=content_type,
-            headers={"Content-Disposition": f"attachment; filename={filename}"},
+            headers={"Content-Disposition": f'attachment; filename="{escaped}"'},
         )
 
     report.loaded = [s for s in report.loaded if s.name not in report.failed]

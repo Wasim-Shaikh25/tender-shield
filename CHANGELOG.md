@@ -118,6 +118,14 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   typed API client; added `AccountSettings` type.
 - Updated `specs/frontend.md` with `/settings` structure, behavior B9, and acceptance A8.
 
+### Done — 2026-07-30 (TS-154 / TS-144: CORS/allowed-hosts wildcard guard and filename sanitization)
+
+- Production startup guard now rejects wildcard (`*`) in `TS_CORS_ORIGINS` and
+  `TS_ALLOWED_HOSTS` even when hidden in a comma-separated list.
+- Added `app.core.storage.sanitize_filename` and applied it to storage keys and the
+  `/api/files/{key}` `Content-Disposition` header to prevent response-splitting.
+- Updated `specs/modules/core.md`, `tests/test_main.py`, and `tasks/backlog.md`.
+
 ### Done — 2026-07-30 (TS-108: observability, health probes, and backup/rollback docs)
 
 - Added `/api/health/live` (liveness) and `/api/health/ready` (readiness) endpoints.

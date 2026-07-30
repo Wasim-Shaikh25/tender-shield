@@ -289,3 +289,4 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-178 | Add OpenTelemetry tracing and self-hosted Jaeger/Grafana observability stack with automation to verify traces | user request | `backend/app/core/tracing.py`, `docker-compose.yml`, `docs/runbooks/observability.md`, `scripts/verify-traces.sh` | done |
 | TS-179 | Update testing skill with observability demo notes (Jaeger/Grafana/network) | TS-178 | `.agents/skills/testing-tendershield/SKILL.md` | done |
 | TS-180 | Add request access logging and enrich traces with user/workspace/ticket attributes for observability | user request | `backend/app/core/logging_middleware.py`, `backend/app/core/tracing.py`, `backend/app/core/deps.py` | done |
+| TS-181 | Fix `tendershield.access` logger handler so access logs print without custom uvicorn config | TS-180 follow-up | `backend/app/main.py` | done |

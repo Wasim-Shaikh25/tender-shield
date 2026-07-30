@@ -1,8 +1,8 @@
 # Assistant ("Ask TenderShield") — Spec
 
-**Status:** implemented — grounded, tool-first Q&A: deterministic intents (deadlines, findings by severity, missing docs, rule-pack lookup) with citations work with no key; off-topic questions refused; free-form questions use an injected LLM agent only when ANTHROPIC_API_KEY is set (grounded-only). Versioned artifact-edit tool is a follow-up.
-**Requirement refs:** Doc §8
-**Task refs:** TS-024
+**Status:** implemented — grounded, tool-first Q&A: deterministic intents (deadlines, findings by severity, missing docs, rule-pack lookup) with citations work with no key; off-topic questions refused; free-form questions use an injected LLM agent only when ANTHROPIC_API_KEY is set (grounded-only). User input is sanitized, delimited, and scanned for prompt-injection patterns before reaching the LLM. Versioned artifact-edit tool is a follow-up.
+**Requirement refs:** Doc §8, §11.3
+**Task refs:** TS-024, TS-112, TS-145
 
 ## Purpose
 
@@ -32,9 +32,11 @@ capability, not direct table access.
 ## Behavior
 
 - **B1 (grounded-only):** answers only from tool results; nothing relevant →
-  says so; general questions → polite refusal. User input is wrapped in data-only
-  delimiters and run through a lightweight prompt-injection classifier; the response
-  is rejected if it cites pages not present in the tool context.
+  says so; general questions → polite refusal. User input is sanitized and
+  wrapped in data-only `<user_query>` / `<tool_results>` delimiters by
+  `app.core.prompt_guard`; a lightweight prompt-injection classifier rejects
+  the request if it matches common override/jailbreak patterns. The response is
+  rejected if it cites pages not present in the tool context.
 - **B2 (tools):** `search_docs`, `list_deadlines`, `filter_findings`,
   `boq_query` (safe filter), `rulepack_lookup`, `regenerate_artifact_section`
   (versioned edit — never mutates approved artifacts, requires UI confirmation).
@@ -53,6 +55,8 @@ capability, not direct table access.
 - A3: `AnthropicAgent` uses a valid, current Anthropic model identifier.
 - A4: a prompt-injection attempt returns the grounded-only refusal.
 - A5: a response citing a page not in tool context is rejected.
+- A6: `app.core.prompt_guard.sanitize_message` caps length and strips attempts to
+  close `<user_query>` / `<tool_results>` tags from user content.
 
 ## Out of scope
 

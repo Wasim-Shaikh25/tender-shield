@@ -189,7 +189,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-109 | Enforce plan seat limits in `add_workspace_member` and `accept_invitation` | audit TS-B03; Doc §7 | `specs/modules/billing.md` (update) | done |
 | TS-110 | tus: `201` + `Location` header, shared chunk state, TTL sweeper, `upload_id` validation | audit TS-I03; Doc §11.1 | `specs/modules/ingestion.md` (update) | done |
 | TS-111 | Deadline-alert deduplication table and per-user notification preferences | audit TS-N01; Doc §11.6 | `specs/modules/notifications.md` (update) | done |
-| TS-112 | Prompt-injection hardening: delimit untrusted tender text; adversarial eval fixtures | audit TS-P01; Doc §11.3 | `specs/modules/assistant.md` (update) | todo |
+| TS-112 | Prompt-injection hardening: delimit untrusted tender text; adversarial eval fixtures | audit TS-P01; Doc §11.3 | `specs/modules/assistant.md` (update) | done |
 | TS-113 | Replace the virus-scan stub with a real scanner; quarantine on detection | audit TS-S01; Doc §11.2 | `specs/modules/core.md` (update) | done |
 | TS-114 | Remove the cross-module FK `findings.opportunity_id → opportunities`; add a metadata architecture test | audit TS-X01; `CLAUDE.md` §2 | `specs/modules/findings.md`, `specs/data-model.md` (update) | todo |
 | TS-115 | Extend the production startup guard (Stripe secret, Redis, cookie policy, keypair parse) | audit TS-S02; Doc §11 | `specs/modules/core.md` (update) | done |

@@ -3,8 +3,8 @@
 **Status:** implemented — retrieval, deterministic severity, quote verification,
 absence detection, explainability (TS-017, TS-054). LLM classifier is injected
 (NullClassifier without a key; AnthropicClassifier with one).
-**Requirement refs:** Doc §6.3, Phase 1.5 doc §5
-**Task refs:** TS-017, TS-054
+**Requirement refs:** Doc §6.3, §11.3
+**Task refs:** TS-017, TS-054, TS-112
 
 ## Purpose
 
@@ -59,6 +59,9 @@ provenance and deterministic severity.
 - **B9 (classifier robustness):** `AnthropicClassifier` extracts only the JSON
   array from the response, validates each row against a strict schema, drops malformed
   rows, and fails closed (returns empty list) on any parse or network error.
+- **B10 (prompt-injection guard):** `AnthropicClassifier` wraps all tender text in
+  `<clauses>` delimiters and skips classification if `pattern.judgment_prompt` matches
+  common override/jailbreak patterns.
 
 ## Acceptance criteria
 
@@ -73,6 +76,8 @@ provenance and deterministic severity.
   treats an absent fact as `0`/`False`.
 - A8: `AnthropicClassifier` rejects non-array or schema-invalid LLM output and
   returns an empty classification list without raising.
+- A9: `AnthropicClassifier` returns an empty list when the pattern prompt matches
+  common prompt-injection/jailbreak markers.
 
 ## Out of scope
 

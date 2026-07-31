@@ -38,3 +38,9 @@ class FindingRow(Base, WorkspaceScopedMixin):
     reviewed_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     explanation: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     disclaimer: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Reproducibility chain (TS-219).
+    rulepack_version: Mapped[str | None] = mapped_column(String, nullable=True)
+    model_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    prompt_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    document_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    engine_version: Mapped[str | None] = mapped_column(String, nullable=True)

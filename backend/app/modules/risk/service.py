@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from app.core.config import Settings
 from app.core.contracts.findings import Finding
+from app.core.provenance import document_set_hash, get_engine_version
 from app.modules.risk.classifier import NullClassifier
 from app.modules.risk.engine import run_patterns
 
@@ -65,6 +66,18 @@ class RiskService:
         opp = self._ingestion_factory(self.session).get_opportunity(workspace_id, opportunity_id)
         return {"employer_family": opp.employer_family} if opp else {}
 
+    def _document_hash(self, workspace_id, opportunity_id) -> str:
+        if not self._ingestion_factory:
+            return ""
+        docs = self._ingestion_factory(self.session).list_documents(workspace_id, opportunity_id)
+        return document_set_hash([d.sha256 for d in docs])
+
+    def _rulepack_version(self) -> str:
+        if not self._loader:
+            return "unknown"
+        pack = self._loader.get_pack(self._pack_id)
+        return pack.meta.version if pack else "unknown"
+
     def run_opportunity(self, workspace_id, opportunity_id) -> list[Finding]:
         if not self._loader:
             return []
@@ -84,8 +97,18 @@ class RiskService:
             )
         clauses = self._clauses(workspace_id, opportunity_id)
         facts = self._opp_facts(workspace_id, opportunity_id)
+        provenance = {
+            "rulepack_version": self._rulepack_version(),
+            "document_hash": self._document_hash(workspace_id, opportunity_id),
+            "engine_version": get_engine_version(),
+        }
         findings = run_patterns(
-            patterns, clauses, self._classifier, facts, disclaimer=disclaimer
+            patterns,
+            clauses,
+            self._classifier,
+            facts,
+            disclaimer=disclaimer,
+            provenance=provenance,
         )
         # Persist through the findings store when available (idempotent re-run);
         # if the findings module is disabled, still return the in-memory result.

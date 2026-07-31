@@ -66,3 +66,9 @@ class Finding(BaseModel):
     review_reason: str | None = None
     explanation: dict | None = None
     disclaimer: str | None = None
+    # Reproducibility chain (Strategy §C.7, TS-219) — pinned at producer run time.
+    rulepack_version: str | None = None
+    model_id: str | None = None
+    prompt_hash: str | None = None
+    document_hash: str | None = None
+    engine_version: str | None = None

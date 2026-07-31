@@ -108,4 +108,9 @@ class FindingStore:
             review_reason=f.review_reason,
             explanation=f.explanation,
             disclaimer=f.disclaimer,
+            rulepack_version=f.rulepack_version,
+            model_id=f.model_id,
+            prompt_hash=f.prompt_hash,
+            document_hash=f.document_hash,
+            engine_version=f.engine_version,
         )

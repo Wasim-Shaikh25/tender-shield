@@ -14,6 +14,7 @@ from collections.abc import Callable
 import pandas as pd
 
 from app.core.contracts.findings import Finding
+from app.core.provenance import ProvenanceStamp, content_hash, document_set_hash, stamp_findings
 from app.modules.boq.engine import (
     SpecTextIndex,
     normalize,
@@ -84,12 +85,31 @@ class BoqRunner:
         clauses = self._ingestion_factory(self.s).list_clauses(workspace_id, opportunity_id)
         return "\n".join(c.text for c in clauses)
 
+    def _document_hash(self, workspace_id, opportunity_id, csv_text: str) -> str:
+        digests: list[str] = []
+        if self._ingestion_factory:
+            docs = self._ingestion_factory(self.s).list_documents(workspace_id, opportunity_id)
+            digests.extend(d.sha256 for d in docs if d.sha256)
+        if csv_text:
+            digests.append(content_hash(csv_text))
+        return document_set_hash(digests)
+
+    def _provenance_stamp(self, workspace_id, opportunity_id, csv_text: str) -> ProvenanceStamp:
+        pack = self._engine._pack()
+        return ProvenanceStamp(
+            rulepack_version=pack.meta.version if pack else "unknown",
+            model_id="none",
+            document_hash=self._document_hash(workspace_id, opportunity_id, csv_text),
+        )
+
     def run_csv(self, workspace_id, opportunity_id, csv_text: str) -> list[Finding]:
         df = pd.read_csv(io.StringIO(csv_text))
         findings = self._engine.check_dataframe(df)
         spec_text = self._spec_text(workspace_id, opportunity_id)
         for checklist_id in self._engine.available_checklists():
             findings.extend(self._engine.scope_gaps(df, spec_text, checklist_id))
+        stamp = self._provenance_stamp(workspace_id, opportunity_id, csv_text)
+        findings = stamp_findings(findings, stamp)
         if self._store_factory is not None:
             self._store_factory(self.s).replace_for_producer(
                 workspace_id, opportunity_id, self.PRODUCER, findings

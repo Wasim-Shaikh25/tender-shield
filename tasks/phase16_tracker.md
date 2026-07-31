@@ -124,7 +124,7 @@ calendar-bound, not engineering-bound.
 | TS-216 | Award-record prefill | `outcomes` | 4 | P2 | todo | Degrades to manual when no match | TS-199, TS-215 |
 | TS-217 | Contradiction engine | `crossref` | 2 | P1 | **done** | Both sides keep citations; precedence from pack | — |
 | TS-218 | Correction loop | `rulepacks` | 1 | P2 | todo | Proposes only; never auto-mutates a pack | TS-215 |
-| TS-219 | Reproducibility chain | `findings` | 3 | P0 | todo | Deterministic stages byte-identical on re-run | — |
+| TS-219 | Reproducibility chain | `findings` | 3 | P0 | **done** | Deterministic stages byte-identical on re-run | — |
 | TS-220 | Pack SDK | `packsdk` | 4 | P2 | **done** | Third party authors + validates a pack end-to-end | — |
 | TS-221 | Rung-1 trade checklists | `rulepacks` | 4 | P2 | **done** | 4 trades, YAML only, zero code change | TS-220 |
 | TS-222 | Supply-and-erection patterns | `rulepacks` | 4 | P3 | todo | Gated on a customer asking (Strategy §D.2) | TS-221 |

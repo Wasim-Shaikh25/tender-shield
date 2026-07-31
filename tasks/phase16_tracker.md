@@ -36,7 +36,7 @@ name its moat class, it is out of scope for Phase 16.
 | **1** | **Corpus** | TS-224 ✅, TS-225, TS-197 | ≥1,000 tenders harvested across ≥3 sources with provenance; legality reviewed per adapter | in-progress |
 | **2** | **Prove correctness at scale** | TS-227, TS-229, TS-231, TS-232 | M1 100% pass on 1,000 tenders; M2 deadline match ≥95%; CI blocking on smoke slice | todo |
 | **3** | **Graph** | TS-195, TS-196, TS-198, TS-199, TS-200 | Employer profiles queryable with suppression; comparable-set filter disclosed | todo |
-| **4** | **Money math** | TS-201–TS-207 | Loadings byte-identical on re-run; no LLM dependency in module; export gate enforced | todo |
+| **4** | **Money math** | TS-201–TS-207 ✅ | Loadings byte-identical on re-run; no LLM dependency in module; export gate enforced | **done** |
 | **5** | **Revenue lane** | TS-208–TS-214 | Stranger → teaser → pay → report, webhook-only activation, watermarked unreviewed export | todo |
 | **6** | **Loop + accountability** | TS-215, TS-216, TS-217, TS-218, TS-219 | Outcomes recorded; contradictions detected; findings reproducible; corrections proposed not applied | todo |
 | **7** | **Domain ladder** | TS-220, TS-221, TS-222 | Third party can author a pack; 4 new trades ship as YAML only | todo |
@@ -106,13 +106,13 @@ calendar-bound, not engineering-bound.
 | TS-198 | Employer resolution | `marketdata` | 1 | P1 | todo | Confidence published; unresolved stays unresolved | TS-196 |
 | TS-199 | Aggregates + suppression | `marketdata` | 1 | P1 | todo | n ≥ 12 suppression tested; deterministic | TS-198 |
 | TS-200 | Employer context on findings | `marketdata` | 1 | P2 | todo | Degrades to today's behaviour when disabled | TS-199 |
-| TS-201 | `pricing-intel` scaffold | `pricing-intel` | 2 | P1 | todo | No LLM client import, test-asserted | — |
-| TS-202 | `price_impact` schema + formulas | `rulepacks` | 2 | P1 | todo | Worked-example tests per formula | TS-201 |
-| TS-203 | Bid loading sheet | `pricing-intel` | 2 | P1 | todo | Missing input → no loading, never a default | TS-202 |
-| TS-204 | SOR/DSR pack data | `rulepacks` | 2 | P2 | todo | Versioned, sourced, confidence-flagged | — |
-| TS-205 | Rate benchmarking | `pricing-intel` | 2 | P2 | todo | Headline from code matches only | TS-204 |
-| TS-206 | Cashflow model | `pricing-intel` | 2 | P1 | todo | `assumptions[]` always present | TS-201 |
-| TS-207 | Review gate on pricing artifacts | `pricing-intel` | 3 | P0 | todo | Export blocked pre-approval; excluded from Express | TS-203 |
+| TS-201 | `pricing` scaffold | `pricing` | 2 | P1 | **done** | No LLM client import, test-asserted | — |
+| TS-202 | `price_impact` schema + formulas | `rulepacks` | 2 | P1 | **done** | Worked-example tests per formula | TS-201 |
+| TS-203 | Bid loading sheet | `pricing` | 2 | P1 | **done** | Missing input → no loading, never a default | TS-202 |
+| TS-204 | SOR/DSR pack data | `rulepacks` | 2 | P2 | **done** | Versioned, sourced, confidence-flagged | — |
+| TS-205 | Rate benchmarking | `pricing` | 2 | P2 | **done** | Headline from code matches only | TS-204 |
+| TS-206 | Cashflow model | `pricing` | 2 | P1 | **done** | `assumptions[]` always present | TS-201 |
+| TS-207 | Review gate on pricing artifacts | `pricing` | 3 | P0 | **done** | Export blocked pre-approval; excluded from Express | TS-203 |
 | TS-208 | `express` scaffold | `express` | — | P1 | todo | Ephemeral workspace backing; isolation reused | — |
 | TS-209 | Anonymous session lifecycle | `express` | — | P1 | todo | Pre-buffer size caps; non-enumerable tokens | TS-208 |
 | TS-210 | Teaser renderer | `express` | — | P1 | todo | Full deadline wall + 2 cited findings | TS-209 |
@@ -141,6 +141,7 @@ calendar-bound, not engineering-bound.
 | TS-233 | Human gold set (50) | evals | — | P1 | todo | Slice table filled; annotated per §19 | — |
 | TS-294 | `Finding.document_id` | `findings` | 3 | P2 | todo | Migration + writers updated | TS-226 |
 | TS-295 | `Finding.currency` | `findings` | 3 | P1 | todo | Explicit ISO 4217 alongside amount_exposure | TS-226 |
+| TS-296 | `Finding.facts` + `Opportunity.contract_value_minor` | `findings` | 3 | P2 | todo | Real fact sourcing for pricing.loading | TS-203 |
 | TS-234 | North-star metric — margin protected | `outcomes` | 1 | P0 | todo | Deterministic; excludes speculative value; grows with Phases 18–19 | TS-203, TS-215 |
 
 ---

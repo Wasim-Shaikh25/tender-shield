@@ -13,6 +13,7 @@ from app.modules.rulepacks.schemas import (
     NoticeCategory,
     NoticeStandard,
     PackMeta,
+    RateSchedule,
     RiskPattern,
     RulePack,
     TradeChecklist,
@@ -96,6 +97,21 @@ class RulePackLoader:
             except (ValidationError, yaml.YAMLError) as exc:
                 pack.load_errors[f"notice_standards/{path.name}"] = str(exc)
                 logger.error("skipping malformed notice standard %s in pack %r", path.name, pack_id)
+
+        rates_dir = pack_dir / "rates"
+        authority_dirs = (
+            sorted(p for p in rates_dir.glob("*") if p.is_dir()) if rates_dir.is_dir() else []
+        )
+        for authority_dir in authority_dirs:
+            for path in _glob_yaml(authority_dir):
+                try:
+                    schedule = RateSchedule.model_validate(_read_yaml(path))
+                    pack.rate_schedules[f"{schedule.authority}/{schedule.year}"] = schedule
+                except (ValidationError, yaml.YAMLError) as exc:
+                    pack.load_errors[f"rates/{authority_dir.name}/{path.name}"] = str(exc)
+                    logger.error(
+                        "skipping malformed rate schedule %s in pack %r", path.name, pack_id
+                    )
 
         self._cache[pack_id] = pack
         return pack

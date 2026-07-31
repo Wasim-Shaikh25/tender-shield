@@ -31,3 +31,12 @@ suggested_clarification: >
   Seek confirmation whether escalation per a published formula (e.g. 10CA
   basis) applies; if barred, price the risk or seek amendment.
 affected_trades: [all]
+# TS-202: converts this finding into a rupee loading (specs/modules/pricing-intel.md).
+# `escalation_unhedged` is a named, versioned, unit-tested pure function in
+# app/modules/pricing_intel/formulas.py — never LLM-computed. Both inputs must be
+# present facts or no loading is produced.
+price_impact:
+  basis: percent_of_contract_value
+  formula: escalation_unhedged
+  inputs: [project_duration_months, index_series]
+  confidence: unvalidated

@@ -1,8 +1,35 @@
 # `pricing-intel` — Risk-to-Price, Rate Benchmarking & Cashflow — Spec
 
-**Status:** draft
+**Status:** implemented (MVP — two known schema gaps below)
 **Requirement refs:** `docs/TenderShield_Market_Strategy_2026.md` §C.2, §C.3, §C.4, §B.2 (moat class 2)
 **Task refs:** TS-201 – TS-207
+
+## Implementation notes (TS-201–207)
+
+- **Package is `app/modules/pricing/`, not `pricing_intel` or `pricing-intel`.** The module loader
+  (`app/main.py`) enforces `route prefix == package name == ModuleSpec.name`, and neither a hyphen
+  nor most conceptual names survive that as Python identifiers. `pricing` matches this spec's stated
+  routes (`/api/pricing/...`) exactly; `pricing_intel` would not.
+- **`GET /rate-benchmark` is `POST` instead.** It carries a BOQ CSV body; a GET request body is
+  unreliable across HTTP clients and proxies, and `boq/router.py`'s own `run_boq` already makes the
+  same call for the same reason. `GET /loading` matches the spec as written, with query parameters
+  (see the two gaps below for why).
+- **`app/modules/boq/service.py`'s `BoqEngine` gained one method, `normalize_dataframe`** — the
+  normalization half of `check_dataframe` split out so `pricing` can consume normalized BOQ rows via
+  the already-published `boq.engine` capability, without a new registry entry and without importing
+  `app.modules.boq` directly (`CLAUDE.md` §2).
+- **Two known schema gaps, found while implementing, not silently worked around:**
+  1. Neither `Finding` nor `Opportunity` persists the structured facts (`payment_days`,
+     `project_duration_months`, ...) or the contract value a loading needs — `Finding.explanation`
+     carries only `evidence_quote`/`industry_reason`, and `Opportunity` has no value field. The
+     loading engine therefore takes `facts_by_finding` and `contract_value_minor` as **explicit
+     caller-supplied inputs** (query params on `GET /loading` today) rather than sourcing them from
+     somewhere that doesn't exist. Filed as **TS-296**, matching how TS-294/295 were filed for the
+     equivalent `evalinvariants` gaps.
+  2. `rulepacks/in-works/rates/` ships **empty by design** — see its README. A Schedule-of-Rates is
+     authoritative regulatory data; fabricating even a plausible-looking rate would violate the
+     product's own "numbers never invented" invariant. The loader and `benchmark()` both treat an
+     empty/missing schedule as "everything unmatched," never an error.
 
 ## Purpose
 
@@ -104,16 +131,20 @@ assumed and why.
 
 ## Acceptance criteria
 
-1. Loadings are byte-identical on re-run for identical inputs and rulepack version.
-2. A missing required input yields no loading plus a stated reason — never a defaulted value.
-3. Headline rate variance uses code-matched items only; description matches are reported separately.
-4. Unmatched BOQ items are reported as unmatched.
-5. Cashflow output always includes a complete `assumptions[]` block.
-6. All money in minor units with explicit currency.
-7. The module imports no LLM client — asserted by test.
-8. Loadings compute only from accepted findings.
-9. Export of any pricing artifact is blocked without review approval.
-10. Disabling the module leaves risk, BOQ and export fully functional.
+All verified by `backend/tests/test_pricing.py` (31 tests).
+
+1. ✅ Loadings are byte-identical on re-run for identical inputs and rulepack version.
+2. ✅ A missing required input yields no loading plus a stated reason — never a defaulted value.
+3. ✅ Headline rate variance uses code-matched items only; description matches are reported separately.
+4. ✅ Unmatched BOQ items are reported as unmatched.
+5. ✅ Cashflow output always includes a complete `assumptions[]` block.
+6. ✅ All money in minor units with explicit currency.
+7. ✅ The module imports no LLM client — asserted by a static AST-import-scan test, not just behavior.
+8. ✅ Loadings compute only from accepted findings — enforced inside `compute_loadings` itself, not
+   only by caller discipline.
+9. ✅ Every route (`loading`, `rate-benchmark`, `cashflow`) is blocked with `409 review_incomplete`
+   until the review gate passes — verified end to end through the real router, not just the service.
+10. ✅ Disabling `pricing` leaves risk, BOQ and export fully functional (all deps are soft).
 
 ## Out of scope
 

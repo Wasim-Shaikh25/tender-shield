@@ -6,6 +6,60 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (TS-201–207: `pricing` module — risk-to-price, rate benchmark, cashflow)
+
+The bridge from "here is your risk register" to "here is what it does to your bid" — the
+highest-liability module in the product, and the first Phase 16 work outside the eval
+harness. Deterministic arithmetic over verified facts, never LLM (`CLAUDE.md` §4).
+
+- **Package is `app/modules/pricing/`**, not `pricing_intel`/`pricing-intel` as earlier
+  specced: `app/main.py` enforces `route prefix == package name == ModuleSpec.name`, and
+  neither survives that. `pricing` matches the spec's stated `/api/pricing/...` routes
+  exactly.
+- **`formulas.py`** — named, versioned, pure loading formulas (`escalation_unhedged`,
+  `ld_exposure_cap`, `payment_delay_financing_cost`), each raising `MissingInputs` rather
+  than guessing. `ld_exposure_cap` deliberately requires an explicit `cap_percent`: an
+  uncapped LD clause correctly produces **no loading**, because bounding an unbounded
+  exposure would require inventing the number the finding exists to flag.
+- **`loading.py`** — `compute_loadings` filters to `review_status == "accepted"` findings
+  *inside the engine itself*, not only by caller discipline, so acceptance criterion 8 holds
+  regardless of caller.
+- **`benchmark.py`** — two-band Schedule-of-Rates matching (code vs description), headline
+  variance computed from code matches only, unmatched rows reported, never force-matched.
+- **`cashflow.py`** — monthly working-capital model; every substituted default (even
+  billing, 30-day payment assumption, 0% retention, ...) is recorded in `assumptions[]`,
+  never silent.
+- **Two known schema gaps found while implementing, filed rather than worked around:**
+  neither `Finding` nor `Opportunity` persists the structured facts or contract value a
+  loading needs, so the engine takes them as explicit caller-supplied inputs today (filed
+  as **TS-296**, alongside the equivalent TS-294/295 gaps from `evalinvariants`); and
+  `rulepacks/in-works/rates/` ships **intentionally empty** — a Schedule-of-Rates is
+  authoritative regulatory data, and fabricating even a plausible-looking rate would violate
+  the product's own "numbers never invented" invariant. Its README explains exactly what a
+  real entry looks like and why none is checked in yet.
+- **`app/modules/boq/service.py`** gained one method, `normalize_dataframe` — the
+  normalization half of `check_dataframe` split out so `pricing` consumes normalized BOQ
+  rows via the already-published `boq.engine` capability, no new registry entry, no
+  cross-module import.
+- Rulepack schema: `PriceImpact` on `RiskPattern`, `RateSchedule`/`RateScheduleItem`,
+  `RulePack.rate_schedules` loaded from `rulepacks/<pack>/rates/<authority>/<year>.yaml`.
+  Added worked-example `price_impact` blocks to `price_escalation_barred` and
+  `liquidated_damages_uncapped` (the spec's own example pattern and one more).
+- Migration `06867937ef52` for `pi_loadings`/`pi_rate_matches`/`pi_cashflow_runs` —
+  hand-trimmed from autogenerate output, which also picked up unrelated pre-existing SQLite
+  index drift on five other tables; that drift was left untouched (each module owns its own
+  migrations, `CLAUDE.md` §2). Verified `upgrade head` / `downgrade base` clean from scratch.
+- **Tests:** `backend/tests/test_pricing.py`, 31 cases — worked examples per formula,
+  missing-input honesty, determinism, the two-band match split, the assumptions-block
+  guarantee, a static AST scan proving the module imports no LLM client, and full
+  end-to-end coverage of the review-export gate (`409 review_incomplete`) through the real
+  router using the same NullClassifier absence-finding pattern as `test_export.py`.
+
+Suite: 383 passed, 5 skipped; ruff clean; mypy clean across 188 files (fresh cache).
+
+**Next:** continuing the buildable-now list — TS-220–222 (pack SDK + trade ladder) or
+TS-217/219/234 (contradiction engine, reproducibility chain, north-star metric) next.
+
 ### Done — 2026-07-31 (TS-231: scorecard + regression diff)
 
 Turns `results.jsonl` into the human-readable report the eval harness's whole premise

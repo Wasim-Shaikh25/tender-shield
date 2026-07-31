@@ -328,13 +328,13 @@ Tracker: `tasks/phase16_tracker.md`.
 
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
-| TS-201 | `pricing-intel` module scaffold + `pi_*` migrations; assert module has no LLM client dependency | Strategy §C.2 | `specs/modules/pricing-intel.md` | todo |
-| TS-202 | `price_impact` block in rulepack schema + named versioned formula registry with worked-example tests | Strategy §C.2 | `specs/modules/pricing-intel.md` | todo |
-| TS-203 | Bid loading sheet: accepted findings → rupee loading with formula and inputs shown; missing input → no loading | Strategy §C.2 | `specs/modules/pricing-intel.md` | todo |
-| TS-204 | SOR/DSR rulepack data format + loader (`rulepacks/<pack>/rates/<authority>/<year>.yaml`) | Strategy §C.4 | `specs/modules/pricing-intel.md` | todo |
-| TS-205 | Rate benchmarking: two-band matching (code / description), headline variance from code matches only, unmatched reported | Strategy §C.4 | `specs/modules/pricing-intel.md` | todo |
-| TS-206 | Cashflow & working-capital model with mandatory `assumptions[]` block; peak requirement + month | Strategy §C.3 | `specs/modules/pricing-intel.md` | todo |
-| TS-207 | Pricing artifacts inherit the review export gate; excluded from unreviewed tiers (test-asserted) | Build Doc §11.4; Strategy §C.2 | `specs/modules/pricing-intel.md` | todo |
+| TS-201 | `pricing-intel` module scaffold + `pi_*` migrations; assert module has no LLM client dependency | Strategy §C.2 | `specs/modules/pricing-intel.md` | done |
+| TS-202 | `price_impact` block in rulepack schema + named versioned formula registry with worked-example tests | Strategy §C.2 | `specs/modules/pricing-intel.md` | done |
+| TS-203 | Bid loading sheet: accepted findings → rupee loading with formula and inputs shown; missing input → no loading | Strategy §C.2 | `specs/modules/pricing-intel.md` | done |
+| TS-204 | SOR/DSR rulepack data format + loader (`rulepacks/<pack>/rates/<authority>/<year>.yaml`) | Strategy §C.4 | `specs/modules/pricing-intel.md` | done |
+| TS-205 | Rate benchmarking: two-band matching (code / description), headline variance from code matches only, unmatched reported | Strategy §C.4 | `specs/modules/pricing-intel.md` | done |
+| TS-206 | Cashflow & working-capital model with mandatory `assumptions[]` block; peak requirement + month | Strategy §C.3 | `specs/modules/pricing-intel.md` | done |
+| TS-207 | Pricing artifacts inherit the review export gate; excluded from unreviewed tiers (test-asserted) | Build Doc §11.4; Strategy §C.2 | `specs/modules/pricing-intel.md` | done |
 
 ### 16.C — Express pay-per-report lane (`express`) — revenue / top of funnel
 
@@ -406,6 +406,7 @@ Tracker: `tasks/phase16_tracker.md`.
 |---|---|---|---|---|
 | TS-294 | Add `Finding.document_id` (migration + risk/boq/qualification/standards writers) so quote/citation checks resolve to one document instead of any document sharing a page number | TS-226 finding; `specs/eval-at-scale.md` §1 | `specs/modules/findings.md` (update) | todo |
 | TS-295 | Add `Finding.currency` (ISO 4217) alongside `amount_exposure` so `check_currency_integrity` can assert an explicit currency, not just an int; required before Phase 16 multi-jurisdiction findings (Strategy §E.2) can be trusted cross-currency | TS-226 finding; Strategy §E.2 | `specs/modules/findings.md` (update) | todo |
+| TS-296 | Add `Finding.facts` (structured extraction facts, not just quote/detail) and `Opportunity.contract_value_minor` so `pricing.loading` can source real facts instead of caller-supplied query params | TS-203 finding; `specs/modules/pricing-intel.md` | `specs/modules/findings.md` (update), `specs/data-model.md` (update) | todo |
 
 ## Phase 17 — Stage 2: Baseline Lock & Handover completion
 

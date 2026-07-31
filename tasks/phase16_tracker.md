@@ -32,7 +32,7 @@ name its moat class, it is out of scope for Phase 16.
 
 | Sprint | Theme | Tasks | Exit gate | Status |
 |---|---|---|---|---|
-| **0** | **Measure before building** | TS-223 ✅, TS-226 ✅, TS-230 (skeleton) | Cost-per-review p50/p95 known; M1 invariants run on the existing 20-tender smoke slice | in-progress |
+| **0** | **Measure before building** | TS-223 ✅, TS-226 ✅, TS-230 ✅ | Cost-per-review p50/p95 known; M1 invariants run on the existing 20-tender smoke slice | **done** |
 | **1** | **Corpus** | TS-224 ✅, TS-225, TS-197 | ≥1,000 tenders harvested across ≥3 sources with provenance; legality reviewed per adapter | in-progress |
 | **2** | **Prove correctness at scale** | TS-227, TS-229, TS-231, TS-232 | M1 100% pass on 1,000 tenders; M2 deadline match ≥95%; CI blocking on smoke slice | todo |
 | **3** | **Graph** | TS-195, TS-196, TS-198, TS-199, TS-200 | Employer profiles queryable with suppression; comparable-set filter disclosed | todo |
@@ -135,7 +135,7 @@ calendar-bound, not engineering-bound.
 | TS-227 | M2 metadata agreement | evals | — | P1 | todo | Triage into miss/wrong/portal-wrong | TS-225 |
 | TS-228 | M3 backtest | evals | 1 | P2 | todo | Time-based split, not random | TS-199 |
 | TS-229 | M4 metamorphic | evals | — | P1 | todo | 5 invariance properties | TS-226 |
-| TS-230 | Bulk runner | scripts | — | P0 | todo | Resumable, sharded, cost-guarded, 1,000+ unattended | TS-226 |
+| TS-230 | Bulk runner | `evalrunner` | — | P0 | **done** | Resumable, sharded, cost-guarded, 1,000+ unattended | TS-226 |
 | TS-231 | Report + regression diff | scripts | — | P1 | todo | Scorecard readable without raw data | TS-230 |
 | TS-232 | CI gates | CI | — | P1 | todo | Smoke blocks PRs; >2pt drop blocks change | TS-231 |
 | TS-233 | Human gold set (50) | evals | — | P1 | todo | Slice table filled; annotated per §19 | — |

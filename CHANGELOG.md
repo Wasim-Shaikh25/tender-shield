@@ -6,6 +6,72 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (TS-230: bulk evaluation runner — Phase 16 Sprint 0 complete)
+
+The piece that turns M1 from "callable on one opportunity" into "runs unattended on
+1,000+." Closes Sprint 0 (TS-223, TS-226, TS-230 all done).
+
+- **`backend/app/evalrunner/`** (new package, outside `app/modules/` alongside its two
+  siblings — see the spec note below on why this diverges from the section's original
+  `app/modules/evalrunner/` placement):
+  - `pipeline.py` — `run_tender(record, store, pack=..., classifier=...)` runs one corpus
+    tender through the same pure functions the production pipeline uses (`extract_upload`,
+    `extract_pages`, `segment_clauses`, `run_patterns`, `normalize`/`run_checks`), grades it
+    with `run_m1`, and returns a `TenderResult`. Never raises — every failure is caught and
+    tagged (`ocr_failed`/`parse_failed`/`timeout`/`llm_error`/`invariant_violation`/
+    `unknown_error`), so a bad tender costs one result line, not the run.
+  - `tasks.py` — the Celery task wrapping `run_tender`; eager fallback in `app/core/celery.py`
+    means `.delay(...).get(...)` behaves identically in tests/CI and in a real deployment.
+    `model_id="none"` (default) always uses `NullClassifier` — a bulk run never silently
+    spends on a model unless one was explicitly requested.
+  - `orchestrator.py` — `run_batch(...)`: sharding (deterministic `sha256(ocid) % n`),
+    per-run resume (skip OCIDs already in `results.jsonl`), cross-run idempotency cache
+    (`evals/runs/_cache/`), and a cost guard.
+- **A real concurrency bug found and fixed while building the cost guard:** the first
+  implementation submitted the whole corpus to the worker pool upfront, then checked the
+  budget as results came back — which let a worker start the next tender before the main
+  thread had processed the result that tripped the guard, silently defeating the guard
+  under any concurrency above 1. Fixed with incremental, bounded dispatch (`_top_up`): work
+  is fed one slot at a time as it frees up, so budget is always checked before the next
+  dispatch. Caught by `test_run_batch_cost_guard_aborts_cleanly`.
+- **A pre-existing CI defect found and fixed, unrelated to this task:** a fresh `mypy`
+  invocation (no incremental cache) failed on `Library stubs not installed for "yaml"` in
+  `rulepacks/loader.py`. This was masked all session by a stale local `.mypy_cache` and by
+  a second, ambient global `mypy` install on PATH that happened to already have the stub;
+  CI installs into a single fresh environment and would have hit this on every run. Fixed
+  by adding `types-PyYAML` to the `dev` extra in `pyproject.toml`; verified clean with a
+  cleared cache via the project's own `.venv/bin/mypy`.
+- **Design decisions documented, not left implicit:**
+  - No per-tender database session — tenant isolation is already exercised for real by
+    `evalinvariants.db_adapter`'s own tests; re-proving it with SQLite on every one of
+    1,000 tenders would cost real time for no new evidence.
+  - BOQ checking is honest best-effort: the deterministic engine needs an exact canonical
+    schema real-world spreadsheets essentially never have as-is (matching the product's
+    actual current `boq/router.py` behavior); a non-matching sheet is reported
+    `boq_status="not_applicable"`, never coerced into a fabricated result.
+- **`scripts/bulk_eval.py`** — thin CLI: `--corpus`, `--run-id`, `--shard i/n`, `--limit`,
+  `--force`, `--concurrency`, `--max-total-tokens`, `--max-wall-seconds`. Exits non-zero
+  when the graded M1 pass rate is below 100%, so CI can gate on it directly.
+- **Tests:** `backend/tests/test_evalrunner.py`, 24 cases — the per-tender pipeline against
+  a real harvested corpus (not hand-rolled manifests), every failure classification, and
+  the orchestrator's resumability, cross-run cache, sharding, and cost-guard behavior.
+- **Verified end-to-end via the CLI**, not only pytest: 5 real harvested tenders processed;
+  a second call with the same `--run-id` resumes and skips all 5; a fresh `--run-id`
+  against the same corpus reuses all 5 from the cross-run cache; `--shard 0/2` correctly
+  selects a disjoint 1-of-5 subset.
+- `specs/eval-at-scale.md` updated with the implemented runner architecture and the
+  `app/modules/evalrunner/` → `app/evalrunner/` placement decision.
+
+Suite: 326 passed, 5 skipped; ruff clean; mypy clean across 178 files (verified fresh, no
+cache) — the yaml-stub fix above.
+
+**Next:** Sprint 0 is complete. TS-224's corpus schema, TS-226's M1 suite and TS-230's
+runner are the whole spine of the eval harness — everything from here (TS-227 M2, TS-229
+M4, TS-231 report/regression, TS-232 CI gates, TS-225 real network adapters) extends it
+rather than needing new architecture. TS-231 (scorecard + regression diff) is the natural
+next step: it is what turns `results.jsonl` into the human-readable report the spec's whole
+premise depends on.
+
 ### Done — 2026-07-31 (TS-226: M1 structural invariant suite — Phase 16 Sprint 0)
 
 The bulletproof test: ten correctness properties that must hold on any tender, needing

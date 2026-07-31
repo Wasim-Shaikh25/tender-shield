@@ -38,6 +38,7 @@ dev = [
     "ruff>=0.5",
     "uvicorn>=0.30",
     "mypy>=1.11",
+    "types-PyYAML>=6.0",
     "pip-audit>=2.7",
     "psycopg[binary]>=3.1",
 ]

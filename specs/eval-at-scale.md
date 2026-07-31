@@ -224,16 +224,24 @@ adapter docstring (terms of use, robots.txt, rate limits, whether an official AP
 
 ```
 scripts/corpus_harvest.py        # CLI: adapters → normalized corpus + manifest   [TS-224 ✅]
-scripts/bulk_eval.py             # orchestrator → per-tender runs → results.jsonl [TS-230]
+scripts/bulk_eval.py             # CLI: orchestrator → results.jsonl              [TS-230 ✅]
 scripts/eval_report.py           # results.jsonl → scorecard.md + regression diff  [TS-231]
 backend/app/evalcorpus/          # corpus schema, adapters, store, harvest         [TS-224 ✅]
-backend/app/modules/evalrunner/  # optional in-app runner (Celery tasks, admin UI) [TS-230]
+backend/app/evalinvariants/      # the M1 structural invariant suite               [TS-226 ✅]
+backend/app/evalrunner/          # per-tender pipeline, Celery task, orchestrator  [TS-230 ✅]
 ```
 
-> The corpus logic lives in `backend/app/evalcorpus/` rather than in `scripts/` so it is
-> typed, linted and covered by the normal test suite; the script is a thin CLI over it. The
-> package sits outside `app/modules/` deliberately — it is offline evaluation infrastructure,
-> not a product feature, and nothing in the request path imports it.
+> The corpus/invariant/runner logic lives in `backend/app/evalcorpus/`, `evalinvariants/` and
+> `evalrunner/` rather than in `scripts/` so it is typed, linted and covered by the normal test
+> suite; each script is a thin CLI over its package. All three sit outside `app/modules/`
+> deliberately — evaluation infrastructure, not a product feature, and nothing in the request path
+> imports them. This is a deliberate divergence from this section's original
+> `backend/app/modules/evalrunner/` placement: an *admin UI* over eval runs would legitimately be a
+> product feature and belong under `app/modules/` behind the registry/event-bus boundary like every
+> other module, but the batch runner itself is not that — it is offline infrastructure exactly like
+> its two siblings, and putting it under `app/modules/` would force it through the no-cross-module-
+> import rule for no benefit. An admin UI, if built later, is a separate, thin module that reads
+> `evals/runs/*/manifest.json` — it does not need to embed the runner.
 
 **Corpus storage (TS-224).** Documents are content-addressed by `sha256` with two-level
 directory fan-out, so the same CPWD GCC appearing in a thousand tenders costs one blob.
@@ -260,6 +268,49 @@ large and reproducible from source.
   cleanly and reports partial results rather than silently spending.
 - **Failure classification:** every failure is tagged (`ocr_failed`, `parse_failed`, `timeout`,
   `llm_error`, `invariant_violation`) so the report is actionable rather than a pile of tracebacks.
+
+**Implemented (TS-230)** in `backend/app/evalrunner/`:
+
+- `pipeline.py` — `run_tender(record, store, pack=..., classifier=...)`: runs one corpus tender
+  through the same pure functions the production pipeline uses (`extract_upload`, `extract_pages`,
+  `segment_clauses`, `run_patterns`, `normalize`/`run_checks`), grades it with `run_m1`, and returns a
+  `TenderResult`. Never raises — every failure mode is caught and tagged with one of the five reasons
+  above, plus `unknown_error` for anything unclassified.
+- `tasks.py` — the Celery task wrapping `run_tender`; because `app/core/celery.py` falls back to
+  eager (synchronous, in-process) execution when no broker is configured, `.delay(...).get(...)`
+  behaves identically in tests/CI and in a distributed deployment. `model_id="none"` (the default)
+  always uses `NullClassifier` — a bulk run never silently spends on a model unless one was
+  explicitly requested.
+- `orchestrator.py` — `run_batch(...)`: applies sharding (`in_shard`, a deterministic
+  `sha256(ocid) % n` partition) and resume/cache filters, then dispatches through a **bounded,
+  incrementally-fed** worker pool. Work is fed one slot at a time as it frees up — never "submit the
+  whole corpus, then check the budget" — which is what makes the cost guard actually stop new
+  dispatches rather than just recording that it should have; submitting everything upfront lets a
+  worker start the next tender before the main thread has processed the result that tripped the
+  guard, silently defeating the guard under any concurrency above 1 (caught by
+  `test_run_batch_cost_guard_aborts_cleanly`).
+- Cross-run idempotency cache at `evals/runs/_cache/<sha256(ocid|doc_hash|rulepack|model)>.json`;
+  per-run resume reads `results.jsonl` for already-processed OCIDs.
+- `scripts/bulk_eval.py` — thin CLI: `--corpus`, `--run-id`, `--shard i/n`, `--limit`, `--force`,
+  `--concurrency`, `--max-total-tokens`, `--max-wall-seconds`. Exits non-zero when the graded M1 pass
+  rate is below 100%, so CI can gate on it directly.
+
+**Deliberately no per-tender database session** — a design decision, not an oversight. Tenant
+isolation is already exercised for real by `evalinvariants.db_adapter`'s own tests
+(`test_db_adapter_is_workspace_scoped`); re-proving it with a SQLite session on every one of 1,000
+tenders would cost real time for no new evidence. This runner's bundles use in-memory ids and skip
+persistence entirely, which is what makes a 1,000-tender pass affordable in CI.
+
+**BOQ checking is honest about being best-effort.** The deterministic engine requires an exact
+canonical schema (`src_row, description, unit_raw, qty, rate, amount`) that real-world procurement
+spreadsheets essentially never match as-is — this mirrors the product's actual current behavior
+(`boq/router.py`'s `RunBody.csv` has the same expectation). A harvested spreadsheet that doesn't
+parse into that schema is reported `boq_status="not_applicable"`, never coerced into a fabricated
+result.
+
+Verified end-to-end via the CLI against a real harvested corpus: 5 tenders processed, resume skips
+all 5 on a second call with the same `--run-id`, a fresh `--run-id` against the same corpus reuses
+all 5 from the cross-run cache, and `--shard 0/2` correctly selects a disjoint subset.
 
 ### 3.2 Output
 

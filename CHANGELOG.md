@@ -6,6 +6,32 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (Merge: `claude/product-market-value-bh65yr` → base, TS-195/196 renumbered to TS-297/298)
+
+Merged PR #69 (Phase 16 defensibility/domain-agnosticism/scale-validation work, TS-195–TS-296)
+into the base branch. The two branches had independently continued the sequential task-ID
+counter from the same point (last shared ID: TS-194), producing a real collision: the base
+had assigned TS-195 (workspace-scoped AI Assistant) and TS-196 (CI changelog-check gate) to
+two small tasks, while this branch had assigned TS-195–TS-296 to ~102 Phase 16–21 tasks with
+extensive internal cross-referencing (tracker dependency graphs, spec `Task refs`, prose
+ranges like "TS-195 – TS-233").
+
+- Renumbered the base's two colliding IDs — TS-195 → **TS-297**, TS-196 → **TS-298** — rather
+  than touching this branch's large, already-sequenced Phase 16–21 block, since that minimized
+  churn (5 files vs. ~71) and preserved the feature-grouped numbering the tracker docs depend on.
+- Updated every reference: `tasks/backlog.md` rows, `CHANGELOG.md` entry headings,
+  `specs/modules/assistant.md` and `specs/902-changelog-check.md` `Task refs`, and the
+  docstring in `scripts/tests/test_check_changelog.py`. The forward-looking "Next: TS-197"
+  suggestion (extend the changelog check to enforce Next-section task IDs) is renumbered to
+  **TS-299** to keep clear of this branch's real TS-197 (marketdata P0 adapters).
+- Resolved textual conflicts in `CHANGELOG.md` and `tasks/backlog.md` (both append-only logs;
+  kept both sides' entries). `.github/workflows/ci.yml`, `specs/README.md`, and the
+  `assistant` module (models/router/service/tools, migration `0c2f0e860d39`) auto-merged
+  cleanly with no conflicts.
+- Verified post-merge: `scripts/task_tracker.py --validate` reports 299 unique task IDs, no
+  duplicates; full backend suite 420 passed / 5 skipped; `ruff` and `mypy` clean across 193
+  files; the new `scripts/tests/test_check_changelog.py` suite (6 cases) passes.
+
 ### Done — 2026-07-31 (TS-217: contradiction engine, extends `crossref`)
 
 Strategy §C.5's fact-level contradiction engine: when the same canonical fact is stated
@@ -506,6 +532,43 @@ Requirements and planning only — no runtime code in this change.
 **Next:** TS-223 (cost-per-review instrumentation), TS-224 (corpus schema + harvester), TS-226 (M1
 structural invariant suite) — Sprint 0/1, in that order. Measurement precedes corpus; corpus precedes
 the graph; correctness at scale precedes the Express revenue lane.
+
+### Done — 2026-07-31 (TS-298: CI changelog-check gate)
+
+- Added `scripts/check_changelog.py`: fails when non-exempt ("code") files
+  changed between two refs but `CHANGELOG.md` didn't gain any real content in
+  the same range, enforcing `CLAUDE.md` §1.5 ("a push without a changelog
+  entry is incomplete work") mechanically instead of by convention.
+- Docs/spec/task-only changes (`docs/`, `specs/`, `tasks/`, `.github/`,
+  `.cursor/`, `.devin/`, any `*.md`) are exempt; a `[skip-changelog]` marker in
+  any commit message in range bypasses the check for merges/reverts/dep bumps.
+- Added a `changelog` job to `.github/workflows/ci.yml`, gated on
+  `pull_request` events, that runs the script's unit tests
+  (`scripts/tests/test_check_changelog.py`) and then checks the PR's diff
+  against its base branch.
+- Added `specs/902-changelog-check.md` describing the behavior and acceptance
+  criteria, indexed in `specs/README.md`.
+
+### Next
+
+- TS-299: consider extending the changelog check to also verify the `Next`
+  section names concrete task IDs (currently only advisory via B5).
+
+### Done — 2026-07-30 (TS-297: workspace-scoped AI Assistant)
+
+- `ChatSession.opportunity_id` is now optional; the AI Assistant works across the
+  whole workspace by default instead of requiring a tender dropdown.
+- Updated `AssistantService.answer`, `answer_and_store`, `answer_stream`, and
+  `admin_answer` so `opportunity_id` is optional.
+- Assistant tools (`list_deadlines`, `filter_findings`, `missing_docs`) now aggregate
+  across workspace opportunities when no `opportunity_id` is provided.
+- Plan-dashboard intent picks the first workspace opportunity when none is supplied.
+- Updated `POST /api/assistant/chat`, `/sessions`, `/sessions/{id}/chat`, `/stream`,
+  and `/admin/chat` schemas to make `opportunity_id` optional.
+- Removed the opportunity dropdown from `/assistant`; the page now sends workspace-level
+  chat requests.
+- Updated `specs/modules/assistant.md` with workspace-scope behavior and acceptance
+  criteria; added migration `0c2f0e860d39`.
 
 ### Done — 2026-07-30 (TS-192: user-facing plan upgrade/downgrade)
 

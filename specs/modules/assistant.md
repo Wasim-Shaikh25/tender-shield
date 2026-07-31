@@ -2,7 +2,7 @@
 
 **Status:** implemented — grounded, tool-first Q&A: deterministic intents (deadlines, findings by severity, missing docs, rule-pack lookup) with citations work with no key; off-topic questions refused; free-form questions use an injected LLM agent only when `TS_OPENROUTER_API_KEY` or `OPENROUTER_API_KEY` is set (grounded-only). User input is sanitized, delimited, and scanned for prompt-injection patterns before reaching the LLM. Versioned artifact-edit tool is a follow-up.
 **Requirement refs:** Doc §8, §11.3
-**Task refs:** TS-024, TS-112, TS-145, TS-164, TS-193
+**Task refs:** TS-024, TS-112, TS-145, TS-164, TS-193, TS-297
 
 ## Purpose
 
@@ -16,15 +16,14 @@ questions.
   missing docs), `findings.store_factory` (filtered findings),
   `rulepacks.loader` (rule-pack lookup), `auth.workspace_factory` (owner/membership checks).
 - **API routes** (prefix `/api/assistant`):
-  - `POST /chat` (viewer) — transient single-turn Q&A.
-  - `POST /sessions` (viewer) — create a chat session for an opportunity.
+  - `POST /chat` (viewer) — transient single-turn Q&A. `opportunity_id` is optional; when omitted the assistant reasons across the whole workspace.
+  - `POST /sessions` (viewer) — create a chat session for a workspace (optional `opportunity_id`).
   - `GET /sessions` (viewer) — list sessions the caller can access, optionally filtered by opportunity.
   - `GET /sessions/{id}/messages` (viewer) — retrieve conversation history.
-  - `POST /sessions/{id}/chat` (viewer) — persist user + assistant messages and answer.
-  - `POST /sessions/{id}/stream` (viewer) — SSE stream of the assistant answer.
+  - `POST /sessions/{id}/chat` (viewer) — persist user + assistant messages and answer. `opportunity_id` is optional.
+  - `POST /sessions/{id}/stream` (viewer) — SSE stream of the assistant answer. `opportunity_id` is optional.
   - `POST /chat` and `POST /sessions/{id}/chat` may return `type: "dashboard"` with a `dashboard` field containing a `PlanDashboard` (KPI/table/chart/mermaid/text) when the query asks for a visual summary.
-  - `POST /admin/chat` (super-admin) — transient cross-tenant research chat. Queries still
-    require explicit `workspace_id` and `opportunity_id` parameters and are logged to the audit log.
+  - `POST /admin/chat` (super-admin) — transient cross-tenant research chat. `opportunity_id` is optional; queries are logged to the audit log.
 
 ## Data owned
 
@@ -50,10 +49,10 @@ not persist sessions.
   weights + mandatory "commercial judgment call" banner; logged distinctly.
 - **B5 (metering):** free 20 messages total; paid 300/mo soft cap; per-turn token
   budget alarms.
-- **B6 (RLS-scoped):** all retrieval under the caller's workspace context; the
-  assistant never retrieves rows outside the principal's workspace(s). Each tool
-  call is additionally filtered by `workspace_id` and `user_id` in code (defense
-  in depth on top of RLS).
+- **B6 (workspace-scoped):** the assistant answers at workspace scope by default.
+  When `opportunity_id` is supplied it narrows to one tender; when it is omitted
+  deadlines, findings, and documents are aggregated across the workspace's
+  opportunities. The assistant never retrieves rows outside the principal's workspace.
 - **B7 (user-bound sessions):** `chat_sessions` and `chat_messages` are filtered
   by `workspace_id` so a user can only see sessions created in workspaces they
   belong to. Super-admin chat does not create sessions; it is a transient,
@@ -65,7 +64,7 @@ not persist sessions.
   and a verified `superadmin` role. The response is still grounded in the explicit
   `workspace_id` and `opportunity_id` supplied by the admin; it does not allow
   broad cross-tenant search by default.
-- **B10 (dashboard intent):** user messages containing dashboard/visual keywords trigger `PlanDashboardAgent` to generate a structured `PlanDashboard`. The response is returned as `type: "dashboard"` so the UI can render it in a collapsible panel without switching pages. If the LLM is unavailable, the agent's fallback is returned with a clear message.
+- **B10 (dashboard intent):** user messages containing dashboard/visual keywords trigger `PlanDashboardAgent` to generate a structured `PlanDashboard`. The response is returned as `type: "dashboard"` so the UI can render it in a collapsible panel without switching pages. If no `opportunity_id` is supplied, the agent targets the first opportunity in the workspace or aggregates workspace facts. If the LLM is unavailable, the agent's fallback is returned with a clear message.
 
 ## Acceptance criteria
 
@@ -83,6 +82,7 @@ not persist sessions.
   every admin query to the audit log.
 - A10: a query with dashboard/visual keywords returns `type: "dashboard"` with a valid
   `PlanDashboard` payload and the UI renders it in a collapsible panel.
+- A11: a query without an explicit `opportunity_id` aggregates workspace data and does not fail due to a missing opportunity dropdown.
 
 ## Out of scope
 

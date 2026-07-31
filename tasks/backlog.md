@@ -303,6 +303,8 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-192 | Add user-facing plan upgrade/downgrade endpoints and UI | user request | `backend/app/modules/billing/`, `frontend/app/billing/`, `specs/modules/billing.md` | done |
 | TS-193 | Reframe AI plan dashboard as the assistant: dedicated `/assistant` chat UI with collapsible dashboard panel for KPIs/tables/charts/Mermaid | user request; TS-188 | `specs/modules/assistant.md`, `frontend/app/assistant/`, `frontend/app/plan/page.tsx`, `frontend/components/plan-dashboard.tsx`, `backend/app/modules/assistant/` | done |
 | TS-194 | Fix plan snapshot export 404 and default OpenRouter model to `openrouter/free` with clear no-key messaging | user request; E2E findings | `backend/app/modules/analytics/`, `backend/app/core/config.py`, `.env.*`, `specs/modules/plan-dashboard.md` | done |
+| TS-297 | Make AI Assistant workspace-scoped instead of opportunity-scoped | user request; Build Doc §8 | `backend/app/modules/assistant/`, `frontend/app/assistant/page.tsx`, `frontend/lib/api.ts`, `specs/modules/assistant.md` | done |
+| TS-298 | CI gate: fail a PR when code changed but `CHANGELOG.md` didn't (enforce CLAUDE.md §1.5) | user request; CLAUDE.md §1.5 "a push without a changelog entry is incomplete work" | `specs/902-changelog-check.md` | done |
 
 ## Phase 16 — Defensibility, Domain-Agnosticism & Scale Validation
 

@@ -15,8 +15,8 @@ from app.core.db import Base, WorkspaceScopedMixin
 class ChatSession(Base, WorkspaceScopedMixin):
     _tablename_ = "chat_sessions"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    opportunity_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("opportunities.id", ondelete="CASCADE"), nullable=False, index=True
+    opportunity_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("opportunities.id", ondelete="CASCADE"), nullable=True, index=True
     )
     title: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

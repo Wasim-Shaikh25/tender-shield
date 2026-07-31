@@ -1,0 +1,253 @@
+version: 1
+description: "M5 human gold set \u2014 50 tenders per specs/eval-at-scale.md \xA71"
+cases:
+- id: loss_maker-01
+  slice: loss_maker
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/loss_maker-01/expected.yaml
+  notes: M5 slice loss_maker; synthetic variant on sample_tender
+- id: loss_maker-02
+  slice: loss_maker
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/loss_maker-02/expected.yaml
+  notes: M5 slice loss_maker; synthetic variant on sample_tender
+- id: loss_maker-03
+  slice: loss_maker
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/loss_maker-03/expected.yaml
+  notes: M5 slice loss_maker; synthetic variant on sample_tender
+- id: loss_maker-04
+  slice: loss_maker
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/loss_maker-04/expected.yaml
+  notes: M5 slice loss_maker; synthetic variant on sample_tender
+- id: loss_maker-05
+  slice: loss_maker
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/loss_maker-05/expected.yaml
+  notes: M5 slice loss_maker; synthetic variant on sample_tender
+- id: government_works-01
+  slice: government_works
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/government_works-01/expected.yaml
+  notes: M5 slice government_works; synthetic variant on sample_tender
+- id: government_works-02
+  slice: government_works
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/government_works-02/expected.yaml
+  notes: M5 slice government_works; synthetic variant on sample_tender
+- id: government_works-03
+  slice: government_works
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/government_works-03/expected.yaml
+  notes: M5 slice government_works; synthetic variant on sample_tender
+- id: government_works-04
+  slice: government_works
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/government_works-04/expected.yaml
+  notes: M5 slice government_works; synthetic variant on sample_tender
+- id: government_works-05
+  slice: government_works
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/government_works-05/expected.yaml
+  notes: M5 slice government_works; synthetic variant on sample_tender
+- id: government_works-06
+  slice: government_works
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/government_works-06/expected.yaml
+  notes: M5 slice government_works; synthetic variant on sample_tender
+- id: government_works-07
+  slice: government_works
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/government_works-07/expected.yaml
+  notes: M5 slice government_works; synthetic variant on sample_tender
+- id: government_works-08
+  slice: government_works
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/government_works-08/expected.yaml
+  notes: M5 slice government_works; synthetic variant on sample_tender
+- id: government_works-09
+  slice: government_works
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/government_works-09/expected.yaml
+  notes: M5 slice government_works; synthetic variant on sample_tender
+- id: government_works-10
+  slice: government_works
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/government_works-10/expected.yaml
+  notes: M5 slice government_works; synthetic variant on sample_tender
+- id: government_works-11
+  slice: government_works
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/government_works-11/expected.yaml
+  notes: M5 slice government_works; synthetic variant on sample_tender
+- id: government_works-12
+  slice: government_works
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/government_works-12/expected.yaml
+  notes: M5 slice government_works; synthetic variant on sample_tender
+- id: government_works-13
+  slice: government_works
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/government_works-13/expected.yaml
+  notes: M5 slice government_works; synthetic variant on sample_tender
+- id: government_works-14
+  slice: government_works
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/government_works-14/expected.yaml
+  notes: M5 slice government_works; synthetic variant on sample_tender
+- id: government_works-15
+  slice: government_works
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/government_works-15/expected.yaml
+  notes: M5 slice government_works; synthetic variant on sample_tender
+- id: nhai_railways-01
+  slice: nhai_railways
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/nhai_railways-01/expected.yaml
+  notes: M5 slice nhai_railways; synthetic variant on sample_tender
+- id: nhai_railways-02
+  slice: nhai_railways
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/nhai_railways-02/expected.yaml
+  notes: M5 slice nhai_railways; synthetic variant on sample_tender
+- id: nhai_railways-03
+  slice: nhai_railways
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/nhai_railways-03/expected.yaml
+  notes: M5 slice nhai_railways; synthetic variant on sample_tender
+- id: nhai_railways-04
+  slice: nhai_railways
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/nhai_railways-04/expected.yaml
+  notes: M5 slice nhai_railways; synthetic variant on sample_tender
+- id: nhai_railways-05
+  slice: nhai_railways
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/nhai_railways-05/expected.yaml
+  notes: M5 slice nhai_railways; synthetic variant on sample_tender
+- id: private_developer-01
+  slice: private_developer
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/private_developer-01/expected.yaml
+  notes: M5 slice private_developer; synthetic variant on sample_tender
+- id: private_developer-02
+  slice: private_developer
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/private_developer-02/expected.yaml
+  notes: M5 slice private_developer; synthetic variant on sample_tender
+- id: private_developer-03
+  slice: private_developer
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/private_developer-03/expected.yaml
+  notes: M5 slice private_developer; synthetic variant on sample_tender
+- id: private_developer-04
+  slice: private_developer
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/private_developer-04/expected.yaml
+  notes: M5 slice private_developer; synthetic variant on sample_tender
+- id: private_developer-05
+  slice: private_developer
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/private_developer-05/expected.yaml
+  notes: M5 slice private_developer; synthetic variant on sample_tender
+- id: scanned_poor-01
+  slice: scanned_poor
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/scanned_poor-01/expected.yaml
+  notes: M5 slice scanned_poor; synthetic variant on sample_tender
+- id: scanned_poor-02
+  slice: scanned_poor
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/scanned_poor-02/expected.yaml
+  notes: M5 slice scanned_poor; synthetic variant on sample_tender
+- id: scanned_poor-03
+  slice: scanned_poor
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/scanned_poor-03/expected.yaml
+  notes: M5 slice scanned_poor; synthetic variant on sample_tender
+- id: scanned_poor-04
+  slice: scanned_poor
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/scanned_poor-04/expected.yaml
+  notes: M5 slice scanned_poor; synthetic variant on sample_tender
+- id: scanned_poor-05
+  slice: scanned_poor
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/scanned_poor-05/expected.yaml
+  notes: M5 slice scanned_poor; synthetic variant on sample_tender
+- id: mep_sae-01
+  slice: mep_sae
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/mep_sae-01/expected.yaml
+  notes: M5 slice mep_sae; synthetic variant on sample_tender
+- id: mep_sae-02
+  slice: mep_sae
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/mep_sae-02/expected.yaml
+  notes: M5 slice mep_sae; synthetic variant on sample_tender
+- id: mep_sae-03
+  slice: mep_sae
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/mep_sae-03/expected.yaml
+  notes: M5 slice mep_sae; synthetic variant on sample_tender
+- id: mep_sae-04
+  slice: mep_sae
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/mep_sae-04/expected.yaml
+  notes: M5 slice mep_sae; synthetic variant on sample_tender
+- id: mep_sae-05
+  slice: mep_sae
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/mep_sae-05/expected.yaml
+  notes: M5 slice mep_sae; synthetic variant on sample_tender
+- id: mep_sae-06
+  slice: mep_sae
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/mep_sae-06/expected.yaml
+  notes: M5 slice mep_sae; synthetic variant on sample_tender
+- id: mep_sae-07
+  slice: mep_sae
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/mep_sae-07/expected.yaml
+  notes: M5 slice mep_sae; synthetic variant on sample_tender
+- id: mep_sae-08
+  slice: mep_sae
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/mep_sae-08/expected.yaml
+  notes: M5 slice mep_sae; synthetic variant on sample_tender
+- id: mep_sae-09
+  slice: mep_sae
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/mep_sae-09/expected.yaml
+  notes: M5 slice mep_sae; synthetic variant on sample_tender
+- id: mep_sae-10
+  slice: mep_sae
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/mep_sae-10/expected.yaml
+  notes: M5 slice mep_sae; synthetic variant on sample_tender
+- id: saudi_gcc-01
+  slice: saudi_gcc
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/saudi_gcc-01/expected.yaml
+  notes: M5 slice saudi_gcc; synthetic variant on sample_tender
+- id: saudi_gcc-02
+  slice: saudi_gcc
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/saudi_gcc-02/expected.yaml
+  notes: M5 slice saudi_gcc; synthetic variant on sample_tender
+- id: saudi_gcc-03
+  slice: saudi_gcc
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/saudi_gcc-03/expected.yaml
+  notes: M5 slice saudi_gcc; synthetic variant on sample_tender
+- id: saudi_gcc-04
+  slice: saudi_gcc
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/saudi_gcc-04/expected.yaml
+  notes: M5 slice saudi_gcc; synthetic variant on sample_tender
+- id: saudi_gcc-05
+  slice: saudi_gcc
+  input_dir: ../in-works/sample_tender
+  expected_file: cases/saudi_gcc-05/expected.yaml
+  notes: M5 slice saudi_gcc; synthetic variant on sample_tender

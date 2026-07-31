@@ -308,6 +308,25 @@ def test_render_scorecard_lists_not_yet_available_metrics(tmp_path):
     assert "TS-233" in md
 
 
+def test_compute_metrics_reads_goldset_json(tmp_path):
+    run_dir = _write_run(tmp_path, "r1", [_ok_result("a")])
+    (run_dir / "goldset.json").write_text(
+        json.dumps(
+            {
+                "critical_recall": 0.95,
+                "overall_recall": 0.88,
+                "noise_per_tender": 0.5,
+            }
+        )
+    )
+    run = load_run(run_dir)
+    m = compute_metrics(run)
+    assert m.m5_critical_recall == 0.95
+    assert m.m5_overall_recall == 0.88
+    assert m.m5_noise_per_tender == 0.5
+    assert "Gold-set recall / critical recall / noise (M5) — TS-233" not in m.not_yet_available
+
+
 def test_render_regressions_no_baseline():
     run = load_run(Path("/nonexistent"))
     md = render_regressions(None, run, [])

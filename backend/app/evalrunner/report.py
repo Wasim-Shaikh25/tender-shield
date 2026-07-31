@@ -93,6 +93,9 @@ class Metrics:
     m2_match_rate: float | None = None
     m4_pass_rate: float | None = None
     m3_l1_mape: float | None = None
+    m5_critical_recall: float | None = None
+    m5_overall_recall: float | None = None
+    m5_noise_per_tender: float | None = None
     quote_verbatim_rate: float | None = None
     citation_completeness_rate: float | None = None
     crash_rate: float | None = None          # unknown_error + parse_failed + ocr_failed + timeout
@@ -113,6 +116,9 @@ class Metrics:
             "m2_match_rate": self.m2_match_rate,
             "m4_pass_rate": self.m4_pass_rate,
             "m3_l1_mape": self.m3_l1_mape,
+            "m5_critical_recall": self.m5_critical_recall,
+            "m5_overall_recall": self.m5_overall_recall,
+            "m5_noise_per_tender": self.m5_noise_per_tender,
             "quote_verbatim_rate": self.quote_verbatim_rate,
             "citation_completeness_rate": self.citation_completeness_rate,
             "crash_rate": self.crash_rate,
@@ -228,6 +234,13 @@ def compute_metrics(run: RunData) -> Metrics:
         backtest = json.loads(backtest_path.read_text())
         m.m3_l1_mape = backtest.get("l1_mape")
 
+    goldset_path = run.run_dir / "goldset.json"
+    if goldset_path.exists():
+        goldset = json.loads(goldset_path.read_text())
+        m.m5_critical_recall = goldset.get("critical_recall")
+        m.m5_overall_recall = goldset.get("overall_recall")
+        m.m5_noise_per_tender = goldset.get("noise_per_tender")
+
     not_yet: list[str] = []
     if m.m2_match_rate is None:
         not_yet.append("Deadline / tender-value exact match vs portal (M2) — TS-227")
@@ -235,7 +248,8 @@ def compute_metrics(run: RunData) -> Metrics:
         not_yet.append("Metamorphic consistency (M4) — TS-229")
     if m.m3_l1_mape is None:
         not_yet.append("L1 backtest MAPE (M3) — TS-228")
-    not_yet.append("Gold-set recall / critical recall / noise (M5) — TS-233")
+    if m.m5_critical_recall is None:
+        not_yet.append("Gold-set recall / critical recall / noise (M5) — TS-233")
     m.not_yet_available = not_yet
     return m
 
@@ -342,9 +356,19 @@ def render_scorecard(run: RunData, metrics: Metrics) -> str:
     m3_val = (
         _fmt_pct(metrics.m3_l1_mape) if metrics.m3_l1_mape is not None else "n/a — TS-228"
     )
+    m5_val = (
+        _fmt_pct(metrics.m5_critical_recall)
+        if metrics.m5_critical_recall is not None
+        else "n/a — TS-233"
+    )
+    m5_ok = (
+        metrics.m5_critical_recall >= 0.90
+        if metrics.m5_critical_recall is not None
+        else None
+    )
     lines += [
         row("L1 backtest MAPE", "baseline first", m3_val, None),
-        row("Gold-set critical recall", "≥ 90%", "n/a — TS-233", None),
+        row("Gold-set critical recall", "≥ 90%", m5_val, m5_ok),
     ]
 
     lines += [

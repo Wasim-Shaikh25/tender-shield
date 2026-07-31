@@ -1,0 +1,7 @@
+critical_patterns:
+- payment_terms_extended
+- liquidated_damages_uncapped
+- defect_liability_retention
+optional_patterns:
+- price_escalation_barred
+max_noise: 2

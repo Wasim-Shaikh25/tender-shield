@@ -57,6 +57,21 @@ def status() -> dict:
     return {"module": "outcomes", "status": "ready"}
 
 
+@router.get("/metrics/margin-protected")
+def margin_protected(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+    currency: str = "INR",
+):
+    try:
+        return _service(request, session).margin_protected(
+            principal.workspace_id, currency=currency
+        )
+    except OutcomesError as exc:
+        _raise(exc)
+
+
 @router.post("/opportunities/{opportunity_id}")
 def record_outcome(
     opportunity_id: str,

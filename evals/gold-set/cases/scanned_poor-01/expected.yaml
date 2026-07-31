@@ -1,0 +1,7 @@
+critical_patterns:
+- defect_liability_retention
+- termination_for_convenience
+- price_escalation_barred
+optional_patterns:
+- payment_terms_extended
+max_noise: 2

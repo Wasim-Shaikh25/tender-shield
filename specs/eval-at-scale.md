@@ -160,9 +160,19 @@ The irreducible part (Build Doc §14.2). Deliberately small and composed for cov
 | MEP / mechanical / supply-and-erection | 10 | Domain-agnosticism proof |
 | Saudi (Etimad) / GCC FIDIC | 5 | Pack transfer proof |
 
-Gold answers are authored per Build Doc §19 and stored under `evals/in-works/<slice>/`.
+Gold answers are authored per Build Doc §19 and stored under `evals/gold-set/` (manifest +
+per-case `expected.yaml`). Synthetic variants reuse `evals/in-works/sample_tender` as the
+input pack; real slice tenders replace the input path as they are annotated.
 
----
+**Implemented (TS-233)** in `backend/app/evalgold/`:
+
+- `scorer.py` — `load_manifest`, `load_expected`, `score_case`, `score_m5`
+- `classifier.py` — `FixtureClassifier` reads `gold_answer.yaml` for deterministic scoring on
+  synthetic fixtures (no LLM key required)
+- `scripts/generate_gold_set.py` — builds the 50-case manifest per the slice table above
+- `scripts/eval_gold_set.py` — runs the eval pipeline and writes `goldset.json`; scorecard reads
+  it when present (`TS-231` report wiring)
+
 
 ## 2. Corpus acquisition
 

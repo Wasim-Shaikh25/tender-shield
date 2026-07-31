@@ -1,8 +1,9 @@
 # `outcomes` — Bid Outcome & Risk Materialization Capture — Spec
 
-**Status:** implemented (TS-215 scaffold; prefill TS-216)
-**Requirement refs:** Build Doc §1.1(9), §11.5; `docs/TenderShield_Market_Strategy_2026.md` §C.6, §C.9
-**Task refs:** TS-215, TS-216
+**Status:** implemented (TS-215 scaffold; prefill TS-216; margin metric TS-234)
+**Requirement refs:** Build Doc §1.1(9), §11.5; `docs/TenderShield_Market_Strategy_2026.md` §C.6, §C.9;
+`docs/TenderShield_Roadmap_Stage1_to_5.md` §6.1
+**Task refs:** TS-215, TS-216, TS-234
 
 ## Purpose
 
@@ -20,6 +21,7 @@ This is the cheapest moat increment in the plan — a handful of columns, one fo
 **Capabilities published**
 - `outcomes.record` — write a bid outcome
 - `outcomes.for_opportunity` — read outcomes + materialization
+- `outcomes.margin_protected` — workspace north-star metric (TS-234)
 
 **Capabilities consumed (soft)**
 - `findings.store` — to attach materialization to specific findings
@@ -34,6 +36,7 @@ This is the cheapest moat increment in the plan — a handful of columns, one fo
 - `POST /api/outcomes/opportunities/{id}` — record/update outcome
 - `POST /api/outcomes/findings/{id}/materialized` — mark a finding as materialized
 - `GET  /api/outcomes/opportunities/{id}`
+- `GET  /api/outcomes/metrics/margin-protected` — verified margin protected (TS-234)
 
 ## Data owned
 
@@ -50,6 +53,19 @@ All workspace-scoped with RLS, like every other tenant table (`CLAUDE.md` §4).
 Users will not fill in forms. On `opportunity.status` reaching a terminal state, attempt to match the
 public award record via tender reference through `marketdata`, prefill result/winner/L1 value, and
 ask for **one-click confirmation**. Manual entry is always available but is never the only path.
+
+### North-star metric — margin protected (TS-234)
+
+Deterministic aggregation in `backend/app/modules/outcomes/margin.py`:
+
+- **Risk allowances** — sum of `amount_exposure` on reviewed (`accepted`/`edited`) risk findings
+  for opportunities that were not declined
+- **Declined exposure avoided** — same exposure on reviewed findings tied to `declined` outcomes
+- **BOQ defects corrected** — count of reviewed `boq_defect` findings (pre-submission corrections)
+- **Materialized impact** — sum of `impact_amount_minor` on materialized risk rows
+
+Unreviewed findings and amounts without explicit currency matching the requested currency are
+excluded — speculative value is never invented.
 
 ### Materialization capture
 Post-award, a user can mark any accepted finding as materialized with an optional impact amount. This
@@ -84,6 +100,8 @@ k-anonymity thresholds.
 6. Money in minor units with explicit currency.
 7. Disabling `marketdata` leaves outcome recording fully functional (manual path).
 8. No rulepack is mutated automatically by any outcome.
+9. `GET /api/outcomes/metrics/margin-protected` returns a deterministic workspace snapshot and
+   excludes unreviewed findings.
 
 ## Out of scope
 

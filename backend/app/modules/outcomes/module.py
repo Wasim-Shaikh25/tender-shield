@@ -24,6 +24,12 @@ def setup(ctx: AppContext) -> None:
             workspace_id, opportunity_id
         ),
     )
+    reg.provide(
+        "outcomes.margin_protected",
+        lambda session, workspace_id, currency="INR": factory(session).margin_protected(
+            workspace_id, currency=currency
+        ),
+    )
 
 
 module = ModuleSpec(

@@ -117,6 +117,13 @@ train/test discipline, out-of-sample only.
 Split by **time**, not randomly — train on awards before date *T*, test after — otherwise the
 backtest leaks and the numbers are meaningless.
 
+**Implemented (TS-228)** in `backend/app/evalbacktest/`:
+
+- `m3.py` — `run_m3_backtest(tenders, awards)` with **time-based** train/test split;
+  reports L1 MAPE, bidder-count MAE, award-latency MAE, and retender AUC.
+- `scripts/eval_backtest.py` — corpus-level CLI; optional `--output` writes `backtest.json`
+  into a run directory for scorecard rollup.
+
 ### M4 — Metamorphic consistency
 
 Robustness properties that need no ground truth, only two runs:
@@ -379,6 +386,7 @@ baseline and reports no regression.
 ### 3.4 CI integration
 
 - **Per-PR:** 20-tender smoke slice, M1 + M4 only. Must be green to merge.
+  Implemented as `scripts/eval_ci_smoke.py` in the backend CI job (`TS-232`).
 - **Nightly:** 100-tender slice, M1 + M2 + M4, regression diff vs previous night.
 - **Weekly:** full 1,000+ corpus, all modes, published scorecard.
 - **Gate:** a >2pt drop on any headline metric blocks the rulepack or prompt change that caused it

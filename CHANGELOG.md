@@ -6,6 +6,20 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (TS-228 + TS-232: M3 backtest + CI eval smoke)
+
+- **TS-228 M3 outcome backtest** — `evalbacktest/m3.py` time-split train/test on award
+  records; L1 MAPE, bidder-count MAE, award-latency MAE, retender AUC; `scripts/eval_backtest.py`;
+  scorecard reads `backtest.json` when present.
+- **TS-232 CI gates** — `scripts/eval_ci_smoke.py` (M1 + M4 on smoke slice);
+  `--run-m4` on `bulk_eval.py`; backend CI job runs smoke gate; orchestrator tracks `m4_pass_rate`.
+
+Tests: 485 passed / 5 skipped.
+
+### Next
+
+- TS-233 (human gold set), TS-234 (north-star margin metric), TS-222 (gated).
+
 ### Done — 2026-07-31 (TS-218 + TS-197: correction loop + P0 harvest adapters)
 
 - **TS-218 correction loop** — `CorrectionProposal` table + migration; aggregates reviewed
@@ -18,6 +32,12 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   `--state` CLI flag on `scripts/corpus_harvest.py`.
 
 Tests: 469 passed / 5 skipped.
+
+### Done — 2026-07-31 (TS-225 + TS-227 + TS-229: adapters + M2/M4 eval scoring)
+
+- **TS-225 harvest adapters** — `ocds-registry` and `etimad` with legality review.
+- **TS-227 M2** — portal-metadata agreement scoring in `evalmetadata/`.
+- **TS-229 M4** — metamorphic order/redundancy checks in `evalmetamorphic/`.
 
 ### Done — 2026-07-31 (TS-211–214: express revenue lane)
 
@@ -36,11 +56,6 @@ Tests: 469 passed / 5 skipped.
 - **Fix** — SQLite-safe `acknowledgment_version` migration (`b7e4a1c93f20`).
 
 Tests: 457 passed / 5 skipped.
-
-### Next
-
-- TS-222 (Rung 2 trade patterns, gated), TS-225 (remaining harvest adapters), TS-227–229
-  (eval runner), TS-232–234 (Phase 16 exit gates).
 
 ### Done — 2026-07-31 (TS-200/210: employer context + express teaser)
 

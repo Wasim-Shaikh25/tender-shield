@@ -66,6 +66,7 @@ class BatchSummary:
     tenders_failed: int = 0
     failure_reasons: dict[str, int] = field(default_factory=dict)
     m1_pass_rate: float | None = None
+    m4_pass_rate: float | None = None
     aborted_by_cost_guard: bool = False
     total_tokens: int = 0
     total_cost_minor: int = 0
@@ -130,6 +131,7 @@ def run_batch(
     concurrency: int = 4,
     max_total_tokens: int | None = None,
     max_wall_seconds: float | None = None,
+    run_m4_checks: bool = False,
 ) -> BatchSummary:
     """Run every tender in the corpus (filtered by shard/limit) through the eval
     pipeline. Resumable: re-invoking with the same `run_id` skips tenders already
@@ -191,7 +193,11 @@ def run_batch(
                 return "cached", cached
 
         async_result = process_tender.delay(
-            record, corpus_root=corpus_root, pack_id=pack_id, model_id=model_id
+            record,
+            corpus_root=corpus_root,
+            pack_id=pack_id,
+            model_id=model_id,
+            run_m4_checks=run_m4_checks,
         )
         # This orchestrator is never itself a Celery task — it is a script/thread
         # pool calling into Celery — so Celery's "don't .get() inside a task"
@@ -267,14 +273,19 @@ def run_batch(
             _top_up(pool)
 
     if run_dir.results_path.exists():
-        m1_values = [
-            json.loads(line).get("m1_ok")
-            for line in run_dir.results_path.read_text().splitlines()
-            if line.strip()
-        ]
+        lines = [line for line in run_dir.results_path.read_text().splitlines() if line.strip()]
+        m1_values = [json.loads(line).get("m1_ok") for line in lines]
         m1_graded = [v for v in m1_values if v is not None]
         if m1_graded:
             summary.m1_pass_rate = sum(1 for v in m1_graded if v) / len(m1_graded)
+        if run_m4_checks:
+            m4_values = []
+            for line in lines:
+                m4 = json.loads(line).get("m4_summary")
+                if m4:
+                    m4_values.append(m4.get("ok"))
+            if m4_values:
+                summary.m4_pass_rate = sum(1 for v in m4_values if v) / len(m4_values)
 
     summary.finished_at = datetime.now(UTC).isoformat()
     run_dir.manifest_path.write_text(json.dumps(summary.to_dict(), default=str, indent=2))

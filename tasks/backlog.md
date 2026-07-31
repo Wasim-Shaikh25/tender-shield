@@ -387,11 +387,11 @@ Tracker: `tasks/phase16_tracker.md`.
 | TS-225 | Adapters: CPPP, state NIC, Etimad (official API), OCDS registry — each with recorded legality review and rate-limit compliance | Strategy §A.2, §E | `specs/eval-at-scale.md` §2.2 | done |
 | TS-226 | M1 structural invariant suite (quote integrity, citations, no invented numbers, BOQ closure, determinism, currency, tenant isolation, degradation, budget, no-crash) | Build Doc §6.2, §6.5, §11.5 | `specs/eval-at-scale.md` §1 | done |
 | TS-227 | M2 portal-metadata agreement scoring with `extraction_miss`/`extraction_wrong`/`portal_wrong` triage | `specs/eval-at-scale.md` §1 | `specs/eval-at-scale.md` | done |
-| TS-228 | M3 outcome backtest with **time-based** train/test split (L1 MAPE, bidder count, award latency, retender AUC) | Strategy §C.1 | `specs/eval-at-scale.md` §1 | todo |
+| TS-228 | M3 outcome backtest with **time-based** train/test split (L1 MAPE, bidder count, award latency, retender AUC) | Strategy §C.1 | `specs/eval-at-scale.md` §1 | done |
 | TS-229 | M4 metamorphic checks: format, order, addendum monotonicity, redundancy, locale invariance | `specs/eval-at-scale.md` §1 | `specs/eval-at-scale.md` | done |
 | TS-230 | `scripts/bulk_eval.py`: Celery fan-out, disposable workspace per tender, checkpoint/resume, sharding, cost guard + kill switch, failure classification | `specs/eval-at-scale.md` §3 | `specs/eval-at-scale.md` | done |
 | TS-231 | `scripts/eval_report.py`: `evals/runs/<run_id>/` scorecard + regression diff vs previous run on the same slice | Build Doc §11.5 | `specs/eval-at-scale.md` §3.2 | done |
-| TS-232 | CI wiring: 20-tender smoke per PR (M1+M4, blocking), 100-tender nightly, 1,000+ weekly; >2pt headline drop blocks the change | Build Doc §11.5 | `specs/eval-at-scale.md` §3.4 | todo |
+| TS-232 | CI wiring: 20-tender smoke per PR (M1+M4, blocking), 100-tender nightly, 1,000+ weekly; >2pt headline drop blocks the change | Build Doc §11.5 | `specs/eval-at-scale.md` §3.4 | done |
 | TS-233 | M5 human gold set: 50 tenders composed per the slice table, annotated per Build Doc §19, stored under `evals/in-works/` | Build Doc §19, §14.2 | `specs/eval-at-scale.md` §1 | todo |
 
 ### 16.I — North-star metric (added from founding research)

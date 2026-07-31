@@ -6,6 +6,19 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (TS-218 + TS-197: correction loop + P0 harvest adapters)
+
+- **TS-218 correction loop** — `CorrectionProposal` table + migration; aggregates reviewed
+  findings by `(pattern_id, employer_family)`; proposes overlays when ≥5 reviews and
+  ≥50% false-positive/rejected; admin routes `POST /api/rulepacks/corrections/scan`,
+  `GET /api/rulepacks/corrections/proposals`, `POST .../dismiss`; emits
+  `pattern.correction_suggested`; never auto-mutates packs.
+- **TS-197 P0 harvest adapters** — `cppp` (offline OCDS `--path` + best-effort network
+  feed) and `state-nic` (maharashtra/karnataka/gujarat) with legality review in docstrings;
+  `--state` CLI flag on `scripts/corpus_harvest.py`.
+
+Tests: 469 passed / 5 skipped.
+
 ### Done — 2026-07-31 (TS-211–214: express revenue lane)
 
 - **TS-211 server-owned checkout** — `express/prices.py` tier table; `POST
@@ -26,7 +39,8 @@ Tests: 457 passed / 5 skipped.
 
 ### Next
 
-- TS-218 (correction loop) and TS-197 (P0 harvest adapters).
+- TS-222 (Rung 2 trade patterns, gated), TS-225 (remaining harvest adapters), TS-227–229
+  (eval runner), TS-232–234 (Phase 16 exit gates).
 
 ### Done — 2026-07-31 (TS-200/210: employer context + express teaser)
 

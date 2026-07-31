@@ -183,8 +183,8 @@ adapter docstring (terms of use, robots.txt, rate limits, whether an official AP
 
 | Adapter | Country | Access | Priority |
 |---|---|---|---|
-| `cppp` | India | Archive search + document download | P0 |
-| `state_nic` (parameterised per state) | India | NIC eProcurement instances | P0 |
+| `cppp` | India | Archive search + document download | P0 — **done (TS-197)** offline OCDS `--path` + best-effort network feed |
+| `state-nic` (parameterised per state) | India | NIC eProcurement instances | P0 — **done (TS-197)** maharashtra/karnataka/gujarat; offline `--path` |
 | `nhai` | India | Free document download | P1 |
 | `gem` | India | Portal | P2 |
 | `etimad` | Saudi | [Official API — Tenders Inquiry Service](https://apiportal.etimad.sa/en/api_products/TendersInquiryService) | P1 |

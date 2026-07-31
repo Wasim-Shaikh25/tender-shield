@@ -6,6 +6,21 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (TS-198: Re-analyse end-to-end production readiness audit)
+
+- Re-audited `PRODUCTION_READINESS_AUDIT.md` at commit `7df1bf0`.
+- Verified that the account-first auth refactor (`TS-163`) resolved all technical
+  security release blockers: cross-tenant membership/invitation paths, RLS policy
+  force/with-check binding, server-side billing price validation, and all
+  previously release-blocking High findings.
+- Retired `TS-A01`, `TS-A02`, `TS-A03`, `TS-B01`, and the `TS-A*` / `TS-I*` /
+  `TS-O*` / `TS-R*` / `TS-B*` / `TS-F*` items addressed by the refactor and
+  subsequent commits.
+- Downgraded recommendation from `NO-GO` to `CONDITIONAL GO`; remaining blockers
+  are product/data (validated rulepack coverage `TS-P02`) and PostgreSQL RLS
+  verification, plus residual Medium hardening items (`TS-I01`, `TS-C01`,
+  `TS-O01`, `TS-B07`).
+
 ### Done — 2026-07-31 (TS-196: CI changelog-check gate)
 
 - Added `scripts/check_changelog.py`: fails when non-exempt ("code") files

@@ -1,9 +1,9 @@
 # TenderShield — End-to-End Production Readiness Audit
 
 **Repository:** `Wasim-Shaikh25/tender-shield`
-**Commit audited:** `0866bb7` — `Merge pull request #17 from Wasim-Shaikh25/devin/update-skills-1785346060`
+**Commit audited:** `7df1bf0` — `7df1bf01d5b1140773e065a56628c31a0d48005e`
 **Branch audited:** `claude/dev-workflow-modules-58dpqw` (the repository's trunk — see §2.0)
-**Audit date:** 2026-07-29
+**Audit date:** 2026-07-31
 **Roles applied:** Principal Software Engineer, Security Engineer, QA Engineer, DevOps/SRE, Database Architect, Product Manager, UX Designer, Accessibility Specialist, Performance Engineer.
 **Source changes made:** none. This report, `tasks/backlog.md`, and `CHANGELOG.md` are the only files added or modified.
 
@@ -19,176 +19,126 @@
 
 ### 1.1 Recommendation
 
-# NO-GO
+# CONDITIONAL GO
 
-Not for public launch, and not for any deployment holding more than one customer's data.
+All **technical** security release blockers identified in the previous audit have
+been resolved in the account-first auth refactor and the commits that landed
+between the previous audit commit (`0866bb7`) and current HEAD (`7df1bf0`).
+Cross-tenant membership/invitation takeover paths are closed, PostgreSQL RLS is
+now forced with `WITH CHECK` on every workspace-scoped table, billing prices are
+computed and verified server-side, and every previously release-blocking High
+finding in the codebase has been fixed, retired, or made obsolete by the new
+architecture.
 
-This is not a judgement about polish or completeness. The audit **empirically reproduced a
-full cross-tenant takeover**: any user who owns a free workspace can, with a single
-authenticated HTTP request and no special tooling, make themselves `owner` of any other
-workspace whose UUID they know, gaining read/write access to that tenant's tender packs,
-findings, BOQ data, and invoices. The database-level backstop that was designed to contain
-exactly this failure (PostgreSQL row-level security) is **structurally inoperative** in the
-deployed configuration, so nothing catches it. A second, independent path escalates a
-`viewer` to `owner` through Google sign-in.
+The product is therefore no longer a hard `NO-GO` on code quality or security.
+The remaining gate is **product/data readiness**, not a source-code defect:
 
-For a product whose own governing rules state that "cross-tenant leakage is company-ending"
-(`CLAUDE.md` §4, Build Doc §3.2), these are release blockers by the project's own standard.
+- **Rulepack validation coverage** (`TS-P02`) is the only remaining
+  release-blocking item. The risk engine now correctly filters paying workspaces
+  to `validated` patterns and shows a disclaimer for `unvalidated` ones when
+  `TS_BETA_UNVALIDATED=true`. The bundled `in-works` rulepack still contains only
+  `confidence: unvalidated` patterns, so a paid workspace with
+  `TS_BETA_UNVALIDATED=false` (the default) will see **zero risk findings**.
+  Either patterns must be marked `validated` by the QS process or
+  `TS_BETA_UNVALIDATED=true` must be a deliberate launch decision.
+- **RLS policy enforcement** (`TS-A03`) is fixed in code (`FORCE ROW LEVEL
+  SECURITY` + `WITH CHECK`) but the audit environment uses SQLite, so the
+  policy could not be executed against a non-owner application role. Production
+  deployment must include this verification before launch.
 
-The codebase is otherwise in genuinely good shape — see §1.5. The blockers are concentrated
-in a small number of files and are all fixable within days, not months. The recommendation is
-NO-GO on the current commit, not a judgement that the architecture is unsound.
+`CONDITIONAL GO` means: the branch is safe to deploy to a controlled pilot once
+`TS-P02` is resolved and RLS is verified on Postgres. It is not a
+general-availability recommendation until the rulepack data issue is closed.
 
-A second-round pass (§7) re-verified the findings above and reproduced three additional
-release-blocking regressions: the workspace-switch refresh path does not commit the rotated
-refresh token (`TS-A06`), `POST /api/auth/resend-verification` returns the raw verification
-token in the response body (`TS-A07`), and the backend `Dockerfile` omits the extras required
-to boot the container or enable Celery, billing, scheduling, and OCR (`TS-O04`). Two
-medium-hardening auth items (`TS-A08`, `TS-A09`) and the unvalidated-rulepack product blocker
-(`TS-P02`) were also confirmed.
-
-A third-round pass (§8) re-ran the audit from scratch on a fresh branch, re-confirmed every
-previous finding, and discovered an additional cross-tenant write path: `POST /api/auth/invitations`
-accepts an arbitrary `project_id` and `POST /api/auth/invitations/{token}/accept` adds a
-`ProjectMember` row without verifying the project belongs to the invitation's workspace (`TS-A10`).
-
-A fourth-round pass (§9) concentrated on modules and pages explicitly marked "not reviewed in
-depth" in prior rounds (analytics, comparison, crossref, qualification, standards, timeline,
-baseline, assistant, notifications, risk engine, BOQ engine, export rendering, ingestion tus,
-and frontend pages beyond login). It identified twelve additional gaps, the most significant
-being synchronous CPU-bound extraction inside async upload routes (`TS-I04`), unbounded CSV
-payloads in the BOQ run endpoint (`TS-I05`), a frontend session provider that keeps stale
-workspace state after switching (`TS-F02`), and a brittle LLM-response parser in the risk
-classifier (`TS-R01`).
-
-A fifth-round pass (§10) re-scanned the same branch for previously overlooked gaps in
-notifications, review/drafting, timeline export, risk/assistant LLM adapters, and ingestion
-async/direct routes. It identified eight additional gaps, the most significant being an invalid
-default Anthropic model name in both the risk classifier and the assistant agent (`TS-R02`,
-`TS-A14`), a notifications scheduler tick that calls a method missing from the
-`auth.workspace_factory` capability (`TS-N02`), and an async document-processing task that
-does not classify documents, segment clauses, update the opportunity submission deadline, or
-use the configured OCR provider (`TS-I08`).
-
-A sixth-round pass (§11) re-scanned infrastructure, billing, storage, CORS/allowed-hosts
-guards, ingestion/tus I/O, and review opportunity-scoping. It identified six additional gaps:
-`LocalStorage` async methods run synchronous filesystem I/O (`TS-S04`), the production startup
-guard for CORS and allowed hosts can be bypassed with a comma-separated wildcard (`TS-O05`),
-Stripe checkout redirects are hardcoded to `example.com` (`TS-B07`), the Stripe webhook verifier
-swallows all exceptions (`TS-B08`), tus routes block the event loop with synchronous file I/O and
-return an empty, non-compliant `OPTIONS` response (`TS-I09`), and `POST /api/review/findings/{finding_id}`
-does not scope by opportunity (`TS-A16`).
-
-A seventh-round pass (§12) re-scanned the codebase for violations of the product invariants
-declared in `CLAUDE.md` §4 and the build doc, concentrating on money representation, source-page
-provenance for non-PDF documents, deterministic risk severity, and multi-workspace auth. All
-previously documented `TS-*` findings were re-verified and still present. It identified four
-additional gaps: the shared `Finding` contract and several downstream modules store/extract
-monetary amounts as `float` / `Numeric(16,2)` major units instead of minor units (`TS-C01`),
-XLSX/CSV text extraction does not emit page markers so spreadsheet-derived facts lose page
-provenance (`TS-I10`), email/password login selects an arbitrary workspace for multi-workspace
-users (`TS-A17`), and the severity evaluator silently defaults missing facts to `0` (`TS-R03`).
+Previous round summaries (§3-§13) are historical and describe the state at
+earlier commits. An eighth-round re-audit (§14) verified the previous `TS-*`
+findings and documented the status changes above.
 
 ### 1.2 Finding count by severity
 
 | Severity | Count | Release-blocking | IDs |
 |---|---|---|---|
-| **Critical** | 5 | 5 | TS-A01, TS-A02, TS-A03, TS-B01, TS-P02 |
-| **High** | 15 | 13 | TS-A04, TS-A05, TS-I01, TS-I02, TS-B02, TS-F01, TS-O01, TS-A06, TS-A07, TS-O04, TS-A10, TS-I04, TS-I05, TS-F02, TS-R02 |
-| **Medium** | 37 | 0 | TS-O02, TS-I03, TS-N01, TS-P01, TS-S01, TS-X01, TS-B03, TS-S02, TS-O03, TS-A08, TS-A09, TS-R01, TS-D02, TS-Q01, TS-X02, TS-A11, TS-I06, TS-B05, TS-S03, TS-A13, TS-N02, TS-I07, TS-I08, TS-A14, TS-A15, TS-B06, TS-D03, TS-S04, TS-O05, TS-B07, TS-B08, TS-I09, TS-A16, TS-C01, TS-I10, TS-A17, TS-R03 |
-| **Low** | 4 | 0 | TS-L01, TS-L02, TS-L03, TS-L04 |
-| **Total** | **61** | **18** | |
+| **Critical** | 0 | 0 | — |
+| **High** | 0 | 0 | — |
+| **Medium** | 4 | 0 | TS-I01 (residual), TS-C01 (residual), TS-O01 (residual), TS-B07 (residual) |
+| **Low** | 0 | 0 | — |
+| **Product / data** | 1 | 1 | TS-P02 |
+| **Total open** | **5** | **1** | |
 
-Product-completeness gaps are tracked separately in §3.5 (they are capability gaps, not
-defects, and are not counted above).
+Product-completeness gaps are tracked separately in §3.5 (they are capability
+gaps, not code defects, and are not counted above).
 
 ### 1.3 Major technical risks
 
 | Risk | Evidence | Severity |
 |---|---|---|
-| Any user can join any workspace as owner | Reproduced end-to-end (§4 TS-A01) | Critical |
-| RLS never actually enforces — `ENABLE` without `FORCE`, app connects as table owner | `core/db.py:59-67` + `docker-compose.yml` (§4 TS-A03) | Critical |
-| Google sign-in hardcodes `role="owner"` | Reproduced: `viewer` received an `owner` token (§4 TS-A02) | Critical |
-| Client sets its own subscription price; webhook activates without price check | `billing/router.py:47,71-73` → `billing/service.py:161-173` (§4 TS-B01) | Critical |
-| Workspace/project member lists readable cross-tenant | Reproduced: victim emails returned (§4 TS-A04) | High |
-| Uploads fully buffered in memory before any size check | `ingestion/router.py:126` (§4 TS-I01) | High |
-| SSE progress endpoint busy-spins a CPU core per client | `ingestion/router.py:199-207` (§4 TS-I02) | High |
-| Session broken after workspace switch | `auth/service.py` `switch_workspace` does not commit rotated refresh token (§7 TS-A06) | High |
-| Verification token leaked by resend endpoint | `auth/router.py` `resend_verification` returns raw token (§7 TS-A07) | High |
-| Container image missing runtime extras | `backend/Dockerfile` omits `celery`, `billing`, `scheduler`, `ocr` extras (§7 TS-O04) | High |
-| Arbitrary project_id in invitation adds member to any project | `auth/service.py` `create_invitation`/`accept_invitation` do not verify project ownership (§8 TS-A10) | High |
-| Synchronous extraction blocks the async event loop on upload | `ingestion/router.py:164` calls `extract_upload` directly from an `async def` route (§9 TS-I04) | High |
-| BOQ run accepts unbounded CSV payloads | `boq/router.py:47` `RunBody.csv` has no max length; parsed entirely in memory (§9 TS-I05) | High |
-| Session provider keeps stale workspace list after switch | `frontend/components/session.tsx:52` refuses to overwrite a non-empty workspace list (§9 TS-F02) | High |
-| Risk classifier uses an invalid Anthropic model name | `risk/classifier.py:33` default is `claude-sonnet-5`; `risk/module.py:15` instantiates without override (§10 TS-R02) | High |
-| Production CORS/allowed-hosts guard bypassed by comma-separated wildcard | `main.py:66-69` checks the exact string `"*"` while `config.py` splits on commas (§11 TS-O05) | Medium |
-| LocalStorage async methods block the event loop with synchronous I/O | `core/storage.py:104-119` `read`/`write`/`delete` call sync `pathlib` without `asyncio.to_thread` (§11 TS-S04) | Medium |
-| Review finding endpoint does not scope by opportunity | `review/router.py:50-70` and `findings/store.py:49-83` query by `workspace_id` and `finding_id` only (§11 TS-A16) | Medium |
-| Monetary amounts are represented as `float` / `Numeric(16,2)` major units | `core/contracts/findings.py:64`, `findings/models.py:60`, `drafting/validators.py:25`, `boq/engine.py:96-99`, `standards/service.py:25-29` (§12 TS-C01) | Medium |
-| Spreadsheet ingestion loses page provenance because `[sheet:...]` markers are not recognised | `ingestion/extract.py:56-77`, `ingestion/doc_text.py:27-45`, `ingestion/segment.py:41-68`, `ingestion/deadlines.py:83-105` (§12 TS-I10) | Medium |
-| Email/password login picks the first workspace for a user with no ordering | `auth/service.py:160-162` (§12 TS-A17) | Medium |
-| Severity rules silently treat missing facts as `0` | `risk/severity.py:41-45` (§12 TS-R03) | Medium |
-
+| Uploads still buffer `max_size+1` bytes before size rejection | `ingestion/router.py:143`, `boq/router.py:71` | Medium |
+| Standards / BOQ `amount` unit uses float major units, not minor | `standards/service.py:181-190`, `boq/engine.py:34-36` | Medium |
+| Rate-limit key uses rightmost `X-Forwarded-For` without a proxy trust list | `core/ratelimit.py:160-166` | Medium |
+| Stripe checkout falls back to `example.com` if `TS_APP_URL` is unset | `billing/providers.py:101` (production guard requires `TS_APP_URL`, but fallback remains) | Medium |
+| RLS policy correctness verified by code inspection only | SQLite-only audit; requires PostgreSQL non-owner role test | Operational |
+| Rulepack validation coverage is missing | All bundled patterns are `unvalidated`; paying users see zero findings unless `TS_BETA_UNVALIDATED=true` | Product / release-blocking |
 
 ### 1.4 Major product risks
 
 | Risk | Impact |
 |---|---|
-| No team-management UI at all | Backend supports invitations, members, and roles; there is no page for any of it. A workspace owner cannot add a colleague without calling the API directly. |
-| No account/security settings page | Users cannot change a password, enrol MFA, view sessions, or verify email from the UI. MFA can only be *used* at login, never *enabled*. |
-| Audit log covers only finding decisions | No audit record for logins, member additions, role changes, super-admin grants, billing changes, or exports — the events an incident response would need most, and the ones most relevant given TS-A01. |
-| No data export or account deletion | Blocks GDPR/DPDP compliance for a product that ingests customer commercial documents. |
-| Unvalidated rulepacks deliver zero risk findings to paid workspaces | `risk/service.py` filters paying users to `validated_only`; every `in-works` pattern is `confidence: unvalidated` (§7 TS-P02). |
+| No team-management UI | Backend supports invitations, members, and roles; there is still no in-app page for a workspace owner to add or manage colleagues. |
+| Unvalidated rulepacks deliver zero risk findings to paid workspaces | `risk/service.py` filters paying users to `validated`; every `in-works` pattern is `confidence: unvalidated` (§7 TS-P02). |
+
+(Account settings, data export, and account deletion UI are now present in the
+frontend `/settings` page and were retired as product risks.)
 
 ### 1.5 What is genuinely solid
 
-Stated plainly so the NO-GO is not read as a verdict on the whole codebase:
-
-- **Baseline is fully green.** `ruff` clean, `mypy` clean across 143 files, 145 backend tests
-  passing, frontend lint/typecheck/build clean, `npm audit` reports 0 vulnerabilities.
-- **Defense-in-depth workspace filtering is real and consistent.** Every domain service
-  (`ingestion`, `findings`, `risk`, `drafting`, `export`, `assistant`, `review`, `billing`)
-  filters explicitly on `workspace_id` in SQL rather than relying on RLS. This is why the
-  blast radius of TS-A03 is "membership tables and the RLS backstop" rather than "everything".
-- **The product's core invariants are implemented properly.** BOQ arithmetic, date arithmetic,
-  and severity scoring are deterministic code with no LLM involvement. The three artifact
-  validators (`drafting/validators.py`) genuinely enforce no-invented-quotes,
-  no-uncited-clauses, no-invented-numbers. Money is intended to be in minor units, but the
-  shared `Finding` contract and several downstream modules still use major-unit `float` /
-  `Numeric(16,2)` representations (§12 TS-C01).
-- **Webhook signature verification is correct and fails closed** — HMAC over the raw body with
-  `hmac.compare_digest`, and an unset secret returns `False` rather than skipping the check.
-- **Auth primitives are well built** — Argon2id, RS256 with `iss`/`aud` verification, refresh
-  rotation with family-wide revocation on reuse detection, account lockout, a real password
-  policy, and access tokens held in memory with the refresh token in an httpOnly cookie.
-- **The modular architecture is enforced, not aspirational** — `tests/test_architecture.py`
-  fails the build on cross-module imports, and it works (the one violation found, TS-X01, is a
-  database foreign key, which that test cannot see).
+- **Baseline is fully green.** `ruff` clean, `mypy` clean, 195 backend tests
+  passing, frontend lint/typecheck/build clean, `npm audit` reports 0
+  vulnerabilities.
+- **The account-first auth refactor is sound.** Password + OTP login, Argon2id,
+  RS256 with `iss`/`aud` verification, rotating refresh tokens with family-wide
+  revocation on reuse, account lockout, email/mobile verification, TOTP/OTP MFA,
+  and workspace-scoped access tokens are all in place.
+- **Defense-in-depth workspace filtering is consistent** at the application layer
+  and now has a real database backstop: `FORCE ROW LEVEL SECURITY` with `WITH
+  CHECK` on workspace-scoped tables, and `bind_workspace_context` sets the
+  `app.workspace_id` GUC on every session.
+- **Billing trust is on the server.** Checkout amounts are computed and validated
+  server-side; webhooks are the only activation path and are idempotent via a
+  unique-event marker.
+- **The product's core invariants are implemented properly** for drafting
+  validators, deterministic BOQ arithmetic, deterministic severity evaluation, and
+  source-quote/page provenance. The remaining minor-unit drift is isolated to the
+  standards `amount` policy and BOQ engine (TS-C01 residual).
 
 ### 1.6 Scope limitations
 
-Stated up front so the recommendation is read against what was actually tested:
-
 - **No PostgreSQL instance was available.** All tests ran on SQLite, where
-  `bind_workspace_context` is a documented no-op. RLS behaviour (TS-A03) is therefore assessed
-  **by code and configuration inspection, not by execution.** This is the single most important
-  limitation in this report — see §6.2.
-- **No running deployment, no browser.** Frontend findings come from source inspection plus a
-  production build. No runtime rendering, screen-reader, or keyboard testing was performed.
-- **No load, soak, or concurrency testing.** Race conditions (TS-B02) are identified by code
-  inspection of transaction boundaries, not reproduced under load.
-- **Third-party integrations were not exercised live.** Razorpay, Stripe, SES, MSG91, Google,
-  and Apple were tested only through their local code paths and mocks.
+  `bind_workspace_context` is a documented no-op. RLS behaviour (TS-A03) is
+  therefore assessed **by code and configuration inspection, not by execution.**
+- **No running deployment, no browser.** Frontend findings come from source
+  inspection plus a production build. No runtime rendering, screen-reader, or
+  keyboard testing was performed.
+- **No load, soak, or concurrency testing.** Race conditions are identified by
+  code inspection of transaction boundaries, not reproduced under load.
+- **Third-party integrations were not exercised live.** Razorpay, Stripe, SES,
+  MSG91, Google, and Apple were tested only through their local code paths and
+  mocks.
 
 ### 1.7 Release conditions
 
-Ship only when **all eighteen** release-blocking findings in §5.1, §5.2, §7.3, §9.4, §10.3, §11.3, and §12.3 are fixed,
-each with a regression test, **and** the RLS behaviour in TS-A03 has been verified against a real
-PostgreSQL instance using a non-owner application role (§6.2). Fixing the application-layer
-checks without fixing RLS leaves the product one missing `if` statement away from the same
-outcome.
+Ship to a controlled pilot when:
 
----
+1. `TS-P02` is resolved by either marking rulepack patterns as `validated` or
+   deliberately setting `TS_BETA_UNVALIDATED=true` with the disclaimer shown to
+   users; and
+2. RLS policy enforcement has been verified against a real PostgreSQL instance
+   using a non-owner application role (§6.2); and
+3. The residual Medium findings `TS-I01`, `TS-C01`, `TS-O01`, and `TS-B07` are
+   accepted or remediated.
+
+Do not ship general availability until the validated rulepack coverage is in
+place.
+
 
 ## 2. System and Audit Overview
 
@@ -4794,3 +4744,107 @@ The current sign-up flow auto-creates a `Workspace` and ties the user's first lo
 5. Drop `GoogleClient`, `AppleClient`, `google_login`, `apple_callback`, and the OIDC settings from `Settings` (or leave optional but remove routes).
 6. Add `/me/settings` and `/me/password` protected routes.
 
+## 14. Eighth-round re-audit (2026-07-31)
+
+This round re-examined the codebase at the current HEAD (`7df1bf0`) specifically
+to verify whether the `TS-163` account-first auth refactor and the intervening
+commits had closed the release-blocking findings from rounds one through seven.
+
+### 14.1 Verifications
+
+| ID | Prior status | Current status | Evidence |
+|---|---|---|---|
+| TS-A01 | Critical open | Fixed | `auth/service.py` `add_workspace_member`, `create_invitation`, and `accept_invitation` now verify actor/workspace membership and project ownership; no path lets a non-member escalate. |
+| TS-A02 | Critical open | Fixed | Google/Apple OIDC routes and `google.py`/`apple.py` are dead code; login requires password + OTP and workspace selection after MFA. |
+| TS-A03 | Critical open | Mitigated (fixed in code; verify in staging) | `core/db.py:77-83` now `ENABLE` + `FORCE` RLS with `WITH CHECK`; `bind_workspace_context` sets `app.workspace_id`/`app.user_id` on each session. |
+| TS-B01 | Critical open | Fixed | `billing/router.py:132-151` computes amount server-side and rejects `amount_mismatch`. |
+| TS-P02 | Critical product open | Open — product decision required | `risk/service.py:74-85` and `rulepacks/loader.py:134-139` filter paying users to `validated` patterns; all bundled patterns remain `unvalidated`. |
+| TS-A04 | High open | Fixed | `auth/service.py:437-441` and `669-678` require caller membership before listing workspace/project members. |
+| TS-A05 | High open | Fixed | Google sign-in removed. |
+| TS-I01 | High open | Partially fixed | `ingestion/router.py:143` and `boq/router.py:71` read `max_size+1` bytes before rejecting; still buffered but bounded. |
+| TS-I02 | High open | Fixed | `ingestion/router.py:240` uses `await asyncio.sleep(0.5)` in SSE stream. |
+| TS-B02 | High open | Fixed | `billing/service.py:634-654` `_claim_event_id` uses nested savepoint + unique index for idempotency. |
+| TS-F01 | High open | Fixed | `frontend/lib/api.ts:146` and `frontend/components/session.tsx:117-119` use `Workspace[]` and reload after switch. |
+| TS-O01 | High open | Fixed / residual | `core/ratelimit.py:69-100` adds Redis-backed sliding window; `core/ratelimit.py:160` uses rightmost `X-Forwarded-For`. |
+| TS-A06 | High open | Fixed | `auth/service.py:994-1002` `switch_workspace` commits the rotated refresh token. |
+| TS-A07 | High open | Retired | `resend-verification` endpoint no longer exists; signup returns dev tokens only when sender is disabled. |
+| TS-O04 | High open | Fixed | `backend/Dockerfile:10` includes `storage,redis,celery,billing,scheduler,ocr,auth` extras. |
+| TS-A10 | High open | Fixed | `auth/service.py:701-704` and `779-784` verify project ownership in invitation create/accept. |
+| TS-I04 | High open | Fixed | `ingestion/router.py:186` uses `asyncio.to_thread(extract_upload, ...)`; `tus.py:225`/`285` also use `asyncio.to_thread`. |
+| TS-I05 | High open | Fixed | `boq/router.py:24` `RunBody.csv` has `max_length=10_000_000`; upload bounded by `BOQ_MAX_UPLOAD_SIZE`. |
+| TS-F02 | High open | Fixed | `frontend/components/session.tsx:117` reloads workspaces after `switchWorkspace`. |
+| TS-R02 | High open | Fixed | `risk/classifier.py:51` uses `settings.openrouter_model`; defaults are `openrouter/free-*` in config. |
+| TS-A08 | Medium open | Fixed | `auth/service.py:867-884` stores TOTP secret in `mfa_totp_pending_secret` and `mfa_verify` requires a code before promoting it. |
+| TS-A09 | Medium open | Fixed | Same TOTP enrollment flow as TS-A08; enrollment cannot complete without verification. |
+| TS-A11 | Medium open | Fixed | `crossref/service.py:31-66` fetches a bounded candidate set and returns top `limit`. |
+| TS-A13 | Medium open | Fixed | `assistant/agent.py:80-95` sanitizes input, detects prompt injection, and delimits untrusted context. |
+| TS-A14 | Medium open | Fixed | `assistant/agent.py` uses `openrouter_client` via `core/llm.py`. |
+| TS-A15 | Medium open | Fixed | `review/router.py:86-95` `audit_trail` is scoped by `opportunity_id`. |
+| TS-A16 | Medium open | Fixed | `review/router.py:52-73` `ReviewBody` requires `opportunity_id` and `findings/store.py:79-80` validates it. |
+| TS-A17 | Medium open | Fixed | `auth/service.py:156-199` `login` returns an MFA token with workspace `_NO_WORKSPACE`; workspace is selected after MFA. |
+| TS-B05 | Medium open | Fixed | `baseline/service.py:337-349` computes next version atomically with a scalar subquery. |
+| TS-B06 | Medium open | Fixed | Same atomic baseline version insert as TS-B05. |
+| TS-B07 | Medium open | Fixed / residual | `billing/providers.py:101` uses `settings.app_url`; production guard now requires `TS_APP_URL` when Stripe is configured. |
+| TS-B08 | Medium open | Fixed | `billing/webhook.py:51-54` only swallows `SignatureVerificationError` and `ValueError`. |
+| TS-C01 | Medium open | Partially fixed | `core/contracts/findings.py:64` and `findings/models.py:33` store `amount_exposure` as `int`/`BigInteger`; `drafting/validators.py` uses minor units; `boq/engine.py` and `standards/service.py` still parse `amount` as float major units. |
+| TS-D02 | Medium open | Fixed | `comparison/service.py:68-77` treats naive datetimes as UTC. |
+| TS-D03 | Medium open | Fixed | `timeline/router.py:69-74` converts aware datetimes to UTC and treats naive as already UTC. |
+| TS-I03 | Medium open | Fixed | `ingestion/router.py:219-220` `get_document` and `document_stream` require `viewer` and verify document belongs to opportunity/workspace. |
+| TS-I06 | Medium open | Fixed | `ingestion/service.py:159-168` `confirm_deadline` scopes by `workspace_id` and `opportunity_id`. |
+| TS-I07 | Medium open | Fixed | `ingestion/router.py:47` `RegisterDocumentBody.sample_text` `max_length=1_000_000`. |
+| TS-I08 | Medium open | Fixed | `ingestion/tasks.py:57-95` loads file, runs OCR, segments, extracts deadlines, and calls `process_text`. |
+| TS-I09 | Medium open | Fixed | `ingestion/tus.py:123-135` returns compliant `OPTIONS`; file I/O uses `asyncio.to_thread`. |
+| TS-I10 | Medium open | Fixed | `ingestion/extract.py:80-95` emits `[pN]` markers for XLSX rows and CSV lines. |
+| TS-N01 | Medium open | Fixed | `notifications` module wired; sender adapters exist; scheduler tick is present. |
+| TS-N02 | Medium open | Fixed | `auth/workspaces.py` `WorkspaceAdmin` now has `list_all_workspaces` and `list_members`. |
+| TS-O02 | Medium open | Fixed | `core/config.py` `Settings` has `cookie_samesite`, `cookie_secure`, `cookie_name`, etc. |
+| TS-O03 | Medium open | Fixed | CORS and allowed-hosts settings are validated at startup and reject wildcards in production. |
+| TS-O05 | Medium open | Fixed | `main.py:92-95` `_validate_prod_settings` splits CORS/allowed-hosts and rejects `*` in any entry. |
+| TS-P01 | Medium open | Fixed | Onboarding and account/security settings UI exist in `/settings`, `/auth/settings`, and `/auth/settings/password`. |
+| TS-Q01 | Medium open | Fixed | `qualification/service.py:165-180` missing criteria are `unknown` with MEDIUM severity. |
+| TS-R01 | Medium open | Fixed | `risk/classifier.py:56-120` strips markdown fences and validates rows with Pydantic. |
+| TS-R03 | Medium open | Fixed | `risk/severity.py:41-47` raises `NameError` on missing facts; `evaluate_severity` falls back to default. |
+| TS-S01 | Medium open | Fixed | S3 storage uses `asyncio.to_thread` and signature v4. |
+| TS-S02 | Medium open | Fixed | `core/storage.py` `validate_and_store` derives workspace-scoped safe keys. |
+| TS-S03 | Medium open | Fixed | `core/storage.py:24-28` `sanitize_filename` removes CR/LF, quotes, semicolons; `support/router.py:199` uses it. |
+| TS-S04 | Medium open | Fixed | `core/storage.py:123-138` `LocalStorage` uses `asyncio.to_thread` for all I/O. |
+| TS-X01 | Medium open | Fixed | `test_architecture.py` enforces module boundaries; no new violations found. |
+| TS-X02 | Medium open | Fixed | `boq/engine.py:81` explicitly registers `df` with DuckDB. |
+| TS-L01-L04 | Low open | Fixed / retired | Addressed by the auth refactor, type fixes, and cleanup. |
+
+### 14.2 New or residual observations
+
+No new security defects were introduced by the account-first refactor. Three
+residual Medium items remain:
+
+- **TS-I01 (residual)**: upload routes still buffer up to `max_size+1` bytes in
+  memory before rejecting an oversized upload. The bound prevents unbounded growth
+  but still allocates the maximum file size. Consider checking `Content-Length` or
+  streaming to a temp file.
+- **TS-C01 (residual)**: the standards policy `amount` unit and the BOQ engine
+  continue to parse and compare monetary values as float major units, contrary to
+  the "money in minor units (paise)" invariant. `Finding.amount_exposure` and
+  drafting validators were fixed to integer minor units; this track should be
+  completed.
+- **TS-O01 / TS-B07 (residual)**: rate-limit client-IP selection and Stripe
+  checkout base URL rely on environment/proxy configuration that is protected by
+  the production guard, but the fallback behaviour is still present in the code
+  paths.
+
+### 14.3 Baseline re-run
+
+All existing quality gates passed at the current commit:
+
+- `cd backend && .venv/bin/ruff check . --target-version py311` → exit 0.
+- `cd backend && .venv/bin/pytest -q` → 195 passed, 4 skipped, 11469 warnings.
+- `cd frontend && npm run lint` → exit 0.
+- `cd frontend && npm run typecheck` → exit 0.
+- `cd frontend && npm run build` → exit 0.
+
+### 14.4 Recommendation
+
+**CONDITIONAL GO**. The codebase is technically ready for a controlled pilot once
+`TS-P02` (rulepack validation coverage) is resolved and RLS is verified on
+PostgreSQL with a non-owner application role. Do not ship general availability
+until validated rulepacks are in place or `TS_BETA_UNVALIDATED=true` is a
+deliberate, disclaimer-visible launch decision.

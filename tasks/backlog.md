@@ -305,3 +305,9 @@ Audit only — no source changes. Findings and full remediation detail live in
 || TS-194 | Fix plan snapshot export 404 and default OpenRouter model to `openrouter/free` with clear no-key messaging | user request; E2E findings | `backend/app/modules/analytics/`, `backend/app/core/config.py`, `.env.*`, `specs/modules/plan-dashboard.md` | done |
 || TS-195 | Make AI Assistant workspace-scoped instead of opportunity-scoped | user request; Build Doc §8 | `backend/app/modules/assistant/`, `frontend/app/assistant/page.tsx`, `frontend/lib/api.ts`, `specs/modules/assistant.md` | done |
 || TS-196 | CI gate: fail a PR when code changed but `CHANGELOG.md` didn't (enforce CLAUDE.md §1.5) | user request; CLAUDE.md §1.5 "a push without a changelog entry is incomplete work" | `specs/902-changelog-check.md` | done |
+
+## Audit
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-198 | Re-analyse end-to-end production readiness audit at current HEAD | user request | `PRODUCTION_READINESS_AUDIT.md` | done |

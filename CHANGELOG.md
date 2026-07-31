@@ -6,6 +6,22 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (Fix: CI broken by two alembic heads after the PR #69 merge)
+
+The merge of PR #69 combined two migration chains that both branched off `5617d7dc8440`
+— `06867937ef52` (pricing-intel tables) and `0c2f0e860d39` (chat session opportunity
+optional) — leaving two heads. `alembic upgrade head` failed with "Multiple head
+revisions are present," breaking both the `backend` job's scratch-DB up/down check and
+the `rls-postgres` job's `Migrate` step in CI (run `30646868682` on `dd846e6`).
+
+- Added `backend/migrations/versions/f0d5a28efb7f_merge_pricing_intel_and_assistant_.py`
+  via `alembic merge 06867937ef52 0c2f0e860d39` — a no-op merge revision, not a rewrite
+  of either existing migration's `down_revision`, since both are already merged/pushed
+  history.
+- Verified: `alembic heads` reports a single head; `alembic upgrade head` /
+  `downgrade base` both clean against a fresh SQLite scratch DB; full backend suite
+  still 420 passed / 5 skipped.
+
 ### Done — 2026-07-31 (Merge: `claude/product-market-value-bh65yr` → base, TS-195/196 renumbered to TS-297/298)
 
 Merged PR #69 (Phase 16 defensibility/domain-agnosticism/scale-validation work, TS-195–TS-296)

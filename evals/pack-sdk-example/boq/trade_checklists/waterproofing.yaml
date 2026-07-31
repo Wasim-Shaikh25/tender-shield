@@ -1,0 +1,17 @@
+# Example trade checklist (TS-220) — synthetic, for pack-SDK validation only.
+id: waterproofing_example
+trade: civil
+confidence: unvalidated
+source: >
+  Example pack — synthetic checklist for pack-SDK validation only.
+items:
+  - key: membrane_protection_screed
+    label: Protection screed over waterproofing membrane
+    severity: medium
+    triggers: ["basement", "waterproofing membrane"]
+    boq_patterns: ["protection screed", "protective screed"]
+  - key: waterstop_at_construction_joints
+    label: Waterstop at construction joints
+    severity: high
+    triggers: ["basement", "raft foundation", "construction joint"]
+    boq_patterns: ["waterstop", "water stop", "PVC water bar"]

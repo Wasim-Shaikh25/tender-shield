@@ -1,8 +1,8 @@
 # Rule-Packs — Spec
 
-**Status:** implemented (scaffold + Phase-0 patterns)
-**Requirement refs:** Doc §2, §14
-**Task refs:** TS-007, TS-008, TS-009, TS-046
+**Status:** implemented (scaffold + Phase-0 patterns + pack SDK + domain-ladder Rung 1)
+**Requirement refs:** Doc §2, §14; `docs/TenderShield_Market_Strategy_2026.md` §C.2, §C.4, §D.2, §D.4
+**Task refs:** TS-007, TS-008, TS-009, TS-046, TS-202, TS-204, TS-220, TS-221
 
 ## Purpose
 
@@ -55,6 +55,53 @@ citable references, and golden tests. Launch pack: `in-works` (India works).
   carries `expected` (whether a well-formed contract should include the regime),
   `typical_days`, and matching `keywords`; `source` + `confidence` remain
   mandatory (B1/B2 apply).
+- **B8 (price impact — TS-202):** a risk pattern may carry an optional
+  `price_impact` block (`basis`, `formula`, `inputs`, `confidence`). `formula`
+  names a versioned pure function in `app.modules.pricing.formulas` — never
+  free-form code, never itself LLM-computed. See `specs/modules/pricing-intel.md`.
+- **B9 (rate schedules — TS-204):** `rulepacks/<pack>/rates/<authority>/<year>.yaml`
+  loads into `RulePack.rate_schedules`, keyed `"<authority>/<year>"`. Ships
+  **empty by design** in `in-works` — a Schedule-of-Rates is authoritative
+  regulatory data; see `rulepacks/in-works/rates/README.md` for why none is
+  checked in yet, and why an empty/missing directory is a valid, error-free state.
+- **B10 (domain ladder — TS-221):** `trade_checklists/` holds one YAML per trade
+  with zero code required to add one (Strategy §D.2 Rung 1). `in-works` currently
+  carries 7: `civil_structure`, `electrical`, `hvac` (Phase 0) plus `plumbing`,
+  `fire_fighting`, `structural_steel`, `lifts` (Rung 1, TS-221). Rung 2
+  (supply-and-erection patterns, TS-222) is explicitly gated on a paying customer
+  asking (Strategy §D.2) and is deliberately not built yet — adding it before
+  that signal would be the scope reflex the roadmap warns against
+  (Build Doc §12.6).
+
+## Pack SDK (TS-220)
+
+Strategy §D.4: "schema + validator + test harness so a QS consultancy can write and verify a
+pack" — the distribution mechanism that turns domain-agnosticism into a marketplace rather than
+requiring every pack to be authored in-house.
+
+Implemented in `backend/app/packsdk/` (outside `app/modules/` — tooling for pack authors, not a
+product feature, matching `evalcorpus`/`evalinvariants`/`evalrunner`):
+
+- **Schema** is not duplicated: the Pydantic models in `app.modules.rulepacks.schemas` **are** the
+  schema, for both the product and any third party. `validate_pack()` reuses `RulePackLoader`
+  itself so there is exactly one definition of "valid."
+- **`validate.py`** adds lint rules the loader deliberately does not enforce, because production
+  optimizes for graceful degradation (skip a bad file, keep booting) where pre-publish validation
+  should instead fail loudly: empty `source`, a `severity_rule` that isn't valid expression syntax,
+  duplicate pattern/checklist ids across files (which the loader's dict cache would otherwise
+  silently overwrite), duplicate checklist item keys, an `id` mismatch between `pack.yaml` and the
+  directory name, and a `price_impact.formula` that isn't registered (warning, not an error — a
+  third-party pack may ship its own formula).
+- **`packtest.py`** is a **deterministic** test harness: BOQ scope-gap / trade-checklist matching
+  (`app.modules.boq.engine.scope_gaps`) is pure Python with no LLM call, so a pack author writes
+  test cases — `<pack>/tests/scope_gaps/*.yaml`: spec text, BOQ rows, `expect_gap_keys` and
+  `expect_no_gap_keys` — and verifies them fully offline, no API key. Risk-pattern *judgment*
+  (does this clause text match this pattern?) is LLM-graded and cannot be verified this way; that
+  half is what `specs/eval-at-scale.md` exists for, against real documents at scale.
+- **CLIs:** `scripts/pack_validate.py --pack-dir <path>`, `scripts/pack_test.py --pack-dir <path>`.
+- **The acceptance gate proven directly:** `evals/pack-sdk-example/` is a complete, self-contained,
+  third-party-style pack (one pattern, one trade checklist, one deterministic test case) that both
+  CLIs validate and test cleanly — see `backend/tests/test_packsdk.py`.
 
 ## Acceptance criteria
 
@@ -65,9 +112,15 @@ citable references, and golden tests. Launch pack: `in-works` (India works).
 - A4: `notice_standard("in-works")` returns the universal base; adding region
   `"IN"` tightens the `claim` window (28→15d), appends the India-only
   `escalation` category, and leaves untouched base categories intact (B7).
+- A5: `validate_pack()` passes cleanly on both `rulepacks/in-works` and
+  `evals/pack-sdk-example`, and catches each lint rule on a deliberately broken
+  fixture (missing source, bad severity rule, duplicate id, duplicate item key).
+- A6: `run_pack_tests()` passes on `evals/pack-sdk-example`'s one case, and correctly
+  fails on a case whose `expect_gap_keys`/`expect_no_gap_keys` don't match reality.
 
 ## Out of scope
 
 `gcc-fidic` and `uk-jct-nec` packs (Phases 4–5) — but B7's layering is exactly
 the seam they plug into (a `gcc.yaml`/`uk.yaml` overlay); employer-family
-baselines beyond notice standards (P2).
+baselines beyond notice standards (P2); Rung 2 supply-and-erection patterns
+(TS-222, gated on a paying customer asking, Strategy §D.2).

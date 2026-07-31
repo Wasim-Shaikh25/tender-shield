@@ -367,8 +367,8 @@ Tracker: `tasks/phase16_tracker.md`.
 
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
-| TS-220 | Pack SDK: schema, validator CLI, pack test harness so a third party can author and verify a pack | Strategy §D.4 | `specs/modules/rulepacks.md` (update) | todo |
-| TS-221 | Ladder rung 1 trade checklists: plumbing/public-health, fire-fighting, structural steel, lifts (YAML only, zero code) | Strategy §D.2 | `rulepacks/in-works/boq/trade_checklists/` | todo |
+| TS-220 | Pack SDK: schema, validator CLI, pack test harness so a third party can author and verify a pack | Strategy §D.4 | `specs/modules/rulepacks.md` (update) | done |
+| TS-221 | Ladder rung 1 trade checklists: plumbing/public-health, fire-fighting, structural steel, lifts (YAML only, zero code) | Strategy §D.2 | `rulepacks/in-works/boq/trade_checklists/` | done |
 | TS-222 | Ladder rung 2 patterns: supply-and-erection — customs/GST variation, split delivery/erection LD, PG tests, free-issue material, O&M tail | Strategy §D.2 | `specs/modules/rulepacks.md` (update) | todo |
 
 ### 16.G — Profitability instrumentation

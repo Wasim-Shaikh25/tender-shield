@@ -125,7 +125,17 @@ def test_api_exposes_packs_and_patterns():
 
 def test_trade_checklists_load_with_dewatering_gap_knowledge():
     pack = RulePackLoader().get_pack("in-works", reload=True)
-    assert set(pack.trade_checklists) == {"civil_structure", "electrical", "hvac"}
+    # Domain-ladder Rung 1 (Strategy §D.2, TS-221): civil/electrical/hvac plus
+    # plumbing, fire_fighting, structural_steel, lifts — one YAML each, zero code.
+    assert set(pack.trade_checklists) == {
+        "civil_structure",
+        "electrical",
+        "hvac",
+        "plumbing",
+        "fire_fighting",
+        "structural_steel",
+        "lifts",
+    }
     civil = pack.trade_checklists["civil_structure"]
     assert civil.confidence == "unvalidated"
     dewatering = next(i for i in civil.items if i.key == "dewatering")

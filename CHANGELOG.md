@@ -6,6 +6,53 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (TS-220–221: pack SDK + domain-ladder Rung 1)
+
+Turns domain-agnosticism into distribution (Strategy §D.4) — the mechanism that lets a QS
+consultancy author and verify a pack without touching TenderShield's own tests or CI, and
+proves the engine actually generalizes by shipping four new trades as pure data.
+
+- **`backend/app/packsdk/`** (new package, outside `app/modules/` alongside `evalcorpus`/
+  `evalinvariants`/`evalrunner` — tooling for pack authors, not a product feature):
+  - `validate.py` — reuses `RulePackLoader` for schema conformance (there is exactly one
+    definition of "valid," not a looser third-party one) and adds lint rules production
+    deliberately skips for the sake of graceful degradation: empty `source`, a
+    `severity_rule` that isn't valid expression syntax, duplicate pattern/checklist ids
+    across files (the loader's dict cache silently overwrites these rather than erroring),
+    duplicate checklist item keys, a `pack.yaml` id mismatch, and an unregistered
+    `price_impact.formula` (warning, not an error — a third party may ship its own).
+  - `packtest.py` — a **deterministic** test harness over BOQ scope-gap / trade-checklist
+    matching (pure Python, no LLM call): a pack author writes `<pack>/tests/scope_gaps/*.yaml`
+    cases (spec text, BOQ rows, expected gap keys and expected non-gaps) and verifies them
+    fully offline. Risk-pattern judgment is LLM-graded and cannot be verified this way — that
+    is what the scale-evaluation harness is for.
+  - `scripts/pack_validate.py`, `scripts/pack_test.py` — thin CLIs.
+- **The acceptance gate proven directly, not asserted:** `evals/pack-sdk-example/` is a
+  complete, self-contained, third-party-style pack — one risk pattern, one trade checklist,
+  one deterministic test case — and both CLIs validate and test it cleanly on the first run.
+  `rulepacks/in-works` also validates cleanly against its own validator.
+- **`rulepacks/in-works/boq/trade_checklists/`** gains four Rung-1 trades (Strategy §D.2):
+  `plumbing`, `fire_fighting`, `structural_steel`, `lifts` — one YAML each, zero code,
+  sourced from CPWD General Specifications, NBC 2016 Parts 4/8/9, IS 800 and IS 14665. Total
+  checklists: 3 → 7.
+- **Rung 2 (supply-and-erection patterns, TS-222) deliberately not built.** Strategy §D.2
+  gates it on a paying customer asking; building it now would be exactly the scope reflex
+  Build Doc §12.6 warns against.
+- **Tests:** `backend/tests/test_packsdk.py`, 15 cases — both directions per check (a
+  well-formed pack passes, a broken one is caught with a specific message), plus the two real
+  packs (`in-works`, `pack-sdk-example`) validating and testing clean.
+- Two pre-existing tests (`test_rulepacks.py`, `test_boq.py`) asserted the old 3-checklist set
+  as exhaustive; updated to the new 7 — an expected consequence of a real expansion, not a
+  regression.
+- `specs/modules/rulepacks.md` updated with B8–B10 (price impact, rate schedules, domain
+  ladder — all three touched this pack in TS-202/204/221 without the spec being updated at
+  the time) and the pack SDK section.
+
+Suite: 398 passed, 5 skipped; ruff clean; mypy clean across 191 files.
+
+**Next:** continuing the buildable-now list — TS-217/219/234 (contradiction engine,
+reproducibility chain, north-star metric) next.
+
 ### Done — 2026-07-31 (TS-201–207: `pricing` module — risk-to-price, rate benchmark, cashflow)
 
 The bridge from "here is your risk register" to "here is what it does to your bid" — the

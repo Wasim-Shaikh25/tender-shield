@@ -83,7 +83,16 @@ def test_engine_uses_pack_when_rulepacks_enabled():
     app = create_app(Settings(enabled_modules="health,rulepacks,boq"))
     client = TestClient(app)
     body = client.get("/api/boq").json()
-    assert set(body["available_checklists"]) == {"civil_structure", "electrical", "hvac"}
+    # Domain-ladder Rung 1 (Strategy §D.2, TS-221) added four MEP checklists.
+    assert set(body["available_checklists"]) == {
+        "civil_structure",
+        "electrical",
+        "hvac",
+        "plumbing",
+        "fire_fighting",
+        "structural_steel",
+        "lifts",
+    }
 
 
 def test_boq_run_persists_defects_via_findings():

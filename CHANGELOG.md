@@ -6,6 +6,24 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (TS-200/210: employer context + express teaser)
+
+- **TS-200 employer context** — `marketdata.employer_context_for_family` capability;
+  findings and risk run responses include optional `employer_context`; new
+  `GET /api/marketdata/opportunities/{id}/employer-context` route; degrades
+  silently when marketdata disabled or employer family unset.
+- **TS-210 express teaser** — `GET /api/express/sessions/{token}/teaser` renders
+  deadline wall, missing-doc checklist, severity/category counts, BOQ summary, and
+  two cited sample findings; upload pipeline wires ingestion + risk via registry;
+  `risk.run_opportunity` capability published; `ex_sessions.opportunity_id` migration.
+
+Tests: 450 passed / 5 skipped.
+
+### Next
+
+- TS-211+ (express checkout/activation) and TS-218 (correction loop).
+- TS-197 (P0 harvest adapters).
+
 ### Done — 2026-07-31 (TS-198/199: marketdata resolution + aggregates)
 
 Employer Behaviour Graph moves from schema-only to queryable aggregates:

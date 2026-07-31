@@ -23,6 +23,10 @@ def setup(ctx: AppContext) -> None:
         lambda session, family: factory(session).employer_profile(family),
     )
     reg.provide(
+        "marketdata.employer_context_for_family",
+        lambda session, family: factory(session).employer_profile(family),
+    )
+    reg.provide(
         "marketdata.comparable_awards",
         lambda session, opportunity_id, **kwargs: factory(session).comparable_awards(
             opportunity_id, **kwargs

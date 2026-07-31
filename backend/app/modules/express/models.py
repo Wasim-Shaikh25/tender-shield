@@ -14,12 +14,13 @@ from app.core.db import Base, WorkspaceScopedMixin
 class ExSession(Base, WorkspaceScopedMixin):
     """Anonymous analysis session backed by an ephemeral internal workspace."""
 
-    _tablename__ = "ex_sessions"
+    __tablename__ = "ex_sessions"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     token: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
     email: Mapped[str] = mapped_column(String, nullable=False)
     tier: Mapped[str] = mapped_column(String, nullable=False, default="snapshot")
     state: Mapped[str] = mapped_column(String, nullable=False, default="created")
+    opportunity_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True, index=True)
     acknowledgment: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     acknowledgment_version: Mapped[str] = mapped_column(String, nullable=False, default="")
     client_ip: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -30,7 +31,7 @@ class ExSession(Base, WorkspaceScopedMixin):
 
 
 class ExPurchase(Base, WorkspaceScopedMixin):
-    _tablename__ = "ex_purchases"
+    __tablename__ = "ex_purchases"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     session_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
     provider: Mapped[str] = mapped_column(String, nullable=False)
@@ -44,7 +45,7 @@ class ExPurchase(Base, WorkspaceScopedMixin):
 
 
 class ExDocument(Base, WorkspaceScopedMixin):
-    _tablename__ = "ex_documents"
+    __tablename__ = "ex_documents"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     session_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
     filename: Mapped[str] = mapped_column(String, nullable=False, default="")

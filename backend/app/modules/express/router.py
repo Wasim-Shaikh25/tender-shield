@@ -21,6 +21,7 @@ _ERROR_STATUS = {
     "workspace_unavailable": 503,
     "session_not_found": 404,
     "upload_too_large": 413,
+    "teaser_unavailable": 503,
 }
 
 
@@ -33,6 +34,9 @@ class SessionBody(BaseModel):
 
 def _service(request: Request, session: Session) -> ExpressService:
     reg = request.app.state.ctx.registry
+    factory = reg.get("express.service_factory")
+    if factory:
+        return factory(session)
     return ExpressService(
         session,
         create_workspace=reg.get("auth.create_ephemeral_workspace"),
@@ -115,3 +119,11 @@ async def upload_document(
         "sha256": doc.sha256,
         "retention_until": doc.retention_until.isoformat() if doc.retention_until else None,
     }
+
+
+@router.get("/sessions/{token}/teaser")
+def get_teaser(token: str, request: Request, session: Session = Depends(get_session)):
+    try:
+        return _service(request, session).render_teaser(token)
+    except ExpressError as exc:
+        _raise(exc)

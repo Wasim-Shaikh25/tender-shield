@@ -33,8 +33,17 @@ def run(
     if reg.get("rulepacks.loader") is None or reg.get("ingestion.service_factory") is None:
         raise HTTPException(503, "risk_dependencies_unavailable")
     findings = _service(request, session).run_opportunity(principal.workspace_id, opportunity_id)
+    from app.core.contracts.employer_context import employer_context_for_opportunity
+
+    employer_context = employer_context_for_opportunity(
+        reg,
+        session,
+        workspace_id=principal.workspace_id,
+        opportunity_id=opportunity_id,
+    )
     return {
         "count": len(findings),
+        "employer_context": employer_context,
         "findings": [
             {
                 "category": f.category,

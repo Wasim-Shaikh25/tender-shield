@@ -1,4 +1,4 @@
-"""express module tests (TS-208/209)."""
+"""express module tests (TS-208/209/210)."""
 
 
 import pytest
@@ -6,16 +6,25 @@ from fastapi.testclient import TestClient
 
 import app.modules.auth.models  # noqa: F401
 import app.modules.express.models  # noqa: F401
+import app.modules.findings.models  # noqa: F401
+import app.modules.ingestion.models  # noqa: F401
 from app.core.config import Settings
 from app.core.db import Base
 from app.main import create_app
+
+_GCC_SAMPLE = """
+[p1]
+Notice Inviting Tender
+Last date of submission: 15 August 2026
+Clause 5 — Scope. Build a bridge on a firm price basis and no escalation shall be payable.
+"""
 
 
 @pytest.fixture
 def client():
     app = create_app(
         Settings(
-            enabled_modules="health,auth,express",
+            enabled_modules="health,auth,rulepacks,ingestion,findings,risk,express",
             database_url="sqlite:///:memory:",
         )
     )
@@ -52,7 +61,7 @@ def test_create_upload_and_fetch_session(client):
 
     uploaded = client.post(
         f"/api/express/sessions/{token}/documents",
-        files={"file": ("tender.pdf", b"%PDF-1.4 sample", "application/pdf")},
+        files={"file": ("gcc.txt", _GCC_SAMPLE.encode(), "text/plain")},
     )
     assert uploaded.status_code == 200
     assert uploaded.json()["sha256"]
@@ -60,6 +69,28 @@ def test_create_upload_and_fetch_session(client):
     fetched = client.get(f"/api/express/sessions/{token}")
     assert fetched.status_code == 200
     assert fetched.json()["state"] == "uploaded"
+
+
+def test_teaser_renders_without_auth(client):
+    token = client.post(
+        "/api/express/sessions",
+        json={
+            "email": "teaser@example.com",
+            "tier": "risk",
+            "acknowledgment": {"accepted": True},
+        },
+    ).json()["token"]
+    client.post(
+        f"/api/express/sessions/{token}/documents",
+        files={"file": ("gcc.txt", _GCC_SAMPLE.encode(), "text/plain")},
+    )
+    teaser = client.get(f"/api/express/sessions/{token}/teaser")
+    assert teaser.status_code == 200
+    body = teaser.json()
+    assert body["state"] == "teaser_ready"
+    assert body["teaser"]["missing_documents"]["expected"]
+    assert body["teaser"]["sample_findings"] is not None
+    assert len(body["teaser"]["deadlines"]) >= 1
 
 
 def test_upload_rejects_oversized_payload(client):

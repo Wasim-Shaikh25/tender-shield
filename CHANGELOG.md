@@ -6,6 +6,42 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (TS-231: scorecard + regression diff)
+
+Turns `results.jsonl` into the human-readable report the eval harness's whole premise
+depends on.
+
+- **`app/evalrunner/report.py`** (new):
+  - `compute_metrics(run)` computes every metric the harness currently has data for: M1
+    pass rate, quote-verbatim rate, citation-completeness rate (each derived **per-tender**
+    from that tender's own `m1_summary`, not from aggregate violation counts — a pass rate
+    needs to know how many *tenders* had a violation, not how many violations existed),
+    crash rate (parse/OCR/timeout/unknown, explicitly excluding `invariant_violation` — an
+    M1 failure is a graded outcome, not a crash), and findings/wall-clock/cost distributions.
+  - **Metrics the harness cannot yet compute (M2/M3/M4/M5) are listed under "Not yet
+    available," never approximated.** A fabricated number in the report of a system whose
+    entire premise is "no invented numbers" would be the wrong kind of ironic.
+  - `find_baseline(runs_root, current)` — the most recent other run on the same corpus root
+    and shard; `None` (not an error) for the first run on a slice.
+  - `diff_metrics` flags a >2pt drop on the three pass-rate metrics (Build Doc §11.5's bar)
+    and a >1pt crash-rate increase; wall-clock/cost are reported for trend visibility but
+    not gated, since the spec states an exact threshold only for pass-rate metrics.
+- **`scripts/eval_report.py`** — thin CLI; exits 1 when any headline metric regressed.
+- **Tests:** `backend/tests/test_evalreport.py`, 26 cases covering metric computation,
+  baseline auto-detection (including ignoring a different corpus/shard and the `_cache`
+  directory), regression thresholds in both directions, and that M2/M3/M5 metrics are
+  structurally absent from `Metrics` rather than faked.
+- **Verified against real run data** from the TS-230 CLI smoke test: the first run on a
+  corpus+shard correctly reports no baseline; a second run against the same slice
+  auto-detects the first and reports no regression.
+- `specs/eval-at-scale.md` updated with the implemented interface.
+
+Suite: 352 passed, 5 skipped; ruff clean; mypy clean across 179 files (fresh cache).
+
+**Next:** TS-227 (M2 portal-metadata agreement) continues naturally from this reporting
+work. CI wiring (TS-232) is sequenced after TS-227/TS-229 rather than now, so the gate is
+wired once with all three modes instead of redone twice.
+
 ### Done — 2026-07-31 (TS-230: bulk evaluation runner — Phase 16 Sprint 0 complete)
 
 The piece that turns M1 from "callable on one opportunity" into "runs unattended on

@@ -10,13 +10,18 @@ product feature; nothing in the request path imports it.
 
 from app.evalrunner.orchestrator import BatchSummary, cache_key, in_shard, run_batch
 from app.evalrunner.pipeline import ClassifiedError, TenderResult, run_tender
+from app.evalrunner.report import Metrics, RegressionFinding, RunData, write_report
 
 __all__ = [
     "BatchSummary",
     "ClassifiedError",
+    "Metrics",
+    "RegressionFinding",
+    "RunData",
     "TenderResult",
     "cache_key",
     "in_shard",
     "run_batch",
     "run_tender",
+    "write_report",
 ]

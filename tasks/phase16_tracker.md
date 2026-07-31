@@ -136,7 +136,7 @@ calendar-bound, not engineering-bound.
 | TS-228 | M3 backtest | evals | 1 | P2 | todo | Time-based split, not random | TS-199 |
 | TS-229 | M4 metamorphic | evals | — | P1 | todo | 5 invariance properties | TS-226 |
 | TS-230 | Bulk runner | `evalrunner` | — | P0 | **done** | Resumable, sharded, cost-guarded, 1,000+ unattended | TS-226 |
-| TS-231 | Report + regression diff | scripts | — | P1 | todo | Scorecard readable without raw data | TS-230 |
+| TS-231 | Report + regression diff | `evalrunner` | — | P1 | **done** | Scorecard readable without raw data | TS-230 |
 | TS-232 | CI gates | CI | — | P1 | todo | Smoke blocks PRs; >2pt drop blocks change | TS-231 |
 | TS-233 | Human gold set (50) | evals | — | P1 | todo | Slice table filled; annotated per §19 | — |
 | TS-294 | `Finding.document_id` | `findings` | 3 | P2 | todo | Migration + writers updated | TS-226 |

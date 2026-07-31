@@ -339,6 +339,36 @@ evals/runs/<run_id>/
 | L1 backtest MAPE | Baseline first, then improve |
 | Gold-set recall / critical recall / noise | Build Doc §19.5 bars |
 
+**Implemented (TS-231)** in `app/evalrunner/report.py`:
+
+- `compute_metrics(run) -> Metrics` — computes every metric the harness **currently has data
+  for**: M1 pass rate, quote-verbatim rate, citation-completeness rate (both derived per-tender
+  from each result's own `m1_summary`, not from the aggregate violation counts, since a pass rate
+  needs to know how many *tenders* had a violation, not how many violations existed), crash rate
+  (parse/OCR/timeout/unknown, explicitly excluding `invariant_violation` — an M1 failure is a
+  graded outcome, not a crash), findings-per-tender / wall-clock / cost distributions (p50/p95),
+  and BOQ status counts.
+- **Metrics the harness cannot yet compute (M2/M3/M4/M5 — TS-227/228/229/233) are listed under an
+  explicit "Not yet available" section, never approximated.** A fabricated number in the report of
+  a system whose entire premise is "no invented numbers" would be the wrong kind of ironic.
+- `find_baseline(runs_root, current)` — the most recent other run on the **same corpus root and
+  shard**, started before the current run; `None` (not an error) when this is the first run on a
+  slice, which `render_regressions` reports as establishing the baseline.
+- `diff_metrics(baseline, current)` — flags a >2pt drop on `m1_pass_rate`, `quote_verbatim_rate`,
+  or `citation_completeness_rate` (Build Doc §11.5's bar), and a >1pt *increase* in `crash_rate`
+  (matching its own <1% target). Wall-clock and cost are reported for trend visibility but are
+  **not** gated — the spec states an exact point threshold only for pass-rate metrics, and
+  inventing an unstated percentage for a soft signal would be the same mistake as fabricating a
+  metric.
+- `write_report(run_dir, runs_root)` writes both `scorecard.md` and `regressions.md`, and returns
+  `(metrics, findings)` so a CLI can set an exit code without re-parsing its own output.
+- `scripts/eval_report.py --run-id <id> [--baseline <id>]` — exits 1 when any headline metric
+  regressed.
+
+Verified against real run data from the TS-230 CLI smoke test: the first run on a corpus+shard
+correctly reports no baseline; a second run against the same slice auto-detects the first as its
+baseline and reports no regression.
+
 ### 3.4 CI integration
 
 - **Per-PR:** 20-tender smoke slice, M1 + M4 only. Must be green to merge.

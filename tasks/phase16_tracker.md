@@ -33,12 +33,12 @@ name its moat class, it is out of scope for Phase 16.
 | Sprint | Theme | Tasks | Exit gate | Status |
 |---|---|---|---|---|
 | **0** | **Measure before building** | TS-223 ✅, TS-226 ✅, TS-230 ✅ | Cost-per-review p50/p95 known; M1 invariants run on the existing 20-tender smoke slice | **done** |
-| **1** | **Corpus** | TS-224 ✅, TS-225, TS-197 | ≥1,000 tenders harvested across ≥3 sources with provenance; legality reviewed per adapter | in-progress |
+| **1** | **Corpus** | TS-224 ✅, TS-225, TS-197 ✅ | ≥1,000 tenders harvested across ≥3 sources with provenance; legality reviewed per adapter | in-progress |
 | **2** | **Prove correctness at scale** | TS-227, TS-229, TS-231, TS-232 | M1 100% pass on 1,000 tenders; M2 deadline match ≥95%; CI blocking on smoke slice | todo |
 | **3** | **Graph** | TS-195 ✅, TS-196 ✅, TS-198 ✅, TS-199 ✅, TS-200 ✅ | Employer profiles queryable with suppression; comparable-set filter disclosed | **done** |
 | **4** | **Money math** | TS-201–TS-207 ✅ | Loadings byte-identical on re-run; no LLM dependency in module; export gate enforced | **done** |
 | **5** | **Revenue lane** | TS-208 ✅ … TS-214 ✅ | Stranger → teaser → pay → report, webhook-only activation, watermarked unreviewed export | done |
-| **6** | **Loop + accountability** | TS-215 ✅, TS-216 ✅, TS-217 ✅, TS-218, TS-219 ✅ | Outcomes recorded; contradictions detected; findings reproducible; corrections proposed not applied | in-progress |
+| **6** | **Loop + accountability** | TS-215 ✅, TS-216 ✅, TS-217 ✅, TS-218 ✅, TS-219 ✅ | Outcomes recorded; contradictions detected; findings reproducible; corrections proposed not applied | in-progress |
 | **7** | **Domain ladder** | TS-220 ✅, TS-221 ✅, TS-222 (gated) | Third party can author a pack; 4 new trades ship as YAML only | **done** |
 | **8** | **Backtest + gold set** | TS-228, TS-233 | Time-split L1 backtest baseline published; 50-tender gold set annotated | todo |
 
@@ -102,7 +102,7 @@ calendar-bound, not engineering-bound.
 |---|---|---|---|---|---|---|---|
 | TS-195 | `marketdata` scaffold | `marketdata` | 1 | P1 | **done** | Boots with module disabled; no hard deps | — |
 | TS-196 | Corpus schema (non-tenant) | `marketdata` | 1 | P1 | **done** | No tenant data in `md_*`, test-asserted | — |
-| TS-197 | P0 adapters (CPPP, state NIC) | `marketdata` | 1 | P0 | todo | Legality review in docstring; rate-limit compliant | — |
+| TS-197 | P0 adapters (CPPP, state NIC) | `marketdata` | 1 | P0 | **done** | Legality review in docstring; rate-limit compliant | — |
 | TS-198 | Employer resolution | `marketdata` | 1 | P1 | **done** | Confidence published; unresolved stays unresolved | — |
 | TS-199 | Aggregates + suppression | `marketdata` | 1 | P1 | **done** | n ≥ 12 suppression tested; deterministic | — |
 | TS-200 | Employer context on findings | `marketdata` | 1 | P2 | **done** | Degrades to today's behaviour when disabled | — |
@@ -123,7 +123,7 @@ calendar-bound, not engineering-bound.
 | TS-215 | Outcome capture | `outcomes` | 1 | P1 | **done** | Workspace-scoped; never in shared graph | — |
 | TS-216 | Award-record prefill | `outcomes` | 4 | P2 | **done** | Degrades to manual when no match | — |
 | TS-217 | Contradiction engine | `crossref` | 2 | P1 | **done** | Both sides keep citations; precedence from pack | — |
-| TS-218 | Correction loop | `rulepacks` | 1 | P2 | todo | Proposes only; never auto-mutates a pack | TS-215 |
+| TS-218 | Correction loop | `rulepacks` | 1 | P2 | **done** | Proposes only; never auto-mutates a pack | TS-215 |
 | TS-219 | Reproducibility chain | `findings` | 3 | P0 | **done** | Deterministic stages byte-identical on re-run | — |
 | TS-220 | Pack SDK | `packsdk` | 4 | P2 | **done** | Third party authors + validates a pack end-to-end | — |
 | TS-221 | Rung-1 trade checklists | `rulepacks` | 4 | P2 | **done** | 4 trades, YAML only, zero code change | TS-220 |

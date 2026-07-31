@@ -1,6 +1,6 @@
 # `marketdata` — Employer Behaviour Graph — Spec
 
-**Status:** employer context on findings implemented (TS-200); harvest adapters pending TS-197
+**Status:** employer context on findings implemented (TS-200); P0 harvest adapters shipped (TS-197)
 **Requirement refs:** `docs/TenderShield_Market_Strategy_2026.md` §A.2, §C.1, §B.2 (moat class 1)
 **Task refs:** TS-195 – TS-200
 

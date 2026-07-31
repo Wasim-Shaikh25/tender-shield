@@ -35,6 +35,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--source", help="adapter name (see --list-adapters)")
     ap.add_argument("--path", help="path argument for file-based adapters")
+    ap.add_argument("--state", help="state code for state-nic adapter (e.g. maharashtra)")
     ap.add_argument("--corpus", default=str(DEFAULT_CORPUS), help="corpus root directory")
     ap.add_argument("--limit", type=int, help="stop after N tenders")
     ap.add_argument("--no-documents", action="store_true", help="metadata only")
@@ -71,6 +72,8 @@ def main() -> int:
     kwargs = {}
     if args.path:
         kwargs["path"] = args.path
+    if args.state:
+        kwargs["state"] = args.state
     try:
         adapter = adapter_registry.build(args.source, **kwargs)
     except (KeyError, TypeError) as exc:

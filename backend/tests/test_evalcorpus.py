@@ -378,3 +378,87 @@ def test_metadata_only_mode_skips_documents(tmp_path):
     )
     assert result.documents_fetched == 0
     assert result.tenders_written == 1
+
+
+# ----------------------------------------------------------- P0 adapters (TS-197)
+
+
+def test_cppp_and_state_nic_are_registered():
+    assert "cppp" in available()
+    assert "state-nic" in available()
+
+
+def test_cppp_adapter_declares_legality_review():
+    from app.evalcorpus.cppp import CpppAdapter
+
+    info = CpppAdapter(path="/nonexistent").info
+    assert info.name == "cppp"
+    assert "2026-07-31" in info.legality
+    assert info.min_delay_seconds >= 2.0
+
+
+def test_cppp_offline_reads_ocds_exports(tmp_path):
+    from app.evalcorpus.cppp import CpppAdapter
+
+    _write_package(tmp_path, [RELEASE])
+    tenders = list(CpppAdapter(path=tmp_path).fetch_index())
+    assert tenders[0].provenance is not None
+    assert tenders[0].provenance.source == "cppp"
+    assert tenders[0].ocid == "ocds-test-0001"
+
+
+def test_cppp_offline_harvests_at_least_one_hundred_tenders(tmp_path):
+    from app.evalcorpus.cppp import CpppAdapter
+
+    releases = [dict(RELEASE, ocid=f"ocds-cppp-{i}", id=str(i)) for i in range(120)]
+    _write_package(tmp_path, releases)
+    result = harvest(
+        CpppAdapter(path=tmp_path),
+        CorpusStore(tmp_path / "corpus"),
+        limit=100,
+        fetch_documents=False,
+    )
+    assert result.tenders_written == 100
+    assert result.tenders_seen >= 100
+
+
+def test_cppp_network_item_maps_to_ocds_release():
+    from app.evalcorpus.cppp import CpppAdapter
+
+    release = CpppAdapter._item_to_ocds_release(
+        {
+            "tenderId": "T-42",
+            "title": "Road widening",
+            "organisation": "NHAI",
+            "closingDate": "2026-08-01",
+            "estimatedValue": 1_000_000,
+        }
+    )
+    assert release["ocid"] == "ocds-cppp-T-42"
+    assert release["tender"]["title"] == "Road widening"
+
+
+def test_state_nic_adapter_declares_legality_and_state(tmp_path):
+    from app.evalcorpus.state_nic import StateNicAdapter
+
+    _write_package(tmp_path, [RELEASE])
+    adapter = StateNicAdapter(state="maharashtra", path=tmp_path)
+    assert adapter.info.name == "state-nic-maharashtra"
+    assert "2026-07-31" in adapter.info.legality
+    tender = next(adapter.fetch_index())
+    assert tender.provenance is not None
+    assert tender.provenance.source == "state-nic-maharashtra"
+
+
+def test_state_nic_unknown_state_requires_offline_path():
+    from app.evalcorpus.state_nic import StateNicAdapter
+
+    with pytest.raises(ValueError, match="unknown state"):
+        StateNicAdapter(state="no-such-state")
+
+
+def test_build_state_nic_via_registry(tmp_path):
+    _write_package(tmp_path, [RELEASE])
+    adapter = build("state-nic", state="karnataka", path=str(tmp_path))
+    assert adapter.info.name == "state-nic-karnataka"
+    assert len(list(adapter.fetch_index())) == 1

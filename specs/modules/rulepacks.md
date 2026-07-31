@@ -2,7 +2,7 @@
 
 **Status:** implemented (scaffold + Phase-0 patterns + pack SDK + domain-ladder Rung 1 + document precedence)
 **Requirement refs:** Doc §2, §14; `docs/TenderShield_Market_Strategy_2026.md` §C.2, §C.4, §C.5, §D.2, §D.4
-**Task refs:** TS-007, TS-008, TS-009, TS-046, TS-202, TS-204, TS-217, TS-220, TS-221
+**Task refs:** TS-007, TS-008, TS-009, TS-046, TS-202, TS-204, TS-217, TS-218, TS-220, TS-221
 
 ## Purpose
 
@@ -15,7 +15,7 @@ citable references, and golden tests. Launch pack: `in-works` (India works).
 
 - **Capability published:** `rulepacks.loader` — `get_pack(pack_id, version=None)
   -> RulePack`, `list_patterns(pack_id) -> list[RiskPattern]`.
-- **Events:** none (pure data provider).
+- **Events:** `pattern.correction_suggested` when a new proposal is created (TS-218).
 - **Consumers:** `risk` (patterns, playbooks), `boq` (canon map, checks, trade
   checklists), `ingestion` (doc_types, expected-doc set, deadline calculators),
   `drafting` (templates).
@@ -82,6 +82,13 @@ citable references, and golden tests. Launch pack: `in-works` (India works).
   unvalidated default `[addendum, scc, gcc, nit]` with empty overrides —
   employer-specific precedence data is real contractual fact, not something
   to invent ahead of seeing one (same posture as `rates/README.md`, B9).
+- **B12 (correction loop — TS-218):** aggregates reviewed findings by
+  `(pattern_id, employer_family)` and proposes — never applies — a rulepack
+  overlay when ≥5 reviews exist and ≥50% are `false_positive` or `rejected`.
+  Proposals live in `rp_correction_proposals`; admin routes:
+  `POST /api/rulepacks/corrections/scan`, `GET /api/rulepacks/corrections/proposals`,
+  `POST /api/rulepacks/corrections/proposals/{id}/dismiss`. Human approval is
+  required before any pack change (Build Doc §2.4).
 
 ## Pack SDK (TS-220)
 

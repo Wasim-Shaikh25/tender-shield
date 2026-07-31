@@ -38,7 +38,7 @@ name its moat class, it is out of scope for Phase 16.
 | **3** | **Graph** | TS-195, TS-196, TS-198, TS-199, TS-200 | Employer profiles queryable with suppression; comparable-set filter disclosed | todo |
 | **4** | **Money math** | TS-201–TS-207 ✅ | Loadings byte-identical on re-run; no LLM dependency in module; export gate enforced | **done** |
 | **5** | **Revenue lane** | TS-208–TS-214 | Stranger → teaser → pay → report, webhook-only activation, watermarked unreviewed export | todo |
-| **6** | **Loop + accountability** | TS-215, TS-216, TS-217, TS-218, TS-219 | Outcomes recorded; contradictions detected; findings reproducible; corrections proposed not applied | todo |
+| **6** | **Loop + accountability** | TS-215, TS-216, TS-217 ✅, TS-218, TS-219 | Outcomes recorded; contradictions detected; findings reproducible; corrections proposed not applied | in-progress |
 | **7** | **Domain ladder** | TS-220 ✅, TS-221 ✅, TS-222 (gated) | Third party can author a pack; 4 new trades ship as YAML only | **done** |
 | **8** | **Backtest + gold set** | TS-228, TS-233 | Time-split L1 backtest baseline published; 50-tender gold set annotated | todo |
 
@@ -81,7 +81,7 @@ TS-195..200        TS-228 backtest ── needs award subset
  marketdata
         │
    ┌────┴──────────┬──────────────┐
-TS-201..207     TS-215/216      TS-217/218/219
+TS-201..207     TS-215/216      TS-217 ✅/218/219
  pricing        outcomes         loop + accountability
         │
 TS-208..214 express  ← gated on Sprint 2 exit
@@ -122,7 +122,7 @@ calendar-bound, not engineering-bound.
 | TS-214 | Anti-abuse + retention + claim | `express` | — | P1 | todo | Teaser dedupe by document hash; deletion job tested | TS-210 |
 | TS-215 | Outcome capture | `outcomes` | 1 | P1 | todo | Workspace-scoped; never in shared graph | — |
 | TS-216 | Award-record prefill | `outcomes` | 4 | P2 | todo | Degrades to manual when no match | TS-199, TS-215 |
-| TS-217 | Contradiction engine | `crossref` | 2 | P1 | todo | Both sides keep citations; precedence from pack | — |
+| TS-217 | Contradiction engine | `crossref` | 2 | P1 | **done** | Both sides keep citations; precedence from pack | — |
 | TS-218 | Correction loop | `rulepacks` | 1 | P2 | todo | Proposes only; never auto-mutates a pack | TS-215 |
 | TS-219 | Reproducibility chain | `findings` | 3 | P0 | todo | Deterministic stages byte-identical on re-run | — |
 | TS-220 | Pack SDK | `packsdk` | 4 | P2 | **done** | Third party authors + validates a pack end-to-end | — |

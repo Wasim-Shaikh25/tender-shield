@@ -123,6 +123,64 @@ def test_api_exposes_packs_and_patterns():
     assert "rulepacks.loader" in caps
 
 
+def test_document_precedence_loads_default_order_for_in_works():
+    loader = RulePackLoader()
+    assert loader.document_precedence("in-works") == ["addendum", "scc", "gcc", "nit"]
+    # No employer_family override ships in-works today (real overrides are
+    # employer-specific data, not something to invent — TS-217).
+    assert loader.document_precedence("in-works", "acme-corp") == ["addendum", "scc", "gcc", "nit"]
+
+
+def test_document_precedence_employer_family_override(tmp_path: Path):
+    pack_dir = tmp_path / "override-pack"
+    pack_dir.mkdir()
+    (pack_dir / "pack.yaml").write_text(
+        "id: override-pack\nversion: '1'\njurisdiction: IN\neffective_from: '2026-01-01'\n"
+    )
+    (pack_dir / "document_precedence.yaml").write_text(
+        """
+id: document_precedence
+confidence: unvalidated
+source: test fixture
+default_order: [addendum, scc, gcc, nit]
+employer_family_overrides:
+  acme-corp: [gcc, addendum, scc, nit]
+"""
+    )
+    loader = RulePackLoader(tmp_path)
+    default_order = ["addendum", "scc", "gcc", "nit"]
+    assert loader.document_precedence("override-pack") == default_order
+    assert loader.document_precedence("override-pack", "acme-corp") == [
+        "gcc",
+        "addendum",
+        "scc",
+        "nit",
+    ]
+    assert loader.document_precedence("override-pack", "other-employer") == default_order
+
+
+def test_document_precedence_absent_pack_degrades_to_empty_list(tmp_path: Path):
+    pack_dir = tmp_path / "no-precedence-pack"
+    pack_dir.mkdir()
+    (pack_dir / "pack.yaml").write_text(
+        "id: no-precedence-pack\nversion: '1'\njurisdiction: IN\neffective_from: '2026-01-01'\n"
+    )
+    loader = RulePackLoader(tmp_path)
+    assert loader.document_precedence("no-precedence-pack") == []
+
+
+def test_malformed_document_precedence_is_skipped_not_fatal(tmp_path: Path):
+    pack_dir = tmp_path / "broken-precedence-pack"
+    pack_dir.mkdir()
+    (pack_dir / "pack.yaml").write_text(
+        "id: broken-precedence-pack\nversion: '1'\njurisdiction: IN\neffective_from: '2026-01-01'\n"
+    )
+    (pack_dir / "document_precedence.yaml").write_text("default_order: []\n")
+    pack = RulePackLoader(tmp_path).get_pack("broken-precedence-pack")
+    assert pack.document_precedence is None
+    assert "document_precedence.yaml" in pack.load_errors
+
+
 def test_trade_checklists_load_with_dewatering_gap_knowledge():
     pack = RulePackLoader().get_pack("in-works", reload=True)
     # Domain-ladder Rung 1 (Strategy §D.2, TS-221): civil/electrical/hvac plus

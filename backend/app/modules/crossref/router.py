@@ -11,7 +11,11 @@ router = APIRouter()
 
 def _service(request: Request, session: Session) -> CrossRefService:
     reg = request.app.state.ctx.registry
-    return CrossRefService(session, ingestion_factory=reg.get("ingestion.service_factory"))
+    return CrossRefService(
+        session,
+        ingestion_factory=reg.get("ingestion.service_factory"),
+        rulepacks_loader=lambda: reg.get("rulepacks.loader"),
+    )
 
 
 @router.get("/opportunities/{opportunity_id}")
@@ -36,6 +40,16 @@ def search(
             principal.workspace_id, opportunity_id, q, limit=limit
         ),
     }
+
+
+@router.get("/opportunities/{opportunity_id}/contradictions")
+def contradictions(
+    opportunity_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    return _service(request, session).contradictions(principal.workspace_id, opportunity_id)
 
 
 @router.post("/opportunities/{opportunity_id}/diff")

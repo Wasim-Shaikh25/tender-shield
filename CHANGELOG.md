@@ -6,6 +6,57 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (TS-217: contradiction engine, extends `crossref`)
+
+Strategy §C.5's fact-level contradiction engine: when the same canonical fact is stated
+differently across a tender pack's own documents, name which one governs instead of leaving
+the user to notice the disagreement themselves.
+
+- **`backend/app/modules/crossref/facts.py`** (new) — deterministic, regex-only extraction
+  of six canonical fact types straight from each clause's own stored text: bid validity
+  (days), EMD (split into `emd_percent` and `emd_amount_minor` — a percentage-of-cost figure
+  and a flat currency amount are not the same quantity and must never be compared), LD rate
+  (rate + period, e.g. `"0.5%/week"`), DLP (months), retention (percent), and submission
+  datetime (parsed via Python's `date()` constructor; an impossible calendar date like 31 Feb
+  is silently skipped, never guessed at). No LLM anywhere in this path (`CLAUDE.md` §4).
+- **`backend/app/modules/crossref/contradictions.py`** (new) — groups verified facts by type;
+  a type where every instance agrees is not surfaced at all. Before grouping, every fact's
+  `source_quote` is re-verified against its own clause's text — a defensive guard against
+  extraction/storage corruption, proven by a test that injects a fabricated unverifiable fact
+  via monkeypatch and confirms it cannot itself create or resolve a contradiction. When
+  values disagree, a document-precedence order names the *governing* instance; both sides
+  always keep their own citation. Two instances tied at the same precedence rank (e.g. two
+  conflicting clauses within the same GCC) resolve to `governing: null` with an `"ambiguous"`
+  reason rather than a guess.
+- **Document precedence is rulepack-configurable and employer-family overridable (TS-217's
+  explicit requirement).** `rulepacks/in-works/document_precedence.yaml` ships the unvalidated
+  default `[addendum, scc, gcc, nit]` with empty `employer_family_overrides` — real
+  employer-specific precedence is contractual fact, not something to invent ahead of seeing
+  one (same posture as `rulepacks/in-works/rates/README.md`). `RulePackLoader
+  .document_precedence(pack_id, employer_family)` resolves it; `rulepacks` is a soft
+  dependency of `crossref` (added to its `soft_deps`), degrading to the hardcoded
+  `DEFAULT_PRECEDENCE` fallback when the pack or module is absent — never a crash.
+- **New endpoint:** `GET /api/crossref/opportunities/{id}/contradictions` — returns the
+  precedence order used and, per contradiction, every instance (value, document, clause,
+  page, quote) plus the governing one and why.
+- **Tests:** `backend/tests/test_crossref_contradictions.py` (new, 17 cases — one extractor
+  per fact type, agreement/disagreement/ambiguous-tie/precedence-override/verification-gate
+  paths), 4 new `RulePackLoader.document_precedence` cases in `test_rulepacks.py`, 3 new
+  API-level cases in `test_crossref.py` (including graceful degradation with `rulepacks`
+  disabled).
+- `specs/modules/crossref.md` updated with B5–B9 and acceptance criteria A4–A8; out-of-scope
+  now names the two follow-ups this deliberately doesn't do yet: persisting contradictions
+  into the shared Findings register (blocked on `Finding.document_id`/`Finding.facts`,
+  TS-294/295/296) and any fact type beyond the six named in Strategy §C.5.
+  `specs/modules/rulepacks.md` gains B11.
+
+Suite: 420 passed, 5 skipped; ruff clean; mypy clean across 193 files.
+
+**Next:** TS-219 (reproducibility chain on `findings`) and TS-215 (outcomes module scaffold)
+— re-sequencing note: `phase16_tracker.md`'s own Blockers column lists TS-234 (north-star
+metric) as depending on TS-215, so TS-215 needs to land before or alongside TS-234 rather
+than after it as originally sequenced.
+
 ### Done — 2026-07-31 (TS-220–221: pack SDK + domain-ladder Rung 1)
 
 Turns domain-agnosticism into distribution (Strategy §D.4) — the mechanism that lets a QS

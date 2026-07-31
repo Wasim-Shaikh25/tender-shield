@@ -60,15 +60,15 @@ Detail in `tasks/phase16_tracker.md`. Summary:
 
 | Group | Tasks | Theme | Status |
 |---|---|---|---|
-| 16.A | TS-195 – TS-200 | Employer Behaviour Graph (`marketdata`) | todo |
-| 16.B | TS-201 – TS-207 | Pricing intelligence | todo |
+| 16.A | TS-195 – TS-200 | Employer Behaviour Graph (`marketdata`) | todo (blocked on TS-197 real harvest) |
+| 16.B | TS-201 – TS-207 | Pricing intelligence | **done** |
 | 16.C | TS-208 – TS-214 | Express pay-per-report lane | todo |
 | 16.D | TS-215 – TS-216 | Outcome capture | todo |
-| 16.E | TS-217 – TS-219 | Contradictions, correction loop, reproducibility | todo |
-| 16.F | TS-220 – TS-222 | Domain-agnostic pack SDK + trade ladder | todo |
-| 16.G | TS-223 | Cost instrumentation | todo |
-| 16.H | TS-224 – TS-233 | Evaluation at scale (1,000+ tenders) | todo |
-| **16.I** | **TS-234** | **North-star metric — margin protected** | todo |
+| 16.E | TS-217 – TS-219 | Contradictions, correction loop, reproducibility | in-progress (TS-217 **done**) |
+| 16.F | TS-220 – TS-222 | Domain-agnostic pack SDK + trade ladder | in-progress (TS-220/221 **done**; TS-222 gated) |
+| 16.G | TS-223 | Cost instrumentation | **done** |
+| 16.H | TS-224 – TS-233 | Evaluation at scale (1,000+ tenders) | in-progress (TS-224/226/230/231 **done**) |
+| **16.I** | **TS-234** | **North-star metric — margin protected** | todo (blocked on TS-215) |
 
 ### Phase 17 — Baseline Lock & Handover (Stage 2) ⚪
 

@@ -7,11 +7,22 @@ from __future__ import annotations
 import difflib
 import re
 
+from app.modules.crossref.contradictions import (
+    DEFAULT_PRECEDENCE,
+    Contradiction,
+    find_contradictions,
+)
+from app.modules.crossref.facts import CanonicalFact
+
 
 class CrossRefService:
-    def __init__(self, session, *, ingestion_factory=None):
+    def __init__(
+        self, session, *, ingestion_factory=None, rulepacks_loader=None, pack_id="in-works"
+    ):
         self.s = session
         self._ingestion_factory = ingestion_factory
+        self._rulepacks_loader = rulepacks_loader
+        self._pack_id = pack_id
 
     def _ingestion(self):
         return self._ingestion_factory(self.s) if self._ingestion_factory else None
@@ -153,4 +164,71 @@ class CrossRefService:
             "page": c.page_from,
             "document_id": str(doc.id),
             "filename": doc.filename,
+        }
+
+    def _precedence(self, workspace_id, opportunity_id) -> tuple[str, ...]:
+        """Rulepacks is a soft dependency: absent entirely, or shipping no
+        document_precedence config, both degrade to DEFAULT_PRECEDENCE rather
+        than crashing (CLAUDE.md §2)."""
+        loader = self._rulepacks_loader() if self._rulepacks_loader else None
+        if loader is None:
+            return DEFAULT_PRECEDENCE
+        employer_family = None
+        svc = self._ingestion()
+        if svc is not None:
+            opp = svc.get_opportunity(workspace_id, opportunity_id)
+            employer_family = opp.employer_family if opp else None
+        order = loader.document_precedence(self._pack_id, employer_family)
+        return tuple(order) if order else DEFAULT_PRECEDENCE
+
+    def contradictions(self, workspace_id, opportunity_id) -> dict:
+        """Fact-level cross-document contradiction detection (TS-217,
+        Strategy §C.5): validity/EMD/submission-datetime/LD-rate/DLP/retention
+        facts, deterministically extracted per clause, grouped by type, with
+        the document-precedence order naming the governing instance when they
+        disagree."""
+        svc = self._ingestion()
+        if svc is None:
+            return {"contradictions": []}
+
+        docs = {str(d.id): d for d in svc.list_documents(workspace_id, opportunity_id)}
+        clauses = [
+            {
+                "id": str(c.id),
+                "document_id": str(c.document_id),
+                "document_kind": docs[str(c.document_id)].kind
+                if str(c.document_id) in docs
+                else "other",
+                "text": c.text,
+                "page_from": c.page_from,
+            }
+            for c in svc.list_clauses(workspace_id, opportunity_id)
+        ]
+        precedence = self._precedence(workspace_id, opportunity_id)
+        found = find_contradictions(clauses, precedence=precedence)
+        return {
+            "precedence": list(precedence),
+            "contradictions": [self._contradiction_json(c, docs) for c in found],
+        }
+
+    @staticmethod
+    def _contradiction_json(c: Contradiction, docs: dict) -> dict:
+        def instance_json(f: CanonicalFact) -> dict:
+            doc = docs.get(f.document_id)
+            return {
+                "value": f.value,
+                "unit": f.unit,
+                "document_id": f.document_id,
+                "document_kind": f.document_kind,
+                "filename": doc.filename if doc else None,
+                "clause_id": f.clause_id,
+                "page": f.source_page,
+                "quote": f.source_quote,
+            }
+
+        return {
+            "fact_type": c.fact_type,
+            "instances": [instance_json(f) for f in c.instances],
+            "governing": instance_json(c.governing) if c.governing else None,
+            "governing_reason": c.governing_reason,
         }

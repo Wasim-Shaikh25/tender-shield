@@ -1,8 +1,8 @@
 # Rule-Packs — Spec
 
-**Status:** implemented (scaffold + Phase-0 patterns + pack SDK + domain-ladder Rung 1)
-**Requirement refs:** Doc §2, §14; `docs/TenderShield_Market_Strategy_2026.md` §C.2, §C.4, §D.2, §D.4
-**Task refs:** TS-007, TS-008, TS-009, TS-046, TS-202, TS-204, TS-220, TS-221
+**Status:** implemented (scaffold + Phase-0 patterns + pack SDK + domain-ladder Rung 1 + document precedence)
+**Requirement refs:** Doc §2, §14; `docs/TenderShield_Market_Strategy_2026.md` §C.2, §C.4, §C.5, §D.2, §D.4
+**Task refs:** TS-007, TS-008, TS-009, TS-046, TS-202, TS-204, TS-217, TS-220, TS-221
 
 ## Purpose
 
@@ -72,6 +72,16 @@ citable references, and golden tests. Launch pack: `in-works` (India works).
   asking (Strategy §D.2) and is deliberately not built yet — adding it before
   that signal would be the scope reflex the roadmap warns against
   (Build Doc §12.6).
+- **B11 (document precedence — TS-217):** `document_precedence.yaml` declares
+  a `default_order` of document `kind`s, highest-precedence first, plus an
+  `employer_family_overrides` map. Consumed via
+  `RulePackLoader.document_precedence(pack_id, employer_family)`; used
+  exclusively by `crossref`'s contradiction engine
+  (`specs/modules/crossref.md` B8) to name which document instance governs
+  when a canonical fact disagrees across documents. `in-works` ships the
+  unvalidated default `[addendum, scc, gcc, nit]` with empty overrides —
+  employer-specific precedence data is real contractual fact, not something
+  to invent ahead of seeing one (same posture as `rates/README.md`, B9).
 
 ## Pack SDK (TS-220)
 

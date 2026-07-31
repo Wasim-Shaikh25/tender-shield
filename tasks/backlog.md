@@ -359,7 +359,7 @@ Tracker: `tasks/phase16_tracker.md`.
 
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
-| TS-217 | Contradiction engine: fact-level cross-document disagreement + rulepack-configurable precedence naming the governing instance | Strategy §C.5 | `specs/modules/crossref.md` (update) | todo |
+| TS-217 | Contradiction engine: fact-level cross-document disagreement + rulepack-configurable precedence naming the governing instance | Strategy §C.5 | `specs/modules/crossref.md` (update) | done |
 | TS-218 | Correction loop: aggregate review corrections per pattern per employer family → **proposed** rulepack overlay in admin console; never auto-mutate | Build Doc §11.5, §2.4; Strategy §C.9 | `specs/modules/rulepacks.md` (update) | todo |
 | TS-219 | Reproducibility chain: pin `rulepack_version`/`model_id`/`prompt_hash`/`document_hash`/`engine_version` on every finding; deterministic stages byte-identical on re-run | Strategy §C.7 | `specs/modules/findings.md` (update) | todo |
 

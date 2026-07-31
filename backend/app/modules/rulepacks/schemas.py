@@ -112,6 +112,23 @@ class RateSchedule(BaseModel):
     items: list[RateScheduleItem] = Field(default_factory=list)
 
 
+class DocumentPrecedence(BaseModel):
+    """Which document instance governs when canonical facts disagree across
+    documents (TS-217, Strategy §C.5). `default_order` is highest-precedence
+    first, using the same `kind` values as `doc_types.yaml` (e.g. `addendum`,
+    `scc`, `gcc`, `nit`); a kind not listed ranks lowest. Rulepack-configurable
+    and employer-family overridable — an employer's own boilerplate
+    sometimes states its own precedence clause that differs from the
+    market-general default.
+    """
+
+    id: str = "document_precedence"
+    confidence: Literal["unvalidated", "validated"] = "unvalidated"
+    source: str = Field(min_length=1)
+    default_order: list[str] = Field(min_length=1)
+    employer_family_overrides: dict[str, list[str]] = Field(default_factory=dict)
+
+
 class BoqCheckConfig(BaseModel):
     arithmetic_tolerance: float = 1.0
     qty_outlier_quantile: float = 0.99
@@ -146,6 +163,10 @@ class RulePack(BaseModel):
     # entered from an authoritative source, not invented by a coding task; see
     # rulepacks/in-works/rates/README.md.
     rate_schedules: dict[str, RateSchedule] = Field(default_factory=dict)
+    # None means the pack ships no precedence config at all — callers fall
+    # back to their own hardcoded default (TS-217; see crossref.contradictions
+    # .DEFAULT_PRECEDENCE), same graceful-absence pattern as rate_schedules.
+    document_precedence: DocumentPrecedence | None = None
     load_errors: dict[str, str] = Field(default_factory=dict)
 
     @property

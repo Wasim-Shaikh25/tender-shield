@@ -143,6 +143,24 @@ def check_standards(
     violations = commercial.check_violations(principal.workspace_id, _rows_to_dicts(accepted))
 
     from app.core.contracts.findings import Finding, FindingKind, FindingSource, Severity
+    from app.core.provenance import (
+        ProvenanceStamp,
+        document_set_hash,
+        get_engine_version,
+        stamp_findings,
+    )
+
+    ingestion_factory = reg.get("ingestion.service_factory")
+    doc_hash = ""
+    if ingestion_factory is not None:
+        docs = ingestion_factory(session).list_documents(principal.workspace_id, opportunity_id)
+        doc_hash = document_set_hash([d.sha256 for d in docs if d.sha256])
+    stamp = ProvenanceStamp(
+        rulepack_version="workspace-standards",
+        model_id="none",
+        document_hash=doc_hash,
+        engine_version=get_engine_version(),
+    )
 
     violation_findings = []
     for v in violations:
@@ -167,7 +185,10 @@ def check_standards(
 
     if violation_findings:
         store.replace_for_producer(
-            principal.workspace_id, opportunity_id, "standards", violation_findings
+            principal.workspace_id,
+            opportunity_id,
+            "standards",
+            stamp_findings(violation_findings, stamp),
         )
 
     return {"violations": violations}

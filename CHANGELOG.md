@@ -6,6 +6,26 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (TS-219: reproducibility chain on findings)
+
+Strategy §C.7 accountability chain — every finding now pins the versions and hashes
+that produced it so deterministic stages can be verified byte-identical on re-run.
+
+- **`backend/app/core/provenance.py`** (new) — `document_set_hash`, `content_hash`,
+  `prompt_hash`, `get_engine_version`, and `ProvenanceStamp` helper used by all producers.
+- **`findings` schema** — migration `ce0cebf8a285` adds `rulepack_version`, `model_id`,
+  `prompt_hash`, `document_hash`, `engine_version` to the shared `findings` table and
+  `Finding` contract.
+- **Producers stamped** — `risk` (per-pattern `prompt_hash` from the classifier),
+  `boq`, `qualification`, and `standards` attach provenance at run time.
+- **Tests** — `backend/tests/test_provenance.py` covers persistence, BOQ re-run
+  determinism, and additive stamping.
+
+### Next
+
+- TS-215 (`outcomes` module scaffold) and TS-218 (correction loop).
+- TS-195 (`marketdata` module scaffold) when Sprint 3 graph work starts.
+
 ### Done — 2026-07-31 (Fix: CI broken by two alembic heads after the PR #69 merge)
 
 The merge of PR #69 combined two migration chains that both branched off `5617d7dc8440`

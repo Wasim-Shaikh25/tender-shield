@@ -22,6 +22,10 @@ class Classifier(Protocol):
         source_page}. Never fabricates severity (that is computed here)."""
         ...
 
+    def provenance_meta(self, pattern, candidates: list[Clause]) -> tuple[str, str | None]:
+        """Return (model_id, prompt_hash) for this classification call."""
+        ...
+
 
 def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().lower()
@@ -68,6 +72,12 @@ def _pattern_disclaimer(pattern, disclaimer: str | None) -> str | None:
     return disclaimer if getattr(pattern, "confidence", None) == "unvalidated" else None
 
 
+def _stamp(finding: Finding, provenance: dict | None) -> Finding:
+    if not provenance:
+        return finding
+    return finding.model_copy(update=provenance)
+
+
 def _absence_finding(pattern, opp_facts: dict, disclaimer: str | None = None) -> Finding:
     return Finding(
         kind=FindingKind.RISK_CLAUSE,
@@ -93,12 +103,19 @@ def run_pattern(
     classifier: Classifier,
     opp_facts: dict | None = None,
     disclaimer: str | None = None,
+    provenance: dict | None = None,
 ) -> list[Finding]:
     opp_facts = opp_facts or {}
     candidates = retrieve_candidates(clauses, list(pattern.anchor_queries))
+    meta = getattr(classifier, "provenance_meta", None)
+    if meta is not None:
+        model_id, prompt_hash = meta(pattern, candidates)
+    else:
+        model_id, prompt_hash = "none", None
+    call_prov = {**(provenance or {}), "model_id": model_id, "prompt_hash": prompt_hash}
     if not candidates:
         return (
-            [_absence_finding(pattern, opp_facts, disclaimer=disclaimer)]
+            [_stamp(_absence_finding(pattern, opp_facts, disclaimer=disclaimer), call_prov)]
             if pattern.absence_is_finding
             else []
         )
@@ -115,20 +132,23 @@ def run_pattern(
         if quote and not verified:
             detail += "  [unverified quote — confidence low, confirm in source]"
         findings.append(
-            Finding(
-                kind=FindingKind.RISK_CLAUSE,
-                category=pattern.category,
-                severity=severity,
-                title=pattern.title,
-                detail=detail,
-                source=FindingSource.AI_SUGGESTION,
-                source_page=result.get("source_page"),
-                source_quote=quote[:200] if verified else None,
-                suggested_action=pattern.suggested_clarification,
-                affected_trades=list(pattern.affected_trades),
-                pattern_id=pattern.id,
-                explanation=_build_explanation(pattern, quote[:200] if verified else quote),
-                disclaimer=_pattern_disclaimer(pattern, disclaimer),
+            _stamp(
+                Finding(
+                    kind=FindingKind.RISK_CLAUSE,
+                    category=pattern.category,
+                    severity=severity,
+                    title=pattern.title,
+                    detail=detail,
+                    source=FindingSource.AI_SUGGESTION,
+                    source_page=result.get("source_page"),
+                    source_quote=quote[:200] if verified else None,
+                    suggested_action=pattern.suggested_clarification,
+                    affected_trades=list(pattern.affected_trades),
+                    pattern_id=pattern.id,
+                    explanation=_build_explanation(pattern, quote[:200] if verified else quote),
+                    disclaimer=_pattern_disclaimer(pattern, disclaimer),
+                ),
+                call_prov,
             )
         )
     return findings
@@ -140,8 +160,18 @@ def run_patterns(
     classifier: Classifier,
     opp_facts: dict | None = None,
     disclaimer: str | None = None,
+    provenance: dict | None = None,
 ) -> list[Finding]:
     findings: list[Finding] = []
     for pattern in patterns:
-        findings.extend(run_pattern(pattern, clauses, classifier, opp_facts, disclaimer=disclaimer))
+        findings.extend(
+            run_pattern(
+                pattern,
+                clauses,
+                classifier,
+                opp_facts,
+                disclaimer=disclaimer,
+                provenance=provenance,
+            )
+        )
     return findings

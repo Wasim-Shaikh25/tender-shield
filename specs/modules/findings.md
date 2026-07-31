@@ -1,8 +1,8 @@
 # Findings — Spec
 
 **Status:** implemented
-**Requirement refs:** Doc §3.2, §6.3, §6.4, §11.4
-**Task refs:** TS-017, TS-018, TS-049, TS-054, TS-055, TS-056, TS-114
+**Requirement refs:** Doc §3.2, §6.3, §6.4, §11.4; Strategy §C.7
+**Task refs:** TS-017, TS-018, TS-049, TS-054, TS-055, TS-056, TS-114, TS-219
 
 ## Purpose
 
@@ -45,6 +45,8 @@ Columns:
 - `review_note`, `review_reason`, `reviewed_by`
 - `explanation` (JSON, for `risk_clause` explainability)
 - `disclaimer` (nullable string; e.g. beta/unvalidated pattern warning)
+- `rulepack_version`, `model_id`, `prompt_hash`, `document_hash`, `engine_version`
+  (reproducibility chain, Strategy §C.7 / TS-219)
 
 ## Behavior
 
@@ -66,6 +68,12 @@ Columns:
 - **B7 — No cross-module FKs:** `findings.opportunity_id` is a plain `Uuid` column;
   it is not declared as a `ForeignKey` to `opportunities` (or any other module-owned
   table). The store enforces opportunity scoping in code and via RLS.
+- **B8 — Reproducibility chain (TS-219):** Every producer stamps
+  `rulepack_version`, `model_id` (`"none"` for deterministic paths),
+  `prompt_hash` (LLM calls only), `document_hash` (stable hash of the input
+  document set), and `engine_version` on each finding at run time. Deterministic
+  findings must be byte-identical on re-run with the same inputs; enforced by
+  tests.
 
 ## Acceptance criteria
 
@@ -77,6 +85,9 @@ Columns:
   caller's org.
 - A4: `FindingRow.opportunity_id` has no `ForeignKey` to `opportunities` and the
   metadata architecture test asserts this.
+- A5: Provenance columns are persisted and populated by every findings producer.
+- A6: BOQ deterministic re-runs produce byte-identical finding signatures with
+  matching provenance when inputs are unchanged.
 
 ## Out of scope
 

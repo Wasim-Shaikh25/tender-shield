@@ -13,6 +13,12 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.core.contracts.findings import Finding, FindingKind, FindingSource, Severity
+from app.core.provenance import (
+    ProvenanceStamp,
+    document_set_hash,
+    get_engine_version,
+    stamp_findings,
+)
 
 
 @dataclass
@@ -201,9 +207,23 @@ class QualificationService:
 
         return records
 
+    def _document_hash(self, workspace_id, opportunity_id) -> str:
+        ingestion = self._ingestion()
+        if ingestion is None:
+            return ""
+        docs = ingestion.list_documents(workspace_id, opportunity_id)
+        return document_set_hash([d.sha256 for d in docs if d.sha256])
+
     def run_opportunity(self, workspace_id, opportunity_id) -> list[QualificationCriterion]:
         matrix = self.build_matrix(workspace_id, opportunity_id)
         findings = [_to_finding(c) for c in matrix]
+        stamp = ProvenanceStamp(
+            rulepack_version="builtin",
+            model_id="none",
+            document_hash=self._document_hash(workspace_id, opportunity_id),
+            engine_version=get_engine_version(),
+        )
+        findings = stamp_findings(findings, stamp)
         if self._store is not None and findings:
             self._store().replace_for_producer(
                 workspace_id, opportunity_id, self.PRODUCER, findings

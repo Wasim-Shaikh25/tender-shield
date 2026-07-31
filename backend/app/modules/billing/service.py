@@ -33,9 +33,18 @@ from app.modules.billing.webhook import verify_signature, verify_stripe_signatur
 
 
 class BillingService:
-    def __init__(self, session: Session, *, workspace_factory=None):
+    def __init__(
+        self,
+        session: Session,
+        *,
+        workspace_factory=None,
+        express_payment_handler=None,
+        express_price_validator=None,
+    ):
         self.s = session
         self._workspace_factory = workspace_factory
+        self._express_payment_handler = express_payment_handler
+        self._express_price_validator = express_price_validator
 
     def _workspaces(self):
         if self._workspace_factory is None:
@@ -191,6 +200,11 @@ class BillingService:
         """Return True if the paid amount matches the server-owned price (or coupon discount)."""
         notes = notes or {}
         currency = currency.upper()
+        if kind == "express":
+            tier = notes.get("tier", "snapshot")
+            if self._express_price_validator:
+                return self._express_price_validator(tier, currency, amount)
+            return True
         if kind == "paygo":
             expected = PAYGO_PRICE_INR_PAISE
         elif kind == "subscription" and plan:
@@ -427,16 +441,50 @@ class BillingService:
             self.s.commit()
             return {"ok": False, "reason": "bad_signature"}
 
-        if user_id is None:
-            self.s.commit()
-            return {"ok": False, "reason": "no_workspace"}
-
-        # 2) validate amount against server-owned price table
         typ = evt.get("event")
         amount = _extract_amount(evt)
         currency = _extract_currency(evt)
         kind = notes.get("kind", "paygo")
         plan = notes.get("plan")
+
+        if kind == "express":
+            if amount is not None and not self._valid_amount(
+                currency, kind, None, amount, notes=notes
+            ):
+                self._log(
+                    None,
+                    "razorpay",
+                    event_id,
+                    typ or "unknown",
+                    status="amount_mismatch",
+                    raw=evt,
+                    workspace_id=workspace_id,
+                )
+                self.s.commit()
+                return {"ok": False, "reason": "amount_mismatch"}
+            if event_id and not self._claim_event_id(event_id, "razorpay", user_id=None):
+                self.s.commit()
+                return {"ok": True, "duplicate": True}
+            handler = self._express_payment_handler
+            if handler is None:
+                self.s.commit()
+                return {"ok": False, "reason": "express_unavailable"}
+            order_id = _extract_order_id(evt) or notes.get("provider_order_id", "")
+            applied = handler(
+                self.s,
+                notes=notes,
+                provider="razorpay",
+                provider_order_id=order_id,
+                amount_minor=amount or int(notes.get("amount_minor", 0)),
+                currency=currency,
+            )
+            self.s.commit()
+            return {"ok": applied, "applied": typ, "kind": "express"}
+
+        if user_id is None:
+            self.s.commit()
+            return {"ok": False, "reason": "no_workspace"}
+
         if amount is not None and not self._valid_amount(currency, kind, plan, amount, notes=notes):
             self._log(
                 user_id,
@@ -534,6 +582,42 @@ class BillingService:
         self._bind_workspace(workspace_id)
 
         if event_type == "checkout.session.completed":
+            kind = metadata.get("kind", "paygo")
+            if kind == "express":
+                amount = obj.get("amount_total")
+                currency = obj.get("currency", "INR").upper()
+                if amount is not None and not self._valid_amount(
+                    currency, kind, None, int(amount), notes=metadata
+                ):
+                    self._log(
+                        None,
+                        "stripe",
+                        event_id,
+                        event_type,
+                        status="amount_mismatch",
+                        raw=evt,
+                        workspace_id=workspace_id,
+                    )
+                    self.s.commit()
+                    return {"ok": False, "reason": "amount_mismatch"}
+                if event_id and not self._claim_event_id(event_id, "stripe", user_id=None):
+                    self.s.commit()
+                    return {"ok": True, "duplicate": True}
+                handler = self._express_payment_handler
+                if handler is None:
+                    self.s.commit()
+                    return {"ok": False, "reason": "express_unavailable"}
+                applied = handler(
+                    self.s,
+                    notes=metadata,
+                    provider="stripe",
+                    provider_order_id=obj.get("id") or event_id,
+                    amount_minor=int(amount or metadata.get("amount_minor", 0)),
+                    currency=currency,
+                )
+                self.s.commit()
+                return {"ok": applied, "applied": event_type, "kind": "express"}
+
             if user_id is None:
                 self.s.commit()
                 return {"ok": False, "reason": "no_workspace"}
@@ -652,6 +736,16 @@ class BillingService:
         except IntegrityError:
             return False
         return True
+
+
+def _extract_order_id(evt: dict) -> str | None:
+    payload = evt.get("payload", {})
+    for wrapper in payload.values():
+        entity = wrapper.get("entity", {}) if isinstance(wrapper, dict) else {}
+        order_id = entity.get("order_id")
+        if order_id:
+            return str(order_id)
+    return None
 
 
 def _extract_notes(evt: dict) -> dict:

@@ -133,7 +133,8 @@ def upgrade() -> None:
 
     op.add_column("ex_sessions", sa.Column("acknowledgment_version", sa.String(), nullable=False, server_default=""))
     op.add_column("ex_sessions", sa.Column("client_ip", sa.String(), nullable=True))
-    op.alter_column("ex_sessions", "acknowledgment_version", server_default=None)
+    if op.get_bind().dialect.name != "sqlite":
+        op.alter_column("ex_sessions", "acknowledgment_version", server_default=None)
 
     op.add_column("findings", sa.Column("currency", sa.String(), nullable=True))
     op.add_column("findings", sa.Column("document_id", sa.Uuid(), nullable=True))

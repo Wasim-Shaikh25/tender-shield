@@ -6,6 +6,28 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (TS-211–214: express revenue lane)
+
+- **TS-211 server-owned checkout** — `express/prices.py` tier table; `POST
+  /api/express/sessions/{token}/checkout` creates provider order via
+  `billing.provider_factory`; client `amount_minor` mismatch rejected.
+- **TS-212 webhook-only activation** — verified Razorpay/Stripe webhooks with
+  `kind: express` activate `ex_purchases`; `GET /api/express/sessions/{token}/report`
+  returns locked (402) until activation.
+- **TS-213 unreviewed export** — `export_unreviewed()` watermarks DOCX/PDF/XLSX;
+  `GET /api/express/sessions/{token}/export?format=` gated on webhook activation;
+  pricing-intel artifact kinds excluded; acknowledgment audit logged on session create.
+- **TS-214 anti-abuse + retention + claim** — email/IP/teaser rate limits; teaser dedupe
+  by document hash; `express.purge_retention` capability; `POST
+  /api/express/sessions/{token}/claim` transfers ephemeral workspace to authenticated user.
+- **Fix** — SQLite-safe `acknowledgment_version` migration (`b7e4a1c93f20`).
+
+Tests: 457 passed / 5 skipped.
+
+### Next
+
+- TS-218 (correction loop) and TS-197 (P0 harvest adapters).
+
 ### Done — 2026-07-31 (TS-200/210: employer context + express teaser)
 
 - **TS-200 employer context** — `marketdata.employer_context_for_family` capability;

@@ -7,7 +7,14 @@ from __future__ import annotations
 import hashlib
 from datetime import date
 
-from app.modules.export.render import render_docx, render_handover_pack, render_pdf, render_xlsx
+from app.modules.export.render import (
+    UNREVIEWED_VARIANT,
+    render_docx,
+    render_handover_pack,
+    render_pdf,
+    render_xlsx,
+    verify_unreviewed_watermark,
+)
 
 FORMATS = {
     "xlsx": ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"),
@@ -20,6 +27,9 @@ HANDOVER_FORMATS = {
     "docx": ("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx"),
     "pdf": ("application/pdf", "pdf"),
 }
+
+# Pricing-intel outputs are excluded from Express tiers (express-report spec).
+EXPRESS_EXCLUDED_ARTIFACT_KINDS = frozenset({"pricing_loading", "pricing_cashflow"})
 
 
 class ExportError(Exception):
@@ -77,6 +87,13 @@ class ExportService:
             for a in self._drafting_factory(self.s).list(workspace_id, opportunity_id)
         ]
 
+    def _express_artifacts(self, workspace_id, opportunity_id) -> list[dict]:
+        return [
+            a
+            for a in self._artifacts(workspace_id, opportunity_id)
+            if a.get("kind") not in EXPRESS_EXCLUDED_ARTIFACT_KINDS
+        ]
+
     def _title(self, workspace_id, opportunity_id) -> str:
         if self._ingestion_factory is None:
             return "this tender"
@@ -99,13 +116,27 @@ class ExportService:
                 meta["reviewed_by_email"] = user["email"]
         return meta
 
-    def _render(self, fmt: str, title: str, workspace_id, opportunity_id, meta: dict) -> bytes:
+    def _render(
+        self,
+        fmt: str,
+        title: str,
+        workspace_id,
+        opportunity_id,
+        meta: dict,
+        *,
+        unreviewed: bool = False,
+    ) -> bytes:
         findings = self._findings(workspace_id, opportunity_id)
+        artifacts = (
+            self._express_artifacts(workspace_id, opportunity_id)
+            if unreviewed
+            else self._artifacts(workspace_id, opportunity_id)
+        )
         if fmt == "xlsx":
             return render_xlsx(title, findings, meta)
         if fmt == "pdf":
-            return render_pdf(title, self._artifacts(workspace_id, opportunity_id), findings, meta)
-        return render_docx(title, self._artifacts(workspace_id, opportunity_id), findings, meta)
+            return render_pdf(title, artifacts, findings, meta)
+        return render_docx(title, artifacts, findings, meta)
 
     def export(self, workspace_id, opportunity_id, fmt: str) -> tuple[str, str, bytes]:
         if fmt not in FORMATS:
@@ -126,6 +157,35 @@ class ExportService:
         data = self._render(fmt, title, workspace_id, opportunity_id, meta)
 
         filename = f"bid-review-pack-{opportunity_id}.{ext}"
+        return filename, media_type, data
+
+    def export_unreviewed(
+        self, workspace_id, opportunity_id, fmt: str
+    ) -> tuple[str, str, bytes]:
+        """Express lane export — bypasses review gate, watermarks every format."""
+        if fmt not in FORMATS:
+            raise ExportError("bad_format")
+
+        title = self._title(workspace_id, opportunity_id)
+        meta = {
+            "date": date.today().isoformat(),
+            "pack": self._pack_version,
+            "variant": UNREVIEWED_VARIANT,
+        }
+
+        media_type, ext = FORMATS[fmt]
+        draft = self._render(
+            fmt, title, workspace_id, opportunity_id, meta, unreviewed=True
+        )
+        meta["integrity_hash"] = hashlib.sha256(draft).hexdigest()
+        data = self._render(
+            fmt, title, workspace_id, opportunity_id, meta, unreviewed=True
+        )
+
+        if not verify_unreviewed_watermark(fmt, data):
+            raise ExportError("watermark_missing")
+
+        filename = f"express-report-{opportunity_id}.{ext}"
         return filename, media_type, data
 
     def export_handover(

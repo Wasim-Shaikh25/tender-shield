@@ -46,8 +46,9 @@ ingestion, and rulepack capabilities.
   with artifacts), `pdf` (same narrative rendered with reportlab). Any other
   format returns `ExportError("bad_format")` (HTTP 400).
 - **B4 — Watermark:** Free-tier exports include a "DRAFT — TenderShield"
-  watermark / disclaimer. (Currently implemented in the stamp line for all
-  exports; billing-driven tiered watermarking is a P2 refinement.)
+  watermark / disclaimer. Express `unreviewed` exports use a distinct
+  `INDICATIVE — NOT REVIEWED BY A QUALIFIED PROFESSIONAL` watermark on every
+  format via `export_unreviewed()` (TS-213).
 - **B5 — No numbers from the LLM:** All pack content comes from accepted
   findings and generated artifacts that have already passed the validators.
 - **B6 — Reviewer stamp:** the pack meta includes `reviewed_by_name`,

@@ -18,16 +18,37 @@ PHASE0_PATTERN_IDS = {
     "termination_for_convenience",
 }
 
+SAE_PATTERN_IDS = {
+    "sae_customs_gst_variation",
+    "sae_split_delivery_erection_ld",
+    "sae_performance_guarantee_tests",
+    "sae_free_issue_material",
+    "sae_om_tail_obligations",
+}
+
+ALL_IN_WORKS_PATTERN_IDS = PHASE0_PATTERN_IDS | SAE_PATTERN_IDS
+
 
 def test_in_works_pack_loads_with_five_unvalidated_sourced_patterns():
     loader = RulePackLoader()
     pack = loader.get_pack("in-works")
     assert pack.version_tag.startswith("in-works@")
-    assert set(pack.patterns) == PHASE0_PATTERN_IDS
+    assert PHASE0_PATTERN_IDS <= set(pack.patterns)
     assert pack.load_errors == {}
     for pattern in pack.patterns.values():
         assert pattern.confidence == "unvalidated"  # Doc §14.1: pre-QS state
         assert pattern.source.strip()
+
+
+def test_sae_rung2_patterns_load_yaml_only():
+    """Domain-ladder Rung 2 (Strategy §D.2, TS-222) — five SAE patterns, zero code."""
+    pack = RulePackLoader().get_pack("in-works", reload=True)
+    assert SAE_PATTERN_IDS <= set(pack.patterns)
+    for pid in SAE_PATTERN_IDS:
+        pattern = pack.patterns[pid]
+        assert pattern.confidence == "unvalidated"
+        assert pattern.source.strip()
+        assert pattern.affected_trades
 
 
 def test_unit_canon_normalizes_indian_boq_chaos():
@@ -41,7 +62,7 @@ def test_unit_canon_normalizes_indian_boq_chaos():
 def test_validated_only_hides_unvalidated_patterns():
     loader = RulePackLoader()
     assert loader.list_patterns("in-works", validated_only=True) == []
-    assert len(loader.list_patterns("in-works")) == 5
+    assert len(loader.list_patterns("in-works")) == len(ALL_IN_WORKS_PATTERN_IDS)
 
 
 def test_notice_standard_universal_base_and_india_overlay():
@@ -114,9 +135,10 @@ def test_api_exposes_packs_and_patterns():
     super_headers = {"authorization": f"Bearer {super_token}"}
     client = TestClient(app)
     packs = client.get("/api/rulepacks", headers=headers).json()["packs"]
-    assert any(p["id"] == "in-works" and p["patterns"] == 5 for p in packs)
+    in_works = next(p for p in packs if p["id"] == "in-works")
+    assert in_works["patterns"] == len(ALL_IN_WORKS_PATTERN_IDS)
     body = client.get("/api/rulepacks/in-works/patterns", headers=headers).json()
-    assert {p["id"] for p in body["patterns"]} == PHASE0_PATTERN_IDS
+    assert {p["id"] for p in body["patterns"]} == ALL_IN_WORKS_PATTERN_IDS
     assert client.get("/api/rulepacks/nope/patterns", headers=headers).status_code == 404
     # capability is registered and visible via health details
     caps = client.get("/api/health/details", headers=super_headers).json()["capabilities"]

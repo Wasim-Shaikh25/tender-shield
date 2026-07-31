@@ -1,0 +1,31 @@
+# Supply-and-erection Rung 2 (Strategy §D.2, TS-222).
+id: sae_om_tail_obligations
+category: om
+title: O&M tail / extended operating obligations
+confidence: unvalidated
+source: >
+  Strategy §D.2 Rung 2 — O&M tail on supply-and-erection contracts; Indian
+  PPP/BOT annuity structures and DPR O&M handover norms for process plant.
+severity_rule: >
+  critical if om_period_years_long else
+  high if om_at_contractor_risk else medium
+anchor_queries:
+  - "operation and maintenance"
+  - "O&M period"
+  - "defects liability period"
+  - "annual maintenance contract"
+  - "spares during O&M"
+  - "performance during O&M"
+judgment_prompt: >
+  Find operation-and-maintenance (O&M) or post-commissioning service
+  obligations beyond normal defect liability: duration, scope, spares, staffing,
+  performance KPIs, and penalties. Report whether O&M is priced or deemed
+  included. Quote verbatim.
+negative_examples:
+  - "Standard DLP rectification of defects is covered by defect_liability_retention."
+industry_reason: >
+  Long O&M tails on supply contracts convert a one-off supply margin into
+  recurring cost risk without clear pricing.
+suggested_clarification: >
+  Request a priced O&M schedule, KPI caps, and exit/handover conditions.
+affected_trades: [supply_and_erection, mechanical, electrical, hvac]

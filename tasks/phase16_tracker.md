@@ -39,7 +39,7 @@ name its moat class, it is out of scope for Phase 16.
 | **4** | **Money math** | TS-201–TS-207 ✅ | Loadings byte-identical on re-run; no LLM dependency in module; export gate enforced | **done** |
 | **5** | **Revenue lane** | TS-208 ✅ … TS-214 ✅ | Stranger → teaser → pay → report, webhook-only activation, watermarked unreviewed export | done |
 | **6** | **Loop + accountability** | TS-215 ✅, TS-216 ✅, TS-217 ✅, TS-218 ✅, TS-219 ✅ | Outcomes recorded; contradictions detected; findings reproducible; corrections proposed not applied | in-progress |
-| **7** | **Domain ladder** | TS-220 ✅, TS-221 ✅, TS-222 (gated) | Third party can author a pack; 4 new trades ship as YAML only | **done** |
+| **7** | **Domain ladder** | TS-220 ✅, TS-221 ✅, TS-222 ✅ | Third party can author a pack; 4 new trades ship as YAML only | **done** |
 | **8** | **Backtest + gold set** | TS-228 ✅, TS-233 ✅ | Time-split L1 backtest baseline published; 50-tender gold set annotated | done |
 
 ### Why this order
@@ -127,7 +127,7 @@ calendar-bound, not engineering-bound.
 | TS-219 | Reproducibility chain | `findings` | 3 | P0 | **done** | Deterministic stages byte-identical on re-run | — |
 | TS-220 | Pack SDK | `packsdk` | 4 | P2 | **done** | Third party authors + validates a pack end-to-end | — |
 | TS-221 | Rung-1 trade checklists | `rulepacks` | 4 | P2 | **done** | 4 trades, YAML only, zero code change | TS-220 |
-| TS-222 | Supply-and-erection patterns | `rulepacks` | 4 | P3 | todo | Gated on a customer asking (Strategy §D.2) | TS-221 |
+| TS-222 | Supply-and-erection patterns | `rulepacks` | 4 | P3 | **done** | 5 SAE risk patterns YAML-only; validation gated on customer | TS-221 |
 | TS-223 | Cost instrumentation | `observability` | — | P0 | **done** | p50/p95 cost per review; token ceiling test | — |
 | TS-224 | Corpus schema + harvester | `evalcorpus` | — | P0 | **done** | Adapter interface + sha256 + provenance | — |
 | TS-225 | Adapters (4 sources) | scripts | — | P0 | todo | Legality review recorded per adapter | TS-224 |

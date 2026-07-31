@@ -15,7 +15,7 @@
 | Stage (Research Doc p2) | Revenue model | Phase | Tasks | Status |
 |---|---|---|---|---|
 | 1. Pre-bid assessment | Per-tender fee + team subscription | 0–15 | TS-001 – TS-194 | ✅ done |
-| 1. (hardening) | — | **16** | TS-195 – TS-234 | 🔵 **in-progress** |
+| 1. (hardening) | — | **16** | TS-195 – TS-234 | ✅ **done** |
 | 2. Baseline lock | Project activation fee | 17 | TS-235 – TS-242 | ⚪ todo |
 | **3. Change & notice control** | **Per-project recurring** ★ | **18** | TS-243 – TS-256 | ⚪ todo |
 | 4. Claims workspace | Premium module | 19 | TS-257 – TS-270 | ⚪ todo |
@@ -42,7 +42,7 @@ deliberate and visible.
 
 | Phase | Gate | Source | Met? |
 |---|---|---|---|
-| 16 | — (in progress) | — | — |
+| 16 | Phase 16 exit gates green (`tasks/phase16_tracker.md`) | Roadmap §4 | ⚠️ partial — code complete; scale gates pending |
 | 17 | Phase 16 exit gates green (`tasks/phase16_tracker.md`) | Roadmap §4 | ❌ |
 | **18** | **"Two projects use baseline weekly"** | Research Doc §12.4 | ❌ |
 | 19 | **"Users capture contemporaneous evidence in the platform"** AND **"Document at least five real events before work completion"** | Research Doc §12.4 | ❌ |
@@ -65,7 +65,7 @@ Detail in `tasks/phase16_tracker.md`. Summary:
 | 16.C | TS-208 – TS-214 | Express pay-per-report lane | todo |
 | 16.D | TS-215 – TS-216 | Outcome capture | todo |
 | 16.E | TS-217 – TS-219 | Contradictions, correction loop, reproducibility | in-progress (TS-217 **done**) |
-| 16.F | TS-220 – TS-222 | Domain-agnostic pack SDK + trade ladder | in-progress (TS-220/221 **done**; TS-222 gated) |
+| 16.F | TS-220 – TS-222 | Domain-agnostic pack SDK + trade ladder | **done** |
 | 16.G | TS-223 | Cost instrumentation | **done** |
 | 16.H | TS-224 – TS-233 | Evaluation at scale (1,000+ tenders) | in-progress (TS-224/226/230/231 **done**) |
 | **16.I** | **TS-234** | **North-star metric — margin protected** | todo (blocked on TS-215) |

@@ -6,6 +6,19 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (TS-222: SAE Rung 2 risk patterns)
+
+- **TS-222 supply-and-erection patterns** — five unvalidated risk patterns in
+  `rulepacks/in-works/risk_patterns/sae_*.yaml` (customs/GST variation, split
+  delivery/erection LD, PG tests, free-issue material, O&M tail); YAML only,
+  zero code; customer validation gate unchanged (Strategy §D.2).
+
+Tests: 495 passed / 5 skipped.
+
+### Next
+
+- Phase 17 — TS-235 (baseline spec).
+
 ### Done — 2026-07-31 (TS-233 + TS-234: M5 gold set + margin protected metric)
 
 - **TS-233 M5 human gold set** — 50-case manifest under `evals/gold-set/`; `evalgold` scorer +
@@ -16,10 +29,6 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   `outcomes.margin_protected` capability.
 
 Tests: 494 passed / 5 skipped.
-
-### Next
-
-- TS-222 (gated trade patterns — customer-dependent).
 
 ### Done — 2026-07-31 (TS-228 + TS-232: M3 backtest + CI eval smoke)
 

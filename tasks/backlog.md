@@ -383,7 +383,7 @@ Tracker: `tasks/phase16_tracker.md`.
 |---|---|---|---|---|
 | TS-224 | Corpus schema + `scripts/corpus_harvest.py` with pluggable adapter interface (`fetch_index`, `fetch_documents`), sha256 storage, full provenance | Strategy §A.2 | `specs/eval-at-scale.md` §2 | done |
 | TS-225 | Adapters: CPPP, state NIC, Etimad (official API), OCDS registry — each with recorded legality review and rate-limit compliance | Strategy §A.2, §E | `specs/eval-at-scale.md` §2.2 | todo |
-| TS-226 | M1 structural invariant suite (quote integrity, citations, no invented numbers, BOQ closure, determinism, currency, tenant isolation, degradation, budget, no-crash) | Build Doc §6.2, §6.5, §11.5 | `specs/eval-at-scale.md` §1 | todo |
+| TS-226 | M1 structural invariant suite (quote integrity, citations, no invented numbers, BOQ closure, determinism, currency, tenant isolation, degradation, budget, no-crash) | Build Doc §6.2, §6.5, §11.5 | `specs/eval-at-scale.md` §1 | done |
 | TS-227 | M2 portal-metadata agreement scoring with `extraction_miss`/`extraction_wrong`/`portal_wrong` triage | `specs/eval-at-scale.md` §1 | `specs/eval-at-scale.md` | todo |
 | TS-228 | M3 outcome backtest with **time-based** train/test split (L1 MAPE, bidder count, award latency, retender AUC) | Strategy §C.1 | `specs/eval-at-scale.md` §1 | todo |
 | TS-229 | M4 metamorphic checks: format, order, addendum monotonicity, redundancy, locale invariance | `specs/eval-at-scale.md` §1 | `specs/eval-at-scale.md` | todo |
@@ -399,6 +399,13 @@ Tracker: `tasks/phase16_tracker.md`.
 | TS-234 | **North-star metric — "verified contractor margin protected"**: deterministic computation over accepted risk allowances, declined-bid exposure avoided, and BOQ defects corrected pre-submission; excludes speculative value; grows as Phases 18–19 land | Research Doc §12.1; Roadmap §6.1 | `specs/modules/outcomes.md` (update) | todo |
 
 ---
+
+### 16.J — Follow-ups discovered by the M1 invariant suite (TS-226)
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-294 | Add `Finding.document_id` (migration + risk/boq/qualification/standards writers) so quote/citation checks resolve to one document instead of any document sharing a page number | TS-226 finding; `specs/eval-at-scale.md` §1 | `specs/modules/findings.md` (update) | todo |
+| TS-295 | Add `Finding.currency` (ISO 4217) alongside `amount_exposure` so `check_currency_integrity` can assert an explicit currency, not just an int; required before Phase 16 multi-jurisdiction findings (Strategy §E.2) can be trusted cross-currency | TS-226 finding; Strategy §E.2 | `specs/modules/findings.md` (update) | todo |
 
 ## Phase 17 — Stage 2: Baseline Lock & Handover completion
 

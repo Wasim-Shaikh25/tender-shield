@@ -48,6 +48,39 @@ pass/fail, and any failure is a defect.
 harness because it converts "we think it works" into "it satisfies N invariants on 1,000 real
 documents."
 
+**Implemented (TS-226)** in `backend/app/evalinvariants/`:
+
+- `bundle.py` — `PipelineBundle`: the minimal shape the checks need (document pages, findings,
+  generated artifacts, BOQ ground truth, an optional rerun for the determinism check, and run
+  metadata for budget/no-crash). Deliberately independent of SQLAlchemy so the checks are pure and
+  testable with synthetic fixtures.
+- `checks.py` — one function per invariant, each returning `list[Violation]`. Checks are
+  **independent** of the machinery that produced a finding: the risk engine already does a fuzzy
+  (0.85-ratio) quote check before setting `source_quote`; `check_quote_integrity` re-verifies with a
+  strict verbatim substring match, so it catches a regression in the inline check rather than
+  agreeing with it by construction.
+- `runner.py` — `run_m1(bundle) -> M1Result`, the single entry point for the bulk runner (TS-230)
+  and CI (TS-232). `.ok` is the binary pass/fail; `.summary()` is JSON-shaped for the report.
+- `db_adapter.py` — `bundle_from_opportunity(session, workspace_id, opportunity_id)` builds a bundle
+  from a live opportunity's persisted findings and document chunks, entirely workspace-scoped.
+
+Known limitation, stated rather than hidden: `Finding` carries `source_page` but not
+`document_id`, so quote verification checks "does this page number, in *any* document attached to
+the opportunity, contain this quote" — correct for the common one-primary-document case, weaker when
+two documents in the same opportunity share a page number. Tightening this needs a schema change,
+tracked as **TS-294**.
+
+A second gap the checks surfaced rather than papered over: `check_currency_integrity` can only
+assert `amount_exposure` is an integer (minor units) — `Finding` has no `currency` field, so a full
+"every monetary value carries a currency" check is not yet expressible. Tracked as **TS-295**, needed
+before Phase 16's multi-jurisdiction work (§E.2) can trust cross-currency `amount_exposure` values.
+
+Verified against the **real pipeline**, not only synthetic fixtures: `test_m1_against_the_real_boq_engine_output`
+runs the actual deterministic BOQ engine against `evals/in-works/sample_tender/boq.csv`;
+`test_m1_against_the_real_risk_engine_output` runs the actual risk engine end-to-end. Both pass M1
+cleanly, which is the first evidence in this repo that the existing pipeline satisfies its own
+correctness invariants.
+
 ### M2 — Portal-metadata agreement (free labels at scale)
 
 Procurement portals publish structured metadata alongside the documents. That metadata **is** the

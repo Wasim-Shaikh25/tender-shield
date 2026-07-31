@@ -6,6 +6,56 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (TS-226: M1 structural invariant suite — Phase 16 Sprint 0)
+
+The bulletproof test: ten correctness properties that must hold on any tender, needing
+zero human labels. `specs/eval-at-scale.md` sets the bar at 100% pass; any violation
+blocks release.
+
+- **`backend/app/evalinvariants/`** (new package, outside `app/modules/` for the same
+  reason as `evalcorpus` — offline evaluation infrastructure, not a product feature):
+  - `bundle.py` — `PipelineBundle`: document pages, findings, generated artifacts, BOQ
+    ground truth, an optional rerun for the determinism check, and run metadata (tokens,
+    wall time, crash state). Independent of SQLAlchemy so checks are pure and testable
+    with synthetic fixtures.
+  - `checks.py` — one function per invariant: quote integrity, citation completeness, no
+    invented numbers, BOQ arithmetic closure, determinism, currency integrity, tenant
+    isolation, graceful degradation, budget, no crash. Each is **independent** of the
+    machinery that produced a finding — `check_quote_integrity` re-verifies with a strict
+    verbatim substring match against document text, rather than trusting the risk engine's
+    own inline fuzzy (0.85-ratio) check, so it can catch a regression there.
+  - `runner.py` — `run_m1(bundle) -> M1Result`; `.ok` is the binary pass/fail, `.summary()`
+    is JSON-shaped for the report the bulk runner (TS-230) will produce.
+  - `db_adapter.py` — `bundle_from_opportunity(session, workspace_id, opportunity_id)`
+    builds a bundle from a live opportunity's persisted findings and document chunks,
+    entirely workspace-scoped.
+- **Verified against the real pipeline, not only synthetic fixtures:** one test runs the
+  actual deterministic BOQ engine against `evals/in-works/sample_tender/boq.csv`; another
+  runs the actual risk engine end-to-end with a stub classifier. Both pass M1 cleanly —
+  the first evidence in this repo that the pipeline satisfies its own invariants.
+- **Two real gaps found by writing the checks, not papered over:**
+  - `Finding` has `source_page` but no `document_id`, so quote verification checks "does
+    this page number, in *any* document attached to the opportunity, contain this quote" —
+    correct for one primary document, weaker when two documents share a page number.
+    Filed as **TS-294**.
+  - `check_currency_integrity` can only assert `amount_exposure` is an integer;
+    `Finding` has no `currency` field, so a full currency check isn't yet expressible.
+    Filed as **TS-295**, needed before Phase 16 multi-jurisdiction findings can be trusted
+    cross-currency (Strategy §E.2).
+- **Tests:** `backend/tests/test_evalinvariants.py`, 52 cases — two per check (a legitimate
+  case that must pass, proving no false positives on real pipeline shapes; a violating case
+  that must fail, proving the check actually catches the defect), plus runner aggregation,
+  the two real-pipeline integration tests, and DB-adapter tests including workspace scoping.
+- `specs/eval-at-scale.md` updated with the implemented module layout and both discovered
+  gaps; `tasks/backlog.md` gains TS-294/TS-295 under a new Phase 16 §16.J.
+
+Suite: 302 passed, 5 skipped; ruff and mypy clean across 174 files.
+
+**Next:** TS-230 (bulk runner — Celery fan-out, disposable workspace per tender,
+checkpoint/resume, cost guard) is what turns this from "callable on one opportunity" into
+"runs unattended on 1,000." TS-227 (M2 portal-metadata agreement) and TS-229 (M4
+metamorphic checks) can proceed in parallel since they don't depend on the runner.
+
 ### Done — 2026-07-31 (TS-224: evaluation corpus schema + harvester — Phase 16 Sprint 1)
 
 The foundation the whole scale-evaluation plan sits on: a country-agnostic corpus of

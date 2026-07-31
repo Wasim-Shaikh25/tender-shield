@@ -1,4 +1,4 @@
-"""Read-only marketdata routes (TS-195 scaffold; full behaviour in TS-200)."""
+"""Read-only marketdata routes (TS-195/198/199)."""
 
 from __future__ import annotations
 
@@ -22,8 +22,8 @@ def _service(request: Request, session: Session) -> MarketDataService:
 def status() -> dict:
     return {
         "module": "marketdata",
-        "status": "scaffold",
-        "note": "Employer graph harvest pending (TS-196+)",
+        "status": "ready",
+        "note": "Employer resolution and aggregates active (TS-198/199)",
     }
 
 
@@ -42,9 +42,12 @@ def comparables(
     opportunity_id: str,
     request: Request,
     session: Session = Depends(get_session),
-    _principal: Any = Depends(require("viewer")),
+    principal: Any = Depends(require("viewer")),
 ):
-    return _service(request, session).comparable_awards(opportunity_id)
+    return _service(request, session).comparable_awards(
+        opportunity_id,
+        workspace_id=principal.workspace_id,
+    )
 
 
 @router.get("/opportunities/{opportunity_id}/benchmark")
@@ -52,6 +55,9 @@ def benchmark(
     opportunity_id: str,
     request: Request,
     session: Session = Depends(get_session),
-    _principal: Any = Depends(require("viewer")),
+    principal: Any = Depends(require("viewer")),
 ):
-    return _service(request, session).price_benchmark(opportunity_id)
+    return _service(request, session).price_benchmark(
+        opportunity_id,
+        workspace_id=principal.workspace_id,
+    )

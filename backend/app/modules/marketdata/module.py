@@ -8,9 +8,14 @@ from app.modules.marketdata.store import MarketDataStore
 
 def setup(ctx: AppContext) -> None:
     reg = ctx.registry
+    loader = reg.get("rulepacks.loader")
 
     def factory(session):
-        return MarketDataService(session)
+        return MarketDataService(
+            session,
+            loader=loader,
+            ingestion_factory=reg.get("ingestion.service_factory"),
+        )
 
     reg.provide("marketdata.service_factory", factory)
     reg.provide(
@@ -40,6 +45,6 @@ module = ModuleSpec(
     name="marketdata",
     version="0.1.0",
     router=router,
-    soft_deps=("findings", "rulepacks", "auth"),
+    soft_deps=("findings", "rulepacks", "auth", "ingestion"),
     setup=setup,
 )

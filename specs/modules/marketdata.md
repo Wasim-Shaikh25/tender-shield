@@ -1,6 +1,6 @@
 # `marketdata` — Employer Behaviour Graph — Spec
 
-**Status:** corpus schema implemented (TS-196); harvest/aggregates pending TS-197–TS-200
+**Status:** employer resolution + aggregates implemented (TS-198/199); harvest adapters pending TS-197
 **Requirement refs:** `docs/TenderShield_Market_Strategy_2026.md` §A.2, §C.1, §B.2 (moat class 1)
 **Task refs:** TS-195 – TS-200
 
@@ -57,6 +57,14 @@ sources and requires no customers.
 Reuses the adapters specified in `specs/eval-at-scale.md` §2.2 — one corpus, two consumers (the eval
 harness and this module). Harvest rules in §2.3 of that spec apply in full: robots.txt, rate limits,
 public records only, never behind authentication.
+
+**TS-198 implemented:** `employer_families.yaml` in the active pack drives a deterministic
+normalization pipeline in `marketdata/resolution.py`. `MarketDataStore.resolve_tender_buyer` links
+harvested tenders to `md_employers` with a published confidence score; unresolved portal names are
+never guessed into a family.
+
+**TS-199 implemented:** `aggregates.py` materializes per-employer stats into `md_profiles` with
+`MIN_SAMPLE_SIZE = 12` suppression. `comparables.py` returns the filter definition alongside results.
 
 ### Employer resolution
 Portal buyer names are inconsistent (`"E.E., PWD Div-II, Pune"`). Resolution is a deterministic

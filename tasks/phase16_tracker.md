@@ -35,7 +35,7 @@ name its moat class, it is out of scope for Phase 16.
 | **0** | **Measure before building** | TS-223 ✅, TS-226 ✅, TS-230 ✅ | Cost-per-review p50/p95 known; M1 invariants run on the existing 20-tender smoke slice | **done** |
 | **1** | **Corpus** | TS-224 ✅, TS-225, TS-197 | ≥1,000 tenders harvested across ≥3 sources with provenance; legality reviewed per adapter | in-progress |
 | **2** | **Prove correctness at scale** | TS-227, TS-229, TS-231, TS-232 | M1 100% pass on 1,000 tenders; M2 deadline match ≥95%; CI blocking on smoke slice | todo |
-| **3** | **Graph** | TS-195 ✅, TS-196 ✅, TS-198, TS-199, TS-200 | Employer profiles queryable with suppression; comparable-set filter disclosed | in-progress |
+| **3** | **Graph** | TS-195 ✅, TS-196 ✅, TS-198 ✅, TS-199 ✅, TS-200 | Employer profiles queryable with suppression; comparable-set filter disclosed | in-progress |
 | **4** | **Money math** | TS-201–TS-207 ✅ | Loadings byte-identical on re-run; no LLM dependency in module; export gate enforced | **done** |
 | **5** | **Revenue lane** | TS-208 ✅, TS-209 ✅, TS-210–TS-214 | Stranger → teaser → pay → report, webhook-only activation, watermarked unreviewed export | in-progress |
 | **6** | **Loop + accountability** | TS-215 ✅, TS-216 ✅, TS-217 ✅, TS-218, TS-219 ✅ | Outcomes recorded; contradictions detected; findings reproducible; corrections proposed not applied | in-progress |
@@ -103,8 +103,8 @@ calendar-bound, not engineering-bound.
 | TS-195 | `marketdata` scaffold | `marketdata` | 1 | P1 | **done** | Boots with module disabled; no hard deps | — |
 | TS-196 | Corpus schema (non-tenant) | `marketdata` | 1 | P1 | **done** | No tenant data in `md_*`, test-asserted | — |
 | TS-197 | P0 adapters (CPPP, state NIC) | `marketdata` | 1 | P0 | todo | Legality review in docstring; rate-limit compliant | — |
-| TS-198 | Employer resolution | `marketdata` | 1 | P1 | todo | Confidence published; unresolved stays unresolved | TS-196 |
-| TS-199 | Aggregates + suppression | `marketdata` | 1 | P1 | todo | n ≥ 12 suppression tested; deterministic | TS-198 |
+| TS-198 | Employer resolution | `marketdata` | 1 | P1 | **done** | Confidence published; unresolved stays unresolved | — |
+| TS-199 | Aggregates + suppression | `marketdata` | 1 | P1 | **done** | n ≥ 12 suppression tested; deterministic | — |
 | TS-200 | Employer context on findings | `marketdata` | 1 | P2 | todo | Degrades to today's behaviour when disabled | TS-199 |
 | TS-201 | `pricing` scaffold | `pricing` | 2 | P1 | **done** | No LLM client import, test-asserted | — |
 | TS-202 | `price_impact` schema + formulas | `rulepacks` | 2 | P1 | **done** | Worked-example tests per formula | TS-201 |

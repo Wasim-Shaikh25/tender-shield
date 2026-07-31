@@ -6,6 +6,26 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (TS-198/199: marketdata resolution + aggregates)
+
+Employer Behaviour Graph moves from schema-only to queryable aggregates:
+
+- **TS-198 employer resolution** — `rulepacks/in-works/employer_families.yaml` +
+  deterministic `resolution.py` pipeline (honorific strip, abbreviation expand, alias
+  match); unresolved buyers stay unresolved; `resolve_tender_buyer` links `md_tenders`
+  to `md_employers`.
+- **TS-199 aggregates** — `aggregates.py` computes bidder-count percentiles, L1-to-
+  estimate, award latency, retender rate, winner HHI; `n ≥ 12` suppression enforced;
+  `comparables.py` builds disclosed filter sets; `employer_profile` / comparables /
+  benchmark routes return real data when sample size permits.
+
+Tests: 448 passed / 5 skipped.
+
+### Next
+
+- TS-200 (employer context on findings) and TS-197 (P0 harvest adapters).
+- TS-210 (express teaser) and TS-218 (correction loop).
+
 ### Done — 2026-07-31 (TS-196/209/216/294/295: Phase 16 batch 2)
 
 Five smaller Phase 16 tasks landed together:

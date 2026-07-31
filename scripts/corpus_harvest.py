@@ -36,6 +36,8 @@ def main() -> int:
     ap.add_argument("--source", help="adapter name (see --list-adapters)")
     ap.add_argument("--path", help="path argument for file-based adapters")
     ap.add_argument("--state", help="state code for state-nic adapter (e.g. maharashtra)")
+    ap.add_argument("--dataset", help="dataset tag for ocds-registry adapter")
+    ap.add_argument("--api-key", help="API key for network adapters that support it")
     ap.add_argument("--corpus", default=str(DEFAULT_CORPUS), help="corpus root directory")
     ap.add_argument("--limit", type=int, help="stop after N tenders")
     ap.add_argument("--no-documents", action="store_true", help="metadata only")
@@ -74,6 +76,10 @@ def main() -> int:
         kwargs["path"] = args.path
     if args.state:
         kwargs["state"] = args.state
+    if args.dataset:
+        kwargs["dataset"] = args.dataset
+    if args.api_key:
+        kwargs["api_key"] = args.api_key
     try:
         adapter = adapter_registry.build(args.source, **kwargs)
     except (KeyError, TypeError) as exc:

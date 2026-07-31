@@ -208,7 +208,11 @@ def build(name: str, **kwargs: Any) -> SourceAdapter:
 register("ocds-file", OcdsFileAdapter)
 
 from app.evalcorpus.cppp import cppp_factory  # noqa: E402
+from app.evalcorpus.etimad import etimad_factory  # noqa: E402
+from app.evalcorpus.ocds_registry import ocds_registry_factory  # noqa: E402
 from app.evalcorpus.state_nic import state_nic_factory  # noqa: E402
 
 register("cppp", cppp_factory)
 register("state-nic", state_nic_factory)
+register("ocds-registry", ocds_registry_factory)
+register("etimad", etimad_factory)

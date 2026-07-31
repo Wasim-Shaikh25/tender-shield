@@ -37,6 +37,8 @@ from app.core.config import Settings
 from app.core.costmeter import review_cost_scope
 from app.evalcorpus.store import CorpusStore
 from app.evalinvariants import DocPage, PipelineBundle, run_m1
+from app.evalmetadata import extract_metadata_from_text, score_m2
+from app.evalmetamorphic import run_m4
 from app.modules.boq.engine import normalize, run_checks
 from app.modules.ingestion.doc_text import extract_pages
 from app.modules.ingestion.extract import extract_upload
@@ -72,6 +74,8 @@ class TenderResult:
     m1_ok: bool | None = None
     m1_violation_count: int = 0
     m1_summary: dict[str, Any] = field(default_factory=dict)
+    m2_summary: dict[str, Any] = field(default_factory=dict)
+    m4_summary: dict[str, Any] = field(default_factory=dict)
     findings_count: int = 0
     boq_status: str = "not_applicable"    # not_applicable | checked
     documents_processed: int = 0
@@ -118,6 +122,85 @@ def _try_boq(filename: str, data: bytes, pack) -> list[dict] | None:
     return [f.model_dump() for f in findings]
 
 
+def _ordered_documents(
+    record: dict,
+    *,
+    document_order: list[int] | None = None,
+    duplicate_first: bool = False,
+) -> list[dict]:
+    docs = [d for d in (record.get("documents") or []) if d.get("sha256")]
+    if duplicate_first and docs:
+        docs = [docs[0], *docs]
+    if document_order is not None:
+        ordered = []
+        for idx in document_order:
+            if 0 <= idx < len(docs):
+                ordered.append(docs[idx])
+        return ordered or docs
+    return docs
+
+
+def _pipeline_pass(
+    documents: list[dict],
+    store: CorpusStore,
+    *,
+    pack,
+    classifier,
+    ocr,
+) -> tuple[list[DocPage], list[dict], list[dict], str, str]:
+    """Extract pages/clauses/findings from a document list. Returns combined text."""
+    pages: list[DocPage] = []
+    clauses: list[dict] = []
+    findings: list[dict] = []
+    boq_status = "not_applicable"
+    text_parts: list[str] = []
+
+    for doc in documents:
+        sha = doc.get("sha256")
+        if not sha:
+            continue
+        data = store.read_blob(sha)
+        if data is None:
+            continue
+
+        filename = doc.get("title") or doc.get("url") or "document"
+        document_ref = doc.get("url") or filename
+
+        try:
+            text, _ocr_status = extract_upload(filename, data, ocr=ocr)
+        except Exception as exc:
+            raise ClassifiedError("parse_failed", f"{filename}: {exc}") from exc
+        text_parts.append(text)
+        doc_pages = extract_pages(text)
+        pages.extend(
+            DocPage(document_id=document_ref, page=p.page, text=p.text) for p in doc_pages
+        )
+
+        clauses.extend(
+            {
+                "id": f"{document_ref}:{seg.page_from}:{i}",
+                "clause_ref": seg.clause_ref,
+                "text": seg.text,
+                "page_from": seg.page_from,
+            }
+            for i, seg in enumerate(segment_clauses(text))
+        )
+
+        if boq_status == "not_applicable":
+            boq_findings = _try_boq(filename, data, pack)
+            if boq_findings is not None:
+                findings.extend(boq_findings)
+                boq_status = "checked"
+
+    try:
+        risk_findings = run_patterns(list(pack.patterns.values()), clauses, classifier, {})
+    except Exception as exc:
+        reason = "timeout" if "timeout" in type(exc).__name__.lower() else "llm_error"
+        raise ClassifiedError(reason, str(exc)) from exc
+    findings.extend(f.model_dump() for f in risk_findings)
+    return pages, findings, clauses, "\n".join(text_parts), boq_status
+
+
 def run_tender(
     record: dict,
     store: CorpusStore,
@@ -128,6 +211,7 @@ def run_tender(
     ocr: Any | None = None,
     settings: Settings | None = None,
     wall_ceiling: float | None = None,
+    run_m4_checks: bool = False,
 ) -> TenderResult:
     """Run the full eval pipeline for one manifest record and grade it with M1.
 
@@ -151,61 +235,17 @@ def run_tender(
         with review_cost_scope(
             opportunity_id=ocid, rulepack_version=pack.meta.version
         ) as cost_scope:
-            pages: list[DocPage] = []
-            clauses: list[dict] = []
-            findings: list[dict] = []
-            boq_status = "not_applicable"
-
-            for doc in record.get("documents") or []:
-                sha = doc.get("sha256")
-                if not sha:
-                    continue  # metadata-only; bytes were never fetched
-                data = store.read_blob(sha)
-                if data is None:
-                    continue
-
-                filename = doc.get("title") or doc.get("url") or "document"
-                document_ref = doc.get("url") or filename
-
-                try:
-                    text, _ocr_status = extract_upload(filename, data, ocr=ocr)
-                except Exception as exc:
-                    raise ClassifiedError("parse_failed", f"{filename}: {exc}") from exc
-
-                result.documents_processed += 1
-                doc_pages = extract_pages(text)
-                pages.extend(
-                    DocPage(document_id=document_ref, page=p.page, text=p.text) for p in doc_pages
-                )
-                result.pages_extracted += len(doc_pages)
-
-                clauses.extend(
-                    {
-                        "id": f"{document_ref}:{seg.page_from}:{i}",
-                        "clause_ref": seg.clause_ref,
-                        "text": seg.text,
-                        "page_from": seg.page_from,
-                    }
-                    for i, seg in enumerate(segment_clauses(text))
-                )
-
-                if boq_status == "not_applicable":
-                    boq_findings = _try_boq(filename, data, pack)
-                    if boq_findings is not None:
-                        findings.extend(boq_findings)
-                        boq_status = "checked"
-
-            try:
-                risk_findings = run_patterns(
-                    list(pack.patterns.values()), clauses, classifier, {}
-                )
-                findings.extend(f.model_dump() for f in risk_findings)
-            except Exception as exc:
-                reason = "timeout" if "timeout" in type(exc).__name__.lower() else "llm_error"
-                raise ClassifiedError(reason, str(exc)) from exc
-
+            docs = _ordered_documents(record)
+            pages, findings, _clauses, combined_text, boq_status = _pipeline_pass(
+                docs, store, pack=pack, classifier=classifier, ocr=ocr
+            )
+            result.documents_processed = len(docs)
+            result.pages_extracted = len(pages)
             result.boq_status = boq_status
             result.findings_count = len(findings)
+
+            extracted = extract_metadata_from_text(combined_text, ocid=ocid)
+            result.m2_summary = score_m2(record, extracted).summary()
 
             bundle = PipelineBundle(
                 opportunity_id=ocid,
@@ -228,6 +268,28 @@ def run_tender(
             if not m1.ok:
                 result.status = "failed"
                 result.failure_reason = "invariant_violation"
+
+            if run_m4_checks and result.status == "ok" and docs:
+                variants: dict[str, list[dict]] = {}
+                if len(docs) > 1:
+                    shuffled_order = list(reversed(range(len(docs))))
+                    _, shuffled_findings, _, _, _ = _pipeline_pass(
+                        _ordered_documents(record, document_order=shuffled_order),
+                        store,
+                        pack=pack,
+                        classifier=classifier,
+                        ocr=ocr,
+                    )
+                    variants["shuffled"] = shuffled_findings
+                _, redundant_findings, _, _, _ = _pipeline_pass(
+                    _ordered_documents(record, duplicate_first=True),
+                    store,
+                    pack=pack,
+                    classifier=classifier,
+                    ocr=ocr,
+                )
+                variants["redundant"] = redundant_findings
+                result.m4_summary = run_m4(findings, variants).summary()
 
     except ClassifiedError as exc:
         result.status = "failed"

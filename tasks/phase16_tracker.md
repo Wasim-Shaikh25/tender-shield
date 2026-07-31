@@ -34,7 +34,7 @@ name its moat class, it is out of scope for Phase 16.
 |---|---|---|---|---|
 | **0** | **Measure before building** | TS-223 ✅, TS-226 ✅, TS-230 ✅ | Cost-per-review p50/p95 known; M1 invariants run on the existing 20-tender smoke slice | **done** |
 | **1** | **Corpus** | TS-224 ✅, TS-225, TS-197 ✅ | ≥1,000 tenders harvested across ≥3 sources with provenance; legality reviewed per adapter | in-progress |
-| **2** | **Prove correctness at scale** | TS-227, TS-229, TS-231, TS-232 | M1 100% pass on 1,000 tenders; M2 deadline match ≥95%; CI blocking on smoke slice | todo |
+| **2** | **Prove correctness at scale** | TS-227 ✅, TS-229 ✅, TS-231, TS-232 | M1 100% pass on 1,000 tenders; M2 deadline match ≥95%; CI blocking on smoke slice | in-progress |
 | **3** | **Graph** | TS-195 ✅, TS-196 ✅, TS-198 ✅, TS-199 ✅, TS-200 ✅ | Employer profiles queryable with suppression; comparable-set filter disclosed | **done** |
 | **4** | **Money math** | TS-201–TS-207 ✅ | Loadings byte-identical on re-run; no LLM dependency in module; export gate enforced | **done** |
 | **5** | **Revenue lane** | TS-208 ✅ … TS-214 ✅ | Stranger → teaser → pay → report, webhook-only activation, watermarked unreviewed export | done |

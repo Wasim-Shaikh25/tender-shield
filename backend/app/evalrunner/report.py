@@ -90,6 +90,8 @@ def _percentile(values: list[float], pct: float) -> float | None:
 class Metrics:
     tenders_graded: int = 0
     m1_pass_rate: float | None = None
+    m2_match_rate: float | None = None
+    m4_pass_rate: float | None = None
     quote_verbatim_rate: float | None = None
     citation_completeness_rate: float | None = None
     crash_rate: float | None = None          # unknown_error + parse_failed + ocr_failed + timeout
@@ -107,6 +109,8 @@ class Metrics:
         return {
             "tenders_graded": self.tenders_graded,
             "m1_pass_rate": self.m1_pass_rate,
+            "m2_match_rate": self.m2_match_rate,
+            "m4_pass_rate": self.m4_pass_rate,
             "quote_verbatim_rate": self.quote_verbatim_rate,
             "citation_completeness_rate": self.citation_completeness_rate,
             "crash_rate": self.crash_rate,
@@ -206,12 +210,29 @@ def compute_metrics(run: RunData) -> Metrics:
         boq_counts[status] = boq_counts.get(status, 0) + 1
     m.boq_status_counts = boq_counts
 
-    m.not_yet_available = [
-        "Deadline / tender-value exact match vs portal metadata (M2) — TS-227",
-        "L1 backtest MAPE (M3) — TS-228",
-        "Metamorphic consistency (M4) — TS-229",
-        "Gold-set recall / critical recall / noise (M5) — TS-233",
-    ]
+    m2_graded = [r for r in run.results if (r.get("m2_summary") or {}).get("graded_fields", 0) > 0]
+    if m2_graded:
+        total_fields = sum((r.get("m2_summary") or {}).get("graded_fields", 0) for r in m2_graded)
+        total_matches = sum((r.get("m2_summary") or {}).get("matches", 0) for r in m2_graded)
+        m.m2_match_rate = total_matches / total_fields if total_fields else None
+
+    m4_graded = [r for r in run.results if r.get("m4_summary")]
+    if m4_graded:
+        passed = sum(1 for r in m4_graded if (r.get("m4_summary") or {}).get("ok"))
+        m.m4_pass_rate = passed / len(m4_graded)
+
+    not_yet: list[str] = []
+    if m.m2_match_rate is None:
+        not_yet.append("Deadline / tender-value exact match vs portal (M2) — TS-227")
+    if m.m4_pass_rate is None:
+        not_yet.append("Metamorphic consistency (M4) — TS-229")
+    not_yet.extend(
+        [
+            "L1 backtest MAPE (M3) — TS-228",
+            "Gold-set recall / critical recall / noise (M5) — TS-233",
+        ]
+    )
+    m.not_yet_available = not_yet
     return m
 
 
@@ -243,6 +264,8 @@ def diff_metrics(baseline: Metrics | None, current: Metrics) -> list[RegressionF
             findings.append(RegressionFinding(name, base, cur, delta, blocking=True))
 
     _check("m1_pass_rate", baseline.m1_pass_rate, current.m1_pass_rate, higher_is_better=True)
+    _check("m2_match_rate", baseline.m2_match_rate, current.m2_match_rate, higher_is_better=True)
+    _check("m4_pass_rate", baseline.m4_pass_rate, current.m4_pass_rate, higher_is_better=True)
     _check(
         "quote_verbatim_rate",
         baseline.quote_verbatim_rate,
@@ -302,8 +325,17 @@ def render_scorecard(run: RunData, metrics: Metrics) -> str:
     lines.append(
         row("Crash / parse / timeout rate", "< 1%", _fmt_pct(metrics.crash_rate), crash_ok)
     )
+    m2_ok = metrics.m2_match_rate >= 0.95 if metrics.m2_match_rate is not None else None
+    m2_val = (
+        _fmt_pct(metrics.m2_match_rate) if metrics.m2_match_rate is not None else "n/a — TS-227"
+    )
+    lines.append(row("Deadline / tender-value match vs portal", "≥ 95%", m2_val, m2_ok))
+    m4_ok = metrics.m4_pass_rate == 1.0 if metrics.m4_pass_rate is not None else None
+    m4_val = (
+        _fmt_pct(metrics.m4_pass_rate) if metrics.m4_pass_rate is not None else "n/a — TS-229"
+    )
+    lines.append(row("Metamorphic consistency (M4)", "100%", m4_val, m4_ok))
     lines += [
-        row("Deadline / tender-value match vs portal", "≥ 95%", "n/a — TS-227", None),
         row("L1 backtest MAPE", "baseline first", "n/a — TS-228", None),
         row("Gold-set critical recall", "≥ 90%", "n/a — TS-233", None),
     ]

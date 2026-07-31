@@ -6,6 +6,27 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (TS-196: CI changelog-check gate)
+
+- Added `scripts/check_changelog.py`: fails when non-exempt ("code") files
+  changed between two refs but `CHANGELOG.md` didn't gain any real content in
+  the same range, enforcing `CLAUDE.md` §1.5 ("a push without a changelog
+  entry is incomplete work") mechanically instead of by convention.
+- Docs/spec/task-only changes (`docs/`, `specs/`, `tasks/`, `.github/`,
+  `.cursor/`, `.devin/`, any `*.md`) are exempt; a `[skip-changelog]` marker in
+  any commit message in range bypasses the check for merges/reverts/dep bumps.
+- Added a `changelog` job to `.github/workflows/ci.yml`, gated on
+  `pull_request` events, that runs the script's unit tests
+  (`scripts/tests/test_check_changelog.py`) and then checks the PR's diff
+  against its base branch.
+- Added `specs/902-changelog-check.md` describing the behavior and acceptance
+  criteria, indexed in `specs/README.md`.
+
+### Next
+
+- TS-197: consider extending the changelog check to also verify the `Next`
+  section names concrete task IDs (currently only advisory via B5).
+
 ### Done — 2026-07-30 (TS-195: workspace-scoped AI Assistant)
 
 - `ChatSession.opportunity_id` is now optional; the AI Assistant works across the

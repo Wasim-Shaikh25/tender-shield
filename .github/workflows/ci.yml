@@ -6,6 +6,23 @@ on:
   pull_request:
 
 jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Unit tests for changelog check
+        run: python3 -m unittest discover -s scripts/tests -p "test_*.py" -v
+      - name: Verify CHANGELOG.md was updated for this PR
+        run: |
+          git fetch origin "${{ github.event.pull_request.base.ref }}"
+          python3 scripts/check_changelog.py "origin/${{ github.event.pull_request.base.ref }}" HEAD
+
   backend:
     runs-on: ubuntu-latest
     defaults:

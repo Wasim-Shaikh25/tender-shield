@@ -135,9 +135,23 @@ CorpusAward:
   ocid, date, suppliers[], value{amount_minor, currency}, bidder_count, status
 ```
 
+**Implemented (TS-224)** in `backend/app/evalcorpus/models.py` as dataclasses:
+`CorpusTender`, `CorpusDocument`, `CorpusAward`, `Buyer`, `Provenance`.
+
+Money follows `CLAUDE.md` §4 — OCDS quotes `value.amount` in major units as a decimal, so
+`to_minor_units()` converts exactly once at the boundary, with a per-currency exponent table
+(0 for JPY/KRW, 3 for KWD/BHD/OMR, 2 otherwise). A missing amount maps to `None`, never `0`:
+"no value published" and "worth nothing" are different facts.
+
+`CorpusTender.document_set_hash` counts only *fetched* documents, so a partially harvested
+tender cannot masquerade as a complete one in the runner's cache key.
+
 ### 2.2 Source adapters
 
-Each adapter is a self-contained plugin implementing `fetch_index()` and `fetch_documents()`.
+Each adapter is a self-contained plugin implementing `fetch_index()`, `fetch_documents()`
+and `fetch_awards()`, and declaring an `AdapterInfo` that records its **legality review**
+(terms of use, whether an official API exists, published rate limit). The review travels
+with the code — an adapter without one does not ship.
 **Legality is reviewed per source before an adapter ships**, and the finding is recorded in the
 adapter docstring (terms of use, robots.txt, rate limits, whether an official API exists).
 
@@ -152,6 +166,7 @@ adapter docstring (terms of use, robots.txt, rate limits, whether an official AP
 | `ted` | EU | [TED API + SPARQL + eForms XML](https://developer.ted.europa.eu/home) | P2 |
 | `uk_cf` | UK | Contracts Finder JSON/OCDS | P2 |
 | `worldbank` / `adb` | MDB | Public SBDs and feeds | P2 |
+| `ocds-file` | * | **Implemented (TS-224)** — local OCDS release packages, bare release arrays, single releases, or `.jsonl`. This is the reference implementation of the contract and the offline path used by tests and CI; an OCP Data Registry bulk download is this adapter pointed at the unpacked archive | done |
 
 ### 2.3 Harvest rules (non-negotiable)
 
@@ -175,11 +190,27 @@ adapter docstring (terms of use, robots.txt, rate limits, whether an official AP
 ## 3. Runner architecture
 
 ```
-scripts/corpus_harvest.py        # adapters → normalized corpus + manifest
-scripts/bulk_eval.py             # orchestrator → per-tender runs → results.jsonl
-scripts/eval_report.py           # results.jsonl → scorecard.md + regression diff
-backend/app/modules/evalrunner/  # optional in-app runner (Celery tasks, admin UI)
+scripts/corpus_harvest.py        # CLI: adapters → normalized corpus + manifest   [TS-224 ✅]
+scripts/bulk_eval.py             # orchestrator → per-tender runs → results.jsonl [TS-230]
+scripts/eval_report.py           # results.jsonl → scorecard.md + regression diff  [TS-231]
+backend/app/evalcorpus/          # corpus schema, adapters, store, harvest         [TS-224 ✅]
+backend/app/modules/evalrunner/  # optional in-app runner (Celery tasks, admin UI) [TS-230]
 ```
+
+> The corpus logic lives in `backend/app/evalcorpus/` rather than in `scripts/` so it is
+> typed, linted and covered by the normal test suite; the script is a thin CLI over it. The
+> package sits outside `app/modules/` deliberately — it is offline evaluation infrastructure,
+> not a product feature, and nothing in the request path imports it.
+
+**Corpus storage (TS-224).** Documents are content-addressed by `sha256` with two-level
+directory fan-out, so the same CPWD GCC appearing in a thousand tenders costs one blob.
+Manifests are JSONL — appendable, greppable and diffable between runs. Every manifest line
+carries a marker that source adapters skip, so a corpus stored inside a scanned source
+directory can never be re-ingested as input (a real defect caught by the TS-224 tests, since
+a `CorpusTender` record carries an `ocid` and is otherwise shaped exactly like a release).
+
+Harvested corpora are git-ignored (`evals/corpus/`, `evals/runs/`): public records, but
+large and reproducible from source.
 
 ### 3.1 Execution model
 

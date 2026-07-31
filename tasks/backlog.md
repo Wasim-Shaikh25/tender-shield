@@ -381,7 +381,7 @@ Tracker: `tasks/phase16_tracker.md`.
 
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
-| TS-224 | Corpus schema + `scripts/corpus_harvest.py` with pluggable adapter interface (`fetch_index`, `fetch_documents`), sha256 storage, full provenance | Strategy §A.2 | `specs/eval-at-scale.md` §2 | todo |
+| TS-224 | Corpus schema + `scripts/corpus_harvest.py` with pluggable adapter interface (`fetch_index`, `fetch_documents`), sha256 storage, full provenance | Strategy §A.2 | `specs/eval-at-scale.md` §2 | done |
 | TS-225 | Adapters: CPPP, state NIC, Etimad (official API), OCDS registry — each with recorded legality review and rate-limit compliance | Strategy §A.2, §E | `specs/eval-at-scale.md` §2.2 | todo |
 | TS-226 | M1 structural invariant suite (quote integrity, citations, no invented numbers, BOQ closure, determinism, currency, tenant isolation, degradation, budget, no-crash) | Build Doc §6.2, §6.5, §11.5 | `specs/eval-at-scale.md` §1 | todo |
 | TS-227 | M2 portal-metadata agreement scoring with `extraction_miss`/`extraction_wrong`/`portal_wrong` triage | `specs/eval-at-scale.md` §1 | `specs/eval-at-scale.md` | todo |

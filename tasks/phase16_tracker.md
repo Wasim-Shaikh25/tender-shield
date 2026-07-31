@@ -33,7 +33,7 @@ name its moat class, it is out of scope for Phase 16.
 | Sprint | Theme | Tasks | Exit gate | Status |
 |---|---|---|---|---|
 | **0** | **Measure before building** | TS-223 ✅, TS-226, TS-230 (skeleton) | Cost-per-review p50/p95 known; M1 invariants run on the existing 20-tender smoke slice | in-progress |
-| **1** | **Corpus** | TS-224, TS-225, TS-197 | ≥1,000 tenders harvested across ≥3 sources with provenance; legality reviewed per adapter | todo |
+| **1** | **Corpus** | TS-224 ✅, TS-225, TS-197 | ≥1,000 tenders harvested across ≥3 sources with provenance; legality reviewed per adapter | in-progress |
 | **2** | **Prove correctness at scale** | TS-227, TS-229, TS-231, TS-232 | M1 100% pass on 1,000 tenders; M2 deadline match ≥95%; CI blocking on smoke slice | todo |
 | **3** | **Graph** | TS-195, TS-196, TS-198, TS-199, TS-200 | Employer profiles queryable with suppression; comparable-set filter disclosed | todo |
 | **4** | **Money math** | TS-201–TS-207 | Loadings byte-identical on re-run; no LLM dependency in module; export gate enforced | todo |
@@ -129,7 +129,7 @@ calendar-bound, not engineering-bound.
 | TS-221 | Rung-1 trade checklists | `rulepacks` | 4 | P2 | todo | 4 trades, YAML only, zero code change | TS-220 |
 | TS-222 | Supply-and-erection patterns | `rulepacks` | 4 | P3 | todo | Gated on a customer asking (Strategy §D.2) | TS-221 |
 | TS-223 | Cost instrumentation | `observability` | — | P0 | **done** | p50/p95 cost per review; token ceiling test | — |
-| TS-224 | Corpus schema + harvester | scripts | — | P0 | todo | Adapter interface + sha256 + provenance | — |
+| TS-224 | Corpus schema + harvester | `evalcorpus` | — | P0 | **done** | Adapter interface + sha256 + provenance | — |
 | TS-225 | Adapters (4 sources) | scripts | — | P0 | todo | Legality review recorded per adapter | TS-224 |
 | TS-226 | M1 invariants | evals | — | P0 | todo | 100% pass required; failure blocks release | TS-224 |
 | TS-227 | M2 metadata agreement | evals | — | P1 | todo | Triage into miss/wrong/portal-wrong | TS-225 |

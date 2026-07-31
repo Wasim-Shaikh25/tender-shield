@@ -6,6 +6,57 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (TS-224: evaluation corpus schema + harvester — Phase 16 Sprint 1)
+
+The foundation the whole scale-evaluation plan sits on: a country-agnostic corpus of
+public tender records with full provenance.
+
+- **`backend/app/evalcorpus/`** (new package, outside `app/modules/` — offline evaluation
+  infrastructure, not a product feature; nothing in the request path imports it):
+  - `models.py` — OCDS-shaped `CorpusTender`, `CorpusDocument`, `CorpusAward`, `Buyer`,
+    `Provenance`. Normalizing to the Open Contracting Data Standard is what makes the
+    corpus country-agnostic: adapters differ, the schema does not.
+    - **Money in minor units** (`CLAUDE.md` §4): OCDS quotes major-unit decimals, so
+      conversion happens once at the boundary with a per-currency exponent table
+      (0 for JPY/KRW, 3 for KWD/BHD/OMR, 2 default). A missing amount maps to `None`,
+      never `0` — "no value published" and "worth nothing" are different facts.
+    - `document_set_hash` counts only *fetched* documents, so a partially harvested tender
+      cannot masquerade as complete in the runner's cache key.
+  - `adapters.py` — the `fetch_index` / `fetch_documents` / `fetch_awards` contract, plus
+    `AdapterInfo` carrying the **legality review** (terms of use, official API, rate limit)
+    so it travels with the code. `OcdsFileAdapter` is the reference implementation and the
+    offline path for tests and CI — an OCP Data Registry bulk download is this adapter
+    pointed at the unpacked archive.
+  - `store.py` — content-addressed blobs keyed by `sha256` with two-level fan-out (the same
+    CPWD GCC across a thousand tenders costs one copy) and JSONL manifests.
+  - `harvest.py` — orchestration with polite rate limiting, resumability via known OCIDs,
+    dedupe accounting, and per-record error isolation. A run that dies on tender 417 of
+    1,000 is worth less than one that finishes and reports 3 failures.
+- **`scripts/corpus_harvest.py`** — thin CLI: `--list-adapters`, `--source/--path`,
+  `--limit`, `--no-documents`, `--no-awards`, `--no-resume`, `--stats`.
+- **Defect found and fixed by the tests:** the harvester re-ingested its own manifest when
+  the corpus was stored inside a scanned source directory, because a `CorpusTender` record
+  carries an `ocid` and is otherwise shaped exactly like an OCDS release — inflating the
+  corpus on every pass. Manifest lines now carry a marker that source adapters skip, with a
+  dedicated regression test.
+- **`.gitignore`:** `evals/corpus/` and `evals/runs/` — public records, but large and
+  reproducible from source.
+- **Tests:** `backend/tests/test_evalcorpus.py`, 35 cases covering currency conversion,
+  OCDS mapping, unresolved-buyer handling, provenance, adapter contract and legality
+  declaration, malformed-file tolerance, content addressing, dedupe, resumability, and the
+  re-ingestion regression.
+- `specs/eval-at-scale.md` updated with the implemented schema, storage model, adapter
+  contract and package layout.
+
+Verified end-to-end via the CLI: 5 tenders / 5 document references / **1 blob** (dedupe),
+second run skips all 5 (resume), money stored as `100050` for `1000.50 INR`.
+
+Suite: 250 passed, 5 skipped; ruff and mypy clean across 169 files.
+
+**Next:** TS-226 (M1 structural invariant suite) — the 100%-pass correctness gate, then
+TS-230 (bulk runner). TS-225 real network adapters (CPPP, state NIC, Etimad) need an egress
+path that CPPP does not block.
+
 ### Done — 2026-07-30 (TS-223: per-review cost instrumentation — Phase 16 Sprint 0)
 
 First implementation task of Phase 16. Answers the question the product cannot price

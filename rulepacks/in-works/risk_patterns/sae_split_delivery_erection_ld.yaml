@@ -1,0 +1,33 @@
+# Supply-and-erection Rung 2 (Strategy §D.2, TS-222).
+id: sae_split_delivery_erection_ld
+category: ld
+title: Split delivery vs erection liquidated damages
+confidence: unvalidated
+source: >
+  NHAI/Indian EPC equipment-supply contracts commonly distinguish delivery and
+  erection/commissioning milestones; HKA CRUX 2025 — delay damages on
+  multi-package supply contracts.
+severity_rule: >
+  critical if separate_ld_without_cap else
+  high if erection_ld_rate_high else medium
+anchor_queries:
+  - "delivery schedule"
+  - "erection schedule"
+  - "commissioning"
+  - "liquidated damages for delay in delivery"
+  - "liquidated damages for delay in erection"
+  - "separate LD"
+judgment_prompt: >
+  Determine whether liquidated damages are split between late delivery of
+  equipment and late erection/commissioning, with separate rates or caps for
+  each. Report each rate, basis, and cap. The ABSENCE of a cap on either leg is
+  a key finding. Quote verbatim.
+negative_examples:
+  - "A single LD regime applying to overall completion is not a split-LD finding."
+industry_reason: >
+  Split LD regimes can stack delay exposure across supply and site erection,
+  especially when delivery dates are employer-controlled.
+suggested_clarification: >
+  Request consolidated delay-cap mechanics or proportional LD allocation between
+  delivery and erection milestones.
+affected_trades: [supply_and_erection, lifts, mechanical]

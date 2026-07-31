@@ -1,0 +1,32 @@
+# Supply-and-erection Rung 2 (Strategy §D.2, TS-222).
+id: sae_performance_guarantee_tests
+category: performance
+title: Performance guarantee / PG test obligations
+confidence: unvalidated
+source: >
+  CPWD GCC performance-security and defect-liability provisions; typical Indian
+  BTG/BOP and process-plant supply contracts — performance guarantee tests
+  (PGT) and liquidated damages for shortfall.
+severity_rule: >
+  critical if pg_ld_uncapped else
+  high if pg_test_window_narrow else medium
+anchor_queries:
+  - "performance guarantee"
+  - "performance guarantee test"
+  - "PG test"
+  - "guaranteed output"
+  - "efficiency guarantee"
+  - "shortfall in performance"
+judgment_prompt: >
+  Find performance-guarantee or PG-test clauses for supplied equipment/plant.
+  Report guaranteed parameters, test window, remedies for shortfall (LD rate,
+  rectification, rejection), and whether a maximum cap applies. Quote verbatim.
+negative_examples:
+  - "Routine factory acceptance tests without performance LD are not PG-test findings."
+industry_reason: >
+  Onerous PG tests with uncapped LD for shortfall transfer process risk to the
+  supplier after delivery.
+suggested_clarification: >
+  Request test protocols, allowable tolerances, retest rights, and a cap on
+  performance-guarantee LD.
+affected_trades: [supply_and_erection, mechanical, hvac]

@@ -1,0 +1,32 @@
+# Supply-and-erection Rung 2 (Strategy §D.2, TS-222).
+id: sae_free_issue_material
+category: material
+title: Free-issue material responsibility and wastage
+confidence: unvalidated
+source: >
+  CPWD GCC free-issue materials provisions; MoF Works Manual — employer-
+  supplied materials and contractor accountability for loss/wastage.
+severity_rule: >
+  critical if contractor_liable_for_fim_loss else
+  high if fim_wastage_percent_high else medium
+anchor_queries:
+  - "free issue material"
+  - "free-issue material"
+  - "employer supplied material"
+  - "materials supplied by the employer"
+  - "wastage"
+  - "loss of free issue"
+judgment_prompt: >
+  Find clauses on employer free-issue materials (FIM): what is supplied, storage
+  responsibility, permissible wastage, and whether the contractor is liable for
+  loss, theft, or damage. Report any replacement-at-contractor-cost obligation.
+  Quote verbatim.
+negative_examples:
+  - "Contractor-supplied materials with no employer free-issue are out of scope."
+industry_reason: >
+  Broad liability for free-issue loss shifts material risk to the contractor
+  despite the employer controlling supply quality and delivery.
+suggested_clarification: >
+  Request defined wastage norms, joint survey on receipt, and employer
+  responsibility for defective free-issue material.
+affected_trades: [supply_and_erection, civil_structure, structural_steel]

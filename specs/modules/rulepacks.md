@@ -2,7 +2,7 @@
 
 **Status:** implemented (scaffold + Phase-0 patterns + pack SDK + domain-ladder Rung 1 + document precedence)
 **Requirement refs:** Doc §2, §14; `docs/TenderShield_Market_Strategy_2026.md` §C.2, §C.4, §C.5, §D.2, §D.4
-**Task refs:** TS-007, TS-008, TS-009, TS-046, TS-202, TS-204, TS-217, TS-218, TS-220, TS-221
+**Task refs:** TS-007, TS-008, TS-009, TS-046, TS-202, TS-204, TS-217, TS-218, TS-220, TS-221, TS-222
 
 ## Purpose
 
@@ -64,14 +64,15 @@ citable references, and golden tests. Launch pack: `in-works` (India works).
   **empty by design** in `in-works` — a Schedule-of-Rates is authoritative
   regulatory data; see `rulepacks/in-works/rates/README.md` for why none is
   checked in yet, and why an empty/missing directory is a valid, error-free state.
-- **B10 (domain ladder — TS-221):** `trade_checklists/` holds one YAML per trade
+- **B10 (domain ladder — TS-221/222):** `trade_checklists/` holds one YAML per trade
   with zero code required to add one (Strategy §D.2 Rung 1). `in-works` currently
   carries 7: `civil_structure`, `electrical`, `hvac` (Phase 0) plus `plumbing`,
-  `fire_fighting`, `structural_steel`, `lifts` (Rung 1, TS-221). Rung 2
-  (supply-and-erection patterns, TS-222) is explicitly gated on a paying customer
-  asking (Strategy §D.2) and is deliberately not built yet — adding it before
-  that signal would be the scope reflex the roadmap warns against
-  (Build Doc §12.6).
+  `fire_fighting`, `structural_steel`, `lifts` (Rung 1, TS-221). **Rung 2**
+  (TS-222) adds five supply-and-erection **risk patterns** in
+  `risk_patterns/sae_*.yaml` — customs/GST variation, split delivery/erection LD,
+  performance-guarantee tests, free-issue material, O&M tail — all
+  `confidence: unvalidated` until a paying SAE customer validates on real
+  contracts (Strategy §D.2 gate). No code changes required to load them.
 - **B11 (document precedence — TS-217):** `document_precedence.yaml` declares
   a `default_order` of document `kind`s, highest-precedence first, plus an
   `employer_family_overrides` map. Consumed via
@@ -139,5 +140,6 @@ product feature, matching `evalcorpus`/`evalinvariants`/`evalrunner`):
 
 `gcc-fidic` and `uk-jct-nec` packs (Phases 4–5) — but B7's layering is exactly
 the seam they plug into (a `gcc.yaml`/`uk.yaml` overlay); employer-family
-baselines beyond notice standards (P2); Rung 2 supply-and-erection patterns
-(TS-222, gated on a paying customer asking, Strategy §D.2).
+baselines beyond notice standards (P2). **Validating** Rung 2 SAE patterns on
+real customer contracts remains gated on a paying customer (Strategy §D.2) even
+though the draft YAML patterns ship in `in-works`.

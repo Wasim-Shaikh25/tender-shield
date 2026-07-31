@@ -1,0 +1,35 @@
+# Supply-and-erection Rung 2 (Strategy §D.2, TS-222). Draft from public
+# procurement norms — confidence unvalidated until a paying SAE customer
+# validates on real contracts.
+id: sae_customs_gst_variation
+category: tax
+title: Customs / GST variation risk on imported equipment
+confidence: unvalidated
+source: >
+  CBIC customs-valuation guidance for plant & machinery imports; MoF Manual for
+  Procurement of Works 2nd ed. (2025) — variation and statutory-levy
+  adjustment clauses in equipment-supply contracts.
+severity_rule: >
+  critical if contractor_bears_variation else
+  high if gst_variation_unindexed else medium
+anchor_queries:
+  - "customs duty"
+  - "import duty"
+  - "GST variation"
+  - "change in rate of tax"
+  - "statutory variation"
+  - "IGST"
+judgment_prompt: >
+  Find clauses allocating customs duty, IGST/GST, or other import-levy changes
+  between employer and contractor on imported plant/equipment. Report whether
+  the contractor bears any increase/decrease without a price-adjustment formula,
+  and whether GST rate changes are indexed or passed through. Quote verbatim.
+negative_examples:
+  - "Domestic-only supply with no import component is out of scope for this pattern."
+industry_reason: >
+  Unindexed tax/customs variation on imported equipment can wipe supply margin
+  when exchange rates or duty rates move between bid and delivery.
+suggested_clarification: >
+  Request a firm pass-through formula for customs/GST changes with a defined
+  base rate and notification mechanism.
+affected_trades: [supply_and_erection, mechanical, electrical]

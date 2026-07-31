@@ -27,11 +27,13 @@ class OutcomesService:
         *,
         findings_factory: Callable | None = None,
         comparable_awards: Callable | None = None,
+        award_prefill: Callable | None = None,
         publish: Callable[[str, dict], int] | None = None,
     ):
         self.s = session
         self._findings_factory = findings_factory
         self._comparable_awards = comparable_awards
+        self._award_prefill = award_prefill
         self._publish = publish
 
     def record_bid_outcome(
@@ -81,7 +83,9 @@ class OutcomesService:
             )
         return row
 
-    def for_opportunity(self, workspace_id, opportunity_id) -> dict:
+    def for_opportunity(
+        self, workspace_id, opportunity_id, *, tender_ref: str | None = None
+    ) -> dict:
         ws = uuid.UUID(str(workspace_id))
         opp = uuid.UUID(str(opportunity_id))
         outcome = self.s.scalar(
@@ -99,7 +103,12 @@ class OutcomesService:
             )
         )
         prefill = None
-        if self._comparable_awards is not None:
+        if tender_ref and self._award_prefill is not None:
+            try:
+                prefill = self._award_prefill(self.s, tender_ref)
+            except Exception:
+                prefill = None
+        elif self._comparable_awards is not None:
             try:
                 prefill = self._comparable_awards(self.s, opp)
             except Exception:

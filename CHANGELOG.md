@@ -6,6 +6,31 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (TS-196/209/216/294/295: Phase 16 batch 2)
+
+Five smaller Phase 16 tasks landed together:
+
+- **TS-196 `marketdata` corpus** — `md_employers`, `md_tenders`, `md_awards`, `md_profiles`,
+  `md_harvest_runs` tables (non-tenant); `MarketDataStore` with `upsert_tender`/`upsert_award` and
+  `award_prefill` capability.
+- **TS-209 `express` session lifecycle** — acknowledgment required, ephemeral workspace backing,
+  high-entropy tokens, 72h expiry, 25MB pre-buffer upload cap; fixed route shadowing of
+  `get_session` dependency.
+- **TS-216 `outcomes` prefill** — `GET /api/outcomes/opportunities/{id}?tender_ref=` returns
+  one-click-confirm prefill from `marketdata.award_prefill`; manual path unchanged.
+- **TS-294 `Finding.document_id`** — migration + risk/qualification writers stamp document scope;
+  M1 quote integrity now document-scoped.
+- **TS-295 `Finding.currency`** — ISO 4217 column alongside `amount_exposure`; M1 currency check
+  enforced when exposure is set.
+
+Migration: `b7e4a1c93f20`. Tests: 441 passed / 5 skipped.
+
+### Next
+
+- TS-210+ (express teaser/checkout) and TS-218 (correction loop).
+- TS-197/198/199 (marketdata harvest + employer resolution + aggregates).
+- TS-296 (`Finding.facts` + `Opportunity.contract_value_minor`).
+
 ### Done — 2026-07-31 (TS-195/208/215: Phase 16 module scaffolds batch)
 
 Three smaller Phase 16 tasks landed together:
@@ -24,8 +49,8 @@ Migration: `a3f1c8d92e10`. Tests: `test_marketdata.py`, `test_outcomes.py`,
 
 ### Next
 
-- TS-196 (`marketdata` corpus schema) and TS-209 (express anonymous session lifecycle).
-- TS-218 (correction loop) and TS-216 (outcome prefill from marketdata).
+- TS-210 (express teaser) and TS-218 (correction loop).
+- TS-197/198/199 (marketdata harvest + aggregates).
 
 ### Done — 2026-07-31 (TS-219: reproducibility chain on findings)
 

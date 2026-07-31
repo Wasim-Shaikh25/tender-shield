@@ -2,7 +2,7 @@
 
 **Status:** implemented
 **Requirement refs:** Doc §3.2, §6.3, §6.4, §11.4; Strategy §C.7
-**Task refs:** TS-017, TS-018, TS-049, TS-054, TS-055, TS-056, TS-114, TS-219
+**Task refs:** TS-017, TS-018, TS-049, TS-054, TS-055, TS-056, TS-114, TS-219, TS-294, TS-295
 
 ## Purpose
 
@@ -40,6 +40,8 @@ Columns:
 - `affected_trades` (JSON list), `suggested_action`
 - `pattern_id`, `pattern_version`
 - `amount_exposure` (BigInteger) — monetary exposure in minor units (paise)
+- `currency` (String, ISO 4217) — explicit currency for `amount_exposure` (TS-295)
+- `document_id` (Uuid, nullable) — source document for quote/citation resolution (TS-294)
 - `review_status` (`proposed` | `accepted` | `edited` | `rejected` |
   `false_positive` | `needs_clarification`)
 - `review_note`, `review_reason`, `reviewed_by`

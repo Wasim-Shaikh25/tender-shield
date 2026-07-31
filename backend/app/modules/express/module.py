@@ -7,14 +7,29 @@ from app.modules.express.service import ExpressService
 
 def setup(ctx: AppContext) -> None:
     reg = ctx.registry
-    reg.provide("express.session", lambda session: ExpressService(session))
-    reg.provide("express.service_factory", lambda session: ExpressService(session))
+
+    def factory(session):
+        return ExpressService(
+            session,
+            create_workspace=reg.get("auth.create_ephemeral_workspace"),
+        )
+
+    reg.provide("express.session", factory)
+    reg.provide("express.service_factory", factory)
 
 
 module = ModuleSpec(
     name="express",
     version="0.1.0",
     router=router,
-    soft_deps=("ingestion", "risk", "boq", "export", "billing", "notifications", "auth"),
+    soft_deps=(
+        "auth",
+        "ingestion",
+        "risk",
+        "boq",
+        "export",
+        "billing",
+        "notifications",
+    ),
     setup=setup,
 )

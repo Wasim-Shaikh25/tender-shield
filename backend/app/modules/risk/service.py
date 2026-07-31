@@ -56,6 +56,7 @@ class RiskService:
                 "clause_ref": c.clause_ref,
                 "text": c.text,
                 "page_from": c.page_from,
+                "document_id": str(c.document_id),
             }
             for c in svc.list_clauses(workspace_id, opportunity_id)
         ]

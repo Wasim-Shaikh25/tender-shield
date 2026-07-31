@@ -64,16 +64,9 @@ documents."
 - `db_adapter.py` — `bundle_from_opportunity(session, workspace_id, opportunity_id)` builds a bundle
   from a live opportunity's persisted findings and document chunks, entirely workspace-scoped.
 
-Known limitation, stated rather than hidden: `Finding` carries `source_page` but not
-`document_id`, so quote verification checks "does this page number, in *any* document attached to
-the opportunity, contain this quote" — correct for the common one-primary-document case, weaker when
-two documents in the same opportunity share a page number. Tightening this needs a schema change,
-tracked as **TS-294**.
-
-A second gap the checks surfaced rather than papered over: `check_currency_integrity` can only
-assert `amount_exposure` is an integer (minor units) — `Finding` has no `currency` field, so a full
-"every monetary value carries a currency" check is not yet expressible. Tracked as **TS-295**, needed
-before Phase 16's multi-jurisdiction work (§E.2) can trust cross-currency `amount_exposure` values.
+Known limitation resolved (TS-294/295): `Finding` now carries `document_id` and `currency`, so
+quote verification resolves to a single document and `check_currency_integrity` asserts an explicit
+ISO 4217 currency alongside minor-unit amounts.
 
 Verified against the **real pipeline**, not only synthetic fixtures: `test_m1_against_the_real_boq_engine_output`
 runs the actual deterministic BOQ engine against `evals/in-works/sample_tender/boq.csv`;

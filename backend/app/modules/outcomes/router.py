@@ -43,6 +43,7 @@ def _service(request: Request, session: Session) -> OutcomesService:
         session,
         findings_factory=reg.get("findings.store_factory"),
         comparable_awards=reg.get("marketdata.comparable_awards"),
+        award_prefill=reg.get("marketdata.award_prefill"),
         publish=request.app.state.ctx.events.publish,
     )
 
@@ -91,8 +92,11 @@ def get_outcome(
     request: Request,
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
+    tender_ref: str | None = None,
 ):
-    return _service(request, session).for_opportunity(principal.workspace_id, opportunity_id)
+    return _service(request, session).for_opportunity(
+        principal.workspace_id, opportunity_id, tender_ref=tender_ref
+    )
 
 
 @router.post("/findings/{finding_id}/materialized")

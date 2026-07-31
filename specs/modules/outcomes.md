@@ -1,6 +1,6 @@
 # `outcomes` — Bid Outcome & Risk Materialization Capture — Spec
 
-**Status:** implemented (TS-215 scaffold; prefill TS-216 pending)
+**Status:** implemented (TS-215 scaffold; prefill TS-216)
 **Requirement refs:** Build Doc §1.1(9), §11.5; `docs/TenderShield_Market_Strategy_2026.md` §C.6, §C.9
 **Task refs:** TS-215, TS-216
 
@@ -23,7 +23,8 @@ This is the cheapest moat increment in the plan — a handful of columns, one fo
 
 **Capabilities consumed (soft)**
 - `findings.store` — to attach materialization to specific findings
-- `marketdata.comparable_awards` — to prefill from the public award record
+- `marketdata.comparable_awards` — legacy comparable stub
+- `marketdata.award_prefill` — prefill from public award record via tender reference
 
 **Events emitted**
 - `outcome.recorded` — consumed by `analytics` (accuracy) and the correction loop

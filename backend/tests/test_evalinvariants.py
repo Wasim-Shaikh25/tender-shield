@@ -371,14 +371,29 @@ def test_determinism_ignores_non_deterministic_findings():
 
 def test_currency_integrity_passes_for_an_int_amount():
     bundle = PipelineBundle(
-        opportunity_id="o", workspace_id="w", findings=[_finding(amount_exposure=1_500_000)]
+        opportunity_id="o",
+        workspace_id="w",
+        findings=[_finding(amount_exposure=1_500_000, currency="INR")],
     )
     assert check_currency_integrity(bundle) == []
 
 
+def test_currency_integrity_fails_without_currency_code():
+    bundle = PipelineBundle(
+        opportunity_id="o",
+        workspace_id="w",
+        findings=[_finding(amount_exposure=1_500_000)],
+    )
+    violations = check_currency_integrity(bundle)
+    assert len(violations) == 1
+    assert violations[0].invariant == "currency_integrity"
+
+
 def test_currency_integrity_fails_for_a_float_amount():
     bundle = PipelineBundle(
-        opportunity_id="o", workspace_id="w", findings=[_finding(amount_exposure=15000.50)]
+        opportunity_id="o",
+        workspace_id="w",
+        findings=[_finding(amount_exposure=15000.50, currency="INR")],
     )
     violations = check_currency_integrity(bundle)
     assert len(violations) == 1

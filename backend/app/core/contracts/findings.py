@@ -62,6 +62,8 @@ class Finding(BaseModel):
     pattern_id: str | None = None
     pattern_version: str | None = None
     amount_exposure: int | None = None
+    currency: str | None = None
+    document_id: uuid.UUID | None = None
     review_status: ReviewStatus = ReviewStatus.PROPOSED
     review_reason: str | None = None
     explanation: dict | None = None

@@ -31,6 +31,8 @@ def _finding_row_to_dict(row: FindingRow) -> dict:
         "source_page": row.source_page,
         "source_quote": row.source_quote,
         "amount_exposure": row.amount_exposure,
+        "currency": row.currency,
+        "document_id": str(row.document_id) if row.document_id else None,
         "explanation": row.explanation,
         "pattern_id": row.pattern_id,
     }

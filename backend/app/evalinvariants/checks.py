@@ -70,13 +70,13 @@ def _is_absence(finding: dict) -> bool:
 def check_quote_integrity(bundle: PipelineBundle) -> list[Violation]:
     """Every `source_quote` is verbatim in the cited document, and ≤200 chars.
 
-    "Verbatim" means exact substring after whitespace/case normalization — not
-    the engine's internal fuzzy match. `source_page` narrows the search to pages
-    with that number, across every document in the bundle (see module docstring
-    for why this is opportunity-scoped rather than document-scoped today); with
-    no page, any page in the bundle is accepted.
+    When `document_id` is present, the quote must appear on a page in that
+    document only — not any document sharing the same page number.
     """
     violations: list[Violation] = []
+    pages_by_doc: dict[str, list] = {}
+    for p in bundle.pages:
+        pages_by_doc.setdefault(p.document_id, []).append(p)
     for i, f in enumerate(bundle.findings):
         quote = f.get("source_quote")
         if not quote:
@@ -92,10 +92,18 @@ def check_quote_integrity(bundle: PipelineBundle) -> list[Violation]:
             )
             continue
         page = f.get("source_page")
-        candidates = bundle.pages_at(page) if page is not None else bundle.pages
+        doc_id = f.get("document_id")
+        if doc_id:
+            candidates = [
+                p for p in pages_by_doc.get(doc_id, []) if page is None or p.page == page
+            ]
+        else:
+            candidates = bundle.pages_at(page) if page is not None else bundle.pages
         nq = _norm(quote)
         if not any(nq in _norm(p.text) for p in candidates):
-            where = f"page {page}" if page is not None else "any page"
+            where = f"document {doc_id} page {page}" if doc_id else (
+                f"page {page}" if page is not None else "any page"
+            )
             violations.append(
                 Violation(
                     "quote_integrity",
@@ -273,14 +281,7 @@ def check_determinism(bundle: PipelineBundle) -> list[Violation]:
 
 
 def check_currency_integrity(bundle: PipelineBundle) -> list[Violation]:
-    """`amount_exposure` is an integer (minor units) — never a float.
-
-    This checks what the `Finding` contract can currently express. It cannot
-    verify an explicit currency because `Finding` has no `currency` field today —
-    amounts are implicitly single-currency. That gap matters once a workspace
-    holds opportunities in more than one jurisdiction (Strategy Doc §E.2) and is
-    tracked separately rather than silently declared "checked" here.
-    """
+    """Monetary exposure is integer minor units with an explicit ISO 4217 currency."""
     violations: list[Violation] = []
     for i, f in enumerate(bundle.findings):
         amount = f.get("amount_exposure")
@@ -291,6 +292,16 @@ def check_currency_integrity(bundle: PipelineBundle) -> list[Violation]:
                 Violation(
                     "currency_integrity",
                     f"amount_exposure is {type(amount).__name__}, not an int minor-unit value",
+                    _finding_ref(f, i),
+                )
+            )
+            continue
+        currency = f.get("currency")
+        if not currency or not isinstance(currency, str) or len(currency) != 3:
+            violations.append(
+                Violation(
+                    "currency_integrity",
+                    "amount_exposure requires an explicit ISO 4217 currency code",
                     _finding_ref(f, i),
                 )
             )

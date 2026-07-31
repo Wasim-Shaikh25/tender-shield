@@ -104,6 +104,8 @@ class FindingStore:
             pattern_id=f.pattern_id,
             pattern_version=f.pattern_version,
             amount_exposure=f.amount_exposure,
+            currency=f.currency,
+            document_id=f.document_id,
             review_status=f.review_status.value,
             review_reason=f.review_reason,
             explanation=f.explanation,

@@ -21,6 +21,8 @@ class ExSession(Base, WorkspaceScopedMixin):
     tier: Mapped[str] = mapped_column(String, nullable=False, default="snapshot")
     state: Mapped[str] = mapped_column(String, nullable=False, default="created")
     acknowledgment: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    acknowledgment_version: Mapped[str] = mapped_column(String, nullable=False, default="")
+    client_ip: Mapped[str | None] = mapped_column(String, nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

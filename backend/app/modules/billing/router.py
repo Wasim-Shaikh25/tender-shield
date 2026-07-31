@@ -24,6 +24,9 @@ def _superadmin(principal: Any = Depends(current_principal)) -> Any:
 
 def _service(request: Request, session: Session) -> BillingService:
     reg = request.app.state.ctx.registry
+    factory = reg.get("billing.service_factory")
+    if factory:
+        return factory(session)
     return BillingService(session, workspace_factory=reg.get("auth.workspace_factory"))
 
 

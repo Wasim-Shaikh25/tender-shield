@@ -1,6 +1,9 @@
 """`express` module registration (TS-208, spec §Public interface)."""
 
 from app.core.module import AppContext, ModuleSpec
+from app.modules.express.activation import activate_from_webhook
+from app.modules.express.prices import validate_express_amount
+from app.modules.express.retention import purge_expired
 from app.modules.express.router import router
 from app.modules.express.service import ExpressService
 
@@ -15,11 +18,30 @@ def setup(ctx: AppContext) -> None:
             ingestion_factory=reg.get("ingestion.service_factory"),
             findings_factory=reg.get("findings.store_factory"),
             run_risk=reg.get("risk.run_opportunity"),
+            provider_factory=reg.get("billing.provider_factory"),
+            export_factory=reg.get("export.service_factory"),
+            claim_workspace=reg.get("auth.claim_express_workspace"),
             publish=ctx.events.publish,
         )
 
     reg.provide("express.session", factory)
     reg.provide("express.service_factory", factory)
+    reg.provide(
+        "express.purge_retention",
+        lambda session, **kwargs: purge_expired(session, **kwargs),
+    )
+    reg.provide(
+        "express.activate_from_webhook",
+        lambda session, **kwargs: activate_from_webhook(
+            session, publish=ctx.events.publish, **kwargs
+        ),
+    )
+    reg.provide(
+        "express.validate_checkout_amount",
+        lambda tier, currency, amount_minor: validate_express_amount(
+            tier, currency, amount_minor
+        ),
+    )
 
 
 module = ModuleSpec(

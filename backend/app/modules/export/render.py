@@ -6,12 +6,23 @@ from __future__ import annotations
 import io
 
 from docx import Document
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 
 _SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
 
+UNREVIEWED_VARIANT = "unreviewed"
+UNREVIEWED_WATERMARK = "INDICATIVE — NOT REVIEWED BY A QUALIFIED PROFESSIONAL"
+
 
 def stamp_line(meta: dict) -> str:
+    if meta.get("variant") == UNREVIEWED_VARIANT:
+        integrity = meta.get("integrity_hash")
+        integrity_text = f" · integrity {integrity[:16]}" if integrity else ""
+        return (
+            f"{UNREVIEWED_WATERMARK} · Prepared with TenderShield · "
+            f"{meta.get('date', '')} · pack {meta.get('pack', 'in-works')}"
+            f"{integrity_text} · Machine-generated output — requires professional review."
+        )
     reviewed = meta.get("reviewed_by_email")
     reviewed_at = meta.get("reviewed_at", "")
     if reviewed:
@@ -28,11 +39,52 @@ def stamp_line(meta: dict) -> str:
     )
 
 
+def _pdf_page_watermark(canvas, _doc) -> None:
+    from reportlab.lib.pagesizes import A4
+
+    canvas.saveState()
+    canvas.setFont("Helvetica-Bold", 28)
+    canvas.setFillColorRGB(0.75, 0.75, 0.75, alpha=0.35)
+    canvas.translate(A4[0] / 2, A4[1] / 2)
+    canvas.rotate(45)
+    canvas.drawCentredString(0, 0, UNREVIEWED_WATERMARK)
+    canvas.restoreState()
+
+
+def _docx_apply_watermark(doc: Document) -> None:
+    for section in doc.sections:
+        header = section.header
+        para = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
+        para.text = UNREVIEWED_WATERMARK
+        if para.runs:
+            para.runs[0].bold = True
+
+
+def verify_unreviewed_watermark(fmt: str, data: bytes) -> bool:
+    """Return True when the rendered export carries the unreviewed watermark."""
+    if fmt == "xlsx":
+        wb = load_workbook(io.BytesIO(data), read_only=True)
+        ws = wb.active
+        for row in ws.iter_rows(min_row=1, max_row=5, min_col=1, max_col=1):
+            for cell in row:
+                if cell.value and UNREVIEWED_WATERMARK in str(cell.value):
+                    return True
+        return False
+    if fmt == "docx":
+        doc = Document(io.BytesIO(data))
+        header = doc.sections[0].header.paragraphs[0].text if doc.sections else ""
+        body = "\n".join(p.text for p in doc.paragraphs[:3])
+        return UNREVIEWED_WATERMARK in header or UNREVIEWED_WATERMARK in body
+    return True
+
+
 def render_xlsx(opportunity_title: str, findings: list[dict], meta: dict) -> bytes:
     wb = Workbook()
     ws = wb.active
     ws.title = "Risk Register"
     ws.append([f"Bid Review Pack — {opportunity_title}"])
+    if meta.get("variant") == UNREVIEWED_VARIANT:
+        ws.append([UNREVIEWED_WATERMARK])
     ws.append([stamp_line(meta)])
     ws.append([])
     ws.append(["Severity", "Category", "Title", "Review", "Page", "Source quote"])
@@ -56,11 +108,16 @@ def render_docx(
     opportunity_title: str, artifacts: list[dict], findings: list[dict], meta: dict
 ) -> bytes:
     doc = Document()
+    if meta.get("variant") == UNREVIEWED_VARIANT:
+        _docx_apply_watermark(doc)
     doc.add_heading(f"Bid Review Pack — {opportunity_title}", level=0)
     doc.add_paragraph(stamp_line(meta)).italic = True
 
-    accepted = [f for f in findings if f.get("review_status") in ("accepted", "edited")]
-    doc.add_heading("Accepted risk findings", level=1)
+    unreviewed = meta.get("variant") == UNREVIEWED_VARIANT
+    accepted = findings if unreviewed else [
+        f for f in findings if f.get("review_status") in ("accepted", "edited")
+    ]
+    doc.add_heading("Risk findings", level=1)
     if accepted:
         table = doc.add_table(rows=1, cols=3)
         hdr = table.rows[0].cells
@@ -104,15 +161,25 @@ def render_pdf(
     normal = styles["Normal"]
     small = ParagraphStyle("stamp", parent=normal, fontSize=8, textColor="#666666")
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, title=f"Bid Review Pack — {opportunity_title}")
+    unreviewed = meta.get("variant") == UNREVIEWED_VARIANT
+    page_callbacks = (
+        {"onFirstPage": _pdf_page_watermark, "onLaterPages": _pdf_page_watermark}
+        if unreviewed
+        else {}
+    )
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4, title=f"Bid Review Pack — {opportunity_title}", **page_callbacks
+    )
     flow = [
         Paragraph(f"Bid Review Pack — {opportunity_title}", styles["Title"]),
         Paragraph(stamp_line(meta), small),
         Spacer(1, 12),
-        Paragraph("Accepted risk findings", styles["Heading2"]),
+        Paragraph("Risk findings", styles["Heading2"]),
     ]
 
-    accepted = [f for f in findings if f.get("review_status") in ("accepted", "edited")]
+    accepted = findings if unreviewed else [
+        f for f in findings if f.get("review_status") in ("accepted", "edited")
+    ]
     if accepted:
         for f in sorted(accepted, key=lambda x: _SEV_RANK.get(x.get("severity", "info"), 9)):
             flow.append(

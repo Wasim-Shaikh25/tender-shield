@@ -4,13 +4,22 @@ from __future__ import annotations
 
 import hashlib
 import secrets
+import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.modules.express.models import ExDocument, ExSession
+from app.modules.express.abuse import (
+    check_session_create,
+    check_teaser_document_dedupe,
+    check_teaser_ip_cap,
+)
+from app.modules.express.errors import ExpressError
+from app.modules.express.models import ExDocument, ExPurchase, ExSession
+from app.modules.express.prices import currency_for_country, tier_price_minor
+from app.modules.express.report import build_report
 from app.modules.express.teaser import build_teaser
 
 DEFAULT_TTL_HOURS = 72
@@ -28,12 +37,6 @@ def _as_utc(value: datetime) -> datetime:
     return value
 
 
-class ExpressError(Exception):
-    def __init__(self, code: str):
-        self.code = code
-        super().__init__(code)
-
-
 class ExpressService:
     def __init__(
         self,
@@ -43,6 +46,9 @@ class ExpressService:
         ingestion_factory: Callable | None = None,
         findings_factory: Callable | None = None,
         run_risk: Callable | None = None,
+        provider_factory: Callable | None = None,
+        export_factory: Callable | None = None,
+        claim_workspace: Callable | None = None,
         publish: Callable[[str, dict], int] | None = None,
     ):
         self.s = session
@@ -50,6 +56,9 @@ class ExpressService:
         self._ingestion_factory = ingestion_factory
         self._findings_factory = findings_factory
         self._run_risk = run_risk
+        self._provider_factory = provider_factory
+        self._export_factory = export_factory
+        self._claim_workspace = claim_workspace
         self._publish = publish
 
     def create_session(
@@ -64,6 +73,7 @@ class ExpressService:
     ) -> ExSession:
         if not acknowledgment or not acknowledgment.get("accepted"):
             raise ExpressError("acknowledgment_required")
+        check_session_create(self.s, email=email, client_ip=client_ip)
         if self._create_workspace is None:
             raise ExpressError("workspace_unavailable")
         workspace_id = self._create_workspace(self.s, label="express")
@@ -143,10 +153,19 @@ class ExpressService:
                 self._run_risk(self.s, session.workspace_id, session.opportunity_id)
         return doc
 
-    def render_teaser(self, token: str) -> dict:
+    def render_teaser(self, token: str, *, client_ip: str | None = None) -> dict:
         session = self.require_session(token)
         if session.opportunity_id is None or self._ingestion_factory is None:
             raise ExpressError("teaser_unavailable")
+
+        check_teaser_ip_cap(self.s, client_ip=client_ip)
+        doc_hashes = [
+            d.sha256
+            for d in self.s.scalars(
+                select(ExDocument).where(ExDocument.session_id == session.id)
+            ).all()
+        ]
+        check_teaser_document_dedupe(self.s, session_id=session.id, doc_hashes=doc_hashes)
 
         ingestion = self._ingestion_factory(self.s)
         opp_id = str(session.opportunity_id)
@@ -201,4 +220,183 @@ class ExpressService:
             "tier": session.tier,
             "state": session.state,
             "teaser": teaser,
+        }
+
+    def create_checkout(
+        self,
+        token: str,
+        *,
+        country: str = "IN",
+        amount_minor: int | None = None,
+    ) -> dict:
+        session = self.require_session(token)
+        if session.state not in {"uploaded", "teaser_ready", "checkout_pending"}:
+            raise ExpressError("checkout_unavailable")
+        currency = currency_for_country(country)
+        try:
+            expected = tier_price_minor(session.tier, country=country)
+        except ValueError as exc:
+            raise ExpressError("unknown_tier") from exc
+        if amount_minor is not None and amount_minor != expected:
+            raise ExpressError("amount_mismatch")
+        if self._provider_factory is None:
+            raise ExpressError("billing_unavailable")
+
+        provider_name = "razorpay" if country.upper() == "IN" else "stripe"
+        notes = {
+            "kind": "express",
+            "express_session_id": str(session.id),
+            "express_token": token,
+            "tier": session.tier,
+            "workspace_id": str(session.workspace_id),
+            "amount_minor": expected,
+            "currency": currency,
+        }
+        if session.opportunity_id:
+            notes["opportunity_id"] = str(session.opportunity_id)
+
+        provider = self._provider_factory(provider_name)
+        if provider_name == "stripe":
+            checkout = provider.create_session(expected, currency.lower(), notes)
+            order_id = checkout.get("session_id", "")
+        else:
+            checkout = provider.create_order(expected, currency, notes)
+            order_id = checkout.get("order_id", "")
+
+        purchase = self.s.scalar(
+            select(ExPurchase).where(
+                ExPurchase.session_id == session.id,
+                ExPurchase.provider == provider_name,
+                ExPurchase.provider_order_id == order_id,
+            )
+        )
+        if purchase is None:
+            purchase = ExPurchase(
+                workspace_id=session.workspace_id,
+                session_id=session.id,
+                provider=provider_name,
+                provider_order_id=order_id,
+                amount_minor=expected,
+                currency=currency,
+            )
+            self.s.add(purchase)
+        session.state = "checkout_pending"
+        self.s.commit()
+        return {
+            "token": token,
+            "tier": session.tier,
+            "amount_minor": expected,
+            "currency": currency,
+            "provider": provider_name,
+            "checkout": checkout,
+            "note": "activation happens via the signed webhook, never this response",
+        }
+
+    def is_activated(self, token: str) -> bool:
+        session = self.require_session(token)
+        purchase = self.s.scalar(
+            select(ExPurchase).where(
+                ExPurchase.session_id == session.id,
+                ExPurchase.activated_at.is_not(None),
+            )
+        )
+        return purchase is not None
+
+    def get_report(self, token: str) -> dict:
+        session = self.require_session(token)
+        if not self.is_activated(token):
+            raise ExpressError("report_locked")
+        if session.opportunity_id is None or self._ingestion_factory is None:
+            raise ExpressError("report_unavailable")
+
+        ingestion = self._ingestion_factory(self.s)
+        opp_id = str(session.opportunity_id)
+        deadlines = [
+            {
+                "kind": d.kind,
+                "due_at": d.due_at.isoformat() if d.due_at else None,
+                "description": d.description,
+                "source_page": d.source_page,
+                "source_quote": d.source_quote,
+                "confirmed": d.confirmed,
+            }
+            for d in ingestion.list_deadlines(session.workspace_id, opp_id)
+        ]
+        missing_docs = ingestion.missing_doc_report(session.workspace_id, opp_id)
+        findings: list[dict] = []
+        if self._findings_factory is not None:
+            store = self._findings_factory(self.s)
+            findings = [
+                {
+                    "producer": row.producer,
+                    "kind": row.kind,
+                    "category": row.category,
+                    "severity": row.severity,
+                    "title": row.title,
+                    "detail": row.detail,
+                    "source_page": row.source_page,
+                    "source_quote": row.source_quote,
+                    "amount_exposure": row.amount_exposure,
+                    "currency": row.currency,
+                }
+                for row in store.list(session.workspace_id, opp_id)
+            ]
+        report = build_report(
+            deadlines=deadlines,
+            missing_docs=missing_docs,
+            findings=findings,
+            tier=session.tier,
+        )
+        return {
+            "token": token,
+            "tier": session.tier,
+            "state": session.state,
+            "report": report,
+        }
+
+    def export_report(self, token: str, fmt: str) -> tuple[str, str, bytes]:
+        session = self.require_session(token)
+        if not self.is_activated(token):
+            raise ExpressError("report_locked")
+        if session.opportunity_id is None or self._export_factory is None:
+            raise ExpressError("export_unavailable")
+        try:
+            return self._export_factory(self.s).export_unreviewed(
+                session.workspace_id, str(session.opportunity_id), fmt
+            )
+        except Exception as exc:
+            code = getattr(exc, "code", "export_unavailable")
+            raise ExpressError(str(code)) from exc
+
+    def claim_session(self, token: str, *, user_id) -> dict:
+        session = self.require_session(token)
+        if session.claimed_at is not None:
+            raise ExpressError("already_claimed")
+        if not self.is_activated(token):
+            raise ExpressError("claim_requires_purchase")
+        if self._claim_workspace is None:
+            raise ExpressError("claim_unavailable")
+
+        result = self._claim_workspace(self.s, session.workspace_id, user_id)
+        session.claimed_at = _utc_now()
+        session.claimed_by_user_id = uuid.UUID(str(user_id))
+        session.state = "claimed"
+        for doc in self.s.scalars(
+            select(ExDocument).where(ExDocument.session_id == session.id)
+        ).all():
+            doc.retention_until = None
+        self.s.commit()
+        if self._publish:
+            self._publish(
+                "express.converted",
+                {
+                    "token": token,
+                    "workspace_id": str(session.workspace_id),
+                    "user_id": str(user_id),
+                },
+            )
+        return {
+            "token": token,
+            "workspace_id": result.get("workspace_id", str(session.workspace_id)),
+            "state": session.state,
         }

@@ -6,6 +6,27 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (TS-195/208/215: Phase 16 module scaffolds batch)
+
+Three smaller Phase 16 tasks landed together:
+
+- **TS-195 `marketdata`** — ModuleSpec, registry capabilities
+  (`employer_profile`, `comparable_awards`, `price_benchmark`), read routes that
+  degrade to `insufficient_data` until harvest lands (TS-196+).
+- **TS-215 `outcomes`** — `oc_bid_outcomes` + `oc_risk_materialization` tables
+  (RLS), record/read API, finding materialization with `outcome.recorded` /
+  `outcome.risk_materialized` events; soft-dep on `marketdata` for prefill stub.
+- **TS-208 `express`** — `ex_sessions` / `ex_purchases` / `ex_documents` tables
+  (RLS), scaffold session create/fetch routes backed by ephemeral workspace id.
+
+Migration: `a3f1c8d92e10`. Tests: `test_marketdata.py`, `test_outcomes.py`,
+`test_express.py` (435 passed total).
+
+### Next
+
+- TS-196 (`marketdata` corpus schema) and TS-209 (express anonymous session lifecycle).
+- TS-218 (correction loop) and TS-216 (outcome prefill from marketdata).
+
 ### Done — 2026-07-31 (TS-219: reproducibility chain on findings)
 
 Strategy §C.7 accountability chain — every finding now pins the versions and hashes

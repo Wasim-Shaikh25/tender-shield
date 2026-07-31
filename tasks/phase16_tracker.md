@@ -100,7 +100,7 @@ calendar-bound, not engineering-bound.
 
 | ID | Feature | Module | Moat | Priority | Status | Acceptance gate | Blockers |
 |---|---|---|---|---|---|---|---|
-| TS-195 | `marketdata` scaffold | `marketdata` | 1 | P1 | todo | Boots with module disabled; no hard deps | — |
+| TS-195 | `marketdata` scaffold | `marketdata` | 1 | P1 | **done** | Boots with module disabled; no hard deps | — |
 | TS-196 | Corpus schema (non-tenant) | `marketdata` | 1 | P1 | todo | No tenant data in `md_*`, test-asserted | TS-224 |
 | TS-197 | P0 adapters (CPPP, state NIC) | `marketdata` | 1 | P0 | todo | Legality review in docstring; rate-limit compliant | — |
 | TS-198 | Employer resolution | `marketdata` | 1 | P1 | todo | Confidence published; unresolved stays unresolved | TS-196 |
@@ -113,7 +113,7 @@ calendar-bound, not engineering-bound.
 | TS-205 | Rate benchmarking | `pricing` | 2 | P2 | **done** | Headline from code matches only | TS-204 |
 | TS-206 | Cashflow model | `pricing` | 2 | P1 | **done** | `assumptions[]` always present | TS-201 |
 | TS-207 | Review gate on pricing artifacts | `pricing` | 3 | P0 | **done** | Export blocked pre-approval; excluded from Express | TS-203 |
-| TS-208 | `express` scaffold | `express` | — | P1 | todo | Ephemeral workspace backing; isolation reused | — |
+| TS-208 | `express` scaffold | `express` | — | P1 | **done** | Ephemeral workspace backing; isolation reused | — |
 | TS-209 | Anonymous session lifecycle | `express` | — | P1 | todo | Pre-buffer size caps; non-enumerable tokens | TS-208 |
 | TS-210 | Teaser renderer | `express` | — | P1 | todo | Full deadline wall + 2 cited findings | TS-209 |
 | TS-211 | Server-owned prices + guest checkout | `billing` | — | P0 | todo | Client-supplied amount rejected | TS-209 |

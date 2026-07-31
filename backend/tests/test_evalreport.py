@@ -163,13 +163,30 @@ def test_metrics_on_empty_run_lists_not_yet_available(tmp_path):
     assert any("TS-227" in item for item in m.not_yet_available)
 
 
+def test_compute_metrics_aggregates_m2_when_present(tmp_path):
+    result = _ok_result("a")
+    result["m2_summary"] = {"graded_fields": 4, "matches": 3, "match_rate": 0.75}
+    run = load_run(_write_run(tmp_path, "r1", [result]))
+    m = compute_metrics(run)
+    assert m.m2_match_rate == 0.75
+
+
+def test_compute_metrics_aggregates_m4_when_present(tmp_path):
+    result = _ok_result("a")
+    result["m4_summary"] = {"ok": True, "checks": []}
+    run = load_run(_write_run(tmp_path, "r1", [result]))
+    m = compute_metrics(run)
+    assert m.m4_pass_rate == 1.0
+
+
 def test_metrics_never_fabricates_m2_m3_m5():
     """The whole point: metrics the harness cannot yet compute must be absent,
     not approximated from what IS available."""
     from app.evalrunner.report import Metrics
 
     m = Metrics()
-    assert not hasattr(m, "deadline_match_rate")  # no field pretending to exist
+    assert m.m2_match_rate is None
+    assert m.m4_pass_rate is None
     assert not hasattr(m, "l1_backtest_mape")
     assert not hasattr(m, "gold_set_recall")
 

@@ -462,3 +462,50 @@ def test_build_state_nic_via_registry(tmp_path):
     adapter = build("state-nic", state="karnataka", path=str(tmp_path))
     assert adapter.info.name == "state-nic-karnataka"
     assert len(list(adapter.fetch_index())) == 1
+
+
+def test_ocds_registry_and_etimad_are_registered():
+    assert "ocds-registry" in available()
+    assert "etimad" in available()
+
+
+def test_ocds_registry_offline_reads_exports(tmp_path):
+    from app.evalcorpus.ocds_registry import OcdsRegistryAdapter
+
+    _write_package(tmp_path, [RELEASE])
+    adapter = OcdsRegistryAdapter(path=tmp_path, dataset="uk")
+    assert adapter.info.name == "ocds-registry-uk"
+    assert len(list(adapter.fetch_index())) == 1
+
+
+def test_etimad_adapter_declares_legality_review():
+    from app.evalcorpus.etimad import EtimadAdapter
+
+    info = EtimadAdapter(path="/nonexistent").info
+    assert info.name == "etimad"
+    assert "2026-07-31" in info.legality
+
+
+def test_etimad_offline_reads_ocds_exports(tmp_path):
+    from app.evalcorpus.etimad import EtimadAdapter
+
+    _write_package(tmp_path, [RELEASE])
+    tenders = list(EtimadAdapter(path=tmp_path).fetch_index())
+    assert tenders[0].provenance is not None
+    assert tenders[0].provenance.source == "etimad"
+
+
+def test_etimad_item_maps_to_ocds_release():
+    from app.evalcorpus.etimad import EtimadAdapter
+
+    release = EtimadAdapter._item_to_ocds_release(
+        {
+            "tenderId": "T-99",
+            "tenderName": "Road project",
+            "agencyName": "Ministry of Transport",
+            "lastOfferPresentationDate": "2026-09-01",
+            "estimatedValue": {"amount": 500000, "currency": "SAR"},
+        }
+    )
+    assert release["ocid"] == "ocds-etimad-T-99"
+    assert release["tender"]["title"] == "Road project"

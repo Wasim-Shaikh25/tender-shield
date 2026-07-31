@@ -95,6 +95,13 @@ Mismatches are triaged automatically into: `extraction_miss` (we found nothing),
 `extraction_wrong` (we found a different value), `portal_wrong` (metadata contradicts the document —
 happens, and is itself a finding worth surfacing to users).
 
+**Implemented (TS-227)** in `backend/app/evalmetadata/`:
+
+- `m2.py` — `extract_metadata_from_text()` (deadlines + value regex + buyer line) and
+  `score_m2(corpus_record, extracted) -> M2Result` with triage buckets.
+- Eval pipeline (`evalrunner/pipeline.py`) scores every tender against manifest metadata;
+  `m2_summary` is rolled into `evalrunner/report.py` scorecards when present.
+
 ### M3 — Outcome backtest
 
 For corpus entries with award records, score predictions against reality. No labelling, standard
@@ -124,6 +131,13 @@ Robustness properties that need no ground truth, only two runs:
   (GCC/India packs).
 
 These catch fragility that accuracy metrics hide, and they are cheap.
+
+**Implemented (TS-229)** in `backend/app/evalmetamorphic/`:
+
+- `runner.py` — `finding_fingerprints()`, `check_order_invariance()`,
+  `check_redundancy_invariance()`, `run_m4()`.
+- Eval pipeline optional `run_m4_checks=True` runs order + redundancy variants per tender;
+  `m4_summary` feeds the scorecard when present. Format/addendum/locale checks remain future work.
 
 ### M5 — Human gold set (~50 tenders)
 
@@ -185,10 +199,10 @@ adapter docstring (terms of use, robots.txt, rate limits, whether an official AP
 |---|---|---|---|
 | `cppp` | India | Archive search + document download | P0 — **done (TS-197)** offline OCDS `--path` + best-effort network feed |
 | `state-nic` (parameterised per state) | India | NIC eProcurement instances | P0 — **done (TS-197)** maharashtra/karnataka/gujarat; offline `--path` |
+| `etimad` | Saudi | [Official API — Tenders Inquiry Service](https://apiportal.etimad.sa/en/api_products/TendersInquiryService) | P1 — **done (TS-225)** offline `--path` + best-effort API |
+| `ocds-registry` | 30+ countries | [OCP Data Registry bulk JSON](https://data.open-contracting.org/en/search/) | P1 — **done (TS-225)** offline `--path` on unpacked downloads |
 | `nhai` | India | Free document download | P1 |
 | `gem` | India | Portal | P2 |
-| `etimad` | Saudi | [Official API — Tenders Inquiry Service](https://apiportal.etimad.sa/en/api_products/TendersInquiryService) | P1 |
-| `ocds_registry` | 30+ countries | [OCP Data Registry bulk JSON](https://data.open-contracting.org/en/search/) | P1 |
 | `ted` | EU | [TED API + SPARQL + eForms XML](https://developer.ted.europa.eu/home) | P2 |
 | `uk_cf` | UK | Contracts Finder JSON/OCDS | P2 |
 | `worldbank` / `adb` | MDB | Public SBDs and feeds | P2 |

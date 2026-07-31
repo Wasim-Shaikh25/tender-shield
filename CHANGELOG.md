@@ -6,6 +6,41 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (TS-300: implementation handover pack for the 91 remaining tasks)
+
+Code-level build notes under `docs/handover/`, written so an external coding agent (Cursor Composer)
+can pick up any incomplete task without re-deriving the codebase's conventions.
+
+- **`00-conventions.md`** — the primer everything else assumes: module framework (`ModuleSpec`,
+  auto-discovery, the `name == package == /api/{name}` constraint), registry vs. event bus, router
+  and auth-dependency patterns, `WorkspaceScopedMixin`/RLS, migration gotchas (autogenerate index
+  drift, `downgrade base` as a CI gate, the two-heads failure that broke CI this session), test
+  patterns via `tests/helpers.py`, and the mandatory workflow loop.
+- **`01-schema-unblockers.md`** — TS-294/295/296/219. `Finding.document_id`, `.currency`, `.facts`
+  plus `Opportunity.contract_value_minor`, and the reproducibility chain. Snippets use the *real*
+  `evalinvariants` signatures (`list[Violation]`, dict-shaped findings, `DocPage.document_id`), with
+  a document-aware `pages_at()` overload rather than an invented API.
+- **`02-marketdata.md`** — TS-195–200. Full table definitions, the deliberate non-`WorkspaceScopedMixin`
+  inversion for shared reference data (with the test that pins it), deterministic employer resolution,
+  aggregate math with n≥12 suppression, and the degradation contract.
+- **`03-eval-at-scale.md`** — TS-225/227/228/229/232/233. M2 triage verdicts, time-split backtest,
+  five M4 metamorphic checks reusing the M1 `Violation` shape, a concrete CI job, and the gold-set
+  slice table.
+- **`04-outcomes-and-loop.md`** — TS-215/216/218/234. Outcome tables, prefill-don't-demand, the
+  proposes-never-mutates constraint, and the north-star metric's strict inclusion rules.
+- **`05-express-lane.md`** — TS-208–214, including the webhook-only-activation test that is the
+  module's whole point and the §11.4 unreviewed-export resolution.
+- **`06-blocked-inprogress-and-future.md`** — TS-163, the four credential-blocked tasks, gated
+  TS-222, and Phases 17–21 with their unlock gates.
+- Added **TS-299** (make the changelog check's `Next`-section task-ID rule enforcing rather than
+  advisory) as a real backlog row, so the row matches the reference already in this changelog.
+
+### Next
+
+- TS-294/295/296/219 — schema unblockers first; they gate pricing, eval and accountability.
+- TS-225 — corpus adapters, then TS-227/229/232 for the Sprint 2 correctness gate.
+- TS-233 — start the 50-tender gold set now; it is calendar-bound, not engineering-bound.
+
 ### Done — 2026-07-31 (Fix: CI broken by two alembic heads after the PR #69 merge)
 
 The merge of PR #69 combined two migration chains that both branched off `5617d7dc8440`

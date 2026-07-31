@@ -530,3 +530,5 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
 | TS-293 | `scripts/task_tracker.py`: parse/validate `tasks/backlog.md`, report progress by phase, list incomplete/blocked tasks, cross-check tracker files; wired into CI as a blocking job | `CLAUDE.md` §1; user request | `scripts/task_tracker.py` | done |
+| TS-299 | Changelog check: require the `Next` section's bullets to each name a concrete `TS-###` task ID (currently advisory-only via B5) | TS-298 follow-up; CLAUDE.md §1.5 "The Next list must name concrete task IDs" | `specs/902-changelog-check.md` | todo |
+| TS-300 | Implementation handover pack: code-level build notes for all 91 incomplete tasks (conventions primer, per-module snippets, acceptance gates) for handover to an external coding agent | user request | `docs/handover/` | done |

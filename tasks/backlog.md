@@ -375,7 +375,7 @@ Tracker: `tasks/phase16_tracker.md`.
 
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
-| TS-223 | Per-review cost instrumentation (tokens in/out/cached, OCR pages, worker seconds, storage) tagged by opportunity/rulepack/model; p50+p95 cost-per-review metric; token-ceiling test guarding the retrieval-first property | Strategy §G.2, §G.3 | `specs/modules/observability.md` (update) | todo |
+| TS-223 | Per-review cost instrumentation (tokens in/out/cached, OCR pages, worker seconds, storage) tagged by opportunity/rulepack/model; p50+p95 cost-per-review metric; token-ceiling test guarding the retrieval-first property | Strategy §G.2, §G.3 | `specs/modules/observability.md` (update) | done |
 
 ### 16.H — Evaluation at scale (1,000+ tenders, automated)
 

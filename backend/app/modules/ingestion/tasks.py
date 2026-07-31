@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 import uuid
 from datetime import UTC, datetime
 
 from app.core.celery import make_celery_app
 from app.core.config import Settings
+from app.core.costmeter import record_worker_seconds, review_cost_scope
 from app.core.db import bind_workspace_context, make_engine, make_session_factory
 from app.core.storage import StorageError, get_storage
 from app.modules.ingestion.extract import extract_upload
@@ -58,6 +60,7 @@ def _publish_progress(task, step: str, page: int, total: int):
 def process_document(self, document_id: str, workspace_id: str, opportunity_id: str):
     """Async text extraction, classification, segmentation, deadlines, and OCR."""
     session = _get_session(workspace_id)
+    started = time.monotonic()
     try:
         doc = session.get(Document, uuid.UUID(document_id))
         if not doc:
@@ -72,17 +75,20 @@ def process_document(self, document_id: str, workspace_id: str, opportunity_id: 
 
         _publish_progress(self, "extracting", 0, 0)
         ocr = _get_ocr()
-        text, ocr_status = extract_upload(doc.filename, data, ocr=ocr)
+        # Meter the whole extraction pipeline as one unit of review work (TS-223).
+        with review_cost_scope(opportunity_id=opportunity_id):
+            text, ocr_status = extract_upload(doc.filename, data, ocr=ocr)
 
-        pages = text.split("[p") if "[p" in text else [text]
-        total = max(len(pages), 1)
-        for i, _ in enumerate(pages, start=1):
-            _publish_progress(self, "parsing", i, total)
+            pages = text.split("[p") if "[p" in text else [text]
+            total = max(len(pages), 1)
+            for i, _ in enumerate(pages, start=1):
+                _publish_progress(self, "parsing", i, total)
 
-        # Re-classify, segment clauses, extract deadlines, persist chunks, and update
-        # the opportunity submission_due using the same service logic as the sync path.
-        svc = IngestionService(session, loader_provider=None)
-        svc.process_text(doc, text, ocr_status=ocr_status)
+            # Re-classify, segment clauses, extract deadlines, persist chunks, and update
+            # the opportunity submission_due using the same service logic as the sync path.
+            svc = IngestionService(session, loader_provider=None)
+            svc.process_text(doc, text, ocr_status=ocr_status)
+            record_worker_seconds(time.monotonic() - started)
 
         _publish_progress(self, "done", total, total)
         return {"status": "done", "chars": len(text), "pages": total, "ocr_status": ocr_status}

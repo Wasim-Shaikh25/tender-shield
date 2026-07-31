@@ -6,6 +6,47 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-30 (TS-223: per-review cost instrumentation — Phase 16 Sprint 0)
+
+First implementation task of Phase 16. Answers the question the product cannot price
+without: what does one completed tender review actually cost?
+
+- **`backend/app/core/costmeter.py`** (new): review-scoped cost accounting.
+  - `review_cost_scope(opportunity_id=…, rulepack_version=…)` meters everything inside it
+    as one review; nesting attributes work to the inner scope rather than double-counting.
+  - Cost drivers recorded: LLM tokens (prompt / completion / cached), OCR pages, worker
+    seconds, storage bytes — with per-stage attribution.
+  - **Money in minor units**, integer arithmetic, one rounding at the end (`CLAUDE.md` §4).
+  - **No built-in price table.** `TS_LLM_PRICE_TABLE` is deployment configuration; an
+    unpriced model has its tokens counted and is reported unpriced rather than costed at
+    zero. Only fully-priced reviews feed the cost histogram, so p50/p95 cannot be
+    understated by partial pricing.
+  - **Metering never breaks a review** — malformed usage objects, missing prices and
+    unparseable price tables are logged and swallowed.
+- **`backend/app/core/llm.py`**: `MeteredClient` wraps every OpenRouter client, so usage is
+  recorded at the single choke point and a future call site cannot forget to meter itself.
+  `openrouter_client(stage)` labels calls; the three existing sites now pass
+  `risk.classify`, `assistant.chat` and `analytics.plan`.
+- **Retrieval-first guard:** `TS_MAX_TOKENS_PER_REVIEW` (default 400,000). Cost must scale
+  with pattern count, not document length (Strategy §G.3); a change that starts sending
+  whole documents to a model now surfaces as a warning plus
+  `ts_review_token_ceiling_exceeded_total` rather than as a bill.
+- **Wired in:** OCR page counts in `ingestion/ocr.py`; the async document pipeline in
+  `ingestion/tasks.py` now runs inside a review scope and records worker seconds.
+- **Metrics:** six counters and four histograms (`ts_review_cost_minor`,
+  `ts_review_total_tokens`, `ts_review_wall_seconds`, `ts_worker_seconds`) — p50/p95 come
+  from Grafana over the existing Prometheus endpoint.
+- **Tests:** `backend/tests/test_costmeter.py`, 21 cases covering cost arithmetic, cached
+  token pricing, unpriced-model honesty, nested scopes, scope teardown on exception, the
+  metered client wrapper, metering-failure tolerance, and the token ceiling.
+- `specs/modules/observability.md` updated with the cost-instrumentation interface,
+  behaviour (C1–C7) and acceptance criteria (A9–A15).
+
+Suite: 215 passed, 5 skipped; ruff and mypy clean across 164 files.
+
+**Next:** TS-224 (corpus schema + `scripts/corpus_harvest.py` adapter interface), then
+TS-226 (M1 structural invariant suite) — completing Sprint 0/1.
+
 ### Done — 2026-07-30 (TS-293: task tracker script + backlog integrity audit)
 
 - **`scripts/task_tracker.py`** (new): parses `tasks/backlog.md`, validates it, and reports progress.

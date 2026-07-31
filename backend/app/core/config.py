@@ -103,6 +103,15 @@ class Settings(BaseSettings):
     # with a clear disclaimer. False hides unvalidated patterns from paid plans.
     beta_unvalidated: bool = False
 
+    # Per-review cost instrumentation (TS-223). Prices are deployment-specific, so
+    # there is no built-in table: an unpriced model still has its tokens counted and
+    # is reported as unpriced rather than costed at zero.
+    # JSON: {"<model>": {"input": <minor units per 1M>, "output": ..., "cached_input": ...}}
+    llm_price_table: str = ""
+    # Guards the retrieval-first cost property (Strategy Doc §G.3): cost must scale
+    # with pattern count, not document length. 0 disables the check.
+    max_tokens_per_review: int = 400_000
+
     # Observability. Sentry is initialized when a DSN is configured.
     sentry_dsn: SecretStr | None = None
     sentry_environment: str = ""

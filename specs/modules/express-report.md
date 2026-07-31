@@ -1,6 +1,6 @@
 # `express` — Pay-Per-Report (No Subscription) — Spec
 
-**Status:** teaser renderer implemented (TS-210); checkout/activation pending TS-211–TS-214
+**Status:** checkout + webhook activation implemented (TS-211/212); export watermark pending TS-213
 **Requirement refs:** `docs/TenderShield_Market_Strategy_2026.md` §F.2; Build Doc §7, §15, §11.4
 **Task refs:** TS-208 – TS-214
 

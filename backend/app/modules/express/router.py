@@ -22,6 +22,12 @@ _ERROR_STATUS = {
     "session_not_found": 404,
     "upload_too_large": 413,
     "teaser_unavailable": 503,
+    "checkout_unavailable": 422,
+    "billing_unavailable": 503,
+    "amount_mismatch": 400,
+    "unknown_tier": 400,
+    "report_locked": 402,
+    "report_unavailable": 503,
 }
 
 
@@ -30,6 +36,11 @@ class SessionBody(BaseModel):
     tier: str = Field(default="snapshot", pattern="^(snapshot|risk|bidpack)$")
     acknowledgment: dict = Field(default_factory=dict)
     acknowledgment_version: str = ACKNOWLEDGMENT_VERSION
+
+
+class CheckoutBody(BaseModel):
+    country: str = Field(default="IN", min_length=2, max_length=2)
+    amount_minor: int | None = None
 
 
 def _service(request: Request, session: Session) -> ExpressService:
@@ -125,5 +136,30 @@ async def upload_document(
 def get_teaser(token: str, request: Request, session: Session = Depends(get_session)):
     try:
         return _service(request, session).render_teaser(token)
+    except ExpressError as exc:
+        _raise(exc)
+
+
+@router.post("/sessions/{token}/checkout")
+def checkout(
+    token: str,
+    body: CheckoutBody,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    try:
+        return _service(request, session).create_checkout(
+            token,
+            country=body.country,
+            amount_minor=body.amount_minor,
+        )
+    except ExpressError as exc:
+        _raise(exc)
+
+
+@router.get("/sessions/{token}/report")
+def get_report(token: str, request: Request, session: Session = Depends(get_session)):
+    try:
+        return _service(request, session).get_report(token)
     except ExpressError as exc:
         _raise(exc)

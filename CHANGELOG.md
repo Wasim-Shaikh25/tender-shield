@@ -6,6 +6,22 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (TS-211/212: express checkout + webhook activation)
+
+- **TS-211 server-owned checkout** — `express/prices.py` tier table; `POST
+  /api/express/sessions/{token}/checkout` creates provider order via
+  `billing.provider_factory`; client `amount_minor` mismatch rejected.
+- **TS-212 webhook-only activation** — verified Razorpay/Stripe webhooks with
+  `kind: express` activate `ex_purchases`; `GET /api/express/sessions/{token}/report`
+  returns locked (402) until activation; in-app unreviewed report JSON after webhook.
+
+Tests: 453 passed / 5 skipped.
+
+### Next
+
+- TS-213 (unreviewed export watermark) and TS-214 (anti-abuse/retention/claim).
+- TS-218 (correction loop) and TS-197 (P0 harvest adapters).
+
 ### Done — 2026-07-31 (TS-200/210: employer context + express teaser)
 
 - **TS-200 employer context** — `marketdata.employer_context_for_family` capability;

@@ -345,8 +345,8 @@ Tracker: `tasks/phase16_tracker.md`.
 | TS-208 | `express` module scaffold + `ex_*` migrations; ephemeral internal workspace backing | Strategy §F.2 | `specs/modules/express-report.md` | done |
 | TS-209 | Anonymous session lifecycle: create (email + acknowledgment), upload with pre-buffer size caps, expiry, high-entropy tokens | Strategy §F.2 | `specs/modules/express-report.md` | done |
 | TS-210 | Teaser renderer: full deadline wall + missing-doc checklist + severity counts + 2 complete cited findings | Strategy §F.2 | `specs/modules/express-report.md` | done |
-| TS-211 | Server-owned tier price table + guest checkout (Razorpay India / Stripe GCC-UK); client never sends an amount | Build Doc §15; audit TS-B01 | `specs/modules/express-report.md` | todo |
-| TS-212 | Webhook-only activation + full report delivery (in-app + emailed PDF); test proves redirect alone never unlocks | Build Doc §15.1 | `specs/modules/express-report.md` | todo |
+| TS-211 | Server-owned tier price table + guest checkout (Razorpay India / Stripe GCC-UK); client never sends an amount | Build Doc §15; audit TS-B01 | `specs/modules/express-report.md` | done |
+| TS-212 | Webhook-only activation + full report delivery (in-app + emailed PDF); test proves redirect alone never unlocks | Build Doc §15.1 | `specs/modules/express-report.md` | done |
 | TS-213 | `unreviewed` export variant: watermark on every page/format, acknowledgment logged with version/timestamp/IP, pricing outputs excluded | Build Doc §11.4; Strategy §F.2 | `specs/modules/express-report.md` | todo |
 | TS-214 | Anti-abuse (email/IP/document-hash limits, teaser dedupe), retention deletion job, magic-link claim into a workspace | Strategy §F.2 | `specs/modules/express-report.md` | todo |
 

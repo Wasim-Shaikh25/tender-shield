@@ -138,7 +138,17 @@ def get_thing(
 | `require("<role>")` | `current_principal` + role check → 403 `insufficient_role` |
 | `require_superadmin` | 403 `superadmin_required` unless `principal.is_superadmin` |
 
-Roles seen in the codebase, ascending: `viewer` → `estimator` → `admin` (+ `is_superadmin` flag).
+Roles are ranked in `app/modules/auth/rbac.py` — **use these exact names**:
+
+```python
+ROLE_RANK = {"viewer": 0, "reviewer": 1, "estimator": 2, "admin": 3, "owner": 4}
+```
+
+`require("estimator")` therefore admits `estimator`, `admin` and `owner`, but **not** `reviewer`.
+Note `reviewer` sits *below* `estimator`: it is the review-workbench role, so a route that gates
+export approval wants `require("reviewer")`, not a higher rank. `is_superadmin` is a separate
+boolean flag, not a rank — use `require_superadmin` for it.
+
 If `auth` is disabled these return **503 `auth_unavailable`** and the app still boots — that is
 intended behaviour, not a bug.
 

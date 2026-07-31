@@ -165,29 +165,56 @@ facts: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 facts: dict | None = None
 ```
 
-`facts` is the structured extraction *behind* the quote — the same shape
-`app/modules/crossref/facts.py` already produces for the contradiction engine (TS-217). **Reuse that
-vocabulary rather than inventing a second one:**
+`facts` is the structured extraction *behind* the quote.
 
-```python
-# canonical fact keys already established by crossref/facts.py
-{
-  "ld_rate_percent": 0.5,          # float, percent
-  "ld_rate_period": "week",        # day|week|month
-  "ld_cap_percent": 5.0,           # float or absent — ABSENT MEANS UNCAPPED, never 0
-  "emd_percent": 2.0,
-  "emd_amount_minor": 500000,      # minor units; distinct from emd_percent, never conflated
-  "bid_validity_days": 120,
-  "dlp_months": 12,
-  "retention_percent": 5.0,
-  "submission_datetime": "2026-08-01T15:00:00+05:30",
-}
-```
+> ### ⚠️ The real difficulty in this task: there are already TWO disjoint fact vocabularies
+>
+> This is the thing to get right, and it is not obvious from the task title. Verify both lists
+> against the source before writing any mapping code.
 
-> **Critical semantic:** an absent `ld_cap_percent` means the LD clause is **uncapped**, which must
-> produce **no loading** (`formulas.ld_exposure_cap` raises `MissingInputs`). Do not let a JSON
-> default of `0` sneak in — that would silently price an unbounded exposure at zero, inverting the
-> finding's meaning.
+**What `app/modules/crossref/facts.py` extracts today** (TS-217, six canonical types — these are
+real, deterministic, regex-only, and each carries its own verbatim quote):
+
+| Key | Type | Note |
+|---|---|---|
+| `bid_validity_days` | `int` | |
+| `emd_percent` | `float` | percent-of-cost |
+| `emd_amount_minor` | `int` | minor units — **never conflated** with `emd_percent` |
+| `ld_rate_percent` | **`str`** | a combined rate+period string, e.g. `"0.5%/week"` — *not* a float |
+| `dlp_months` | `int` | |
+| `retention_percent` | `float` | |
+| `submission_datetime` | `str` (ISO) | impossible calendar dates are skipped, never guessed |
+
+**What `app/modules/pricing/formulas.py` requires** (via `_require(facts, [...])`) — **none of these
+names overlap with the list above**:
+
+| Formula | Required fact keys |
+|---|---|
+| `escalation_unhedged` | `project_duration_months`, `index_series` |
+| `ld_exposure_cap` | `rate_percent_per_week`, `cap_percent`, `weeks_at_risk` |
+| `payment_delay_financing_cost` | `payment_days`, `cost_of_capital_pa` |
+
+So TS-296 is **not** "persist the facts crossref already has." It is three separate pieces of work:
+
+1. **Parse, don't alias.** `ld_rate_percent` is the string `"0.5%/week"`; `rate_percent_per_week`
+   is a number. A mapping layer must parse it *and* handle a non-week period (`"0.1%/day"`) by
+   converting or by declining — never by assuming weeks.
+2. **Several required facts are extracted by nothing today.** `cap_percent`, `weeks_at_risk`,
+   `index_series`, `payment_days`, `cost_of_capital_pa` have no extractor. Some are contract facts
+   that need new extractors (`cap_percent`, `payment_days`); others are *caller/deployment inputs*,
+   not document facts at all (`index_series`, `cost_of_capital_pa`, `weeks_at_risk`). **Do not
+   invent extractors for the latter** — keep them explicit inputs and say so in the spec.
+3. **Decide where the mapping lives.** It must not be a cross-module import (`CLAUDE.md` §2).
+   Either put the canonical fact vocabulary in `app/core/contracts/` (recommended — it is a shared
+   data contract, exactly what that package is for), or have `pricing` map from the generic
+   `Finding.facts` dict it reads through the registry.
+
+> **Critical semantic, confirmed in `formulas.ld_exposure_cap`'s own docstring:** an absent
+> `cap_percent` means the LD clause is **uncapped**, which must produce **no loading** —
+> `_require` raises `MissingInputs`. Do not let a JSON default of `0` sneak in through the new
+> column; that would silently price an unbounded exposure at zero, inverting the finding's meaning.
+> The docstring puts it well: *"guessing a cap would be exactly the invented number the product
+> exists to prevent. That is the point of the finding itself, not a gap in this formula."*
 
 **Opportunity side** — in `app/modules/ingestion/models.py` (the module that owns `opportunities`):
 

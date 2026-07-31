@@ -1,10 +1,13 @@
 # TenderShield — Implementation handover pack
 
-Detailed, code-level build notes for the **91 incomplete tasks** in `tasks/backlog.md`, written to
+Detailed, code-level build notes for the **92 incomplete tasks** in `tasks/backlog.md`, written to
 be handed to an AI coding agent (Cursor Composer) or a new engineer.
 
-**Position at time of writing:** 208 / 299 tasks done (69%). Branch `main` @ `36fe55b`, CI green,
+**Position at time of writing:** 209 / 301 tasks done (69%). Branch `main` @ `36fe55b`, CI green,
 backend suite 420 passed / 5 skipped, `ruff` + `mypy` clean across 193 files.
+
+> Regenerate these figures with `python3 scripts/task_tracker.py` rather than trusting this line —
+> it goes stale the moment a task flips.
 
 ---
 

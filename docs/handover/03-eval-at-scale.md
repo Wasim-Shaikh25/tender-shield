@@ -141,7 +141,14 @@ That way `run_m4` can aggregate identically to `run_m1` in `runner.py`.
 
 ```python
 # app/evalinvariants/m4.py
-from app.evalinvariants.checks import Violation, _norm
+import re
+
+from app.evalinvariants.checks import Violation   # public shape; do NOT import checks._norm
+
+def _norm(text: str) -> str:
+    """Same normalization checks.py uses. Duplicated deliberately — _norm is private
+    to checks.py; if you need it in both places, promote it rather than reaching in."""
+    return re.sub(r"\s+", " ", text or "").strip().casefold()
 
 def _key(f: dict) -> tuple:
     """Canonical identity of a finding — NOT its row id or position."""
@@ -219,10 +226,18 @@ Extend `.github/workflows/ci.yml`. The existing `changelog` job is the closest s
         run: python ../scripts/eval_report.py --run-id "pr-${{ github.event.pull_request.number }}"
 ```
 
-`scripts/bulk_eval.py` **already exits non-zero when the graded M1 pass rate is below 100%**, and
-`scripts/eval_report.py` **already exits 1 on regression** — so the gate is mostly wiring, plus a
-`--modes` flag if it doesn't exist yet. `--max-total-tokens 0` keeps CI on `NullClassifier` so a PR
-never spends money (the runner defaults `model_id="none"` for exactly this reason).
+**Verified against the current scripts before you copy this:**
+
+| Claim | Status |
+|---|---|
+| `bulk_eval.py` exits non-zero when M1 pass rate < 100% | ✅ real — `if summary.m1_pass_rate < 1.0: return 1` |
+| `eval_report.py` exits 1 on regression | ✅ real — documented in its own docstring |
+| `bulk_eval.py --modes` | ❌ **does not exist yet — you must add it** as part of TS-232 |
+
+So `--modes m1,m4` in the YAML above is aspirational: add the flag (defaulting to all available
+modes) before wiring the job, or drop it and let the smoke run everything. `--max-total-tokens 0`
+keeps CI on `NullClassifier` so a PR never spends money — the runner already defaults
+`model_id="none"` for exactly this reason.
 
 Nightly/weekly go in a separate workflow file on `schedule:` triggers.
 

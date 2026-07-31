@@ -31,6 +31,7 @@ change (`CLAUDE.md` §1.2).
 | `modules/notifications.md` | Deadline-digest notification sender abstraction | §11.6, §11.7 |
 | `900-production-readiness-audit-fixes.md` | Cross-cutting hardening and product completeness from audit | `PRODUCTION_READINESS_AUDIT.md` |
 | `901-post-audit-remaining-fixes.md` | Second batch of audit fixes after TS-083–TS-092 | `PRODUCTION_READINESS_AUDIT.md` |
+| `902-changelog-check.md` | CI gate enforcing `CHANGELOG.md` updates on code-changing PRs | `CLAUDE.md` §1.5 |
 
 ## Template (use for every new spec)
 

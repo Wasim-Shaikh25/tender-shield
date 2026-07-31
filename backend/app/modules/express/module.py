@@ -12,6 +12,10 @@ def setup(ctx: AppContext) -> None:
         return ExpressService(
             session,
             create_workspace=reg.get("auth.create_ephemeral_workspace"),
+            ingestion_factory=reg.get("ingestion.service_factory"),
+            findings_factory=reg.get("findings.store_factory"),
+            run_risk=reg.get("risk.run_opportunity"),
+            publish=ctx.events.publish,
         )
 
     reg.provide("express.session", factory)
@@ -30,6 +34,7 @@ module = ModuleSpec(
         "export",
         "billing",
         "notifications",
+        "findings",
     ),
     setup=setup,
 )

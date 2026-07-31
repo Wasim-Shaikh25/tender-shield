@@ -3,6 +3,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
 
+from app.core.contracts.employer_context import employer_context_for_opportunity
 from app.core.deps import get_session, require
 from app.core.pagination import PaginationParams, paginated_list_response
 from app.modules.findings.store import FindingStore
@@ -39,4 +40,13 @@ def list_findings(
         }
         for r in rows
     ]
-    return {"findings": paginated_list_response(items, page, response)}
+    employer_context = employer_context_for_opportunity(
+        request.app.state.ctx.registry,
+        session,
+        workspace_id=principal.workspace_id,
+        opportunity_id=opportunity_id,
+    )
+    return {
+        "employer_context": employer_context,
+        "findings": paginated_list_response(items, page, response),
+    }

@@ -37,6 +37,24 @@ def employer_profile(
     return _service(request, session).employer_profile(family)
 
 
+@router.get("/opportunities/{opportunity_id}/employer-context")
+def employer_context(
+    opportunity_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    from app.core.contracts.employer_context import employer_context_for_opportunity
+
+    ctx = employer_context_for_opportunity(
+        request.app.state.ctx.registry,
+        session,
+        workspace_id=principal.workspace_id,
+        opportunity_id=opportunity_id,
+    )
+    return {"opportunity_id": opportunity_id, "employer_context": ctx}
+
+
 @router.get("/opportunities/{opportunity_id}/comparables")
 def comparables(
     opportunity_id: str,

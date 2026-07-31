@@ -1,6 +1,6 @@
 # `marketdata` — Employer Behaviour Graph — Spec
 
-**Status:** employer resolution + aggregates implemented (TS-198/199); harvest adapters pending TS-197
+**Status:** employer context on findings implemented (TS-200); harvest adapters pending TS-197
 **Requirement refs:** `docs/TenderShield_Market_Strategy_2026.md` §A.2, §C.1, §B.2 (moat class 1)
 **Task refs:** TS-195 – TS-200
 
@@ -21,7 +21,7 @@ sources and requires no customers.
 - `marketdata.comparable_awards` — awards comparable to an opportunity (scope, value band, region)
 - `marketdata.price_benchmark` — L1-to-estimate distribution for a comparable set
 - `marketdata.award_prefill` — one-click-confirm prefill payload for `outcomes` from a tender ref
-- `marketdata.store_factory` — `MarketDataStore(session)` for harvest upserts and queries
+- `marketdata.employer_context_for_family` — employer profile block for findings/reports
 
 **Capabilities consumed (soft)**
 - `findings.store` — to annotate risk findings with employer context
@@ -38,6 +38,7 @@ sources and requires no customers.
 - `GET /api/marketdata/employers/{family}/profile`
 - `GET /api/marketdata/opportunities/{id}/comparables`
 - `GET /api/marketdata/opportunities/{id}/benchmark`
+- `GET /api/marketdata/opportunities/{id}/employer-context`
 
 ## Data owned
 

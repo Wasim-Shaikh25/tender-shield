@@ -97,3 +97,29 @@ def test_risk_run_persists_findings_and_list_api(client):
     client.post(f"/api/risk/opportunities/{opp_id}/run", headers=headers)
     after = client.get(f"/api/findings/opportunities/{opp_id}", headers=headers).json()["findings"]
     assert len(after) == before
+
+
+def test_findings_include_employer_context_when_marketdata_enabled():
+    app = create_app(
+        Settings(
+            enabled_modules="health,rulepacks,auth,ingestion,findings,risk,marketdata",
+            database_url="sqlite:///:memory:",
+        )
+    )
+    Base.metadata.create_all(app.state.ctx.registry.require("db.engine"))
+    client = TestClient(app)
+    headers = auth_headers(client, "ctx@x.com")
+    opp_id = client.post(
+        "/api/ingestion/opportunities",
+        json={"title": "NHAI job", "employer_family": "NHAI"},
+        headers=headers,
+    ).json()["id"]
+    client.post(
+        f"/api/ingestion/opportunities/{opp_id}/documents",
+        json={"filename": "gcc.pdf", "sample_text": "[p1]\nClause 5 — Scope. Build a bridge."},
+        headers=headers,
+    )
+    client.post(f"/api/risk/opportunities/{opp_id}/run", headers=headers)
+    body = client.get(f"/api/findings/opportunities/{opp_id}", headers=headers).json()
+    assert "employer_context" in body
+    assert body["employer_context"]["family"] == "NHAI"

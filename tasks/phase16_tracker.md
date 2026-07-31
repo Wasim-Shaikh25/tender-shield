@@ -35,9 +35,9 @@ name its moat class, it is out of scope for Phase 16.
 | **0** | **Measure before building** | TS-223 ✅, TS-226 ✅, TS-230 ✅ | Cost-per-review p50/p95 known; M1 invariants run on the existing 20-tender smoke slice | **done** |
 | **1** | **Corpus** | TS-224 ✅, TS-225, TS-197 | ≥1,000 tenders harvested across ≥3 sources with provenance; legality reviewed per adapter | in-progress |
 | **2** | **Prove correctness at scale** | TS-227, TS-229, TS-231, TS-232 | M1 100% pass on 1,000 tenders; M2 deadline match ≥95%; CI blocking on smoke slice | todo |
-| **3** | **Graph** | TS-195 ✅, TS-196 ✅, TS-198 ✅, TS-199 ✅, TS-200 | Employer profiles queryable with suppression; comparable-set filter disclosed | in-progress |
+| **3** | **Graph** | TS-195 ✅, TS-196 ✅, TS-198 ✅, TS-199 ✅, TS-200 ✅ | Employer profiles queryable with suppression; comparable-set filter disclosed | **done** |
 | **4** | **Money math** | TS-201–TS-207 ✅ | Loadings byte-identical on re-run; no LLM dependency in module; export gate enforced | **done** |
-| **5** | **Revenue lane** | TS-208 ✅, TS-209 ✅, TS-210–TS-214 | Stranger → teaser → pay → report, webhook-only activation, watermarked unreviewed export | in-progress |
+| **5** | **Revenue lane** | TS-208 ✅, TS-209 ✅, TS-210 ✅, TS-211–TS-214 | Stranger → teaser → pay → report, webhook-only activation, watermarked unreviewed export | in-progress |
 | **6** | **Loop + accountability** | TS-215 ✅, TS-216 ✅, TS-217 ✅, TS-218, TS-219 ✅ | Outcomes recorded; contradictions detected; findings reproducible; corrections proposed not applied | in-progress |
 | **7** | **Domain ladder** | TS-220 ✅, TS-221 ✅, TS-222 (gated) | Third party can author a pack; 4 new trades ship as YAML only | **done** |
 | **8** | **Backtest + gold set** | TS-228, TS-233 | Time-split L1 backtest baseline published; 50-tender gold set annotated | todo |
@@ -105,7 +105,7 @@ calendar-bound, not engineering-bound.
 | TS-197 | P0 adapters (CPPP, state NIC) | `marketdata` | 1 | P0 | todo | Legality review in docstring; rate-limit compliant | — |
 | TS-198 | Employer resolution | `marketdata` | 1 | P1 | **done** | Confidence published; unresolved stays unresolved | — |
 | TS-199 | Aggregates + suppression | `marketdata` | 1 | P1 | **done** | n ≥ 12 suppression tested; deterministic | — |
-| TS-200 | Employer context on findings | `marketdata` | 1 | P2 | todo | Degrades to today's behaviour when disabled | TS-199 |
+| TS-200 | Employer context on findings | `marketdata` | 1 | P2 | **done** | Degrades to today's behaviour when disabled | — |
 | TS-201 | `pricing` scaffold | `pricing` | 2 | P1 | **done** | No LLM client import, test-asserted | — |
 | TS-202 | `price_impact` schema + formulas | `rulepacks` | 2 | P1 | **done** | Worked-example tests per formula | TS-201 |
 | TS-203 | Bid loading sheet | `pricing` | 2 | P1 | **done** | Missing input → no loading, never a default | TS-202 |
@@ -115,7 +115,7 @@ calendar-bound, not engineering-bound.
 | TS-207 | Review gate on pricing artifacts | `pricing` | 3 | P0 | **done** | Export blocked pre-approval; excluded from Express | TS-203 |
 | TS-208 | `express` scaffold | `express` | — | P1 | **done** | Ephemeral workspace backing; isolation reused | — |
 | TS-209 | Anonymous session lifecycle | `express` | — | P1 | **done** | Pre-buffer size caps; non-enumerable tokens | — |
-| TS-210 | Teaser renderer | `express` | — | P1 | todo | Full deadline wall + 2 cited findings | TS-209 |
+| TS-210 | Teaser renderer | `express` | — | P1 | **done** | Full deadline wall + 2 cited findings | — |
 | TS-211 | Server-owned prices + guest checkout | `billing` | — | P0 | todo | Client-supplied amount rejected | TS-209 |
 | TS-212 | Webhook-only activation | `billing` | — | P0 | todo | Redirect-without-webhook test returns locked | TS-211 |
 | TS-213 | `unreviewed` export variant | `export` | 3 | P0 | todo | Watermark all formats; ack logged w/ IP + version | TS-212 |

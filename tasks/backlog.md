@@ -324,7 +324,7 @@ Tracker: `tasks/phase16_tracker.md`.
 | TS-197 | Source adapters P0: CPPP + one state NIC portal — legality review recorded in adapter docstring, robots/rate-limit compliant | Strategy §A.2 | `specs/eval-at-scale.md` §2.2 | todo |
 | TS-198 | Employer identity resolution: deterministic normalization to family/division/region with confidence; unresolved stays unresolved | Strategy §C.1 | `specs/modules/marketdata.md` | done |
 | TS-199 | Deterministic aggregates + sample-size suppression (n ≥ 12) + comparable-set builder that returns its own filter | Strategy §C.1 | `specs/modules/marketdata.md` | done |
-| TS-200 | Employer context block on risk findings + `/api/marketdata/*` read routes | Strategy §C.1 | `specs/modules/marketdata.md` | todo |
+| TS-200 | Employer context block on risk findings + `/api/marketdata/*` read routes | Strategy §C.1 | `specs/modules/marketdata.md` | done |
 
 ### 16.B — Pricing intelligence (`pricing-intel`) — moat 2
 
@@ -344,7 +344,7 @@ Tracker: `tasks/phase16_tracker.md`.
 |---|---|---|---|---|
 | TS-208 | `express` module scaffold + `ex_*` migrations; ephemeral internal workspace backing | Strategy §F.2 | `specs/modules/express-report.md` | done |
 | TS-209 | Anonymous session lifecycle: create (email + acknowledgment), upload with pre-buffer size caps, expiry, high-entropy tokens | Strategy §F.2 | `specs/modules/express-report.md` | done |
-| TS-210 | Teaser renderer: full deadline wall + missing-doc checklist + severity counts + 2 complete cited findings | Strategy §F.2 | `specs/modules/express-report.md` | todo |
+| TS-210 | Teaser renderer: full deadline wall + missing-doc checklist + severity counts + 2 complete cited findings | Strategy §F.2 | `specs/modules/express-report.md` | done |
 | TS-211 | Server-owned tier price table + guest checkout (Razorpay India / Stripe GCC-UK); client never sends an amount | Build Doc §15; audit TS-B01 | `specs/modules/express-report.md` | todo |
 | TS-212 | Webhook-only activation + full report delivery (in-app + emailed PDF); test proves redirect alone never unlocks | Build Doc §15.1 | `specs/modules/express-report.md` | todo |
 | TS-213 | `unreviewed` export variant: watermark on every page/format, acknowledgment logged with version/timestamp/IP, pricing outputs excluded | Build Doc §11.4; Strategy §F.2 | `specs/modules/express-report.md` | todo |

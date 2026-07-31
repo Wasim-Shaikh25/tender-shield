@@ -13,7 +13,7 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   delivery/erection LD, PG tests, free-issue material, O&M tail); YAML only,
   zero code; customer validation gate unchanged (Strategy §D.2).
 
-Tests: pending.
+Tests: 495 passed / 5 skipped.
 
 ### Next
 

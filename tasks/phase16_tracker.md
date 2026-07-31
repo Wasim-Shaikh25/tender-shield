@@ -35,10 +35,10 @@ name its moat class, it is out of scope for Phase 16.
 | **0** | **Measure before building** | TS-223 ✅, TS-226 ✅, TS-230 ✅ | Cost-per-review p50/p95 known; M1 invariants run on the existing 20-tender smoke slice | **done** |
 | **1** | **Corpus** | TS-224 ✅, TS-225, TS-197 | ≥1,000 tenders harvested across ≥3 sources with provenance; legality reviewed per adapter | in-progress |
 | **2** | **Prove correctness at scale** | TS-227, TS-229, TS-231, TS-232 | M1 100% pass on 1,000 tenders; M2 deadline match ≥95%; CI blocking on smoke slice | todo |
-| **3** | **Graph** | TS-195, TS-196, TS-198, TS-199, TS-200 | Employer profiles queryable with suppression; comparable-set filter disclosed | todo |
+| **3** | **Graph** | TS-195 ✅, TS-196 ✅, TS-198, TS-199, TS-200 | Employer profiles queryable with suppression; comparable-set filter disclosed | in-progress |
 | **4** | **Money math** | TS-201–TS-207 ✅ | Loadings byte-identical on re-run; no LLM dependency in module; export gate enforced | **done** |
-| **5** | **Revenue lane** | TS-208–TS-214 | Stranger → teaser → pay → report, webhook-only activation, watermarked unreviewed export | todo |
-| **6** | **Loop + accountability** | TS-215, TS-216, TS-217 ✅, TS-218, TS-219 | Outcomes recorded; contradictions detected; findings reproducible; corrections proposed not applied | in-progress |
+| **5** | **Revenue lane** | TS-208 ✅, TS-209 ✅, TS-210–TS-214 | Stranger → teaser → pay → report, webhook-only activation, watermarked unreviewed export | in-progress |
+| **6** | **Loop + accountability** | TS-215 ✅, TS-216 ✅, TS-217 ✅, TS-218, TS-219 ✅ | Outcomes recorded; contradictions detected; findings reproducible; corrections proposed not applied | in-progress |
 | **7** | **Domain ladder** | TS-220 ✅, TS-221 ✅, TS-222 (gated) | Third party can author a pack; 4 new trades ship as YAML only | **done** |
 | **8** | **Backtest + gold set** | TS-228, TS-233 | Time-split L1 backtest baseline published; 50-tender gold set annotated | todo |
 
@@ -101,7 +101,7 @@ calendar-bound, not engineering-bound.
 | ID | Feature | Module | Moat | Priority | Status | Acceptance gate | Blockers |
 |---|---|---|---|---|---|---|---|
 | TS-195 | `marketdata` scaffold | `marketdata` | 1 | P1 | **done** | Boots with module disabled; no hard deps | — |
-| TS-196 | Corpus schema (non-tenant) | `marketdata` | 1 | P1 | todo | No tenant data in `md_*`, test-asserted | TS-224 |
+| TS-196 | Corpus schema (non-tenant) | `marketdata` | 1 | P1 | **done** | No tenant data in `md_*`, test-asserted | — |
 | TS-197 | P0 adapters (CPPP, state NIC) | `marketdata` | 1 | P0 | todo | Legality review in docstring; rate-limit compliant | — |
 | TS-198 | Employer resolution | `marketdata` | 1 | P1 | todo | Confidence published; unresolved stays unresolved | TS-196 |
 | TS-199 | Aggregates + suppression | `marketdata` | 1 | P1 | todo | n ≥ 12 suppression tested; deterministic | TS-198 |
@@ -114,14 +114,14 @@ calendar-bound, not engineering-bound.
 | TS-206 | Cashflow model | `pricing` | 2 | P1 | **done** | `assumptions[]` always present | TS-201 |
 | TS-207 | Review gate on pricing artifacts | `pricing` | 3 | P0 | **done** | Export blocked pre-approval; excluded from Express | TS-203 |
 | TS-208 | `express` scaffold | `express` | — | P1 | **done** | Ephemeral workspace backing; isolation reused | — |
-| TS-209 | Anonymous session lifecycle | `express` | — | P1 | todo | Pre-buffer size caps; non-enumerable tokens | TS-208 |
+| TS-209 | Anonymous session lifecycle | `express` | — | P1 | **done** | Pre-buffer size caps; non-enumerable tokens | — |
 | TS-210 | Teaser renderer | `express` | — | P1 | todo | Full deadline wall + 2 cited findings | TS-209 |
 | TS-211 | Server-owned prices + guest checkout | `billing` | — | P0 | todo | Client-supplied amount rejected | TS-209 |
 | TS-212 | Webhook-only activation | `billing` | — | P0 | todo | Redirect-without-webhook test returns locked | TS-211 |
 | TS-213 | `unreviewed` export variant | `export` | 3 | P0 | todo | Watermark all formats; ack logged w/ IP + version | TS-212 |
 | TS-214 | Anti-abuse + retention + claim | `express` | — | P1 | todo | Teaser dedupe by document hash; deletion job tested | TS-210 |
-| TS-215 | Outcome capture | `outcomes` | 1 | P1 | todo | Workspace-scoped; never in shared graph | — |
-| TS-216 | Award-record prefill | `outcomes` | 4 | P2 | todo | Degrades to manual when no match | TS-199, TS-215 |
+| TS-215 | Outcome capture | `outcomes` | 1 | P1 | **done** | Workspace-scoped; never in shared graph | — |
+| TS-216 | Award-record prefill | `outcomes` | 4 | P2 | **done** | Degrades to manual when no match | — |
 | TS-217 | Contradiction engine | `crossref` | 2 | P1 | **done** | Both sides keep citations; precedence from pack | — |
 | TS-218 | Correction loop | `rulepacks` | 1 | P2 | todo | Proposes only; never auto-mutates a pack | TS-215 |
 | TS-219 | Reproducibility chain | `findings` | 3 | P0 | **done** | Deterministic stages byte-identical on re-run | — |
@@ -139,8 +139,8 @@ calendar-bound, not engineering-bound.
 | TS-231 | Report + regression diff | `evalrunner` | — | P1 | **done** | Scorecard readable without raw data | TS-230 |
 | TS-232 | CI gates | CI | — | P1 | todo | Smoke blocks PRs; >2pt drop blocks change | TS-231 |
 | TS-233 | Human gold set (50) | evals | — | P1 | todo | Slice table filled; annotated per §19 | — |
-| TS-294 | `Finding.document_id` | `findings` | 3 | P2 | todo | Migration + writers updated | TS-226 |
-| TS-295 | `Finding.currency` | `findings` | 3 | P1 | todo | Explicit ISO 4217 alongside amount_exposure | TS-226 |
+| TS-294 | `Finding.document_id` | `findings` | 3 | P2 | **done** | Migration + writers updated | — |
+| TS-295 | `Finding.currency` | `findings` | 3 | P1 | **done** | Explicit ISO 4217 alongside amount_exposure | — |
 | TS-296 | `Finding.facts` + `Opportunity.contract_value_minor` | `findings` | 3 | P2 | todo | Real fact sourcing for pricing.loading | TS-203 |
 | TS-234 | North-star metric — margin protected | `outcomes` | 1 | P0 | todo | Deterministic; excludes speculative value; grows with Phases 18–19 | TS-203, TS-215 |
 

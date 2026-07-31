@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import difflib
 import re
+import uuid
 from typing import Protocol
 
 from app.core.contracts.findings import Finding, FindingKind, FindingSource, Severity
@@ -78,6 +79,22 @@ def _stamp(finding: Finding, provenance: dict | None) -> Finding:
     return finding.model_copy(update=provenance)
 
 
+def _resolve_document_id(result: dict, candidates: list[Clause]) -> str | None:
+    page = result.get("source_page")
+    quote = result.get("source_quote", "") or ""
+    if page is not None:
+        for c in candidates:
+            if c.get("page_from") == page and c.get("document_id"):
+                return c.get("document_id")
+    if quote:
+        for c in candidates:
+            if verify_quote(quote, [c]) and c.get("document_id"):
+                return c.get("document_id")
+    if len(candidates) == 1:
+        return candidates[0].get("document_id")
+    return None
+
+
 def _absence_finding(pattern, opp_facts: dict, disclaimer: str | None = None) -> Finding:
     return Finding(
         kind=FindingKind.RISK_CLAUSE,
@@ -145,6 +162,11 @@ def run_pattern(
                     suggested_action=pattern.suggested_clarification,
                     affected_trades=list(pattern.affected_trades),
                     pattern_id=pattern.id,
+                    document_id=(
+                        uuid.UUID(doc)
+                        if (doc := _resolve_document_id(result, candidates))
+                        else None
+                    ),
                     explanation=_build_explanation(pattern, quote[:200] if verified else quote),
                     disclaimer=_pattern_disclaimer(pattern, disclaimer),
                 ),

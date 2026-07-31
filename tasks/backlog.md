@@ -320,7 +320,7 @@ Tracker: `tasks/phase16_tracker.md`.
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
 | TS-195 | `marketdata` module scaffold: ModuleSpec, config flag, registry capabilities, graceful absence | Strategy §C.1 | `specs/modules/marketdata.md` | done |
-| TS-196 | Corpus schema + migrations: `md_tenders`, `md_awards`, `md_employers`, `md_profiles`, `md_harvest_runs` (OCDS-shaped, non-tenant) | Strategy §A.2, §C.1 | `specs/modules/marketdata.md` | todo |
+| TS-196 | Corpus schema + migrations: `md_tenders`, `md_awards`, `md_employers`, `md_profiles`, `md_harvest_runs` (OCDS-shaped, non-tenant) | Strategy §A.2, §C.1 | `specs/modules/marketdata.md` | done |
 | TS-197 | Source adapters P0: CPPP + one state NIC portal — legality review recorded in adapter docstring, robots/rate-limit compliant | Strategy §A.2 | `specs/eval-at-scale.md` §2.2 | todo |
 | TS-198 | Employer identity resolution: deterministic normalization to family/division/region with confidence; unresolved stays unresolved | Strategy §C.1 | `specs/modules/marketdata.md` | todo |
 | TS-199 | Deterministic aggregates + sample-size suppression (n ≥ 12) + comparable-set builder that returns its own filter | Strategy §C.1 | `specs/modules/marketdata.md` | todo |
@@ -343,7 +343,7 @@ Tracker: `tasks/phase16_tracker.md`.
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
 | TS-208 | `express` module scaffold + `ex_*` migrations; ephemeral internal workspace backing | Strategy §F.2 | `specs/modules/express-report.md` | done |
-| TS-209 | Anonymous session lifecycle: create (email + acknowledgment), upload with pre-buffer size caps, expiry, high-entropy tokens | Strategy §F.2 | `specs/modules/express-report.md` | todo |
+| TS-209 | Anonymous session lifecycle: create (email + acknowledgment), upload with pre-buffer size caps, expiry, high-entropy tokens | Strategy §F.2 | `specs/modules/express-report.md` | done |
 | TS-210 | Teaser renderer: full deadline wall + missing-doc checklist + severity counts + 2 complete cited findings | Strategy §F.2 | `specs/modules/express-report.md` | todo |
 | TS-211 | Server-owned tier price table + guest checkout (Razorpay India / Stripe GCC-UK); client never sends an amount | Build Doc §15; audit TS-B01 | `specs/modules/express-report.md` | todo |
 | TS-212 | Webhook-only activation + full report delivery (in-app + emailed PDF); test proves redirect alone never unlocks | Build Doc §15.1 | `specs/modules/express-report.md` | todo |
@@ -355,7 +355,7 @@ Tracker: `tasks/phase16_tracker.md`.
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
 | TS-215 | `outcomes` module + `oc_*` workspace-scoped migrations; record/read bid outcome and risk materialization | Build Doc §1.1(9); Strategy §C.6 | `specs/modules/outcomes.md` | done |
-| TS-216 | Prefill from public award record via `marketdata` with one-click confirm; manual path always available | Strategy §C.6 | `specs/modules/outcomes.md` | todo |
+| TS-216 | Prefill from public award record via `marketdata` with one-click confirm; manual path always available | Strategy §C.6 | `specs/modules/outcomes.md` | done |
 
 ### 16.E — Cross-cutting moat work
 
@@ -406,8 +406,8 @@ Tracker: `tasks/phase16_tracker.md`.
 
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
-| TS-294 | Add `Finding.document_id` (migration + risk/boq/qualification/standards writers) so quote/citation checks resolve to one document instead of any document sharing a page number | TS-226 finding; `specs/eval-at-scale.md` §1 | `specs/modules/findings.md` (update) | todo |
-| TS-295 | Add `Finding.currency` (ISO 4217) alongside `amount_exposure` so `check_currency_integrity` can assert an explicit currency, not just an int; required before Phase 16 multi-jurisdiction findings (Strategy §E.2) can be trusted cross-currency | TS-226 finding; Strategy §E.2 | `specs/modules/findings.md` (update) | todo |
+| TS-294 | Add `Finding.document_id` (migration + risk/boq/qualification/standards writers) so quote/citation checks resolve to one document instead of any document sharing a page number | TS-226 finding; `specs/eval-at-scale.md` §1 | `specs/modules/findings.md` (update) | done |
+| TS-295 | Add `Finding.currency` (ISO 4217) alongside `amount_exposure` so `check_currency_integrity` can assert an explicit currency, not just an int; required before Phase 16 multi-jurisdiction findings (Strategy §E.2) can be trusted cross-currency | TS-226 finding; Strategy §E.2 | `specs/modules/findings.md` (update) | done |
 | TS-296 | Add `Finding.facts` (structured extraction facts, not just quote/detail) and `Opportunity.contract_value_minor` so `pricing.loading` can source real facts instead of caller-supplied query params | TS-203 finding; `specs/modules/pricing-intel.md` | `specs/modules/findings.md` (update), `specs/data-model.md` (update) | todo |
 
 ## Phase 17 — Stage 2: Baseline Lock & Handover completion

@@ -6,6 +6,7 @@ Consumes `ingestion.service_factory` and `findings.store_factory` via the regist
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -30,6 +31,7 @@ class QualificationCriterion:
     source_page: int | None
     source_quote: str
     action_required: str
+    document_id: str | None = None
 
 
 _CRITERIA_CONFIG: list[dict[str, Any]] = [
@@ -188,7 +190,12 @@ class QualificationService:
                 continue
 
             quote, page, source_quote = _build_evidence(
-                {"text": found.text, "page_from": found.page_from}, keyword
+                {
+                    "text": found.text,
+                    "page_from": found.page_from,
+                    "document_id": str(found.document_id),
+                },
+                keyword,
             )
             records.append(
                 QualificationCriterion(
@@ -202,6 +209,7 @@ class QualificationService:
                         f"Verify the organization's {cfg['label'].lower()}"
                         " against this requirement."
                     ),
+                    document_id=str(found.document_id),
                 )
             )
 
@@ -233,6 +241,7 @@ class QualificationService:
 
 def _to_finding(c: QualificationCriterion) -> Finding:
     severity = Severity.HIGH if c.status == "not_met" else Severity.MEDIUM
+    doc_id = uuid.UUID(c.document_id) if c.document_id else None
     return Finding(
         kind=FindingKind.QUALIFICATION_GAP,
         category="qualification",
@@ -244,5 +253,6 @@ def _to_finding(c: QualificationCriterion) -> Finding:
         source_quote=c.source_quote,
         suggested_action=c.action_required,
         pattern_id=c.key,
+        document_id=doc_id,
         explanation={"status": c.status, "key": c.key, "label": c.label},
     )

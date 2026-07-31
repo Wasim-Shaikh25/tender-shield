@@ -13,6 +13,7 @@ def setup(ctx: AppContext) -> None:
             session,
             findings_factory=reg.get("findings.store_factory"),
             comparable_awards=reg.get("marketdata.comparable_awards"),
+            award_prefill=reg.get("marketdata.award_prefill"),
             publish=ctx.events.publish,
         )
 

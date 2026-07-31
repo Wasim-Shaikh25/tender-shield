@@ -3,6 +3,7 @@
 from app.core.module import AppContext, ModuleSpec
 from app.modules.marketdata.router import router
 from app.modules.marketdata.service import MarketDataService
+from app.modules.marketdata.store import MarketDataStore
 
 
 def setup(ctx: AppContext) -> None:
@@ -28,6 +29,11 @@ def setup(ctx: AppContext) -> None:
             opportunity_id, **kwargs
         ),
     )
+    reg.provide(
+        "marketdata.award_prefill",
+        lambda session, tender_ref: factory(session).award_prefill(tender_ref),
+    )
+    reg.provide("marketdata.store_factory", lambda session: MarketDataStore(session))
 
 
 module = ModuleSpec(

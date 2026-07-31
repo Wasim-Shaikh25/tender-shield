@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 import app.modules.auth.models  # noqa: F401
 import app.modules.findings.models  # noqa: F401
 import app.modules.ingestion.models  # noqa: F401
+import app.modules.marketdata.models  # noqa: F401
 import app.modules.outcomes.models  # noqa: F401
 from app.core.config import Settings
 from app.core.db import Base
@@ -88,3 +89,39 @@ def test_outcomes_isolated_between_workspaces(client):
     read_b = client.get(f"/api/outcomes/opportunities/{opp}", headers=headers_b)
     assert read_b.status_code == 200
     assert read_b.json()["outcome"] is None
+
+
+def test_outcome_prefill_from_marketdata(client):
+    headers = auth_headers(client, f"pf-{uuid.uuid4().hex[:8]}@example.com")
+    opp = str(uuid.uuid4())
+    reg = client.app.state.ctx.registry
+    Session = reg.require("db.sessionmaker")
+    with Session() as session:
+        store = reg.get("marketdata.store_factory")(session)
+        tender = store.upsert_tender(
+            ocid="ocds-prefill-1",
+            source_id="REF-99",
+            source_url="https://example.com/t",
+            buyer_name="NHAI",
+            adapter_name="test",
+            adapter_version="0.1.0",
+        )
+        store.upsert_award(
+            ocid=tender.ocid,
+            tender_id=tender.id,
+            winner="Winner Co",
+            value_minor=1_000_000,
+            currency="INR",
+            bidder_count=3,
+            source_url="https://example.com/a",
+        )
+
+    read = client.get(
+        f"/api/outcomes/opportunities/{opp}",
+        headers=headers,
+        params={"tender_ref": "ocds-prefill-1"},
+    )
+    assert read.status_code == 200
+    prefill = read.json()["prefill"]
+    assert prefill is not None
+    assert prefill["l1_value_minor"] == 1_000_000

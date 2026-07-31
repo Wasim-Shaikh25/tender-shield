@@ -1,20 +1,29 @@
-"""Employer Behaviour Graph service (TS-195 scaffold).
-
-Reference data module — no tenant rows. Until harvest + aggregates land
-(TS-196–TS-200) every query degrades to `insufficient_data` rather than
-inventing statistics (Strategy §C.1 suppression rule).
-"""
+"""Employer Behaviour Graph service (TS-195/196)."""
 
 from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from app.modules.marketdata.store import MarketDataStore
+
 
 class MarketDataService:
     def __init__(self, session: Session | None = None):
         self.s = session
+        self._store = MarketDataStore(session) if session is not None else None
 
     def employer_profile(self, family: str) -> dict:
+        if self._store:
+            employer = self._store.employer_by_family(family)
+            if employer is not None:
+                return {
+                    "family": employer.family,
+                    "division": employer.division,
+                    "region": employer.region,
+                    "confidence": employer.confidence,
+                    "status": "ok",
+                    "aliases": employer.aliases,
+                }
         return {
             "family": family,
             "status": "insufficient_data",
@@ -29,7 +38,7 @@ class MarketDataService:
             "n": 0,
             "filter": {
                 "employer_family": employer_family,
-                "note": "harvest not yet populated (TS-196+)",
+                "note": "aggregates pending TS-199",
             },
             "awards": [],
         }
@@ -42,3 +51,8 @@ class MarketDataService:
             "filter": {"employer_family": employer_family},
             "distribution": {},
         }
+
+    def award_prefill(self, tender_ref: str) -> dict | None:
+        if self._store is None:
+            return None
+        return self._store.award_prefill(tender_ref)

@@ -112,6 +112,23 @@ class RateSchedule(BaseModel):
     items: list[RateScheduleItem] = Field(default_factory=list)
 
 
+class EmployerFamilyEntry(BaseModel):
+    """Canonical employer identity for marketdata resolution (TS-198)."""
+
+    label: str = ""
+    aliases: list[str] = Field(default_factory=list)
+    abbreviations: dict[str, str] = Field(default_factory=dict)
+    division_patterns: list[str] = Field(default_factory=list)
+    region_patterns: list[str] = Field(default_factory=list)
+
+
+class EmployerFamilies(BaseModel):
+    id: str = "employer_families"
+    confidence: Literal["unvalidated", "validated"] = "unvalidated"
+    source: str = Field(min_length=1)
+    families: dict[str, EmployerFamilyEntry] = Field(default_factory=dict)
+
+
 class DocumentPrecedence(BaseModel):
     """Which document instance governs when canonical facts disagree across
     documents (TS-217, Strategy §C.5). `default_order` is highest-precedence
@@ -167,6 +184,7 @@ class RulePack(BaseModel):
     # back to their own hardcoded default (TS-217; see crossref.contradictions
     # .DEFAULT_PRECEDENCE), same graceful-absence pattern as rate_schedules.
     document_precedence: DocumentPrecedence | None = None
+    employer_families: EmployerFamilies | None = None
     load_errors: dict[str, str] = Field(default_factory=dict)
 
     @property

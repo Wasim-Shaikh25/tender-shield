@@ -1,0 +1,41 @@
+id: employer_families
+confidence: unvalidated
+source: "Manual curation for TS-198 — public employer identity aliases"
+families:
+  CPWD:
+    label: Central Public Works Department
+    aliases:
+      - central public works department
+      - cpwd
+      - c.p.w.d.
+      - public works department
+    abbreviations:
+      e.e.: ""
+      er.: ""
+      pwd: public works department
+    division_patterns:
+      - "div(?:ision)?[- ]?([ivxlcdm]+|\\d+)"
+    region_patterns:
+      - "\\b(pune|mumbai|delhi|chennai|kolkata|bengaluru|hyderabad)\\b"
+  NHAI:
+    label: National Highways Authority of India
+    aliases:
+      - national highways authority of india
+      - nhai
+  MAHARASHTRA_PWD:
+    label: Maharashtra Public Works Department
+    aliases:
+      - maharashtra pwd
+      - maha pwd
+      - public works department maharashtra
+    division_patterns:
+      - "div(?:ision)?[- ]?([ivxlcdm]+|\\d+)"
+    region_patterns:
+      - "\\b(pune|mumbai|nagpur|nashik|aurangabad)\\b"
+  RAILWAYS:
+    label: Indian Railways
+    aliases:
+      - indian railways
+      - railway
+      - ircon
+      - rites

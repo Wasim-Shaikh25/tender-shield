@@ -322,8 +322,8 @@ Tracker: `tasks/phase16_tracker.md`.
 | TS-195 | `marketdata` module scaffold: ModuleSpec, config flag, registry capabilities, graceful absence | Strategy §C.1 | `specs/modules/marketdata.md` | done |
 | TS-196 | Corpus schema + migrations: `md_tenders`, `md_awards`, `md_employers`, `md_profiles`, `md_harvest_runs` (OCDS-shaped, non-tenant) | Strategy §A.2, §C.1 | `specs/modules/marketdata.md` | done |
 | TS-197 | Source adapters P0: CPPP + one state NIC portal — legality review recorded in adapter docstring, robots/rate-limit compliant | Strategy §A.2 | `specs/eval-at-scale.md` §2.2 | todo |
-| TS-198 | Employer identity resolution: deterministic normalization to family/division/region with confidence; unresolved stays unresolved | Strategy §C.1 | `specs/modules/marketdata.md` | todo |
-| TS-199 | Deterministic aggregates + sample-size suppression (n ≥ 12) + comparable-set builder that returns its own filter | Strategy §C.1 | `specs/modules/marketdata.md` | todo |
+| TS-198 | Employer identity resolution: deterministic normalization to family/division/region with confidence; unresolved stays unresolved | Strategy §C.1 | `specs/modules/marketdata.md` | done |
+| TS-199 | Deterministic aggregates + sample-size suppression (n ≥ 12) + comparable-set builder that returns its own filter | Strategy §C.1 | `specs/modules/marketdata.md` | done |
 | TS-200 | Employer context block on risk findings + `/api/marketdata/*` read routes | Strategy §C.1 | `specs/modules/marketdata.md` | todo |
 
 ### 16.B — Pricing intelligence (`pricing-intel`) — moat 2

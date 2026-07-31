@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from app.modules.rulepacks.schemas import (
     DocType,
     DocumentPrecedence,
+    EmployerFamilies,
     NoticeCategory,
     NoticeStandard,
     PackMeta,
@@ -124,6 +125,16 @@ class RulePackLoader:
                 pack.load_errors["document_precedence.yaml"] = str(exc)
                 logger.error("skipping malformed document_precedence in pack %r", pack_id)
 
+        families_path = pack_dir / "employer_families.yaml"
+        if families_path.is_file():
+            try:
+                pack.employer_families = EmployerFamilies.model_validate(
+                    _read_yaml(families_path)
+                )
+            except (ValidationError, yaml.YAMLError) as exc:
+                pack.load_errors["employer_families.yaml"] = str(exc)
+                logger.error("skipping malformed employer_families in pack %r", pack_id)
+
         self._cache[pack_id] = pack
         return pack
 
@@ -178,3 +189,6 @@ class RulePackLoader:
         if validated_only:
             return [p for p in patterns if p.confidence == "validated"]
         return list(patterns)
+
+    def employer_families(self, pack_id: str) -> EmployerFamilies | None:
+        return self.get_pack(pack_id).employer_families

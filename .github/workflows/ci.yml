@@ -46,6 +46,9 @@ jobs:
           pip-audit --desc --local
       - name: Test
         run: pytest -q
+      - name: Eval smoke (M1 + M4)
+        run: python ../scripts/eval_ci_smoke.py --limit 10
+        working-directory: backend
       - name: Alembic up/down check (scratch DB)
         env:
           TS_DATABASE_URL: sqlite:///./_ci_scratch.db

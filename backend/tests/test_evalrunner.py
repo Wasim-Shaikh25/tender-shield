@@ -332,7 +332,7 @@ def test_run_batch_cost_guard_aborts_cleanly(corpus, tmp_path, monkeypatch):
     whatever completed intact — never a crash, never silent overspend."""
     import app.evalrunner.tasks as tasks_mod
 
-    def _spendy(record, *, corpus_root, pack_id, model_id):
+    def _spendy(record, *, corpus_root, pack_id, model_id, **kwargs):
         from app.evalrunner.pipeline import run_tender
         from app.modules.risk.classifier import NullClassifier
         from app.modules.rulepacks.loader import RulePackLoader

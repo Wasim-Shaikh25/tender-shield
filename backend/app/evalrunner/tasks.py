@@ -46,6 +46,7 @@ def process_tender(
     corpus_root: str,
     pack_id: str = "in-works",
     model_id: str = "none",
+    run_m4_checks: bool = False,
 ) -> dict:
     store = CorpusStore(corpus_root)
     pack = RulePackLoader().get_pack(pack_id)
@@ -57,5 +58,6 @@ def process_tender(
         classifier=classifier,
         model_id=model_id,
         settings=Settings(),
+        run_m4_checks=run_m4_checks,
     )
     return result.to_dict()

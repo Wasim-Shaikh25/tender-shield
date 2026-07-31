@@ -92,6 +92,7 @@ class Metrics:
     m1_pass_rate: float | None = None
     m2_match_rate: float | None = None
     m4_pass_rate: float | None = None
+    m3_l1_mape: float | None = None
     quote_verbatim_rate: float | None = None
     citation_completeness_rate: float | None = None
     crash_rate: float | None = None          # unknown_error + parse_failed + ocr_failed + timeout
@@ -111,6 +112,7 @@ class Metrics:
             "m1_pass_rate": self.m1_pass_rate,
             "m2_match_rate": self.m2_match_rate,
             "m4_pass_rate": self.m4_pass_rate,
+            "m3_l1_mape": self.m3_l1_mape,
             "quote_verbatim_rate": self.quote_verbatim_rate,
             "citation_completeness_rate": self.citation_completeness_rate,
             "crash_rate": self.crash_rate,
@@ -221,17 +223,19 @@ def compute_metrics(run: RunData) -> Metrics:
         passed = sum(1 for r in m4_graded if (r.get("m4_summary") or {}).get("ok"))
         m.m4_pass_rate = passed / len(m4_graded)
 
+    backtest_path = run.run_dir / "backtest.json"
+    if backtest_path.exists():
+        backtest = json.loads(backtest_path.read_text())
+        m.m3_l1_mape = backtest.get("l1_mape")
+
     not_yet: list[str] = []
     if m.m2_match_rate is None:
         not_yet.append("Deadline / tender-value exact match vs portal (M2) — TS-227")
     if m.m4_pass_rate is None:
         not_yet.append("Metamorphic consistency (M4) — TS-229")
-    not_yet.extend(
-        [
-            "L1 backtest MAPE (M3) — TS-228",
-            "Gold-set recall / critical recall / noise (M5) — TS-233",
-        ]
-    )
+    if m.m3_l1_mape is None:
+        not_yet.append("L1 backtest MAPE (M3) — TS-228")
+    not_yet.append("Gold-set recall / critical recall / noise (M5) — TS-233")
     m.not_yet_available = not_yet
     return m
 
@@ -335,8 +339,11 @@ def render_scorecard(run: RunData, metrics: Metrics) -> str:
         _fmt_pct(metrics.m4_pass_rate) if metrics.m4_pass_rate is not None else "n/a — TS-229"
     )
     lines.append(row("Metamorphic consistency (M4)", "100%", m4_val, m4_ok))
+    m3_val = (
+        _fmt_pct(metrics.m3_l1_mape) if metrics.m3_l1_mape is not None else "n/a — TS-228"
+    )
     lines += [
-        row("L1 backtest MAPE", "baseline first", "n/a — TS-228", None),
+        row("L1 backtest MAPE", "baseline first", m3_val, None),
         row("Gold-set critical recall", "≥ 90%", "n/a — TS-233", None),
     ]
 

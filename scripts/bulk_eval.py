@@ -56,6 +56,7 @@ def main() -> int:
     ap.add_argument("--concurrency", type=int, default=4)
     ap.add_argument("--max-total-tokens", type=int)
     ap.add_argument("--max-wall-seconds", type=float)
+    ap.add_argument("--run-m4", action="store_true", help="run M4 metamorphic checks per tender")
     args = ap.parse_args()
 
     summary = run_batch(
@@ -70,6 +71,7 @@ def main() -> int:
         concurrency=args.concurrency,
         max_total_tokens=args.max_total_tokens,
         max_wall_seconds=args.max_wall_seconds,
+        run_m4_checks=args.run_m4,
     )
     print(json.dumps(summary.to_dict(), indent=2))
 
@@ -78,6 +80,8 @@ def main() -> int:
     # M1's own bar is 100%; a bulk run that graded anything below that is the
     # signal CI should block on (specs/eval-at-scale.md §3.3).
     if summary.m1_pass_rate is not None and summary.m1_pass_rate < 1.0:
+        return 1
+    if args.run_m4 and summary.m4_pass_rate is not None and summary.m4_pass_rate < 1.0:
         return 1
     return 0
 

@@ -34,13 +34,13 @@ name its moat class, it is out of scope for Phase 16.
 |---|---|---|---|---|
 | **0** | **Measure before building** | TS-223 ✅, TS-226 ✅, TS-230 ✅ | Cost-per-review p50/p95 known; M1 invariants run on the existing 20-tender smoke slice | **done** |
 | **1** | **Corpus** | TS-224 ✅, TS-225, TS-197 ✅ | ≥1,000 tenders harvested across ≥3 sources with provenance; legality reviewed per adapter | in-progress |
-| **2** | **Prove correctness at scale** | TS-227 ✅, TS-229 ✅, TS-231, TS-232 | M1 100% pass on 1,000 tenders; M2 deadline match ≥95%; CI blocking on smoke slice | in-progress |
+| **2** | **Prove correctness at scale** | TS-227 ✅, TS-229 ✅, TS-231 ✅, TS-232 ✅ | M1 100% pass on 1,000 tenders; M2 deadline match ≥95%; CI blocking on smoke slice | in-progress |
 | **3** | **Graph** | TS-195 ✅, TS-196 ✅, TS-198 ✅, TS-199 ✅, TS-200 ✅ | Employer profiles queryable with suppression; comparable-set filter disclosed | **done** |
 | **4** | **Money math** | TS-201–TS-207 ✅ | Loadings byte-identical on re-run; no LLM dependency in module; export gate enforced | **done** |
 | **5** | **Revenue lane** | TS-208 ✅ … TS-214 ✅ | Stranger → teaser → pay → report, webhook-only activation, watermarked unreviewed export | done |
 | **6** | **Loop + accountability** | TS-215 ✅, TS-216 ✅, TS-217 ✅, TS-218 ✅, TS-219 ✅ | Outcomes recorded; contradictions detected; findings reproducible; corrections proposed not applied | in-progress |
 | **7** | **Domain ladder** | TS-220 ✅, TS-221 ✅, TS-222 (gated) | Third party can author a pack; 4 new trades ship as YAML only | **done** |
-| **8** | **Backtest + gold set** | TS-228, TS-233 | Time-split L1 backtest baseline published; 50-tender gold set annotated | todo |
+| **8** | **Backtest + gold set** | TS-228 ✅, TS-233 | Time-split L1 backtest baseline published; 50-tender gold set annotated | in-progress |
 
 ### Why this order
 
@@ -133,11 +133,11 @@ calendar-bound, not engineering-bound.
 | TS-225 | Adapters (4 sources) | scripts | — | P0 | todo | Legality review recorded per adapter | TS-224 |
 | TS-226 | M1 invariants | `evalinvariants` | — | P0 | **done** | 100% pass required; failure blocks release | TS-224 |
 | TS-227 | M2 metadata agreement | evals | — | P1 | todo | Triage into miss/wrong/portal-wrong | TS-225 |
-| TS-228 | M3 backtest | evals | 1 | P2 | todo | Time-based split, not random | TS-199 |
+| TS-228 | M3 backtest | evals | 1 | P2 | **done** | Time-based split, not random | TS-199 |
 | TS-229 | M4 metamorphic | evals | — | P1 | todo | 5 invariance properties | TS-226 |
 | TS-230 | Bulk runner | `evalrunner` | — | P0 | **done** | Resumable, sharded, cost-guarded, 1,000+ unattended | TS-226 |
 | TS-231 | Report + regression diff | `evalrunner` | — | P1 | **done** | Scorecard readable without raw data | TS-230 |
-| TS-232 | CI gates | CI | — | P1 | todo | Smoke blocks PRs; >2pt drop blocks change | TS-231 |
+| TS-232 | CI gates | CI | — | P1 | **done** | PR smoke blocks on M1+M4 failure | TS-231 |
 | TS-233 | Human gold set (50) | evals | — | P1 | todo | Slice table filled; annotated per §19 | — |
 | TS-294 | `Finding.document_id` | `findings` | 3 | P2 | **done** | Migration + writers updated | — |
 | TS-295 | `Finding.currency` | `findings` | 3 | P1 | **done** | Explicit ISO 4217 alongside amount_exposure | — |

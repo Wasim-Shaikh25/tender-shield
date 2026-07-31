@@ -1,6 +1,6 @@
 # `outcomes` — Bid Outcome & Risk Materialization Capture — Spec
 
-**Status:** draft
+**Status:** implemented (TS-215 scaffold; prefill TS-216 pending)
 **Requirement refs:** Build Doc §1.1(9), §11.5; `docs/TenderShield_Market_Strategy_2026.md` §C.6, §C.9
 **Task refs:** TS-215, TS-216
 

@@ -319,7 +319,7 @@ Tracker: `tasks/phase16_tracker.md`.
 
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
-| TS-195 | `marketdata` module scaffold: ModuleSpec, config flag, registry capabilities, graceful absence | Strategy §C.1 | `specs/modules/marketdata.md` | todo |
+| TS-195 | `marketdata` module scaffold: ModuleSpec, config flag, registry capabilities, graceful absence | Strategy §C.1 | `specs/modules/marketdata.md` | done |
 | TS-196 | Corpus schema + migrations: `md_tenders`, `md_awards`, `md_employers`, `md_profiles`, `md_harvest_runs` (OCDS-shaped, non-tenant) | Strategy §A.2, §C.1 | `specs/modules/marketdata.md` | todo |
 | TS-197 | Source adapters P0: CPPP + one state NIC portal — legality review recorded in adapter docstring, robots/rate-limit compliant | Strategy §A.2 | `specs/eval-at-scale.md` §2.2 | todo |
 | TS-198 | Employer identity resolution: deterministic normalization to family/division/region with confidence; unresolved stays unresolved | Strategy §C.1 | `specs/modules/marketdata.md` | todo |
@@ -342,7 +342,7 @@ Tracker: `tasks/phase16_tracker.md`.
 
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
-| TS-208 | `express` module scaffold + `ex_*` migrations; ephemeral internal workspace backing | Strategy §F.2 | `specs/modules/express-report.md` | todo |
+| TS-208 | `express` module scaffold + `ex_*` migrations; ephemeral internal workspace backing | Strategy §F.2 | `specs/modules/express-report.md` | done |
 | TS-209 | Anonymous session lifecycle: create (email + acknowledgment), upload with pre-buffer size caps, expiry, high-entropy tokens | Strategy §F.2 | `specs/modules/express-report.md` | todo |
 | TS-210 | Teaser renderer: full deadline wall + missing-doc checklist + severity counts + 2 complete cited findings | Strategy §F.2 | `specs/modules/express-report.md` | todo |
 | TS-211 | Server-owned tier price table + guest checkout (Razorpay India / Stripe GCC-UK); client never sends an amount | Build Doc §15; audit TS-B01 | `specs/modules/express-report.md` | todo |
@@ -354,7 +354,7 @@ Tracker: `tasks/phase16_tracker.md`.
 
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
-| TS-215 | `outcomes` module + `oc_*` workspace-scoped migrations; record/read bid outcome and risk materialization | Build Doc §1.1(9); Strategy §C.6 | `specs/modules/outcomes.md` | todo |
+| TS-215 | `outcomes` module + `oc_*` workspace-scoped migrations; record/read bid outcome and risk materialization | Build Doc §1.1(9); Strategy §C.6 | `specs/modules/outcomes.md` | done |
 | TS-216 | Prefill from public award record via `marketdata` with one-click confirm; manual path always available | Strategy §C.6 | `specs/modules/outcomes.md` | todo |
 
 ### 16.E — Cross-cutting moat work

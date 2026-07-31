@@ -1,6 +1,6 @@
 # `marketdata` — Employer Behaviour Graph — Spec
 
-**Status:** draft
+**Status:** scaffold implemented (TS-195); harvest/aggregates pending TS-196–TS-200
 **Requirement refs:** `docs/TenderShield_Market_Strategy_2026.md` §A.2, §C.1, §B.2 (moat class 1)
 **Task refs:** TS-195 – TS-200
 

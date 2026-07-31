@@ -1,0 +1,24 @@
+# Which document instance governs when a canonical fact (bid validity, EMD,
+# submission datetime, LD rate, DLP, retention) disagrees across documents
+# within the same tender pack (TS-217, Strategy §C.5).
+#
+# No single public standard mandates this ranking globally — it mirrors the
+# precedence-of-documents clause pattern used in FIDIC-derived GCC/SCC pairs
+# and CPWD/state-PWD tender documents: an addendum/corrigendum is issued
+# later in the process specifically to amend what came before it; special/
+# particular conditions are drafted to override the general conditions for
+# the specific work; the notice inviting tender carries the least
+# contractual weight of the four. `unvalidated` until a QS sign-off checks
+# this against a sample of real employer tender documents.
+id: document_precedence
+confidence: unvalidated
+source: >
+  General contracting practice inferred from FIDIC-style precedence-of-documents
+  clauses and common CPWD/state-PWD tender structuring; no single public
+  authority mandates this ranking, so it ships unvalidated pending QS review.
+default_order: [addendum, scc, gcc, nit]
+
+# Keyed by Opportunity.employer_family. Empty by design — an override is
+# real employer-specific contractual data, not something to fabricate ahead
+# of seeing one (same pattern as rulepacks/in-works/rates/README.md).
+employer_family_overrides: {}

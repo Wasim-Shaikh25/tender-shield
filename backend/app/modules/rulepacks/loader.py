@@ -10,9 +10,11 @@ from pydantic import ValidationError
 
 from app.modules.rulepacks.schemas import (
     DocType,
+    DocumentPrecedence,
     NoticeCategory,
     NoticeStandard,
     PackMeta,
+    RateSchedule,
     RiskPattern,
     RulePack,
     TradeChecklist,
@@ -97,6 +99,31 @@ class RulePackLoader:
                 pack.load_errors[f"notice_standards/{path.name}"] = str(exc)
                 logger.error("skipping malformed notice standard %s in pack %r", path.name, pack_id)
 
+        rates_dir = pack_dir / "rates"
+        authority_dirs = (
+            sorted(p for p in rates_dir.glob("*") if p.is_dir()) if rates_dir.is_dir() else []
+        )
+        for authority_dir in authority_dirs:
+            for path in _glob_yaml(authority_dir):
+                try:
+                    schedule = RateSchedule.model_validate(_read_yaml(path))
+                    pack.rate_schedules[f"{schedule.authority}/{schedule.year}"] = schedule
+                except (ValidationError, yaml.YAMLError) as exc:
+                    pack.load_errors[f"rates/{authority_dir.name}/{path.name}"] = str(exc)
+                    logger.error(
+                        "skipping malformed rate schedule %s in pack %r", path.name, pack_id
+                    )
+
+        precedence_path = pack_dir / "document_precedence.yaml"
+        if precedence_path.is_file():
+            try:
+                pack.document_precedence = DocumentPrecedence.model_validate(
+                    _read_yaml(precedence_path)
+                )
+            except (ValidationError, yaml.YAMLError) as exc:
+                pack.load_errors["document_precedence.yaml"] = str(exc)
+                logger.error("skipping malformed document_precedence in pack %r", pack_id)
+
         self._cache[pack_id] = pack
         return pack
 
@@ -130,6 +157,20 @@ class RulePackLoader:
             source=f"{base.source}; {overlay.source}",
             categories=list(merged.values()),
         )
+
+    def document_precedence(
+        self, pack_id: str, employer_family: str | None = None
+    ) -> list[str]:
+        """Highest-precedence-first document `kind` order (TS-217). Returns
+        `[]` when the pack ships no `document_precedence.yaml` at all — the
+        caller (crossref.contradictions) owns the ultimate hardcoded fallback,
+        same graceful-absence contract as `rate_schedules`."""
+        dp = self.get_pack(pack_id).document_precedence
+        if dp is None:
+            return []
+        if employer_family and employer_family in dp.employer_family_overrides:
+            return list(dp.employer_family_overrides[employer_family])
+        return list(dp.default_order)
 
     def list_patterns(self, pack_id: str, *, validated_only: bool = False) -> list[RiskPattern]:
         """validated_only=True is the paying-user view (spec rulepacks B2)."""

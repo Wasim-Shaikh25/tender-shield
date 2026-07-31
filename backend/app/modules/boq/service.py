@@ -33,11 +33,19 @@ class BoqEngine:
         loader = self._loader_provider()
         return loader.get_pack(self._pack_id) if loader else None
 
-    def check_dataframe(self, df: pd.DataFrame) -> list[Finding]:
+    def normalize_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
+        """The canonical-schema normalization step alone, for consumers (e.g.
+        `pricing`'s rate benchmarking) that need normalized rows rather
+        than defect findings. Exposed on the already-published `boq.engine`
+        capability so no new registry entry is needed."""
         pack = self._pack()
         unit_canon = pack.unit_canon if pack else _FALLBACK_UNIT_CANON
+        return normalize(df, unit_canon)
+
+    def check_dataframe(self, df: pd.DataFrame) -> list[Finding]:
+        pack = self._pack()
         cfg = pack.boq_checks if pack else None
-        normalized = normalize(df, unit_canon)
+        normalized = self.normalize_dataframe(df)
         return run_checks(
             normalized,
             tolerance=cfg.arithmetic_tolerance if cfg else 1.0,

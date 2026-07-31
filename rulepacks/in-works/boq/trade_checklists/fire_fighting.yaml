@@ -1,0 +1,42 @@
+# Fire-fighting scope-gap checklist (Doc §6.4). Domain-ladder Rung 1
+# (Strategy §D.2) — one YAML, zero code. Phase-0 draft from public sources;
+# unvalidated until QS checkpoint.
+id: fire_fighting
+trade: fire_fighting
+confidence: unvalidated
+source: >
+  National Building Code of India (NBC) 2016 Part 4 (Fire and Life Safety);
+  CPWD General Specifications for Fire Fighting Installations, 2016 —
+  standard fire-protection scope items commonly omitted from BOQs per
+  published estimation guidance.
+items:
+  - key: fire_pump_room
+    label: Fire pump room (main/standby/jockey pumps)
+    severity: high
+    triggers: ["fire hydrant system", "wet riser", "sprinkler system"]
+    boq_patterns: ["fire pump", "jockey pump", "pump room"]
+  - key: hose_reel_cabinets
+    label: Hose reel drums and cabinets
+    severity: medium
+    triggers: ["wet riser", "fire hydrant", "landing valve"]
+    boq_patterns: ["hose reel", "hose cabinet"]
+  - key: fire_alarm_detection
+    label: Fire detection & alarm system (smoke/heat detectors, panel)
+    severity: high
+    triggers: ["fire alarm", "life safety", "occupancy above", "high rise"]
+    boq_patterns: ["smoke detector", "heat detector", "fire alarm panel", "FACP"]
+  - key: sprinkler_coverage
+    label: Sprinkler coverage in all fire-rated compartments
+    severity: high
+    triggers: ["sprinkler system", "basement parking", "storage occupancy"]
+    boq_patterns: ["sprinkler head", "sprinkler pipe"]
+  - key: refuge_area_signage
+    label: Refuge area & fire exit signage
+    severity: medium
+    triggers: ["high rise", "refuge area", "means of escape"]
+    boq_patterns: ["exit signage", "refuge area sign", "photoluminescent"]
+  - key: fire_extinguishers
+    label: Portable fire extinguishers by occupancy class
+    severity: low
+    triggers: ["fire safety", "occupancy certificate"]
+    boq_patterns: ["fire extinguisher", "ABC extinguisher", "CO2 extinguisher"]

@@ -1,0 +1,41 @@
+# Structural steel scope-gap checklist (Doc §6.4). Domain-ladder Rung 1
+# (Strategy §D.2) — one YAML, zero code. Phase-0 draft from public sources;
+# unvalidated until QS checkpoint.
+id: structural_steel
+trade: structural_steel
+confidence: unvalidated
+source: >
+  IS 800:2007 (General Construction in Steel — Code of Practice); IS 4014
+  (steel tubular scaffolding, erection safety) — ancillary items commonly
+  omitted from structural-steel BOQs per published estimation guidance.
+items:
+  - key: fireproofing_coating
+    label: Intumescent / fireproofing coating to structural members
+    severity: high
+    triggers: ["structural steel", "steel frame building", "fire rating required"]
+    boq_patterns: ["intumescent", "fireproof coating", "fire rated paint"]
+  - key: anti_corrosive_treatment
+    label: Anti-corrosive primer / galvanizing
+    severity: high
+    triggers: ["structural steel", "exposed steel", "coastal", "industrial shed"]
+    boq_patterns: ["anti-corrosive", "galvanizing", "galvanised", "zinc primer"]
+  - key: welding_ndt
+    label: Non-destructive testing (NDT) of site welds
+    severity: high
+    triggers: ["site welding", "structural steel", "welded connection"]
+    boq_patterns: ["NDT", "ultrasonic testing", "weld testing", "DPT"]
+  - key: erection_tolerance_survey
+    label: Erection tolerance survey / plumb and level check
+    severity: medium
+    triggers: ["steel erection", "multi-storey steel frame"]
+    boq_patterns: ["erection survey", "plumb check", "total station survey"]
+  - key: base_plate_grouting
+    label: Base plate grouting (non-shrink grout)
+    severity: medium
+    triggers: ["column base plate", "steel column", "anchor bolt"]
+    boq_patterns: ["non-shrink grout", "base plate grouting", "epoxy grout"]
+  - key: bolted_connection_torquing
+    label: High-strength friction grip (HSFG) bolt torquing & inspection
+    severity: medium
+    triggers: ["bolted connection", "HSFG", "friction grip"]
+    boq_patterns: ["torquing", "bolt tensioning", "HSFG bolt"]

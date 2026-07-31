@@ -61,12 +61,12 @@ until Phase-1 exit gates pass (§10).
 | TS-031 | Deploy scaffolding: Postgres docker-compose + backend/frontend Dockerfiles + `.env.example` | Doc §4, §11.1 | — | done |
 | TS-032 | Frontend CI (npm build) job in GitHub Actions | Doc §11.1 | — | done |
 | TS-033 | tus resumable upload; (Textract NOT required — open-source scanned-table path shipped in TS-039) | Doc §4, §6.1 | `specs/modules/ingestion.md` | done |
-| TS-039 | Scanned-table BOQ via rapid-table (offline ONNX, NO cloud) + HTML→CSV; wired as BOQ-upload fallback | Doc §6.1, §12.4 | `specs/modules/ingestion.md` | done (model download on first use; not sandbox-verified) |
+| TS-039 | Scanned-table BOQ via rapid-table (offline ONNX, NO cloud) + HTML→CSV; wired as BOQ-upload fallback — NOTE: ONNX model downloads on first use; not verified in a sandbox | Doc §6.1, §12.4 | `specs/modules/ingestion.md` | done |
 | TS-038 | Local OCR (RapidOCR, offline) + PDF table extraction (pdfplumber) — no cloud; OCR provider interface + honest needs_ocr degradation | Doc §6.1, §12.4 | `specs/modules/ingestion.md` | done |
 | TS-034 | Celery + Redis: async page-streamed processing (SSE) | Doc §3.1, §3.3 | — | done |
-| TS-035 | SES/Resend + MSG91 send adapters behind the notifications interface | Doc §4, §11.6 | — | done (skeletons in place; needs live keys) |
-| TS-036 | Phone OTP (MSG91) + Google OIDC login | Doc §5 | `specs/modules/auth.md` | done (skeletons in place; needs live keys) |
-| TS-037 | Stripe (GCC/UK) provider + live Razorpay keys behind the billing interface | Doc §7, §15.6 | `specs/modules/billing.md` | done (skeletons in place; needs live keys) |
+| TS-035 | SES/Resend + MSG91 send adapters behind the notifications interface — BLOCKED: adapters written, needs live provider credentials to verify | Doc §4, §11.6 | — | blocked |
+| TS-036 | Phone OTP (MSG91) + Google OIDC login — BLOCKED: needs live provider credentials to verify | Doc §5 | `specs/modules/auth.md` | blocked |
+| TS-037 | Stripe (GCC/UK) provider + live Razorpay keys behind the billing interface — BLOCKED: needs live provider credentials to verify | Doc §7, §15.6 | `specs/modules/billing.md` | blocked |
 
 ## Phase 1 — UX & docs
 
@@ -135,18 +135,18 @@ staying inside the tender-review domain. Full requirements and tracker:
 | TS-076 | Rename `org_id` → `workspace_id` across all modules, RLS, and `core.db` | architecture; Doc §3.2 | `specs/data-model.md` (update) | done |
 | TS-077 | Workspace/project CRUD, sharing/invites, super-admin endpoints, and 2FA method | product; Doc §5, §16 | `specs/modules/auth.md` (update) | done |
 | TS-078 | Update tests and verify `ruff`/`pytest`/frontend build for tenant refactor | testing; Doc §11.1 | — | done |
-| TS-079 | Real email/SMS delivery for `email`/`sms` MFA and OTP codes | product; Doc §5 | `specs/modules/auth.md` (update), `specs/modules/notifications.md` (update) | done (skeletons in place; needs live keys) |
+| TS-079 | Real email/SMS delivery for `email`/`sms` MFA and OTP codes — BLOCKED: needs live provider credentials to verify | product; Doc §5 | `specs/modules/auth.md` (update), `specs/modules/notifications.md` (update) | blocked |
 | TS-080 | Real web automation validation of signup -> workspace -> project -> invite flow | testing; Doc §11.1 | — | done |
-| TS-081 | Fix `accept_invitation` naive/aware datetime comparison and add invitation flow test | bugfix; Doc §11.1 | `tests/test_auth_module.py` (update) | done |
+| TS-081 | Fix `accept_invitation` naive/aware datetime comparison and add invitation flow test | bugfix; Doc §11.1 | `backend/tests/test_auth_module.py` (update) | done |
 | TS-082 | Forgot-password and reset-password flow (token via email, dev mode returns token) | product; Doc §5 | `specs/modules/auth.md` (update) | done |
 
 ## Notes
 
 - A task moves to `in-progress` when work starts and `done` in the commit that
-  completes it, with the task ID in the commit body.| done || done || done (skeletons in place; needs live keys) || done (skeletons in place; needs live keys) || done (skeletons in place; needs live keys) || done || done || done || done (skeletons in place; needs live keys) |
+  completes it, with the task ID in the commit body.| done || done || blocked || blocked || blocked || done || done || done || blocked |
 - New requirements → new `TS-###` rows here first, then a spec, then code.
 - Hardening items marked `(needs …)` are logic-ready but require external
-  accounts/services to complete; the interfaces they plug into are already built.| done || done || done (skeletons in place; needs live keys) || done (skeletons in place; needs live keys) || done (skeletons in place; needs live keys) || done || done || done || done (skeletons in place; needs live keys) |
+  accounts/services to complete; the interfaces they plug into are already built.| done || done || blocked || blocked || blocked || done || done || done || blocked |
 
 ## Production readiness audit fixes (2026-07-29)
 
@@ -271,7 +271,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-160 | XLSX/CSV text extraction does not emit page markers, so spreadsheet-derived deadlines and clauses lose page provenance | audit TS-I10; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | done |
 | TS-161 | Email/password login selects an arbitrary workspace for multi-workspace users | audit TS-A17; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/auth.md` (update) | done |
 | TS-162 | Severity evaluator silently defaults missing facts to 0 | audit TS-R03; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/risk.md` (update) | done |
-| TS-163 | Account-centric auth re-architecture: account as top-level identity, workspace created after login, OTP on every login, remove social login, email+mobile verification, account/security settings | user request; Doc §5 | `specs/modules/auth.md`, `specs/frontend.md` (update) | done (backend + core frontend); settings UI pending |
+| TS-163 | Account-centric auth re-architecture: account as top-level identity, workspace created after login, OTP on every login, remove social login, email+mobile verification, account/security settings | user request; Doc §5 | `specs/modules/auth.md`, `specs/frontend.md` (update) | in-progress |
 | TS-164 | Replace Anthropic LLM integration with OpenRouter (OpenAI-compatible API) for risk classifier and assistant agent | user request; `PRODUCTION_READINESS_AUDIT.md` TS-R02/TS-A14 | `specs/modules/risk.md`, `specs/modules/assistant.md`, `docs/deployment.md` | done |
 | TS-165 | Add MinIO storage example to production env and deployment docs | user request | `.env.prod`, `docs/deployment.md` | done |
 | TS-166 | Create end-to-end automation test scenarios doc and check in the end-to-end audit prompt | user request | `evals/e2e/` | done |
@@ -284,7 +284,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-173 | Support tickets module: create/reply/admin manage tickets with attachments | TS-170 | `backend/app/modules/support/`, `specs/modules/support.md` | done |
 | TS-174 | User analysis/reports: risk summary, deadline dashboard, BOQ defect summary, report export | TS-170 | `backend/app/modules/analytics/`, `specs/modules/analytics.md` | done |
 | TS-175 | Observability log search: admin audit-log/log search with filters | TS-170 | `backend/app/core/audit.py`, `backend/app/modules/auth/router.py`, `specs/modules/admin.md` | done |
-| TS-176 | Close remaining product needs: notification preferences UI, admin/billing/support/analytics UI, local infra, E2E automation, alerting runbooks | user request | `frontend/`, `docker-compose.yml`, `evals/e2e/playwright`, `docs/runbooks/` | done |
+| TS-176 | Close remaining product needs: notification preferences UI, admin/billing/support/analytics UI, local infra, E2E automation, alerting runbooks | user request | `frontend/`, `docker-compose.yml`, `frontend/e2e/`, `docs/runbooks/` | done |
 | TS-177 | Format analytics dashboard: render risk/deadline/BOQ summaries as cards and tables instead of raw JSON | user request | `frontend/app/analytics/page.tsx` | done |
 | TS-178 | Add OpenTelemetry tracing and self-hosted Jaeger/Grafana observability stack with automation to verify traces | user request | `backend/app/core/tracing.py`, `docker-compose.yml`, `docs/runbooks/observability.md`, `scripts/verify-traces.sh` | done |
 | TS-179 | Update testing skill with observability demo notes (Jaeger/Grafana/network) | TS-178 | `.agents/skills/testing-tendershield/SKILL.md` | done |
@@ -297,11 +297,236 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-186 | Scope AI assistant retrieval to user account/workspace and add admin chat mode for super-admins | user request | `backend/app/modules/assistant/`, `specs/modules/assistant.md` | done |
 | TS-187 | Microsoft Office MCP server for QS engineers: read/write Word/Excel tender data | user request | `mcp-servers/office-mcp/`, `specs/modules/mcp-office.md`, `docs/integrations/office-mcp.md` | done |
 | TS-188 | AI-generated dynamic tender plan dashboard: natural-language query with dynamic charts, sequence diagrams, and mind maps | user request | `backend/app/modules/analytics/`, `frontend/app/plan/`, `specs/modules/plan-dashboard.md` | done |
-| TS-189 | Add backend tests and audit-log verification for assistant scoping, admin chat, and plan dashboard | TS-186/188 follow-up | `backend/tests/`, `backend/app/modules/assistant/tests/`, `backend/app/modules/analytics/tests/` | done |
+| TS-189 | Add backend tests and audit-log verification for assistant scoping, admin chat, and plan dashboard | TS-186/188 follow-up | `backend/tests/`, `backend/tests/test_assistant.py`, `backend/tests/test_analytics.py` | done |
 | TS-190 | Integrate Office MCP server with TenderShield API so QS engineers can pull opportunities/findings into Word/Excel | TS-187 follow-up | `mcp-servers/office-mcp/`, `docs/integrations/office-mcp.md` | done |
 | TS-191 | Add plan dashboard templates, saved snapshots, and export to PowerPoint/PDF | TS-188 follow-up | `frontend/app/plan/`, `backend/app/modules/analytics/`, `specs/modules/plan-dashboard.md` | done |
 | TS-192 | Add user-facing plan upgrade/downgrade endpoints and UI | user request | `backend/app/modules/billing/`, `frontend/app/billing/`, `specs/modules/billing.md` | done |
-|| TS-193 | Reframe AI plan dashboard as the assistant: dedicated `/assistant` chat UI with collapsible dashboard panel for KPIs/tables/charts/Mermaid | user request; TS-188 | `specs/modules/assistant.md`, `frontend/app/assistant/`, `frontend/app/plan/page.tsx`, `frontend/components/plan-dashboard.tsx`, `backend/app/modules/assistant/` | done |
-|| TS-194 | Fix plan snapshot export 404 and default OpenRouter model to `openrouter/free` with clear no-key messaging | user request; E2E findings | `backend/app/modules/analytics/`, `backend/app/core/config.py`, `.env.*`, `specs/modules/plan-dashboard.md` | done |
-|| TS-195 | Make AI Assistant workspace-scoped instead of opportunity-scoped | user request; Build Doc §8 | `backend/app/modules/assistant/`, `frontend/app/assistant/page.tsx`, `frontend/lib/api.ts`, `specs/modules/assistant.md` | done |
-|| TS-196 | CI gate: fail a PR when code changed but `CHANGELOG.md` didn't (enforce CLAUDE.md §1.5) | user request; CLAUDE.md §1.5 "a push without a changelog entry is incomplete work" | `specs/902-changelog-check.md` | done |
+| TS-193 | Reframe AI plan dashboard as the assistant: dedicated `/assistant` chat UI with collapsible dashboard panel for KPIs/tables/charts/Mermaid | user request; TS-188 | `specs/modules/assistant.md`, `frontend/app/assistant/`, `frontend/app/plan/page.tsx`, `frontend/components/plan-dashboard.tsx`, `backend/app/modules/assistant/` | done |
+| TS-194 | Fix plan snapshot export 404 and default OpenRouter model to `openrouter/free` with clear no-key messaging | user request; E2E findings | `backend/app/modules/analytics/`, `backend/app/core/config.py`, `.env.*`, `specs/modules/plan-dashboard.md` | done |
+| TS-297 | Make AI Assistant workspace-scoped instead of opportunity-scoped | user request; Build Doc §8 | `backend/app/modules/assistant/`, `frontend/app/assistant/page.tsx`, `frontend/lib/api.ts`, `specs/modules/assistant.md` | done |
+| TS-298 | CI gate: fail a PR when code changed but `CHANGELOG.md` didn't (enforce CLAUDE.md §1.5) | user request; CLAUDE.md §1.5 "a push without a changelog entry is incomplete work" | `specs/902-changelog-check.md` | done |
+
+## Phase 16 — Defensibility, Domain-Agnosticism & Scale Validation
+
+Requirement source: `docs/TenderShield_Market_Strategy_2026.md`.
+Every task below maps to a **moat class** (Strategy §B.2): 1 = proprietary data,
+2 = deterministic computation, 3 = accountability, 4 = workflow position.
+A task that maps to no moat class does not belong in this phase.
+
+Tracker: `tasks/phase16_tracker.md`.
+
+### 16.A — Employer Behaviour Graph (`marketdata`) — moat 1
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-195 | `marketdata` module scaffold: ModuleSpec, config flag, registry capabilities, graceful absence | Strategy §C.1 | `specs/modules/marketdata.md` | todo |
+| TS-196 | Corpus schema + migrations: `md_tenders`, `md_awards`, `md_employers`, `md_profiles`, `md_harvest_runs` (OCDS-shaped, non-tenant) | Strategy §A.2, §C.1 | `specs/modules/marketdata.md` | todo |
+| TS-197 | Source adapters P0: CPPP + one state NIC portal — legality review recorded in adapter docstring, robots/rate-limit compliant | Strategy §A.2 | `specs/eval-at-scale.md` §2.2 | todo |
+| TS-198 | Employer identity resolution: deterministic normalization to family/division/region with confidence; unresolved stays unresolved | Strategy §C.1 | `specs/modules/marketdata.md` | todo |
+| TS-199 | Deterministic aggregates + sample-size suppression (n ≥ 12) + comparable-set builder that returns its own filter | Strategy §C.1 | `specs/modules/marketdata.md` | todo |
+| TS-200 | Employer context block on risk findings + `/api/marketdata/*` read routes | Strategy §C.1 | `specs/modules/marketdata.md` | todo |
+
+### 16.B — Pricing intelligence (`pricing-intel`) — moat 2
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-201 | `pricing-intel` module scaffold + `pi_*` migrations; assert module has no LLM client dependency | Strategy §C.2 | `specs/modules/pricing-intel.md` | done |
+| TS-202 | `price_impact` block in rulepack schema + named versioned formula registry with worked-example tests | Strategy §C.2 | `specs/modules/pricing-intel.md` | done |
+| TS-203 | Bid loading sheet: accepted findings → rupee loading with formula and inputs shown; missing input → no loading | Strategy §C.2 | `specs/modules/pricing-intel.md` | done |
+| TS-204 | SOR/DSR rulepack data format + loader (`rulepacks/<pack>/rates/<authority>/<year>.yaml`) | Strategy §C.4 | `specs/modules/pricing-intel.md` | done |
+| TS-205 | Rate benchmarking: two-band matching (code / description), headline variance from code matches only, unmatched reported | Strategy §C.4 | `specs/modules/pricing-intel.md` | done |
+| TS-206 | Cashflow & working-capital model with mandatory `assumptions[]` block; peak requirement + month | Strategy §C.3 | `specs/modules/pricing-intel.md` | done |
+| TS-207 | Pricing artifacts inherit the review export gate; excluded from unreviewed tiers (test-asserted) | Build Doc §11.4; Strategy §C.2 | `specs/modules/pricing-intel.md` | done |
+
+### 16.C — Express pay-per-report lane (`express`) — revenue / top of funnel
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-208 | `express` module scaffold + `ex_*` migrations; ephemeral internal workspace backing | Strategy §F.2 | `specs/modules/express-report.md` | todo |
+| TS-209 | Anonymous session lifecycle: create (email + acknowledgment), upload with pre-buffer size caps, expiry, high-entropy tokens | Strategy §F.2 | `specs/modules/express-report.md` | todo |
+| TS-210 | Teaser renderer: full deadline wall + missing-doc checklist + severity counts + 2 complete cited findings | Strategy §F.2 | `specs/modules/express-report.md` | todo |
+| TS-211 | Server-owned tier price table + guest checkout (Razorpay India / Stripe GCC-UK); client never sends an amount | Build Doc §15; audit TS-B01 | `specs/modules/express-report.md` | todo |
+| TS-212 | Webhook-only activation + full report delivery (in-app + emailed PDF); test proves redirect alone never unlocks | Build Doc §15.1 | `specs/modules/express-report.md` | todo |
+| TS-213 | `unreviewed` export variant: watermark on every page/format, acknowledgment logged with version/timestamp/IP, pricing outputs excluded | Build Doc §11.4; Strategy §F.2 | `specs/modules/express-report.md` | todo |
+| TS-214 | Anti-abuse (email/IP/document-hash limits, teaser dedupe), retention deletion job, magic-link claim into a workspace | Strategy §F.2 | `specs/modules/express-report.md` | todo |
+
+### 16.D — Outcome capture (`outcomes`) — moat 1
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-215 | `outcomes` module + `oc_*` workspace-scoped migrations; record/read bid outcome and risk materialization | Build Doc §1.1(9); Strategy §C.6 | `specs/modules/outcomes.md` | todo |
+| TS-216 | Prefill from public award record via `marketdata` with one-click confirm; manual path always available | Strategy §C.6 | `specs/modules/outcomes.md` | todo |
+
+### 16.E — Cross-cutting moat work
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-217 | Contradiction engine: fact-level cross-document disagreement + rulepack-configurable precedence naming the governing instance | Strategy §C.5 | `specs/modules/crossref.md` (update) | done |
+| TS-218 | Correction loop: aggregate review corrections per pattern per employer family → **proposed** rulepack overlay in admin console; never auto-mutate | Build Doc §11.5, §2.4; Strategy §C.9 | `specs/modules/rulepacks.md` (update) | todo |
+| TS-219 | Reproducibility chain: pin `rulepack_version`/`model_id`/`prompt_hash`/`document_hash`/`engine_version` on every finding; deterministic stages byte-identical on re-run | Strategy §C.7 | `specs/modules/findings.md` (update) | todo |
+
+### 16.F — Domain-agnosticism
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-220 | Pack SDK: schema, validator CLI, pack test harness so a third party can author and verify a pack | Strategy §D.4 | `specs/modules/rulepacks.md` (update) | done |
+| TS-221 | Ladder rung 1 trade checklists: plumbing/public-health, fire-fighting, structural steel, lifts (YAML only, zero code) | Strategy §D.2 | `rulepacks/in-works/boq/trade_checklists/` | done |
+| TS-222 | Ladder rung 2 patterns: supply-and-erection — customs/GST variation, split delivery/erection LD, PG tests, free-issue material, O&M tail | Strategy §D.2 | `specs/modules/rulepacks.md` (update) | todo |
+
+### 16.G — Profitability instrumentation
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-223 | Per-review cost instrumentation (tokens in/out/cached, OCR pages, worker seconds, storage) tagged by opportunity/rulepack/model; p50+p95 cost-per-review metric; token-ceiling test guarding the retrieval-first property | Strategy §G.2, §G.3 | `specs/modules/observability.md` (update) | done |
+
+### 16.H — Evaluation at scale (1,000+ tenders, automated)
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-224 | Corpus schema + `scripts/corpus_harvest.py` with pluggable adapter interface (`fetch_index`, `fetch_documents`), sha256 storage, full provenance | Strategy §A.2 | `specs/eval-at-scale.md` §2 | done |
+| TS-225 | Adapters: CPPP, state NIC, Etimad (official API), OCDS registry — each with recorded legality review and rate-limit compliance | Strategy §A.2, §E | `specs/eval-at-scale.md` §2.2 | todo |
+| TS-226 | M1 structural invariant suite (quote integrity, citations, no invented numbers, BOQ closure, determinism, currency, tenant isolation, degradation, budget, no-crash) | Build Doc §6.2, §6.5, §11.5 | `specs/eval-at-scale.md` §1 | done |
+| TS-227 | M2 portal-metadata agreement scoring with `extraction_miss`/`extraction_wrong`/`portal_wrong` triage | `specs/eval-at-scale.md` §1 | `specs/eval-at-scale.md` | todo |
+| TS-228 | M3 outcome backtest with **time-based** train/test split (L1 MAPE, bidder count, award latency, retender AUC) | Strategy §C.1 | `specs/eval-at-scale.md` §1 | todo |
+| TS-229 | M4 metamorphic checks: format, order, addendum monotonicity, redundancy, locale invariance | `specs/eval-at-scale.md` §1 | `specs/eval-at-scale.md` | todo |
+| TS-230 | `scripts/bulk_eval.py`: Celery fan-out, disposable workspace per tender, checkpoint/resume, sharding, cost guard + kill switch, failure classification | `specs/eval-at-scale.md` §3 | `specs/eval-at-scale.md` | done |
+| TS-231 | `scripts/eval_report.py`: `evals/runs/<run_id>/` scorecard + regression diff vs previous run on the same slice | Build Doc §11.5 | `specs/eval-at-scale.md` §3.2 | done |
+| TS-232 | CI wiring: 20-tender smoke per PR (M1+M4, blocking), 100-tender nightly, 1,000+ weekly; >2pt headline drop blocks the change | Build Doc §11.5 | `specs/eval-at-scale.md` §3.4 | todo |
+| TS-233 | M5 human gold set: 50 tenders composed per the slice table, annotated per Build Doc §19, stored under `evals/in-works/` | Build Doc §19, §14.2 | `specs/eval-at-scale.md` §1 | todo |
+
+### 16.I — North-star metric (added from founding research)
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-234 | **North-star metric — "verified contractor margin protected"**: deterministic computation over accepted risk allowances, declined-bid exposure avoided, and BOQ defects corrected pre-submission; excludes speculative value; grows as Phases 18–19 land | Research Doc §12.1; Roadmap §6.1 | `specs/modules/outcomes.md` (update) | todo |
+
+---
+
+### 16.J — Follow-ups discovered by the M1 invariant suite (TS-226)
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-294 | Add `Finding.document_id` (migration + risk/boq/qualification/standards writers) so quote/citation checks resolve to one document instead of any document sharing a page number | TS-226 finding; `specs/eval-at-scale.md` §1 | `specs/modules/findings.md` (update) | todo |
+| TS-295 | Add `Finding.currency` (ISO 4217) alongside `amount_exposure` so `check_currency_integrity` can assert an explicit currency, not just an int; required before Phase 16 multi-jurisdiction findings (Strategy §E.2) can be trusted cross-currency | TS-226 finding; Strategy §E.2 | `specs/modules/findings.md` (update) | todo |
+| TS-296 | Add `Finding.facts` (structured extraction facts, not just quote/detail) and `Opportunity.contract_value_minor` so `pricing.loading` can source real facts instead of caller-supplied query params | TS-203 finding; `specs/modules/pricing-intel.md` | `specs/modules/findings.md` (update), `specs/data-model.md` (update) | todo |
+
+## Phase 17 — Stage 2: Baseline Lock & Handover completion
+
+Requirement source: Research Doc §4.E, §5.2; `docs/TenderShield_Roadmap_Stage1_to_5.md` §4.
+**Unlock gate:** Phase 16 exit gates green.
+**Why:** change detection (Phase 18) diffs against a baseline. The `baseline` module freezes
+documents but produces none of the *controls* stage 3 consumes.
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-235 | Spec: `baseline` completion — controls, notice rules, cost codes, approval matrix, handover pack | Research Doc §4.E | `specs/modules/baseline.md` (update) | todo |
+| TS-236 | Award comparison: diff negotiated contract + accepted BOQ against tender assumptions; highlight concessions and new obligations with citations | Research Doc §5.2(10) | `specs/modules/baseline.md` | todo |
+| TS-237 | Risk → project watchlist: convert accepted tender findings into monitored project controls with owner, trigger and review cadence | Research Doc §4.E | `specs/modules/baseline.md` | todo |
+| TS-238 | Notice-rule register: per-contract notice types, trigger events, deadline arithmetic (deterministic), required content, correspondence addresses, authorized representatives | Research Doc §4.E, §5.2(13) | `specs/modules/standards.md` (update) | todo |
+| TS-239 | Approval matrix: role-based authority limits per action (notice issue, variation acceptance, claim submission) | Research Doc §4.E, §13 Negotiation | `specs/modules/auth.md` (update) | todo |
+| TS-240 | Cost-code model: create cost codes, map to BOQ items and variation categories; foundation for stage 3/4 valuation | Research Doc §4.E | `specs/modules/baseline.md` | todo |
+| TS-241 | Commercial handover pack export (site, planning, procurement, finance views) with hash-sealed baseline reference | Research Doc §4.E, §5.2(12) | `specs/modules/export.md` (update) | todo |
+| TS-242 | Baseline adoption telemetry: projects with a locked baseline, weekly active baseline users — measures the Phase 18 unlock gate | Research Doc §12.4 | `specs/modules/analytics.md` (update) | todo |
+
+---
+
+## Phase 18 — Stage 3: Change & Notice Control ★ recurring revenue
+
+Requirement source: Research Doc §4.F, §5.3; Roadmap §2, §4.
+**Unlock gate:** *"Two projects use baseline weekly"* (Research Doc §12.4 / Phase-2 exit).
+**Why this is the priority phase:** converts transactional revenue into per-project recurring
+subscription (Research Doc §10.1), and creates the first real switching cost in the product.
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-243 | Spec: `change` module — event model, sources, confidence, site confirmation, notice deadlines | Research Doc §4.F | `specs/modules/change.md` (new) | todo |
+| TS-244 | `change` module scaffold + migrations: `change_events`, `change_sources`, `change_confirmations` (workspace-scoped, RLS) | Research Doc §4.F | `specs/modules/change.md` | todo |
+| TS-245 | Baseline diff engine: compare new drawing/spec/instruction revisions against the locked baseline; emit candidate change events with citations | Research Doc §4.F, §5.3(15) | `specs/modules/change.md` | todo |
+| TS-246 | Change-signal ingestion: RFIs, site instructions, meeting minutes, daily reports — classified into candidate events with source provenance | Research Doc §4.F | `specs/modules/change.md` | todo |
+| TS-247 | Email ingestion adapter (forward-to-inbox address per project), with prompt-injection defenses for untrusted correspondence | Research Doc §4.F; Build Doc §11.3 | `specs/modules/change.md` | todo |
+| TS-248 | Potential-variation inbox: reason, source, affected scope, confidence band, triage queue | Research Doc §4.F | `specs/modules/change.md` | todo |
+| TS-249 | Impact linking: connect a change event to affected BOQ items, cost codes and subcontract packages | Research Doc §4.F | `specs/modules/change.md` | todo |
+| TS-250 | Site confirmation workflow: changed / not changed / clarification only / contractor risk / client risk / unknown — with recorded confirmer and timestamp | Research Doc §4.F, §5.3(16) | `specs/modules/change.md` | todo |
+| TS-251 | **Deterministic notice-deadline engine**: compute the notice deadline and required content from the Phase-17 notice-rule register; never LLM | Research Doc §4.F, §5.3(17); `CLAUDE.md` §4 | `specs/modules/change.md` | todo |
+| TS-252 | Deadline countdown, escalation rules and multi-channel alerts (email/WhatsApp) with per-event dedup | Research Doc §4.F | `specs/modules/notifications.md` (update) | todo |
+| TS-253 | Notice drafting: contract-specific template populated with **verified facts only**; three validators applied; human approval mandatory before issue | Research Doc §4.G, §5.3(18); Build Doc §6.5, §11.4 | `specs/modules/drafting.md` (update) | todo |
+| TS-254 | Evidence attachment + chain of custody on change events (type, date, creator, custody chain, event link) | Research Doc §4.G, §6.3 | `specs/modules/evidence.md` (new) | todo |
+| TS-255 | **Evidence-completeness scoring** per event with a list of missing contemporaneous records | Research Doc §2.1, §4.G | `specs/modules/evidence.md` | todo |
+| TS-256 | Per-project billing lane: project activation + per-project monthly subscription (server-owned prices, webhook-only activation) | Research Doc §10.1; Build Doc §15 | `specs/modules/billing.md` (update) | todo |
+
+---
+
+## Phase 19 — Stage 4: Claims & Evidence Workspace
+
+Requirement source: Research Doc §4.G, §5.3.
+**Unlock gate (both required, Research Doc §12.4):** *"Do not build claims valuation until users
+capture contemporaneous evidence in the platform"* **and** *"Document at least five real events
+before work completion."*
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-257 | Spec: `claims` module — chronology, quantum, delay register, negotiation tracking | Research Doc §4.G | `specs/modules/claims.md` (new) | todo |
+| TS-258 | `claims` module scaffold + migrations (workspace-scoped, RLS) | Research Doc §4.G | `specs/modules/claims.md` | todo |
+| TS-259 | Chronology builder from approved correspondence, revisions and confirmed events — every entry cited | Research Doc §4.G | `specs/modules/claims.md` | todo |
+| TS-260 | Evidence checklist per claim type: instruction, baseline, revised scope, labour, plant, material, schedule, photos, approvals | Research Doc §4.G | `specs/modules/evidence.md` (update) | todo |
+| TS-261 | **Quantum workspace**: deterministic quantity × rate × daywork calculation with reviewer sign-off; zero LLM arithmetic | Research Doc §4.G, §7.1; `CLAUDE.md` §4 | `specs/modules/claims.md` | todo |
+| TS-262 | Delay-event register with links to programme records; **no autonomous entitlement conclusion** | Research Doc §4.G | `specs/modules/claims.md` | todo |
+| TS-263 | Draft generators: interim particulars, variation proposal, EOT narrative, full claim package — facts injected, prose generated, all validators applied | Research Doc §4.G; Build Doc §6.5 | `specs/modules/drafting.md` (update) | todo |
+| TS-264 | Issue → response → negotiation → settlement tracking with outcome capture | Research Doc §4.G, §5.3(21) | `specs/modules/claims.md` | todo |
+| TS-265 | Outcome feedback into the private learning set: approved / negotiated / rejected / withdrawn / disputed | Research Doc §5.3(22) | `specs/modules/outcomes.md` (update) | todo |
+| TS-266 | Chain-integrity test: every claim traces to a notice → event → baseline obligation → tender clause; a broken link fails the build | Research Doc §14; Roadmap §5 | `specs/modules/claims.md` | todo |
+| TS-267 | Conflicts control: block serving opposing parties on the same project | Research Doc §11.1 | `specs/modules/auth.md` (update) | todo |
+| TS-268 | Claim-cycle-time and notice-timeliness workflow metrics | Research Doc §12.2 | `specs/modules/analytics.md` (update) | todo |
+| TS-269 | North-star extension: recovered claim value linked to TenderShield evidence feeds "margin protected" | Research Doc §12.1 | `specs/modules/outcomes.md` (update) | todo |
+| TS-270 | Site evidence capture: mobile geotagged photos, labour/plant/daywork records, offline sync, evidence-quality prompts | Research Doc §13 Site evidence | `specs/modules/evidence.md` (update) | todo |
+
+---
+
+## Phase 20 — Stage 5: Commercial Control Tower & Portfolio Intelligence
+
+Requirement source: Research Doc §4.H, §12.2.
+**Unlock gate:** Phase 19 in production use with at least one customer.
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-271 | Spec: `controltower` module — exposure model, dashboards, forecasting | Research Doc §4.H | `specs/modules/controltower.md` (new) | todo |
+| TS-272 | Commercial exposure model (deterministic): at-risk revenue, unnotified change, submitted / certified / rejected value, ageing, cash exposure | Research Doc §4.H | `specs/modules/controltower.md` | todo |
+| TS-273 | Project deadline + evidence-health dashboard | Research Doc §4.H | `specs/modules/controltower.md` | todo |
+| TS-274 | Risk-adjusted forecast at completion with explicit assumptions block | Research Doc §4.H | `specs/modules/controltower.md` | todo |
+| TS-275 | Client / consultant response-time analytics | Research Doc §4.H | `specs/modules/controltower.md` | todo |
+| TS-276 | Portfolio clause trends, recurring omission patterns and loss-reason analysis across projects | Research Doc §4.H | `specs/modules/analytics.md` (update) | todo |
+| TS-277 | Executive summaries with source links and drill-down | Research Doc §4.H | `specs/modules/controltower.md` | todo |
+| TS-278 | Payment control: RA/progress bill checklist, certification variance, retention and security release dates, ageing and collection actions | Research Doc §13 Payment control | `specs/modules/controltower.md` | todo |
+| TS-279 | Economics metrics: paid conversion, gross margin, CAC payback, project retention, expansion revenue | Research Doc §12.2 | `specs/modules/analytics.md` (update) | todo |
+| TS-280 | Customer-outcome metrics: risks priced, bad bids declined, omissions corrected, value notified/certified, hours saved | Research Doc §12.2 | `specs/modules/analytics.md` (update) | todo |
+
+---
+
+## Phase 21 — Integrations, Subcontract Control & Advisor Edition
+
+Requirement source: Research Doc §4.I, §8.3, §13.
+**Unlock gate:** *"Integration marketplaces only after workflow proof"* (Research Doc §10.2);
+*"Start with uploads/exports; add APIs after proven value"* (§12.3).
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-281 | Spec: integration adapter framework (auth, sync model, conflict handling, rate limits) | Research Doc §4.I | `specs/modules/integrations.md` (new) | todo |
+| TS-282 | SharePoint / OneDrive document-source adapter | Research Doc §4.I | `specs/modules/integrations.md` | todo |
+| TS-283 | Procore adapter (documents, RFIs, change events) | Research Doc §4.I | `specs/modules/integrations.md` | todo |
+| TS-284 | Autodesk Construction Cloud adapter | Research Doc §4.I | `specs/modules/integrations.md` | todo |
+| TS-285 | Oracle Aconex adapter | Research Doc §4.I | `specs/modules/integrations.md` | todo |
+| TS-286 | ERP adapter (cost codes, committed cost, certified value) — Tally / SAP / MS Dynamics shortlist | Research Doc §4.I | `specs/modules/integrations.md` | todo |
+| TS-287 | Schedule import: P6 / MS Project; event-to-activity links; contemporaneous programme snapshots | Research Doc §13 Schedule linkage | `specs/modules/integrations.md` | todo |
+| TS-288 | **Subcontract control**: flow-down clause comparison against the main contract, subcontract scope-gap checks | Research Doc §13 Subcontract control | `specs/modules/subcontract.md` (new) | todo |
+| TS-289 | Back-to-back notice calendar and **pay-when-paid exposure flags** across the subcontract chain | Research Doc §13 Subcontract control | `specs/modules/subcontract.md` | todo |
+| TS-290 | Advisor Edition: multi-client workspace separation, review queues, per-client usage billing | Research Doc §8.3, §10.1 | `specs/modules/advisor.md` (new) | todo |
+| TS-291 | White-label branded report templates for the advisor channel | Research Doc §8.3 | `specs/modules/export.md` (update) | todo |
+| TS-292 | Public API + e-signature integration for notice issue | Research Doc §4.I | `specs/modules/integrations.md` | todo |
+
+---
+
+## Tooling
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-293 | `scripts/task_tracker.py`: parse/validate `tasks/backlog.md`, report progress by phase, list incomplete/blocked tasks, cross-check tracker files; wired into CI as a blocking job | `CLAUDE.md` §1; user request | `scripts/task_tracker.py` | done |

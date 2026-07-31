@@ -1,0 +1,42 @@
+# Plumbing / public-health scope-gap checklist (Doc §6.4). Domain-ladder Rung 1
+# (Strategy §D.2) — one YAML, zero code. Phase-0 draft from public sources;
+# unvalidated until QS checkpoint.
+id: plumbing
+trade: plumbing
+confidence: unvalidated
+source: >
+  CPWD General Specifications for Water Supply, Drainage and Sanitation
+  Works, 2019; National Building Code of India (NBC) 2016 Part 9 (Plumbing
+  Services) — common ancillary items omitted from plumbing BOQs per published
+  estimation guidance.
+items:
+  - key: soil_waste_venting
+    label: Soil & waste vent pipe system
+    severity: high
+    triggers: ["soil pipe", "waste pipe", "sanitary installation", "toilet block"]
+    boq_patterns: ["vent pipe", "venting", "vent shaft"]
+  - key: trap_and_gully_traps
+    label: Gully traps / floor traps
+    severity: medium
+    triggers: ["drainage", "floor drain", "wet area"]
+    boq_patterns: ["gully trap", "floor trap", "nahani trap"]
+  - key: inspection_chambers
+    label: Inspection chambers / manholes on the drainage run
+    severity: high
+    triggers: ["underground drainage", "sewer line", "external drainage"]
+    boq_patterns: ["inspection chamber", "manhole", "IC "]
+  - key: water_supply_testing
+    label: Hydraulic pressure testing of water supply lines
+    severity: medium
+    triggers: ["water supply", "plumbing installation", "pipeline"]
+    boq_patterns: ["pressure testing", "hydro test", "hydraulic test"]
+  - key: rainwater_harvesting
+    label: Rainwater harvesting / groundwater recharge structure
+    severity: medium
+    triggers: ["terrace", "roof drainage", "site development"]
+    boq_patterns: ["rainwater harvesting", "recharge pit", "recharge well"]
+  - key: sewage_treatment_interface
+    label: Sewage treatment plant (STP) interface piping
+    severity: high
+    triggers: ["STP", "sewage treatment", "effluent"]
+    boq_patterns: ["STP interface", "effluent line", "treated water line"]

@@ -2,7 +2,7 @@
 
 **Status:** implemented — grounded, tool-first Q&A: deterministic intents (deadlines, findings by severity, missing docs, rule-pack lookup) with citations work with no key; off-topic questions refused; free-form questions use an injected LLM agent only when `TS_OPENROUTER_API_KEY` or `OPENROUTER_API_KEY` is set (grounded-only). User input is sanitized, delimited, and scanned for prompt-injection patterns before reaching the LLM. Versioned artifact-edit tool is a follow-up.
 **Requirement refs:** Doc §8, §11.3
-**Task refs:** TS-024, TS-112, TS-145, TS-164, TS-193, TS-195
+**Task refs:** TS-024, TS-112, TS-145, TS-164, TS-193, TS-297
 
 ## Purpose
 

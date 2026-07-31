@@ -1,4 +1,4 @@
-"""Tests for scripts/check_changelog.py (TS-196, specs/902-changelog-check.md)."""
+"""Tests for scripts/check_changelog.py (TS-298, specs/902-changelog-check.md)."""
 from __future__ import annotations
 
 import shutil

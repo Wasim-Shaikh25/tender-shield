@@ -4,7 +4,7 @@
 **Requirement refs:** `CLAUDE.md` §1.5 "Changelog every session... A push without
 a changelog entry is incomplete work."; `README.md` "Requirement → Task → Spec →
 Implement → Commit → Changelog."
-**Task refs:** TS-196
+**Task refs:** TS-298
 
 ## Purpose
 

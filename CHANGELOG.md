@@ -6,7 +6,534 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
-### Done — 2026-07-31 (TS-196: CI changelog-check gate)
+### Done — 2026-07-31 (Merge: `claude/product-market-value-bh65yr` → base, TS-195/196 renumbered to TS-297/298)
+
+Merged PR #69 (Phase 16 defensibility/domain-agnosticism/scale-validation work, TS-195–TS-296)
+into the base branch. The two branches had independently continued the sequential task-ID
+counter from the same point (last shared ID: TS-194), producing a real collision: the base
+had assigned TS-195 (workspace-scoped AI Assistant) and TS-196 (CI changelog-check gate) to
+two small tasks, while this branch had assigned TS-195–TS-296 to ~102 Phase 16–21 tasks with
+extensive internal cross-referencing (tracker dependency graphs, spec `Task refs`, prose
+ranges like "TS-195 – TS-233").
+
+- Renumbered the base's two colliding IDs — TS-195 → **TS-297**, TS-196 → **TS-298** — rather
+  than touching this branch's large, already-sequenced Phase 16–21 block, since that minimized
+  churn (5 files vs. ~71) and preserved the feature-grouped numbering the tracker docs depend on.
+- Updated every reference: `tasks/backlog.md` rows, `CHANGELOG.md` entry headings,
+  `specs/modules/assistant.md` and `specs/902-changelog-check.md` `Task refs`, and the
+  docstring in `scripts/tests/test_check_changelog.py`. The forward-looking "Next: TS-197"
+  suggestion (extend the changelog check to enforce Next-section task IDs) is renumbered to
+  **TS-299** to keep clear of this branch's real TS-197 (marketdata P0 adapters).
+- Resolved textual conflicts in `CHANGELOG.md` and `tasks/backlog.md` (both append-only logs;
+  kept both sides' entries). `.github/workflows/ci.yml`, `specs/README.md`, and the
+  `assistant` module (models/router/service/tools, migration `0c2f0e860d39`) auto-merged
+  cleanly with no conflicts.
+- Verified post-merge: `scripts/task_tracker.py --validate` reports 299 unique task IDs, no
+  duplicates; full backend suite 420 passed / 5 skipped; `ruff` and `mypy` clean across 193
+  files; the new `scripts/tests/test_check_changelog.py` suite (6 cases) passes.
+
+### Done — 2026-07-31 (TS-217: contradiction engine, extends `crossref`)
+
+Strategy §C.5's fact-level contradiction engine: when the same canonical fact is stated
+differently across a tender pack's own documents, name which one governs instead of leaving
+the user to notice the disagreement themselves.
+
+- **`backend/app/modules/crossref/facts.py`** (new) — deterministic, regex-only extraction
+  of six canonical fact types straight from each clause's own stored text: bid validity
+  (days), EMD (split into `emd_percent` and `emd_amount_minor` — a percentage-of-cost figure
+  and a flat currency amount are not the same quantity and must never be compared), LD rate
+  (rate + period, e.g. `"0.5%/week"`), DLP (months), retention (percent), and submission
+  datetime (parsed via Python's `date()` constructor; an impossible calendar date like 31 Feb
+  is silently skipped, never guessed at). No LLM anywhere in this path (`CLAUDE.md` §4).
+- **`backend/app/modules/crossref/contradictions.py`** (new) — groups verified facts by type;
+  a type where every instance agrees is not surfaced at all. Before grouping, every fact's
+  `source_quote` is re-verified against its own clause's text — a defensive guard against
+  extraction/storage corruption, proven by a test that injects a fabricated unverifiable fact
+  via monkeypatch and confirms it cannot itself create or resolve a contradiction. When
+  values disagree, a document-precedence order names the *governing* instance; both sides
+  always keep their own citation. Two instances tied at the same precedence rank (e.g. two
+  conflicting clauses within the same GCC) resolve to `governing: null` with an `"ambiguous"`
+  reason rather than a guess.
+- **Document precedence is rulepack-configurable and employer-family overridable (TS-217's
+  explicit requirement).** `rulepacks/in-works/document_precedence.yaml` ships the unvalidated
+  default `[addendum, scc, gcc, nit]` with empty `employer_family_overrides` — real
+  employer-specific precedence is contractual fact, not something to invent ahead of seeing
+  one (same posture as `rulepacks/in-works/rates/README.md`). `RulePackLoader
+  .document_precedence(pack_id, employer_family)` resolves it; `rulepacks` is a soft
+  dependency of `crossref` (added to its `soft_deps`), degrading to the hardcoded
+  `DEFAULT_PRECEDENCE` fallback when the pack or module is absent — never a crash.
+- **New endpoint:** `GET /api/crossref/opportunities/{id}/contradictions` — returns the
+  precedence order used and, per contradiction, every instance (value, document, clause,
+  page, quote) plus the governing one and why.
+- **Tests:** `backend/tests/test_crossref_contradictions.py` (new, 17 cases — one extractor
+  per fact type, agreement/disagreement/ambiguous-tie/precedence-override/verification-gate
+  paths), 4 new `RulePackLoader.document_precedence` cases in `test_rulepacks.py`, 3 new
+  API-level cases in `test_crossref.py` (including graceful degradation with `rulepacks`
+  disabled).
+- `specs/modules/crossref.md` updated with B5–B9 and acceptance criteria A4–A8; out-of-scope
+  now names the two follow-ups this deliberately doesn't do yet: persisting contradictions
+  into the shared Findings register (blocked on `Finding.document_id`/`Finding.facts`,
+  TS-294/295/296) and any fact type beyond the six named in Strategy §C.5.
+  `specs/modules/rulepacks.md` gains B11.
+
+Suite: 420 passed, 5 skipped; ruff clean; mypy clean across 193 files.
+
+**Next:** TS-219 (reproducibility chain on `findings`) and TS-215 (outcomes module scaffold)
+— re-sequencing note: `phase16_tracker.md`'s own Blockers column lists TS-234 (north-star
+metric) as depending on TS-215, so TS-215 needs to land before or alongside TS-234 rather
+than after it as originally sequenced.
+
+### Done — 2026-07-31 (TS-220–221: pack SDK + domain-ladder Rung 1)
+
+Turns domain-agnosticism into distribution (Strategy §D.4) — the mechanism that lets a QS
+consultancy author and verify a pack without touching TenderShield's own tests or CI, and
+proves the engine actually generalizes by shipping four new trades as pure data.
+
+- **`backend/app/packsdk/`** (new package, outside `app/modules/` alongside `evalcorpus`/
+  `evalinvariants`/`evalrunner` — tooling for pack authors, not a product feature):
+  - `validate.py` — reuses `RulePackLoader` for schema conformance (there is exactly one
+    definition of "valid," not a looser third-party one) and adds lint rules production
+    deliberately skips for the sake of graceful degradation: empty `source`, a
+    `severity_rule` that isn't valid expression syntax, duplicate pattern/checklist ids
+    across files (the loader's dict cache silently overwrites these rather than erroring),
+    duplicate checklist item keys, a `pack.yaml` id mismatch, and an unregistered
+    `price_impact.formula` (warning, not an error — a third party may ship its own).
+  - `packtest.py` — a **deterministic** test harness over BOQ scope-gap / trade-checklist
+    matching (pure Python, no LLM call): a pack author writes `<pack>/tests/scope_gaps/*.yaml`
+    cases (spec text, BOQ rows, expected gap keys and expected non-gaps) and verifies them
+    fully offline. Risk-pattern judgment is LLM-graded and cannot be verified this way — that
+    is what the scale-evaluation harness is for.
+  - `scripts/pack_validate.py`, `scripts/pack_test.py` — thin CLIs.
+- **The acceptance gate proven directly, not asserted:** `evals/pack-sdk-example/` is a
+  complete, self-contained, third-party-style pack — one risk pattern, one trade checklist,
+  one deterministic test case — and both CLIs validate and test it cleanly on the first run.
+  `rulepacks/in-works` also validates cleanly against its own validator.
+- **`rulepacks/in-works/boq/trade_checklists/`** gains four Rung-1 trades (Strategy §D.2):
+  `plumbing`, `fire_fighting`, `structural_steel`, `lifts` — one YAML each, zero code,
+  sourced from CPWD General Specifications, NBC 2016 Parts 4/8/9, IS 800 and IS 14665. Total
+  checklists: 3 → 7.
+- **Rung 2 (supply-and-erection patterns, TS-222) deliberately not built.** Strategy §D.2
+  gates it on a paying customer asking; building it now would be exactly the scope reflex
+  Build Doc §12.6 warns against.
+- **Tests:** `backend/tests/test_packsdk.py`, 15 cases — both directions per check (a
+  well-formed pack passes, a broken one is caught with a specific message), plus the two real
+  packs (`in-works`, `pack-sdk-example`) validating and testing clean.
+- Two pre-existing tests (`test_rulepacks.py`, `test_boq.py`) asserted the old 3-checklist set
+  as exhaustive; updated to the new 7 — an expected consequence of a real expansion, not a
+  regression.
+- `specs/modules/rulepacks.md` updated with B8–B10 (price impact, rate schedules, domain
+  ladder — all three touched this pack in TS-202/204/221 without the spec being updated at
+  the time) and the pack SDK section.
+
+Suite: 398 passed, 5 skipped; ruff clean; mypy clean across 191 files.
+
+**Next:** continuing the buildable-now list — TS-217/219/234 (contradiction engine,
+reproducibility chain, north-star metric) next.
+
+### Done — 2026-07-31 (TS-201–207: `pricing` module — risk-to-price, rate benchmark, cashflow)
+
+The bridge from "here is your risk register" to "here is what it does to your bid" — the
+highest-liability module in the product, and the first Phase 16 work outside the eval
+harness. Deterministic arithmetic over verified facts, never LLM (`CLAUDE.md` §4).
+
+- **Package is `app/modules/pricing/`**, not `pricing_intel`/`pricing-intel` as earlier
+  specced: `app/main.py` enforces `route prefix == package name == ModuleSpec.name`, and
+  neither survives that. `pricing` matches the spec's stated `/api/pricing/...` routes
+  exactly.
+- **`formulas.py`** — named, versioned, pure loading formulas (`escalation_unhedged`,
+  `ld_exposure_cap`, `payment_delay_financing_cost`), each raising `MissingInputs` rather
+  than guessing. `ld_exposure_cap` deliberately requires an explicit `cap_percent`: an
+  uncapped LD clause correctly produces **no loading**, because bounding an unbounded
+  exposure would require inventing the number the finding exists to flag.
+- **`loading.py`** — `compute_loadings` filters to `review_status == "accepted"` findings
+  *inside the engine itself*, not only by caller discipline, so acceptance criterion 8 holds
+  regardless of caller.
+- **`benchmark.py`** — two-band Schedule-of-Rates matching (code vs description), headline
+  variance computed from code matches only, unmatched rows reported, never force-matched.
+- **`cashflow.py`** — monthly working-capital model; every substituted default (even
+  billing, 30-day payment assumption, 0% retention, ...) is recorded in `assumptions[]`,
+  never silent.
+- **Two known schema gaps found while implementing, filed rather than worked around:**
+  neither `Finding` nor `Opportunity` persists the structured facts or contract value a
+  loading needs, so the engine takes them as explicit caller-supplied inputs today (filed
+  as **TS-296**, alongside the equivalent TS-294/295 gaps from `evalinvariants`); and
+  `rulepacks/in-works/rates/` ships **intentionally empty** — a Schedule-of-Rates is
+  authoritative regulatory data, and fabricating even a plausible-looking rate would violate
+  the product's own "numbers never invented" invariant. Its README explains exactly what a
+  real entry looks like and why none is checked in yet.
+- **`app/modules/boq/service.py`** gained one method, `normalize_dataframe` — the
+  normalization half of `check_dataframe` split out so `pricing` consumes normalized BOQ
+  rows via the already-published `boq.engine` capability, no new registry entry, no
+  cross-module import.
+- Rulepack schema: `PriceImpact` on `RiskPattern`, `RateSchedule`/`RateScheduleItem`,
+  `RulePack.rate_schedules` loaded from `rulepacks/<pack>/rates/<authority>/<year>.yaml`.
+  Added worked-example `price_impact` blocks to `price_escalation_barred` and
+  `liquidated_damages_uncapped` (the spec's own example pattern and one more).
+- Migration `06867937ef52` for `pi_loadings`/`pi_rate_matches`/`pi_cashflow_runs` —
+  hand-trimmed from autogenerate output, which also picked up unrelated pre-existing SQLite
+  index drift on five other tables; that drift was left untouched (each module owns its own
+  migrations, `CLAUDE.md` §2). Verified `upgrade head` / `downgrade base` clean from scratch.
+- **Tests:** `backend/tests/test_pricing.py`, 31 cases — worked examples per formula,
+  missing-input honesty, determinism, the two-band match split, the assumptions-block
+  guarantee, a static AST scan proving the module imports no LLM client, and full
+  end-to-end coverage of the review-export gate (`409 review_incomplete`) through the real
+  router using the same NullClassifier absence-finding pattern as `test_export.py`.
+
+Suite: 383 passed, 5 skipped; ruff clean; mypy clean across 188 files (fresh cache).
+
+**Next:** continuing the buildable-now list — TS-220–222 (pack SDK + trade ladder) or
+TS-217/219/234 (contradiction engine, reproducibility chain, north-star metric) next.
+
+### Done — 2026-07-31 (TS-231: scorecard + regression diff)
+
+Turns `results.jsonl` into the human-readable report the eval harness's whole premise
+depends on.
+
+- **`app/evalrunner/report.py`** (new):
+  - `compute_metrics(run)` computes every metric the harness currently has data for: M1
+    pass rate, quote-verbatim rate, citation-completeness rate (each derived **per-tender**
+    from that tender's own `m1_summary`, not from aggregate violation counts — a pass rate
+    needs to know how many *tenders* had a violation, not how many violations existed),
+    crash rate (parse/OCR/timeout/unknown, explicitly excluding `invariant_violation` — an
+    M1 failure is a graded outcome, not a crash), and findings/wall-clock/cost distributions.
+  - **Metrics the harness cannot yet compute (M2/M3/M4/M5) are listed under "Not yet
+    available," never approximated.** A fabricated number in the report of a system whose
+    entire premise is "no invented numbers" would be the wrong kind of ironic.
+  - `find_baseline(runs_root, current)` — the most recent other run on the same corpus root
+    and shard; `None` (not an error) for the first run on a slice.
+  - `diff_metrics` flags a >2pt drop on the three pass-rate metrics (Build Doc §11.5's bar)
+    and a >1pt crash-rate increase; wall-clock/cost are reported for trend visibility but
+    not gated, since the spec states an exact threshold only for pass-rate metrics.
+- **`scripts/eval_report.py`** — thin CLI; exits 1 when any headline metric regressed.
+- **Tests:** `backend/tests/test_evalreport.py`, 26 cases covering metric computation,
+  baseline auto-detection (including ignoring a different corpus/shard and the `_cache`
+  directory), regression thresholds in both directions, and that M2/M3/M5 metrics are
+  structurally absent from `Metrics` rather than faked.
+- **Verified against real run data** from the TS-230 CLI smoke test: the first run on a
+  corpus+shard correctly reports no baseline; a second run against the same slice
+  auto-detects the first and reports no regression.
+- `specs/eval-at-scale.md` updated with the implemented interface.
+
+Suite: 352 passed, 5 skipped; ruff clean; mypy clean across 179 files (fresh cache).
+
+**Next:** TS-227 (M2 portal-metadata agreement) continues naturally from this reporting
+work. CI wiring (TS-232) is sequenced after TS-227/TS-229 rather than now, so the gate is
+wired once with all three modes instead of redone twice.
+
+### Done — 2026-07-31 (TS-230: bulk evaluation runner — Phase 16 Sprint 0 complete)
+
+The piece that turns M1 from "callable on one opportunity" into "runs unattended on
+1,000+." Closes Sprint 0 (TS-223, TS-226, TS-230 all done).
+
+- **`backend/app/evalrunner/`** (new package, outside `app/modules/` alongside its two
+  siblings — see the spec note below on why this diverges from the section's original
+  `app/modules/evalrunner/` placement):
+  - `pipeline.py` — `run_tender(record, store, pack=..., classifier=...)` runs one corpus
+    tender through the same pure functions the production pipeline uses (`extract_upload`,
+    `extract_pages`, `segment_clauses`, `run_patterns`, `normalize`/`run_checks`), grades it
+    with `run_m1`, and returns a `TenderResult`. Never raises — every failure is caught and
+    tagged (`ocr_failed`/`parse_failed`/`timeout`/`llm_error`/`invariant_violation`/
+    `unknown_error`), so a bad tender costs one result line, not the run.
+  - `tasks.py` — the Celery task wrapping `run_tender`; eager fallback in `app/core/celery.py`
+    means `.delay(...).get(...)` behaves identically in tests/CI and in a real deployment.
+    `model_id="none"` (default) always uses `NullClassifier` — a bulk run never silently
+    spends on a model unless one was explicitly requested.
+  - `orchestrator.py` — `run_batch(...)`: sharding (deterministic `sha256(ocid) % n`),
+    per-run resume (skip OCIDs already in `results.jsonl`), cross-run idempotency cache
+    (`evals/runs/_cache/`), and a cost guard.
+- **A real concurrency bug found and fixed while building the cost guard:** the first
+  implementation submitted the whole corpus to the worker pool upfront, then checked the
+  budget as results came back — which let a worker start the next tender before the main
+  thread had processed the result that tripped the guard, silently defeating the guard
+  under any concurrency above 1. Fixed with incremental, bounded dispatch (`_top_up`): work
+  is fed one slot at a time as it frees up, so budget is always checked before the next
+  dispatch. Caught by `test_run_batch_cost_guard_aborts_cleanly`.
+- **A pre-existing CI defect found and fixed, unrelated to this task:** a fresh `mypy`
+  invocation (no incremental cache) failed on `Library stubs not installed for "yaml"` in
+  `rulepacks/loader.py`. This was masked all session by a stale local `.mypy_cache` and by
+  a second, ambient global `mypy` install on PATH that happened to already have the stub;
+  CI installs into a single fresh environment and would have hit this on every run. Fixed
+  by adding `types-PyYAML` to the `dev` extra in `pyproject.toml`; verified clean with a
+  cleared cache via the project's own `.venv/bin/mypy`.
+- **Design decisions documented, not left implicit:**
+  - No per-tender database session — tenant isolation is already exercised for real by
+    `evalinvariants.db_adapter`'s own tests; re-proving it with SQLite on every one of
+    1,000 tenders would cost real time for no new evidence.
+  - BOQ checking is honest best-effort: the deterministic engine needs an exact canonical
+    schema real-world spreadsheets essentially never have as-is (matching the product's
+    actual current `boq/router.py` behavior); a non-matching sheet is reported
+    `boq_status="not_applicable"`, never coerced into a fabricated result.
+- **`scripts/bulk_eval.py`** — thin CLI: `--corpus`, `--run-id`, `--shard i/n`, `--limit`,
+  `--force`, `--concurrency`, `--max-total-tokens`, `--max-wall-seconds`. Exits non-zero
+  when the graded M1 pass rate is below 100%, so CI can gate on it directly.
+- **Tests:** `backend/tests/test_evalrunner.py`, 24 cases — the per-tender pipeline against
+  a real harvested corpus (not hand-rolled manifests), every failure classification, and
+  the orchestrator's resumability, cross-run cache, sharding, and cost-guard behavior.
+- **Verified end-to-end via the CLI**, not only pytest: 5 real harvested tenders processed;
+  a second call with the same `--run-id` resumes and skips all 5; a fresh `--run-id`
+  against the same corpus reuses all 5 from the cross-run cache; `--shard 0/2` correctly
+  selects a disjoint 1-of-5 subset.
+- `specs/eval-at-scale.md` updated with the implemented runner architecture and the
+  `app/modules/evalrunner/` → `app/evalrunner/` placement decision.
+
+Suite: 326 passed, 5 skipped; ruff clean; mypy clean across 178 files (verified fresh, no
+cache) — the yaml-stub fix above.
+
+**Next:** Sprint 0 is complete. TS-224's corpus schema, TS-226's M1 suite and TS-230's
+runner are the whole spine of the eval harness — everything from here (TS-227 M2, TS-229
+M4, TS-231 report/regression, TS-232 CI gates, TS-225 real network adapters) extends it
+rather than needing new architecture. TS-231 (scorecard + regression diff) is the natural
+next step: it is what turns `results.jsonl` into the human-readable report the spec's whole
+premise depends on.
+
+### Done — 2026-07-31 (TS-226: M1 structural invariant suite — Phase 16 Sprint 0)
+
+The bulletproof test: ten correctness properties that must hold on any tender, needing
+zero human labels. `specs/eval-at-scale.md` sets the bar at 100% pass; any violation
+blocks release.
+
+- **`backend/app/evalinvariants/`** (new package, outside `app/modules/` for the same
+  reason as `evalcorpus` — offline evaluation infrastructure, not a product feature):
+  - `bundle.py` — `PipelineBundle`: document pages, findings, generated artifacts, BOQ
+    ground truth, an optional rerun for the determinism check, and run metadata (tokens,
+    wall time, crash state). Independent of SQLAlchemy so checks are pure and testable
+    with synthetic fixtures.
+  - `checks.py` — one function per invariant: quote integrity, citation completeness, no
+    invented numbers, BOQ arithmetic closure, determinism, currency integrity, tenant
+    isolation, graceful degradation, budget, no crash. Each is **independent** of the
+    machinery that produced a finding — `check_quote_integrity` re-verifies with a strict
+    verbatim substring match against document text, rather than trusting the risk engine's
+    own inline fuzzy (0.85-ratio) check, so it can catch a regression there.
+  - `runner.py` — `run_m1(bundle) -> M1Result`; `.ok` is the binary pass/fail, `.summary()`
+    is JSON-shaped for the report the bulk runner (TS-230) will produce.
+  - `db_adapter.py` — `bundle_from_opportunity(session, workspace_id, opportunity_id)`
+    builds a bundle from a live opportunity's persisted findings and document chunks,
+    entirely workspace-scoped.
+- **Verified against the real pipeline, not only synthetic fixtures:** one test runs the
+  actual deterministic BOQ engine against `evals/in-works/sample_tender/boq.csv`; another
+  runs the actual risk engine end-to-end with a stub classifier. Both pass M1 cleanly —
+  the first evidence in this repo that the pipeline satisfies its own invariants.
+- **Two real gaps found by writing the checks, not papered over:**
+  - `Finding` has `source_page` but no `document_id`, so quote verification checks "does
+    this page number, in *any* document attached to the opportunity, contain this quote" —
+    correct for one primary document, weaker when two documents share a page number.
+    Filed as **TS-294**.
+  - `check_currency_integrity` can only assert `amount_exposure` is an integer;
+    `Finding` has no `currency` field, so a full currency check isn't yet expressible.
+    Filed as **TS-295**, needed before Phase 16 multi-jurisdiction findings can be trusted
+    cross-currency (Strategy §E.2).
+- **Tests:** `backend/tests/test_evalinvariants.py`, 52 cases — two per check (a legitimate
+  case that must pass, proving no false positives on real pipeline shapes; a violating case
+  that must fail, proving the check actually catches the defect), plus runner aggregation,
+  the two real-pipeline integration tests, and DB-adapter tests including workspace scoping.
+- `specs/eval-at-scale.md` updated with the implemented module layout and both discovered
+  gaps; `tasks/backlog.md` gains TS-294/TS-295 under a new Phase 16 §16.J.
+
+Suite: 302 passed, 5 skipped; ruff and mypy clean across 174 files.
+
+**Next:** TS-230 (bulk runner — Celery fan-out, disposable workspace per tender,
+checkpoint/resume, cost guard) is what turns this from "callable on one opportunity" into
+"runs unattended on 1,000." TS-227 (M2 portal-metadata agreement) and TS-229 (M4
+metamorphic checks) can proceed in parallel since they don't depend on the runner.
+
+### Done — 2026-07-31 (TS-224: evaluation corpus schema + harvester — Phase 16 Sprint 1)
+
+The foundation the whole scale-evaluation plan sits on: a country-agnostic corpus of
+public tender records with full provenance.
+
+- **`backend/app/evalcorpus/`** (new package, outside `app/modules/` — offline evaluation
+  infrastructure, not a product feature; nothing in the request path imports it):
+  - `models.py` — OCDS-shaped `CorpusTender`, `CorpusDocument`, `CorpusAward`, `Buyer`,
+    `Provenance`. Normalizing to the Open Contracting Data Standard is what makes the
+    corpus country-agnostic: adapters differ, the schema does not.
+    - **Money in minor units** (`CLAUDE.md` §4): OCDS quotes major-unit decimals, so
+      conversion happens once at the boundary with a per-currency exponent table
+      (0 for JPY/KRW, 3 for KWD/BHD/OMR, 2 default). A missing amount maps to `None`,
+      never `0` — "no value published" and "worth nothing" are different facts.
+    - `document_set_hash` counts only *fetched* documents, so a partially harvested tender
+      cannot masquerade as complete in the runner's cache key.
+  - `adapters.py` — the `fetch_index` / `fetch_documents` / `fetch_awards` contract, plus
+    `AdapterInfo` carrying the **legality review** (terms of use, official API, rate limit)
+    so it travels with the code. `OcdsFileAdapter` is the reference implementation and the
+    offline path for tests and CI — an OCP Data Registry bulk download is this adapter
+    pointed at the unpacked archive.
+  - `store.py` — content-addressed blobs keyed by `sha256` with two-level fan-out (the same
+    CPWD GCC across a thousand tenders costs one copy) and JSONL manifests.
+  - `harvest.py` — orchestration with polite rate limiting, resumability via known OCIDs,
+    dedupe accounting, and per-record error isolation. A run that dies on tender 417 of
+    1,000 is worth less than one that finishes and reports 3 failures.
+- **`scripts/corpus_harvest.py`** — thin CLI: `--list-adapters`, `--source/--path`,
+  `--limit`, `--no-documents`, `--no-awards`, `--no-resume`, `--stats`.
+- **Defect found and fixed by the tests:** the harvester re-ingested its own manifest when
+  the corpus was stored inside a scanned source directory, because a `CorpusTender` record
+  carries an `ocid` and is otherwise shaped exactly like an OCDS release — inflating the
+  corpus on every pass. Manifest lines now carry a marker that source adapters skip, with a
+  dedicated regression test.
+- **`.gitignore`:** `evals/corpus/` and `evals/runs/` — public records, but large and
+  reproducible from source.
+- **Tests:** `backend/tests/test_evalcorpus.py`, 35 cases covering currency conversion,
+  OCDS mapping, unresolved-buyer handling, provenance, adapter contract and legality
+  declaration, malformed-file tolerance, content addressing, dedupe, resumability, and the
+  re-ingestion regression.
+- `specs/eval-at-scale.md` updated with the implemented schema, storage model, adapter
+  contract and package layout.
+
+Verified end-to-end via the CLI: 5 tenders / 5 document references / **1 blob** (dedupe),
+second run skips all 5 (resume), money stored as `100050` for `1000.50 INR`.
+
+Suite: 250 passed, 5 skipped; ruff and mypy clean across 169 files.
+
+**Next:** TS-226 (M1 structural invariant suite) — the 100%-pass correctness gate, then
+TS-230 (bulk runner). TS-225 real network adapters (CPPP, state NIC, Etimad) need an egress
+path that CPPP does not block.
+
+### Done — 2026-07-30 (TS-223: per-review cost instrumentation — Phase 16 Sprint 0)
+
+First implementation task of Phase 16. Answers the question the product cannot price
+without: what does one completed tender review actually cost?
+
+- **`backend/app/core/costmeter.py`** (new): review-scoped cost accounting.
+  - `review_cost_scope(opportunity_id=…, rulepack_version=…)` meters everything inside it
+    as one review; nesting attributes work to the inner scope rather than double-counting.
+  - Cost drivers recorded: LLM tokens (prompt / completion / cached), OCR pages, worker
+    seconds, storage bytes — with per-stage attribution.
+  - **Money in minor units**, integer arithmetic, one rounding at the end (`CLAUDE.md` §4).
+  - **No built-in price table.** `TS_LLM_PRICE_TABLE` is deployment configuration; an
+    unpriced model has its tokens counted and is reported unpriced rather than costed at
+    zero. Only fully-priced reviews feed the cost histogram, so p50/p95 cannot be
+    understated by partial pricing.
+  - **Metering never breaks a review** — malformed usage objects, missing prices and
+    unparseable price tables are logged and swallowed.
+- **`backend/app/core/llm.py`**: `MeteredClient` wraps every OpenRouter client, so usage is
+  recorded at the single choke point and a future call site cannot forget to meter itself.
+  `openrouter_client(stage)` labels calls; the three existing sites now pass
+  `risk.classify`, `assistant.chat` and `analytics.plan`.
+- **Retrieval-first guard:** `TS_MAX_TOKENS_PER_REVIEW` (default 400,000). Cost must scale
+  with pattern count, not document length (Strategy §G.3); a change that starts sending
+  whole documents to a model now surfaces as a warning plus
+  `ts_review_token_ceiling_exceeded_total` rather than as a bill.
+- **Wired in:** OCR page counts in `ingestion/ocr.py`; the async document pipeline in
+  `ingestion/tasks.py` now runs inside a review scope and records worker seconds.
+- **Metrics:** six counters and four histograms (`ts_review_cost_minor`,
+  `ts_review_total_tokens`, `ts_review_wall_seconds`, `ts_worker_seconds`) — p50/p95 come
+  from Grafana over the existing Prometheus endpoint.
+- **Tests:** `backend/tests/test_costmeter.py`, 21 cases covering cost arithmetic, cached
+  token pricing, unpriced-model honesty, nested scopes, scope teardown on exception, the
+  metered client wrapper, metering-failure tolerance, and the token ceiling.
+- `specs/modules/observability.md` updated with the cost-instrumentation interface,
+  behaviour (C1–C7) and acceptance criteria (A9–A15).
+
+Suite: 215 passed, 5 skipped; ruff and mypy clean across 164 files.
+
+**Next:** TS-224 (corpus schema + `scripts/corpus_harvest.py` adapter interface), then
+TS-226 (M1 structural invariant suite) — completing Sprint 0/1.
+
+### Done — 2026-07-30 (TS-293: task tracker script + backlog integrity audit)
+
+- **`scripts/task_tracker.py`** (new): parses `tasks/backlog.md`, validates it, and reports progress.
+  - Validates unique IDs, the `todo | in-progress | blocked | done` status enum, 5-column row shape,
+    paths referenced by *done* tasks existing on disk, and that every `TS-` id cited in
+    `tasks/*tracker*.md` exists in the backlog.
+  - Reports per-phase progress bars, incomplete/blocked/in-progress lists.
+  - Modes: default summary, `--incomplete`, `--phase N`, `--json`, `--validate` (exit 1 on error).
+  - Wired into CI as a new blocking `backlog` job.
+- **Backlog integrity fixes surfaced by the new script:**
+  - Two malformed rows (TS-193, TS-194 began with `||`, breaking table rendering) corrected.
+  - Six tasks carried non-conforming statuses that read as complete but were not. Reclassified to
+    the documented enum, with the caveat moved into the title:
+    - TS-035, TS-036, TS-037, TS-079 → `blocked` (adapters and providers are written; verification
+      needs live provider credentials — code presence confirmed in `notifications/adapters.py`,
+      `billing/providers.py`, `auth/google.py`).
+    - TS-163 → `in-progress` (backend and core frontend landed; settings UI outstanding).
+    - TS-039 → `done`, with the unverified-ONNX-download caveat moved into the title.
+  - Three stale path references on done tasks corrected: TS-081 and TS-189 point at `backend/tests/`,
+    TS-176 at `frontend/e2e/`.
+- **Verified position:** 294 tasks, no duplicate or missing IDs, 191 done, 103 incomplete
+  (1 in-progress, 4 blocked, 98 todo).
+
+### Done — 2026-07-30 (Roadmap Stage 1→5: reconciling the founding research with the build)
+
+Planning only — no runtime code. Triggered by re-reading the founding research doc
+(`TenderShield_AI_Architecture_and_Market_Research.pdf`, 20 Jul 2026) against the codebase.
+
+- **`docs/TenderShield_Roadmap_Stage1_to_5.md`** (new master roadmap):
+  - Position audit against the research doc's five-stage value ladder: stage 1 substantially
+    complete, stage 2 partial, stages 3–5 not built. The entire 24.5k-line backend sits in the
+    transactional half of the ladder; all recurring revenue is in stages 3–5.
+  - The money ladder — per the research doc's own §10.1 price bands, stage 3 is worth roughly 12×
+    stage 1 per customer and is structurally stickier (a contractor cannot switch mid-project).
+  - Gap analysis: nine capability blocks specified in the founding research and never built —
+    baseline→project controls, change/variation detection, claims workspace, control tower,
+    integrations, subcontract control, payment control, site evidence, advisor edition.
+  - Two missing concepts recovered: **evidence continuity** (the research doc's stated "most
+    valuable product") and the **north-star metric, "verified contractor margin protected"**.
+  - Restructured phase plan 16→21, each mapped to a stage and carrying an unlock gate taken from
+    the research doc's own kill/continue criteria (§12.4).
+  - Reconciliation appendix: the AI assistant appears nowhere in the founding capability
+    architecture; the product was never civil-only (§3.3, §3.4, §8.2 always specified multi-segment,
+    multi-jurisdiction packs); geography expansion requires a local specialist plus a paid design
+    customer.
+- **`tasks/backlog.md`:** TS-234 added to Phase 16 (north-star metric), plus Phases 17–21 —
+  TS-235 – TS-292:
+  - Phase 17 (stage 2): baseline completion — award comparison, risk watchlists, notice-rule
+    register, approval matrix, cost codes, handover pack, adoption telemetry.
+  - Phase 18 (stage 3, ★ recurring revenue): change & notice control — baseline diff, change-signal
+    ingestion, variation inbox, site confirmation, deterministic notice-deadline engine, evidence
+    chain of custody and completeness scoring, per-project billing.
+  - Phase 19 (stage 4): claims & evidence workspace — chronology, deterministic quantum, delay
+    register, draft generators, settlement tracking, chain-integrity test.
+  - Phase 20 (stage 5): commercial control tower — exposure model, forecasting, portfolio trends,
+    payment control, economics and customer-outcome metrics.
+  - Phase 21: integrations, subcontract flow-down and pay-when-paid exposure, advisor edition.
+- **`tasks/roadmap_tracker.md`** (new master tracker): stage↔phase↔revenue map, unlock-gate status,
+  per-phase task tables with dependencies, evidence-chain completion tracker, metrics coverage, and
+  a gate-override log so any decision to skip a gate is recorded rather than implicit.
+
+**Next:** unchanged — Phase 16 Sprint 0 (TS-223 cost instrumentation, TS-224 corpus harvester,
+TS-226 M1 invariants), now with TS-234 (north-star metric) added to the phase.
+
+### Done — 2026-07-30 (Phase 16 planning: defensibility, domain-agnosticism, scale validation)
+
+Requirements and planning only — no runtime code in this change.
+
+- **`docs/TenderShield_Market_Strategy_2026.md`** (new, requirement source for Phase 16):
+  - Part A — researched source base with citations: competitive landscape (Trimble/Document Crunch
+    closing Q2 2026; Procore/Autodesk moves; crowded Indian L1-prediction segment), public
+    procurement data (CPPP ~4.9 M award records, Etimad 283k with official API, TED eForms/SPARQL,
+    OCDS across 30+ governments, CAG audit reports, MoSPI/PAIMANA overrun data), and EU AI Act
+    status (Annex III deferred to Dec 2027; contractor-side tools likely out of scope — flagged
+    `assumption:`).
+  - Part B — defensibility thesis: four moat classes (proprietary data, deterministic computation,
+    accountability, workflow position) and the eight verifiable claims they produce.
+  - Part C — ranked value features with why/how/what-if: Employer Behaviour Graph, risk-to-price,
+    cashflow, SOR benchmarking, contradiction engine, outcome capture, reproducibility chain,
+    correction loop.
+  - Part D — domain-agnostic architecture: agnostic engine / deep packs / per-vertical graph, plus a
+    five-rung generalization ladder and the pack-SDK distribution play.
+  - Part E — geography: India → Saudi → UAE, Europe deferred; the Indian-contractor-in-the-Gulf
+    bridge; jurisdiction must be a property of the opportunity, not the workspace.
+  - Part F — business model including the new **Express** pay-per-report lane and its resolution of
+    the Build Doc §11.4 reviewer-gate conflict.
+  - Part G — profitability: cost drivers to instrument before any pricing commitment; the
+    retrieval-first cost property and how to guard it.
+  - Part H — risks, what-ifs and kill conditions.
+- **`specs/eval-at-scale.md`** (new): automated evaluation on 1,000+ real tenders. Five scoring modes
+  — M1 structural invariants, M2 portal-metadata agreement, M3 outcome backtest, M4 metamorphic
+  consistency (all label-free) and M5 a 50-tender human gold set. OCDS as the normalization target,
+  per-source adapters with recorded legality review, Celery-based resumable sharded runner with a
+  cost guard, and CI gating.
+- **New module specs:** `specs/modules/marketdata.md`, `specs/modules/pricing-intel.md`,
+  `specs/modules/express-report.md`, `specs/modules/outcomes.md`. Index updated in `specs/README.md`.
+- **`tasks/backlog.md`:** Phase 16 added — TS-195 – TS-233 across seven groups, each task mapped to a
+  moat class.
+- **`tasks/phase16_tracker.md`** (new): sprint map with sequencing rationale, dependency graph with
+  critical path, per-task acceptance gates, phase exit gates and kill conditions.
+
+**Next:** TS-223 (cost-per-review instrumentation), TS-224 (corpus schema + harvester), TS-226 (M1
+structural invariant suite) — Sprint 0/1, in that order. Measurement precedes corpus; corpus precedes
+the graph; correctness at scale precedes the Express revenue lane.
+
+### Done — 2026-07-31 (TS-298: CI changelog-check gate)
 
 - Added `scripts/check_changelog.py`: fails when non-exempt ("code") files
   changed between two refs but `CHANGELOG.md` didn't gain any real content in
@@ -24,10 +551,10 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ### Next
 
-- TS-197: consider extending the changelog check to also verify the `Next`
+- TS-299: consider extending the changelog check to also verify the `Next`
   section names concrete task IDs (currently only advisory via B5).
 
-### Done — 2026-07-30 (TS-195: workspace-scoped AI Assistant)
+### Done — 2026-07-30 (TS-297: workspace-scoped AI Assistant)
 
 - `ChatSession.opportunity_id` is now optional; the AI Assistant works across the
   whole workspace by default instead of requiring a tender dropdown.

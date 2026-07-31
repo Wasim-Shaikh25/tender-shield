@@ -1,0 +1,42 @@
+# Lifts / escalators scope-gap checklist (Doc §6.4). Domain-ladder Rung 1
+# (Strategy §D.2) — one YAML, zero code. Phase-0 draft from public sources;
+# unvalidated until QS checkpoint.
+id: lifts
+trade: lifts
+confidence: unvalidated
+source: >
+  IS 14665 (Electric Traction Lifts — Code of Practice); National Building
+  Code of India (NBC) 2016 Part 8 Section 5 (Installation of Lifts and
+  Escalators) — ancillary items commonly omitted from lift BOQs per
+  published estimation guidance.
+items:
+  - key: machine_room_ventilation
+    label: Lift machine room ventilation / cooling
+    severity: medium
+    triggers: ["lift installation", "elevator", "machine room"]
+    boq_patterns: ["machine room ventilation", "exhaust fan", "AC unit machine room"]
+  - key: lift_pit_waterproofing
+    label: Lift pit waterproofing & sump pump
+    severity: high
+    triggers: ["lift pit", "basement lift", "below ground level"]
+    boq_patterns: ["pit waterproofing", "sump pump lift pit"]
+  - key: fire_rated_shaft_enclosure
+    label: Fire-rated lift shaft enclosure
+    severity: high
+    triggers: ["high rise", "lift shaft", "fire rating required"]
+    boq_patterns: ["fire rated shaft", "fire rated enclosure", "2 hour rated wall"]
+  - key: emergency_rescue_device
+    label: Automatic rescue device (ARD) / emergency lowering
+    severity: high
+    triggers: ["passenger lift", "power failure", "emergency evacuation"]
+    boq_patterns: ["automatic rescue device", "ARD", "emergency lowering"]
+  - key: seismic_switch
+    label: Seismic sensor / earthquake safety switch
+    severity: medium
+    triggers: ["seismic zone", "high rise", "earthquake"]
+    boq_patterns: ["seismic switch", "earthquake sensor", "seismic sensor"]
+  - key: amc_commissioning
+    label: Testing, commissioning & post-installation AMC
+    severity: low
+    triggers: ["lift installation", "elevator supply"]
+    boq_patterns: ["commissioning", "AMC", "annual maintenance contract"]

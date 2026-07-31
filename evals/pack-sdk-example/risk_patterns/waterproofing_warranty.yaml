@@ -1,0 +1,27 @@
+id: waterproofing_warranty_short
+category: defect_liability
+title: Waterproofing warranty shorter than 10 years
+confidence: unvalidated
+source: >
+  Example pack — synthetic pattern for pack-SDK validation only, not a real
+  product rule.
+severity_rule: >
+  high if warranty_years < 10 else low
+anchor_queries:
+  - "waterproofing warranty"
+  - "waterproofing guarantee"
+judgment_prompt: >
+  Find the waterproofing warranty/guarantee period. Report the number of
+  years. Quote verbatim.
+negative_examples:
+  - "General defect liability period is not a waterproofing-specific warranty."
+default_playbook:
+  acceptable: "waterproofing warranty of 10 years or more"
+  flag_when: "warranty shorter than 10 years or unstated"
+industry_reason: >
+  Waterproofing failures often surface years after handover; a short warranty
+  leaves the contractor exposed to remedial cost outside any recovery window.
+suggested_clarification: >
+  Seek confirmation of the waterproofing warranty period and whether it is
+  separate from the general defect liability period.
+affected_trades: [civil]

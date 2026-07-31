@@ -28,3 +28,11 @@ suggested_clarification: >
   Request confirmation of the LD cap (typically 10% of contract value) and the
   basis of levy (delayed portion vs whole works).
 affected_trades: [all]
+# TS-202: LD exposure loading — max exposure = rate% x weeks-at-risk, capped at
+# cap_percent when a cap is stated. Named formula in
+# app/modules/pricing_intel/formulas.py; missing an input yields no loading.
+price_impact:
+  basis: percent_of_contract_value
+  formula: ld_exposure_cap
+  inputs: [rate_percent_per_week, cap_percent, weeks_at_risk]
+  confidence: unvalidated

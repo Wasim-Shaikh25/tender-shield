@@ -70,6 +70,96 @@ def test_cross_reference_search(client):
     assert "payment" in texts
 
 
+def test_contradiction_engine_flags_disagreement_and_names_governing_instance(client):
+    headers = _auth(client)
+    opp_id = client.post(
+        "/api/ingestion/opportunities", json={"title": "Depot"}, headers=headers
+    ).json()["id"]
+    client.post(
+        f"/api/ingestion/opportunities/{opp_id}/documents",
+        json={
+            "filename": "gcc.pdf",
+            "sample_text": (
+                "[p1]\nGENERAL CONDITIONS OF CONTRACT\n"
+                "Clause 1 - Validity. The bid shall remain valid for 90 days "
+                "from the date of opening.\n"
+            ),
+        },
+        headers=headers,
+    )
+    client.post(
+        f"/api/ingestion/opportunities/{opp_id}/documents",
+        json={
+            "filename": "addendum1.pdf",
+            "sample_text": (
+                "[p1]\nADDENDUM No. 1\n"
+                "Clause 1 - Validity extension. The bid shall remain valid for "
+                "120 days from the date of opening.\n"
+            ),
+        },
+        headers=headers,
+    )
+
+    resp = client.get(f"/api/crossref/opportunities/{opp_id}/contradictions", headers=headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["precedence"] == ["addendum", "scc", "gcc", "nit"]
+    found = [c for c in body["contradictions"] if c["fact_type"] == "bid_validity_days"]
+    assert len(found) == 1
+    c = found[0]
+    assert {i["value"] for i in c["instances"]} == {90, 120}
+    assert c["governing"]["value"] == 120
+    assert c["governing"]["document_kind"] == "addendum"
+    # both sides keep their own citation (Strategy §C.5)
+    for instance in c["instances"]:
+        assert instance["quote"]
+        assert instance["page"] == 1
+
+
+def test_contradiction_engine_no_findings_when_documents_agree(client):
+    headers = _auth(client)
+    opp_id = client.post(
+        "/api/ingestion/opportunities", json={"title": "Warehouse"}, headers=headers
+    ).json()["id"]
+    text = (
+        "[p1]\nGENERAL CONDITIONS OF CONTRACT\n"
+        "Clause 1 - Validity. The bid shall remain valid for 90 days from the date of opening.\n"
+    )
+    client.post(
+        f"/api/ingestion/opportunities/{opp_id}/documents",
+        json={"filename": "gcc.pdf", "sample_text": text},
+        headers=headers,
+    )
+    client.post(
+        f"/api/ingestion/opportunities/{opp_id}/documents",
+        json={"filename": "gcc_copy.pdf", "sample_text": text},
+        headers=headers,
+    )
+
+    resp = client.get(f"/api/crossref/opportunities/{opp_id}/contradictions", headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["contradictions"] == []
+
+
+def test_contradiction_engine_degrades_without_rulepacks():
+    app = create_app(
+        Settings(
+            enabled_modules="health,auth,ingestion,crossref",
+            database_url="sqlite:///:memory:",
+        )
+    )
+    Base.metadata.create_all(app.state.ctx.registry.require("db.engine"))
+    client = TestClient(app)
+    headers = auth_headers(client, "nopack@x.com")
+    opp_id = client.post(
+        "/api/ingestion/opportunities", json={"title": "Depot"}, headers=headers
+    ).json()["id"]
+    resp = client.get(f"/api/crossref/opportunities/{opp_id}/contradictions", headers=headers)
+    assert resp.status_code == 200
+    # rulepacks disabled → hardcoded DEFAULT_PRECEDENCE fallback, not a crash.
+    assert resp.json()["precedence"] == ["addendum", "scc", "gcc", "nit"]
+
+
 def test_change_detection_by_supersedes(client):
     headers = _auth(client)
     opp_id = client.post(

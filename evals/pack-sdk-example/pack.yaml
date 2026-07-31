@@ -1,0 +1,12 @@
+# Example third-party pack (TS-220) — not a real product pack.
+id: pack-sdk-example
+version: "1.0.0"
+jurisdiction: IN
+effective_from: "2026-07-31"
+effective_to: null
+description: >
+  Minimal self-contained pack proving the pack SDK end-to-end acceptance gate
+  (a third party can author and validate a pack). Not used by the product.
+reviewer_signoff: null
+sources:
+  - "TenderShield pack SDK example — synthetic, for validation only"

@@ -101,6 +101,16 @@ jobs:
           TS_DATABASE_URL: postgresql+psycopg://app:app@localhost/app_db
         run: pytest tests/test_rls_postgres.py -q
 
+  backlog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate task backlog and trackers
+        run: python scripts/task_tracker.py --validate
+
   frontend:
     runs-on: ubuntu-latest
     defaults:

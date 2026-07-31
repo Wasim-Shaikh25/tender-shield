@@ -76,7 +76,7 @@ class PlanDashboardAgent:
         settings = Settings()
         self.model = model or settings.openrouter_model
         self.max_tokens = max_tokens
-        self._client = openrouter_client()
+        self._client = openrouter_client("analytics.plan")
 
     def _identity_prompt(self, identity: dict | None) -> str:
         if not identity:

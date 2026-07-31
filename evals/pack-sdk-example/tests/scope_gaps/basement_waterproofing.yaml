@@ -1,0 +1,18 @@
+# Deterministic pack test case (TS-220) — no LLM/API key required.
+checklist_id: waterproofing_example
+spec_text: |
+  [p1]
+  Provide basement raft foundation with waterproofing membrane and
+  construction joint treatment throughout.
+boq_rows:
+  - src_row: 1
+    item_code: "A1"
+    description: "Providing and fixing PVC water bar at construction joints"
+    unit_raw: m
+    qty: 120
+    rate: 450
+    amount: 54000
+# waterstop is present in the BOQ -> must NOT fire as a gap (false-positive check).
+# protection screed is never priced -> must fire as a gap (true-positive check).
+expect_gap_keys: [membrane_protection_screed]
+expect_no_gap_keys: [waterstop_at_construction_joints]

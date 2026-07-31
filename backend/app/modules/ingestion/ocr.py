@@ -11,6 +11,8 @@ from __future__ import annotations
 import logging
 from typing import Protocol
 
+from app.core.costmeter import record_ocr_pages
+
 logger = logging.getLogger(__name__)
 
 
@@ -60,6 +62,7 @@ class RapidOcrProvider:
                     logger.exception("OCR failed on a page")
                     result = None
                 pages.append("\n".join(line[1] for line in result) if result else "")
+        record_ocr_pages(len(pages))
         return pages
 
 

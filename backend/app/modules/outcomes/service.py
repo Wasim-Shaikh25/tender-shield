@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.modules.outcomes.margin import compute_margin_protected
 from app.modules.outcomes.models import OcBidOutcome, OcRiskMaterialization
 
 VALID_RESULTS = frozenset({"submitted", "won", "lost", "declined", "disqualified"})
@@ -174,6 +175,26 @@ class OutcomesService:
                 },
             )
         return row
+
+    def margin_protected(self, workspace_id, *, currency: str = "INR") -> dict:
+        if self._findings_factory is None:
+            raise OutcomesError("findings_unavailable")
+        ws = uuid.UUID(str(workspace_id))
+        findings = self._findings_factory(self.s).list_for_workspace(ws)
+        outcomes = list(
+            self.s.scalars(select(OcBidOutcome).where(OcBidOutcome.workspace_id == ws))
+        )
+        materializations = list(
+            self.s.scalars(
+                select(OcRiskMaterialization).where(OcRiskMaterialization.workspace_id == ws)
+            )
+        )
+        return compute_margin_protected(
+            findings,
+            outcomes=outcomes,
+            materializations=materializations,
+            currency=currency,
+        ).summary()
 
 
 def _outcome_dict(row: OcBidOutcome) -> dict[str, Any]:

@@ -6,6 +6,21 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-07-31 (TS-233 + TS-234: M5 gold set + margin protected metric)
+
+- **TS-233 M5 human gold set** — 50-case manifest under `evals/gold-set/`; `evalgold` scorer +
+  `FixtureClassifier` for synthetic fixtures; `scripts/generate_gold_set.py` and
+  `scripts/eval_gold_set.py`; scorecard reads `goldset.json` when present.
+- **TS-234 North-star metric** — `compute_margin_protected()` over reviewed findings, declined
+  exposure, BOQ corrections, and materialized impact; `GET /api/outcomes/metrics/margin-protected`;
+  `outcomes.margin_protected` capability.
+
+Tests: 494 passed / 5 skipped.
+
+### Next
+
+- TS-222 (gated trade patterns — customer-dependent).
+
 ### Done — 2026-07-31 (TS-228 + TS-232: M3 backtest + CI eval smoke)
 
 - **TS-228 M3 outcome backtest** — `evalbacktest/m3.py` time-split train/test on award

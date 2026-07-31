@@ -1,0 +1,7 @@
+critical_patterns:
+- termination_for_convenience
+- price_escalation_barred
+- payment_terms_extended
+optional_patterns:
+- liquidated_damages_uncapped
+max_noise: 2

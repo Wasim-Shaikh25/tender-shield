@@ -392,13 +392,13 @@ Tracker: `tasks/phase16_tracker.md`.
 | TS-230 | `scripts/bulk_eval.py`: Celery fan-out, disposable workspace per tender, checkpoint/resume, sharding, cost guard + kill switch, failure classification | `specs/eval-at-scale.md` §3 | `specs/eval-at-scale.md` | done |
 | TS-231 | `scripts/eval_report.py`: `evals/runs/<run_id>/` scorecard + regression diff vs previous run on the same slice | Build Doc §11.5 | `specs/eval-at-scale.md` §3.2 | done |
 | TS-232 | CI wiring: 20-tender smoke per PR (M1+M4, blocking), 100-tender nightly, 1,000+ weekly; >2pt headline drop blocks the change | Build Doc §11.5 | `specs/eval-at-scale.md` §3.4 | done |
-| TS-233 | M5 human gold set: 50 tenders composed per the slice table, annotated per Build Doc §19, stored under `evals/in-works/` | Build Doc §19, §14.2 | `specs/eval-at-scale.md` §1 | todo |
+| TS-233 | M5 human gold set: 50 tenders composed per the slice table, annotated per Build Doc §19, stored under `evals/gold-set/` | Build Doc §19, §14.2 | `specs/eval-at-scale.md` §1 | done |
 
 ### 16.I — North-star metric (added from founding research)
 
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
-| TS-234 | **North-star metric — "verified contractor margin protected"**: deterministic computation over accepted risk allowances, declined-bid exposure avoided, and BOQ defects corrected pre-submission; excludes speculative value; grows as Phases 18–19 land | Research Doc §12.1; Roadmap §6.1 | `specs/modules/outcomes.md` (update) | todo |
+| TS-234 | **North-star metric — "verified contractor margin protected"**: deterministic computation over accepted risk allowances, declined-bid exposure avoided, and BOQ defects corrected pre-submission; excludes speculative value; grows as Phases 18–19 land | Research Doc §12.1; Roadmap §6.1 | `specs/modules/outcomes.md` (update) | done |
 
 ---
 

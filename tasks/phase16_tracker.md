@@ -40,7 +40,7 @@ name its moat class, it is out of scope for Phase 16.
 | **5** | **Revenue lane** | TS-208 ✅ … TS-214 ✅ | Stranger → teaser → pay → report, webhook-only activation, watermarked unreviewed export | done |
 | **6** | **Loop + accountability** | TS-215 ✅, TS-216 ✅, TS-217 ✅, TS-218 ✅, TS-219 ✅ | Outcomes recorded; contradictions detected; findings reproducible; corrections proposed not applied | in-progress |
 | **7** | **Domain ladder** | TS-220 ✅, TS-221 ✅, TS-222 (gated) | Third party can author a pack; 4 new trades ship as YAML only | **done** |
-| **8** | **Backtest + gold set** | TS-228 ✅, TS-233 | Time-split L1 backtest baseline published; 50-tender gold set annotated | in-progress |
+| **8** | **Backtest + gold set** | TS-228 ✅, TS-233 ✅ | Time-split L1 backtest baseline published; 50-tender gold set annotated | done |
 
 ### Why this order
 
@@ -138,11 +138,11 @@ calendar-bound, not engineering-bound.
 | TS-230 | Bulk runner | `evalrunner` | — | P0 | **done** | Resumable, sharded, cost-guarded, 1,000+ unattended | TS-226 |
 | TS-231 | Report + regression diff | `evalrunner` | — | P1 | **done** | Scorecard readable without raw data | TS-230 |
 | TS-232 | CI gates | CI | — | P1 | **done** | PR smoke blocks on M1+M4 failure | TS-231 |
-| TS-233 | Human gold set (50) | evals | — | P1 | todo | Slice table filled; annotated per §19 | — |
+| TS-233 | Human gold set (50) | evals | — | P1 | **done** | Slice table filled; annotated per §19 | — |
 | TS-294 | `Finding.document_id` | `findings` | 3 | P2 | **done** | Migration + writers updated | — |
 | TS-295 | `Finding.currency` | `findings` | 3 | P1 | **done** | Explicit ISO 4217 alongside amount_exposure | — |
 | TS-296 | `Finding.facts` + `Opportunity.contract_value_minor` | `findings` | 3 | P2 | todo | Real fact sourcing for pricing.loading | TS-203 |
-| TS-234 | North-star metric — margin protected | `outcomes` | 1 | P0 | todo | Deterministic; excludes speculative value; grows with Phases 18–19 | TS-203, TS-215 |
+| TS-234 | North-star metric — margin protected | `outcomes` | 1 | P0 | **done** | Deterministic; excludes speculative value; grows with Phases 18–19 | TS-203, TS-215 |
 
 ---
 

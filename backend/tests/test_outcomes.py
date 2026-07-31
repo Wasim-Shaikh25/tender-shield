@@ -13,9 +13,9 @@ import app.modules.outcomes.models  # noqa: F401
 from app.core.config import Settings
 from app.core.db import Base
 from app.main import create_app
-from tests.helpers import auth_headers
+from tests.helpers import auth_headers, auth_headers_and_workspace
 
-MODULES = "health,rulepacks,auth,ingestion,findings,risk,outcomes,marketdata"
+MODULES = "health,rulepacks,auth,ingestion,findings,risk,review,outcomes,marketdata"
 
 
 @pytest.fixture
@@ -125,3 +125,68 @@ def test_outcome_prefill_from_marketdata(client):
     prefill = read.json()["prefill"]
     assert prefill is not None
     assert prefill["l1_value_minor"] == 1_000_000
+
+
+def test_margin_protected_metric(client):
+    headers, workspace_id = auth_headers_and_workspace(
+        client, f"mp-{uuid.uuid4().hex[:8]}@example.com"
+    )
+
+    opp_id = client.post(
+        "/api/ingestion/opportunities", json={"title": "Margin tender"}, headers=headers
+    ).json()["id"]
+    client.post(
+        f"/api/ingestion/opportunities/{opp_id}/documents",
+        json={"filename": "gcc.pdf", "sample_text": "[p1]\nClause 5 — LD at 0.5% per week."},
+        headers=headers,
+    )
+    client.post(f"/api/risk/opportunities/{opp_id}/run", headers=headers)
+    finding_id = client.get(
+        f"/api/findings/opportunities/{opp_id}", headers=headers
+    ).json()["findings"][0]["id"]
+
+    client.post(
+        f"/api/review/findings/{finding_id}",
+        headers=headers,
+        json={"opportunity_id": opp_id, "decision": "accepted"},
+    )
+    reg = client.app.state.ctx.registry
+    Session = reg.require("db.sessionmaker")
+    with Session() as session:
+        from app.modules.findings.store import FindingStore
+
+        store = FindingStore(session)
+        row = store.get(workspace_id, finding_id)
+        row.amount_exposure = 500_000
+        row.currency = "INR"
+        session.commit()
+
+    client.post(
+        f"/api/outcomes/opportunities/{opp_id}",
+        headers=headers,
+        json={"result": "declined"},
+    )
+
+    resp = client.get("/api/outcomes/metrics/margin-protected", headers=headers)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["declined_exposure_avoided_minor"] == 500_000
+    assert body["total_margin_protected_minor"] == 500_000
+    assert body["currency"] == "INR"
+
+
+def test_margin_protected_excludes_unreviewed_findings(client):
+    headers = auth_headers(client, f"mpu-{uuid.uuid4().hex[:8]}@example.com")
+    opp_id = client.post(
+        "/api/ingestion/opportunities", json={"title": "Unreviewed"}, headers=headers
+    ).json()["id"]
+    client.post(
+        f"/api/ingestion/opportunities/{opp_id}/documents",
+        json={"filename": "gcc.pdf", "sample_text": "[p1]\nClause 5 — LD at 0.5% per week."},
+        headers=headers,
+    )
+    client.post(f"/api/risk/opportunities/{opp_id}/run", headers=headers)
+
+    resp = client.get("/api/outcomes/metrics/margin-protected", headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["total_margin_protected_minor"] == 0

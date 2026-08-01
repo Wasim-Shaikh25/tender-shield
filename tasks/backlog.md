@@ -420,8 +420,8 @@ documents but produces none of the *controls* stage 3 consumes.
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
 | TS-235 | Spec: `baseline` completion — controls, notice rules, cost codes, approval matrix, handover pack | Research Doc §4.E | `specs/modules/baseline.md` (update) | done |
-| TS-236 | Award comparison: diff negotiated contract + accepted BOQ against tender assumptions; highlight concessions and new obligations with citations | Research Doc §5.2(10) | `specs/modules/baseline.md` | todo |
-| TS-237 | Risk → project watchlist: convert accepted tender findings into monitored project controls with owner, trigger and review cadence | Research Doc §4.E | `specs/modules/baseline.md` | todo |
+| TS-236 | Award comparison: diff negotiated contract + accepted BOQ against tender assumptions; highlight concessions and new obligations with citations | Research Doc §5.2(10) | `specs/modules/baseline.md` | done |
+| TS-237 | Risk → project watchlist: convert accepted tender findings into monitored project controls with owner, trigger and review cadence | Research Doc §4.E | `specs/modules/baseline.md` | done |
 | TS-238 | Notice-rule register: per-contract notice types, trigger events, deadline arithmetic (deterministic), required content, correspondence addresses, authorized representatives | Research Doc §4.E, §5.2(13) | `specs/modules/standards.md` (update) | todo |
 | TS-239 | Approval matrix: role-based authority limits per action (notice issue, variation acceptance, claim submission) | Research Doc §4.E, §13 Negotiation | `specs/modules/auth.md` (update) | todo |
 | TS-240 | Cost-code model: create cost codes, map to BOQ items and variation categories; foundation for stage 3/4 valuation | Research Doc §4.E | `specs/modules/baseline.md` | todo |

@@ -15,7 +15,7 @@ from app.core.config import Settings
 from app.core.db import Base
 from app.main import create_app
 from app.modules.baseline.notices import extract_notice_rules
-from tests.helpers import auth_headers
+from tests.helpers import auth_headers, auth_headers_and_workspace
 
 MODULES = "health,rulepacks,auth,ingestion,findings,risk,review,standards,baseline"
 
@@ -305,3 +305,67 @@ def test_app_boots_with_baseline_disabled():
     loaded = {s.name for s in application.state.load_report.loaded}
     assert "baseline" not in loaded
     assert not application.state.ctx.registry.has("baseline.service_factory")
+
+
+def test_compare_award_reports_clause_concession(client):
+    headers = _auth(client)
+    opp_id = _opp_with_findings(client, headers)
+    _accept_all(client, headers, opp_id, decision="accepted")
+    client.post(
+        f"/api/baseline/opportunities/{opp_id}/freeze", json={"source": "tender"}, headers=headers
+    )
+    award_text = (
+        "[p4]\nClause 21 — Payment. Interim payment shall be released within "
+        "90 (ninety) days of certification."
+    )
+    client.post(
+        f"/api/baseline/opportunities/{opp_id}/award-document",
+        files={"file": ("award.csv", award_text.encode(), "text/csv")},
+        headers=headers,
+    )
+    client.post(
+        f"/api/baseline/opportunities/{opp_id}/freeze", json={"source": "award"}, headers=headers
+    )
+    delta = client.get(
+        f"/api/baseline/opportunities/{opp_id}/compare/award", headers=headers
+    )
+    assert delta.status_code == 200, delta.text
+    body = delta.json()
+    assert body["baseline_refs"]["tender_id"]
+    assert "clauses" in body
+    assert body["clauses"]["added"] or body["clauses"]["changed"]
+
+
+def test_watchlist_seeded_on_freeze_and_owner_assignable(client):
+    headers, workspace_id = auth_headers_and_workspace(client, "watch@example.com")
+    opp_id = _opp_with_findings(client, headers)
+    reg = client.app.state.ctx.registry
+    Session = reg.require("db.sessionmaker")
+    with Session() as session:
+        from app.modules.findings.store import FindingStore
+
+        store = FindingStore(session)
+        for row in store.list(workspace_id, opp_id):
+            row.severity = "critical"
+        session.commit()
+    _accept_all(client, headers, opp_id, decision="accepted")
+    client.post(
+        f"/api/baseline/opportunities/{opp_id}/freeze", json={"source": "tender"}, headers=headers
+    )
+    controls = client.get(
+        f"/api/baseline/opportunities/{opp_id}/watchlist", headers=headers
+    ).json()["controls"]
+    assert len(controls) >= 1
+    user_id = client.get("/api/auth/me", headers=headers).json()["user_id"]
+    updated = client.put(
+        f"/api/baseline/watchlist/{controls[0]['id']}",
+        headers=headers,
+        json={
+            "owner_user_id": user_id,
+            "trigger_text": "Practical completion",
+            "review_cadence": "weekly",
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["owner_user_id"] == user_id
+    assert updated.json()["review_cadence"] == "weekly"

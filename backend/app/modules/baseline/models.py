@@ -46,3 +46,32 @@ class AwardDocument(Base, WorkspaceScopedMixin):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class WatchlistControl(Base, WorkspaceScopedMixin):
+    _tablename_ = "bl_watchlist_controls"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    opportunity_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("opportunities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    baseline_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("baselines.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    finding_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True, index=True)
+    obligation_key: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    severity: Mapped[str] = mapped_column(String, nullable=False)
+    owner_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    trigger_text: Mapped[str | None] = mapped_column(String, nullable=True)
+    review_cadence: Mapped[str] = mapped_column(String, nullable=False, default="monthly")
+    next_review_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="active")
+    source_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    source_quote: Mapped[str | None] = mapped_column(String, nullable=True)
+    document_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )

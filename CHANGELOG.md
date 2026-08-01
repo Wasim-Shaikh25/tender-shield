@@ -6,16 +6,27 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-08-01 (TS-236 + TS-237: award compare + watchlist)
+
+- **TS-236 award comparison** — `compare_award()` with finding, clause, and BOQ deltas;
+  `GET /api/baseline/opportunities/{id}/compare/award`; clauses frozen in baseline snapshot.
+- **TS-237 project watchlist** — `bl_watchlist_controls` table; auto-seed on freeze for
+  critical/high findings; `GET/PUT` watchlist routes; `baseline.watchlist_updated` event.
+- **Architecture** — clause segmentation for award compare via `ingestion.segment_clauses`
+  registry capability (no cross-module import).
+
+Tests: 500 passed / 5 skipped.
+
+### Next
+
+- TS-238 + TS-239 (notice register completion + approval matrix).
+
 ### Done — 2026-08-01 (TS-235: baseline Phase 17 spec)
 
 - **`specs/modules/baseline.md`** — Phase 17 completion spec: watchlist controls (TS-237),
   award comparison with citations (TS-236), notice register completion (TS-238), cost-code model
   (TS-240), multi-view handover (TS-241); cross-refs to `auth`, `export`, `analytics`.
 - **`tasks/phase17_tracker.md`** — sprint map and task table for TS-235–TS-242.
-
-### Next
-
-- TS-236 + TS-237 (award comparison + project watchlist).
 
 ### Done — 2026-07-31 (TS-222: SAE Rung 2 risk patterns)
 

@@ -22,7 +22,7 @@ least two contract forms; cost codes mapped end-to-end.
 | Sprint | Theme | Tasks | Exit gate | Status |
 |---|---|---|---|---|
 | **0** | **Spec** | TS-235 ✅ | `baseline.md` defines controls, notice completion, cost codes, handover views | **done** |
-| **1** | **Award delta + watchlist** | TS-236, TS-237 | Award-vs-tender diff with citations; accepted findings → watchlist rows | todo |
+| **1** | **Award delta + watchlist** | TS-236 ✅, TS-237 ✅ | Award-vs-tender diff with citations; accepted findings → watchlist rows | **done** |
 | **2** | **Notice register + approval** | TS-238, TS-239 | Per-contract notice types with addresses/reps; approval matrix enforced | todo |
 | **3** | **Cost codes + handover** | TS-240, TS-241 | BOQ→cost-code map; site/planning/procurement/finance handover exports | todo |
 | **4** | **Telemetry** | TS-242 | Baseline adoption metrics visible; Phase 18 unlock gate measurable | todo |
@@ -48,8 +48,8 @@ valuation in Phases 18–19 and should not block notice work.
 | ID | Title | Module | Priority | Status | Acceptance (short) | Blockers |
 |---|---|---|---|---|---|---|
 | TS-235 | Spec: baseline completion | `baseline` | P0 | **done** | Spec updated; maps to TS-236–242 | — |
-| TS-236 | Award comparison vs tender assumptions | `baseline` | P0 | todo | Concessions + new obligations with citations | TS-235 |
-| TS-237 | Risk → project watchlist | `baseline` | P0 | todo | Owner, trigger, cadence per accepted finding | TS-235 |
+| TS-236 | Award comparison vs tender assumptions | `baseline` | P0 | **done** | Concessions + new obligations with citations | TS-235 |
+| TS-237 | Risk → project watchlist | `baseline` | P0 | **done** | Owner, trigger, cadence per accepted finding | TS-235 |
 | TS-238 | Notice-rule register (complete) | `baseline` + `standards` | P0 | todo | Types, triggers, content, addresses, reps | TS-235 |
 | TS-239 | Approval matrix | `auth` | P1 | todo | Role limits on notice/variation/claim actions | TS-235 |
 | TS-240 | Cost-code model | `baseline` | P0 | todo | Codes mapped to BOQ + variation categories | TS-235 |

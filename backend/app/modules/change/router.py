@@ -26,6 +26,13 @@ _ERROR_STATUS = {
     "bad_confirmation_state": 409,
     "invalid_cost_code": 400,
     "invalid_finding": 400,
+    "notice_deadline_requires_confirmation": 409,
+    "notice_draft_requires_confirmation": 409,
+    "drafting_unavailable": 503,
+    "no_verified_facts": 400,
+    "approval_denied": 403,
+    "role_below_minimum": 403,
+    "amount_above_limit": 403,
 }
 
 
@@ -91,6 +98,8 @@ def _service(request: Request, session: Session) -> ChangeService:
         diff_clauses_fn=reg.get("baseline.diff_clauses"),
         findings_factory=reg.get("findings.store_factory"),
         cost_codes_fn=reg.get("baseline.cost_codes_for_opportunity"),
+        approval_matrix_factory=reg.get("auth.approval_matrix"),
+        drafting_factory=reg.get("drafting.service_factory"),
         publish=request.app.state.ctx.events.publish,
     )
 
@@ -276,5 +285,38 @@ def list_confirmations(
                 principal.workspace_id, event_id
             )
         }
+    except ChangeError as exc:
+        _raise(exc)
+
+
+@router.get("/events/{event_id}/notice-deadline")
+def get_notice_deadline(
+    event_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    try:
+        return _service(request, session).compute_notice_deadline(
+            principal.workspace_id, event_id
+        )
+    except ChangeError as exc:
+        _raise(exc)
+
+
+@router.post("/events/{event_id}/notice-draft")
+def request_notice_draft(
+    event_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    try:
+        return _service(request, session).request_notice_draft(
+            principal.workspace_id,
+            event_id,
+            actor_user_id=principal.user_id,
+            actor_role=getattr(principal, "role", "estimator"),
+        )
     except ChangeError as exc:
         _raise(exc)

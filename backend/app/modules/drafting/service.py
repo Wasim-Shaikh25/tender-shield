@@ -13,7 +13,7 @@ from app.modules.drafting.generator import build_body, render_text
 from app.modules.drafting.models import Artifact
 from app.modules.drafting.validators import FactTable, validate
 
-KINDS = {"clarification_letter", "assumptions_register", "bid_decision"}
+KINDS = {"clarification_letter", "assumptions_register", "bid_decision", "variation_notice"}
 _ACCEPTED = {"accepted", "edited"}
 _RESOLVED = {"accepted", "edited", "rejected", "false_positive"}
 
@@ -148,6 +148,48 @@ class DraftingService:
                 version=next_version_expr,
                 body=body,
                 model_meta={"generator": "deterministic", "findings": len(findings)},
+            )
+            .returning(Artifact)
+        )
+        artifact = self.s.scalars(stmt).one()
+        self.s.commit()
+        return artifact
+
+    def generate_variation_notice(
+        self,
+        workspace_id,
+        opportunity_id,
+        *,
+        facts: list[dict],
+        event_title: str,
+        change_event_id: str | None = None,
+    ) -> Artifact:
+        if not facts:
+            raise DraftingError("no_verified_facts")
+        body = build_body("variation_notice", event_title, facts)
+        validate(render_text(body), FactTable.from_findings(facts))
+
+        opp = uuid.UUID(str(opportunity_id))
+        next_version_expr = (
+            select(func.coalesce(func.max(Artifact.version), 0) + 1)
+            .where(Artifact.opportunity_id == opp, Artifact.kind == "variation_notice")
+            .scalar_subquery()
+        )
+        meta = {
+            "generator": "deterministic",
+            "facts": len(facts),
+            "change_event_id": change_event_id,
+        }
+        stmt = (
+            insert(Artifact)
+            .values(
+                workspace_id=uuid.UUID(str(workspace_id)),
+                opportunity_id=opp,
+                kind="variation_notice",
+                version=next_version_expr,
+                body=body,
+                model_meta=meta,
+                status="draft",
             )
             .returning(Artifact)
         )

@@ -9,7 +9,17 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import JSON, Date, DateTime, ForeignKey, Integer, String, Uuid, func
+from sqlalchemy import (
+    JSON,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+    Uuid,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base, WorkspaceScopedMixin
@@ -73,3 +83,17 @@ class ChangeConfirmation(Base, WorkspaceScopedMixin):
     )
     note: Mapped[str | None] = mapped_column(String, nullable=True)
     evidence_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+
+
+class ChangeNoticeAlertLog(Base, WorkspaceScopedMixin):
+    _tablename_ = "change_notice_alert_log"
+    __table_args__ = (UniqueConstraint("user_id", "change_event_id", "alert_day"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
+    opportunity_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
+    change_event_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
+    alert_day: Mapped[int] = mapped_column(Integer, nullable=False)
+    sent_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

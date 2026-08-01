@@ -26,6 +26,7 @@ from app.modules.change.models import (
     ChangeEvent,
     ChangeSource,
 )
+from app.modules.change.notice_deadline import compute_notice_deadline
 from app.modules.change.signals import classify_signal
 
 _CONFIRMATION_OUTCOMES = frozenset(
@@ -60,6 +61,8 @@ class ChangeService:
         diff_clauses_fn: Callable[..., dict] | None = None,
         findings_factory: Callable[[Session], object] | None = None,
         cost_codes_fn: Callable[..., dict] | None = None,
+        approval_matrix_factory: Callable[[Session], object] | None = None,
+        drafting_factory: Callable[[Session], object] | None = None,
         publish: Callable[[str, dict], int] | None = None,
     ):
         self.s = session
@@ -70,6 +73,8 @@ class ChangeService:
         self._diff_clauses_fn = diff_clauses_fn
         self._findings_factory = findings_factory
         self._cost_codes_fn = cost_codes_fn
+        self._approval_matrix_factory = approval_matrix_factory
+        self._drafting_factory = drafting_factory
         self._publish = publish
 
     def _baseline(self):
@@ -392,6 +397,130 @@ class ChangeService:
                 },
             )
         return self._confirmation_dict(row)
+
+    def compute_notice_deadline(self, workspace_id, event_id) -> dict:
+        event = self._get_event_row(workspace_id, event_id)
+        if event.status != "confirmed":
+            raise ChangeError("notice_deadline_requires_confirmation")
+        baseline = self._baseline()
+        if not hasattr(baseline, "notice_register"):
+            raise ChangeError("baseline_unavailable")
+        register = baseline.notice_register(workspace_id, event.opportunity_id)
+        detail = compute_notice_deadline(
+            notice_type=event.notice_type,
+            trigger_date=event.trigger_date,
+            rules=register.get("rules") or [],
+        )
+        if not detail.get("deadline_unknown") and detail.get("notice_deadline"):
+            event.notice_deadline = date.fromisoformat(detail["notice_deadline"])
+        else:
+            event.notice_deadline = None
+        event.notice_deadline_detail = detail
+        if not event.notice_type and detail.get("notice_type"):
+            event.notice_type = detail["notice_type"]
+        self.s.commit()
+        self.s.refresh(event)
+        if self._publish:
+            self._publish(
+                "change.notice_deadline_computed",
+                {
+                    "workspace_id": str(event.workspace_id),
+                    "event_id": str(event.id),
+                    "notice_deadline": detail.get("notice_deadline"),
+                    "notice_type": detail.get("notice_type"),
+                },
+            )
+        return detail
+
+    def request_notice_draft(
+        self,
+        workspace_id,
+        event_id,
+        *,
+        actor_user_id,
+        actor_role: str,
+    ) -> dict:
+        event = self._get_event_row(workspace_id, event_id)
+        if event.status != "confirmed":
+            raise ChangeError("notice_draft_requires_confirmation")
+        if self._approval_matrix_factory is not None:
+            matrix = self._approval_matrix_factory(self.s)
+            exposure = (event.impact_links or {}).get("exposure_summary", {})
+            amount_minor = int(exposure.get("total_minor") or 0)
+            decision = matrix.check(
+                workspace_id,
+                role=actor_role,
+                action="notice_issue",
+                amount_minor=amount_minor,
+            )
+            if not decision.allowed:
+                raise ChangeError(decision.reason or "approval_denied")
+        if self._drafting_factory is None:
+            raise ChangeError("drafting_unavailable")
+        drafting = self._drafting_factory(self.s)
+        if not hasattr(drafting, "generate_variation_notice"):
+            raise ChangeError("drafting_unavailable")
+        facts = self._verified_facts_for_event(event)
+        if not facts:
+            raise ChangeError("no_verified_facts")
+        title = event.title
+        ing = self._ingestion()
+        opp = ing.get_opportunity(workspace_id, event.opportunity_id)
+        if opp is not None:
+            title = f"{event.title} — {opp.title}"
+        artifact = drafting.generate_variation_notice(
+            workspace_id,
+            event.opportunity_id,
+            facts=facts,
+            event_title=title,
+            change_event_id=str(event.id),
+        )
+        if self._publish:
+            self._publish(
+                "change.notice_draft_requested",
+                {
+                    "workspace_id": str(event.workspace_id),
+                    "event_id": str(event.id),
+                    "artifact_id": str(artifact.id),
+                },
+            )
+        return {
+            "artifact_id": str(artifact.id),
+            "kind": artifact.kind,
+            "version": artifact.version,
+            "status": artifact.status,
+        }
+
+    def notice_deadline_for_event(self, workspace_id, event_id) -> dict:
+        """Registry helper — compute or return cached deadline payload."""
+        event = self._get_event_row(workspace_id, event_id)
+        if event.notice_deadline_detail:
+            return event.notice_deadline_detail
+        return self.compute_notice_deadline(workspace_id, event_id)
+
+    def _verified_facts_for_event(self, event: ChangeEvent) -> list[dict]:
+        facts: list[dict] = []
+        for source in self._sources_for(event.id):
+            quote = (source.source_quote or "").strip()
+            if not quote:
+                continue
+            facts.append(
+                {
+                    "kind": "change_source",
+                    "title": event.title,
+                    "category": event.reason,
+                    "severity": event.confidence_band,
+                    "detail": event.affected_scope or event.title,
+                    "source_quote": quote,
+                    "source_page": source.source_page,
+                    "suggested_action": f"Include in {event.notice_type or 'variation'} notice.",
+                }
+            )
+        exposure = (event.impact_links or {}).get("exposure_summary", {})
+        total_minor = exposure.get("total_minor")
+        if total_minor and facts:
+            facts[0]["amount_exposure"] = int(total_minor)
+        return facts
 
     def _inbox_rows(self, workspace_id, opportunity_id) -> list[ChangeEvent]:
         wid = uuid.UUID(str(workspace_id))

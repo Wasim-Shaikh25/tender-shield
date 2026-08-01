@@ -6,6 +6,24 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-08-01 (TS-251–TS-253: notice engine)
+
+- **TS-251 deterministic notice-deadline engine** — `GET /api/change/events/{id}/notice-deadline`
+  computes calendar-day deadlines from the Phase-17 notice register (event trigger uses
+  `trigger_date + deadline_days`); persists `notice_deadline` + `notice_deadline_detail`;
+  publishes `change.notice_deadline_computed`; registry `change.notice_deadline_for_event`.
+- **TS-252 countdown alerts** — `change_notice_alert_log` table; `change.process_notice_alerts`
+  capability; notifications scheduler tick sends deduped 7/3/1/0-day emails for confirmed events.
+- **TS-253 notice drafting** — `POST /api/change/events/{id}/notice-draft` creates
+  `variation_notice` artifact from verified source quotes with three validators; `status=draft`;
+  approval matrix `notice_issue` gate when configured.
+
+Tests: 538 passed / 5 skipped.
+
+### Next
+
+- TS-247 (email ingestion), TS-254–TS-256 (evidence + billing).
+
 ### Done — 2026-08-01 (TS-245 + TS-246: change detection)
 
 - **TS-245 baseline diff engine** — `POST /api/change/opportunities/{id}/diff` compares revised

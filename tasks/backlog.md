@@ -447,9 +447,9 @@ subscription (Research Doc §10.1), and creates the first real switching cost in
 | TS-248 | Potential-variation inbox: reason, source, affected scope, confidence band, triage queue | Research Doc §4.F | `specs/modules/change.md` | done |
 | TS-249 | Impact linking: connect a change event to affected BOQ items, cost codes and subcontract packages | Research Doc §4.F | `specs/modules/change.md` | done |
 | TS-250 | Site confirmation workflow: changed / not changed / clarification only / contractor risk / client risk / unknown — with recorded confirmer and timestamp | Research Doc §4.F, §5.3(16) | `specs/modules/change.md` | done |
-| TS-251 | **Deterministic notice-deadline engine**: compute the notice deadline and required content from the Phase-17 notice-rule register; never LLM | Research Doc §4.F, §5.3(17); `CLAUDE.md` §4 | `specs/modules/change.md` | todo |
-| TS-252 | Deadline countdown, escalation rules and multi-channel alerts (email/WhatsApp) with per-event dedup | Research Doc §4.F | `specs/modules/notifications.md` (update) | todo |
-| TS-253 | Notice drafting: contract-specific template populated with **verified facts only**; three validators applied; human approval mandatory before issue | Research Doc §4.G, §5.3(18); Build Doc §6.5, §11.4 | `specs/modules/drafting.md` (update) | todo |
+| TS-251 | **Deterministic notice-deadline engine**: compute the notice deadline and required content from the Phase-17 notice-rule register; never LLM | Research Doc §4.F, §5.3(17); `CLAUDE.md` §4 | `specs/modules/change.md` | done |
+| TS-252 | Deadline countdown, escalation rules and multi-channel alerts (email/WhatsApp) with per-event dedup | Research Doc §4.F | `specs/modules/notifications.md` (update) | done |
+| TS-253 | Notice drafting: contract-specific template populated with **verified facts only**; three validators applied; human approval mandatory before issue | Research Doc §4.G, §5.3(18); Build Doc §6.5, §11.4 | `specs/modules/drafting.md` (update) | done |
 | TS-254 | Evidence attachment + chain of custody on change events (type, date, creator, custody chain, event link) | Research Doc §4.G, §6.3 | `specs/modules/evidence.md` (new) | todo |
 | TS-255 | **Evidence-completeness scoring** per event with a list of missing contemporaneous records | Research Doc §2.1, §4.G | `specs/modules/evidence.md` | todo |
 | TS-256 | Per-project billing lane: project activation + per-project monthly subscription (server-owned prices, webhook-only activation) | Research Doc §10.1; Build Doc §15 | `specs/modules/billing.md` (update) | todo |

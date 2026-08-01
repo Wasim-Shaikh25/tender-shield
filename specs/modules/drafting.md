@@ -1,12 +1,13 @@
 # Drafting & Export — Spec
 
 **Status:** implemented (generation) — clarification letter + assumptions
-register + bid/no-bid decision generated from ACCEPTED findings; the three validators
+register + bid/no-bid decision + **variation notice** (TS-253) generated from ACCEPTED findings
+or verified change-event facts; the three validators
 (no invented quotes/clauses/numbers) gate every artifact; versioned, never mutated.
 Deterministic assembly (no LLM key needed); LLM polish pass and the file
 export renderer done for DOCX + XLSX (TS-023, gated by review + stamped); PDF (reportlab) now included; LLM polish is a follow-up.
-**Requirement refs:** Doc §6.5, §1.1(6,8), §11.4, Phase 1.5 doc §5
-**Task refs:** TS-020, TS-023, TS-048
+**Requirement refs:** Doc §6.5, §1.1(6,8), §11.4, Phase 1.5 doc §5, Research Doc §4.G
+**Task refs:** TS-020, TS-023, TS-048, TS-253
 
 ## Purpose
 
@@ -29,6 +30,8 @@ gated by validators.
 - **API routes** (prefix `/api/drafting`):
   - `POST /opportunities/{id}/artifacts` (estimator) — generate `clarification_letter`,
     `assumptions_register`, or `bid_decision`.
+  - `DraftingService.generate_variation_notice` — called via registry from `change` for
+    `variation_notice` drafts (verified change-event facts only; TS-253).
   - `GET /opportunities/{id}/artifacts` (viewer) — list versions.
   - `GET /artifacts/{id}` (viewer) — retrieve an artifact.
 
@@ -62,6 +65,9 @@ with `evidence_refs[]` + `citations[]`; `model_meta`).
 - **B8 (immutability):** new generation = new version; approved artifacts are
   never mutated. The version number is assigned atomically by the database so
   concurrent generations cannot produce duplicate versions.
+- **B9 (variation notice):** `variation_notice` artifacts are built from verified
+  `change_sources` quotes only; `status=draft` until human approval in review workbench;
+  `auth.approval_matrix` action `notice_issue` may gate generation when configured.
 
 ## Acceptance criteria
 

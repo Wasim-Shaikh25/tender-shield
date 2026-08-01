@@ -94,19 +94,16 @@ subscription or switching cost.
 - Site confirmation outcomes map to event status (`changed`→`confirmed`, `clarification_only`→
   `triaged`, `client_risk`→`closed`, etc.).
 
-#### Planned (TS-247, TS-251 – TS-256)
-- `POST /opportunities/{id}/inbox/email` (admin) — register project forward-to-inbox address
-  (**TS-247**).
-- `GET  /opportunities/{id}/inbox` (viewer) — potential-variation triage queue (**TS-248**).
-- `PUT  /events/{event_id}/triage` (estimator) — accept/reject/prioritise inbox item (**TS-248**).
-- `PUT  /events/{event_id}/impacts` (estimator) — link BOQ rows, cost codes, subcontract refs
-  (**TS-249**).
+#### Implemented (TS-251, TS-252, TS-253)
+
 - `GET  /events/{event_id}/notice-deadline` (viewer) — deterministic deadline + required content
-  (**TS-251**).
-- `POST /events/{event_id}/notice-draft` (estimator) — request notice draft via `drafting`
-  (**TS-253**).
-- `POST /events/{event_id}/evidence` (estimator) — attach evidence record (**TS-254**; delegates
-  to `evidence` module when present).
+  from baseline notice register; persists on event (**TS-251**).
+- `POST /events/{event_id}/notice-draft` (estimator) — variation notice draft via `drafting`
+  with verified facts only and validators; `status=draft` until human approval (**TS-253**).
+- Registry: `change.notice_deadline_for_event`, `change.process_notice_alerts` (consumed by
+  `notifications` scheduler for 7/3/1/0 deduped alerts — **TS-252**).
+
+#### Planned (TS-247, TS-254 – TS-256)
 
 ## Data owned
 
@@ -324,13 +321,14 @@ Site confirmation workflow (TS-250). Append-only history — latest row wins for
   units.
 - A10 (TS-250): confirmation outcomes update event status; history is listable.
 
-### TS-247, TS-251–TS-256 (planned)
-- A7 (TS-248): Inbox lists only `candidate`/`triaged` for the opportunity.
-- A8 (TS-250): Confirmation appends row; `changed` sets `status=confirmed`.
-- A9 (TS-251): Deadline matches `notice_register.compute_deadline` for same inputs.
-- A10 (TS-252): Alert fires once per (user, event, bucket).
-- A11 (TS-253): Draft request blocked until confirmation and approval matrix pass.
-- A12 (TS-256): Unactivated project blocks event creation with 402.
+### TS-251–TS-253 (implemented)
+
+- A11 (TS-251): Deadline matches notice register for same inputs; event trigger uses
+  `trigger_date + deadline_days` (calendar days).
+- A12 (TS-252): Alert fires once per (user, event, bucket) via `change_notice_alert_log`.
+- A13 (TS-253): Draft request blocked until confirmation; artifact `status=draft`; validators pass.
+
+### TS-247, TS-254–TS-256 (planned)
 
 ## Cross-module specs (Phase 18)
 

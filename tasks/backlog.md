@@ -439,8 +439,8 @@ subscription (Research Doc §10.1), and creates the first real switching cost in
 
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
-| TS-243 | Spec: `change` module — event model, sources, confidence, site confirmation, notice deadlines | Research Doc §4.F | `specs/modules/change.md` (new) | todo |
-| TS-244 | `change` module scaffold + migrations: `change_events`, `change_sources`, `change_confirmations` (workspace-scoped, RLS) | Research Doc §4.F | `specs/modules/change.md` | todo |
+| TS-243 | Spec: `change` module — event model, sources, confidence, site confirmation, notice deadlines | Research Doc §4.F | `specs/modules/change.md` (new) | done |
+| TS-244 | `change` module scaffold + migrations: `change_events`, `change_sources`, `change_confirmations` (workspace-scoped, RLS) | Research Doc §4.F | `specs/modules/change.md` | done |
 | TS-245 | Baseline diff engine: compare new drawing/spec/instruction revisions against the locked baseline; emit candidate change events with citations | Research Doc §4.F, §5.3(15) | `specs/modules/change.md` | todo |
 | TS-246 | Change-signal ingestion: RFIs, site instructions, meeting minutes, daily reports — classified into candidate events with source provenance | Research Doc §4.F | `specs/modules/change.md` | todo |
 | TS-247 | Email ingestion adapter (forward-to-inbox address per project), with prompt-injection defenses for untrusted correspondence | Research Doc §4.F; Build Doc §11.3 | `specs/modules/change.md` | todo |

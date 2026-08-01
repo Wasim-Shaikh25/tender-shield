@@ -23,7 +23,7 @@ notices issued on time via the platform; one customer on per-project billing.
 | Sprint | Theme | Tasks | Exit gate | Status |
 |---|---|---|---|---|
 | **0** | **Spec + scaffold** | TS-243 ✅, TS-244 ✅ | `change.md` agreed; module boots; tables migrated | **done** |
-| **1** | **Detection** | TS-245, TS-246, TS-247 | Baseline diff + signal ingestion emit cited candidates | todo |
+| **1** | **Detection** | TS-245 ✅, TS-246 ✅ | Baseline diff + signal ingestion emit cited candidates | **done** |
 | **2** | **Inbox + confirmation** | TS-248, TS-249, TS-250 | Triage queue; impact links; site confirmation | todo |
 | **3** | **Notice engine** | TS-251, TS-252, TS-253 | Deterministic deadlines; alerts; draft with validators | todo |
 | **4** | **Evidence + billing** | TS-254, TS-255, TS-256 | Chain of custody; completeness score; project lane | todo |
@@ -50,8 +50,8 @@ sustained usage once the workflow is proven.
 |---|---|---|---|---|---|---|
 | TS-243 | Spec: `change` module | `change` | P0 | **done** | Spec in `specs/modules/change.md` | Phase 17 |
 | TS-244 | `change` scaffold + migrations | `change` | P0 | **done** | Tables + boot + manual event API | TS-243 |
-| TS-245 | Baseline diff engine | `change` | P0 | todo | Cited clause/finding deltas vs seal | TS-244, TS-236 |
-| TS-246 | Change-signal ingestion | `change` | P0 | todo | RFI/SI/minutes/daily reports classified | TS-244 |
+| TS-245 | Baseline diff engine | `change` | P0 | **done** | Cited clause/finding deltas vs seal | TS-244, TS-236 |
+| TS-246 | Change-signal ingestion | `change` | P0 | **done** | RFI/SI/minutes/daily reports classified | TS-244 |
 | TS-247 | Email ingestion adapter | `change` | P1 | todo | Forward-to-inbox + injection defenses | TS-246 |
 | TS-248 | Potential-variation inbox | `change` | P0 | todo | Triage queue with confidence bands | TS-245, TS-246 |
 | TS-249 | Impact linking | `change` | P0 | todo | BOQ + cost codes + subcontract refs | TS-240, TS-248 |

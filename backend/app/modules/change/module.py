@@ -13,6 +13,8 @@ def setup(ctx: AppContext) -> None:
             baseline_factory=reg.get("baseline.service_factory"),
             ingestion_factory=reg.get("ingestion.service_factory"),
             review_factory=reg.get("review.service_factory"),
+            segment_clauses_fn=reg.get("ingestion.segment_clauses"),
+            diff_clauses_fn=reg.get("baseline.diff_clauses"),
             publish=ctx.events.publish,
         )
 

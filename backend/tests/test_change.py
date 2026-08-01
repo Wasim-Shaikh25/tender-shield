@@ -138,3 +138,59 @@ def test_manual_event_lifecycle(client):
     after = client.get(f"/api/change/events/{event_id}", headers=headers).json()
     assert after["status"] == "confirmed"
     assert after["latest_confirmation"]["outcome"] == "changed"
+
+
+def test_baseline_diff_emits_candidate_with_quote(client):
+    headers = _auth(client)
+    opp_id = _opp_with_findings(client, headers)
+    _accept_all(client, headers, opp_id)
+    _freeze(client, headers, opp_id)
+
+    revised = "[p1]\nClause 12 — Variations require 28 days notice.\n"
+    result = client.post(
+        f"/api/change/opportunities/{opp_id}/diff",
+        json={"text": revised},
+        headers=headers,
+    )
+    assert result.status_code == 200
+    body = result.json()
+    assert body["created"] >= 1
+    assert body["events"]
+    event = body["events"][0]
+    assert event["status"] == "candidate"
+    assert event["sources"][0]["source_kind"] == "baseline_diff"
+    assert event["sources"][0]["source_quote"]
+
+
+def test_signal_ingestion_creates_candidate(client):
+    headers = _auth(client)
+    opp_id = _opp_with_findings(client, headers)
+    _accept_all(client, headers, opp_id)
+    _freeze(client, headers, opp_id)
+
+    first = client.post(
+        f"/api/change/opportunities/{opp_id}/signals",
+        json={
+            "signal_kind": "site_instruction",
+            "text": "Site instruction SI-9: proceed with the variation to widen the access road.",
+            "external_ref": "SI-9",
+        },
+        headers=headers,
+    )
+    assert first.status_code == 200
+    payload = first.json()
+    assert payload["created"] is True
+    assert payload["event"]["reason"] == "instruction"
+    assert payload["event"]["sources"][0]["source_quote"]
+
+    second = client.post(
+        f"/api/change/opportunities/{opp_id}/signals",
+        json={
+            "signal_kind": "site_instruction",
+            "text": "Site instruction SI-9: proceed with the variation to widen the access road.",
+            "external_ref": "SI-9",
+        },
+        headers=headers,
+    )
+    assert second.status_code == 200
+    assert second.json()["created"] is False

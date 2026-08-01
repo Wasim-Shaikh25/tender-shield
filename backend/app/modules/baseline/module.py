@@ -5,20 +5,25 @@ from app.modules.baseline.service import BaselineService
 
 def setup(ctx: AppContext) -> None:
     reg = ctx.registry
-    # Published for future phases (notice countdowns) to consume the frozen
-    # graph via capability. Findings/review/ingestion are soft deps resolved
-    # lazily — the module degrades (freeze refused) when they are absent.
-    reg.provide(
-        "baseline.service_factory",
-        lambda session: BaselineService(
+
+    def factory(session):
+        return BaselineService(
             session,
             findings_factory=reg.get("findings.store_factory"),
             review_factory=reg.get("review.service_factory"),
             ingestion_factory=reg.get("ingestion.service_factory"),
+            segment_clauses_fn=reg.get("ingestion.segment_clauses"),
             loader_provider=lambda: reg.get("rulepacks.loader"),
             standards_factory=reg.get("standards.org_notice_provider"),
             export_factory=reg.get("export.service_factory"),
             publish=ctx.events.publish,
+        )
+
+    reg.provide("baseline.service_factory", factory)
+    reg.provide(
+        "baseline.watchlist_for_opportunity",
+        lambda session, workspace_id, opportunity_id: factory(session).list_watchlist(
+            workspace_id, opportunity_id
         ),
     )
 

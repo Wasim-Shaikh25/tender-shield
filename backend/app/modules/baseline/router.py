@@ -9,6 +9,7 @@ from app.core.deps import get_session, require
 from app.core.pagination import PaginationParams, paginated_list_response
 from app.core.storage import StorageError, ValidationError, validate_and_store
 from app.modules.baseline.service import BaselineError, BaselineService
+from app.modules.baseline.watchlist import control_dict
 
 router = APIRouter()
 
@@ -22,6 +23,7 @@ _ERROR_STATUS = {
     "no_baseline": 404,
     "need_two_baselines": 409,
     "bad_source": 400,
+    "bad_status": 400,
     "export_unavailable": 503,
 }
 
@@ -33,6 +35,7 @@ def _service(request: Request, session: Session) -> BaselineService:
         findings_factory=reg.get("findings.store_factory"),
         review_factory=reg.get("review.service_factory"),
         ingestion_factory=reg.get("ingestion.service_factory"),
+        segment_clauses_fn=reg.get("ingestion.segment_clauses"),
         loader_provider=lambda: reg.get("rulepacks.loader"),
         standards_factory=reg.get("standards.org_notice_provider"),
         publish=request.app.state.ctx.events.publish,
@@ -58,6 +61,13 @@ def _baseline_dict(row) -> dict:
 class FreezeBody(BaseModel):
     source: str = "tender"  # tender | award
     note: str | None = None
+
+
+class WatchlistBody(BaseModel):
+    owner_user_id: str | None = None
+    trigger_text: str | None = None
+    review_cadence: str | None = None
+    status: str | None = None
 
 
 @router.post("/opportunities/{opportunity_id}/freeze")
@@ -176,6 +186,19 @@ def notice_register(
         _raise(exc)
 
 
+@router.get("/opportunities/{opportunity_id}/compare/award")
+def compare_award(
+    opportunity_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    try:
+        return _service(request, session).compare_award(principal.workspace_id, opportunity_id)
+    except BaselineError as exc:
+        _raise(exc)
+
+
 @router.get("/opportunities/{opportunity_id}/compare")
 def compare(
     opportunity_id: str,
@@ -187,6 +210,42 @@ def compare(
         return _service(request, session).compare(principal.workspace_id, opportunity_id)
     except BaselineError as exc:
         _raise(exc)
+
+
+@router.get("/opportunities/{opportunity_id}/watchlist")
+def watchlist(
+    opportunity_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    return {
+        "controls": _service(request, session).list_watchlist(
+            principal.workspace_id, opportunity_id
+        )
+    }
+
+
+@router.put("/watchlist/{control_id}")
+def update_watchlist(
+    control_id: str,
+    body: WatchlistBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    try:
+        row = _service(request, session).update_watchlist(
+            principal.workspace_id,
+            control_id,
+            owner_user_id=body.owner_user_id,
+            trigger_text=body.trigger_text,
+            review_cadence=body.review_cadence,
+            status=body.status,
+        )
+    except BaselineError as exc:
+        _raise(exc)
+    return control_dict(row)
 
 
 @router.get("/opportunities/{opportunity_id}/handover")

@@ -75,8 +75,8 @@ Detail in `tasks/phase16_tracker.md`. Summary:
 | ID | Task | Priority | Status | Depends on |
 |---|---|---|---|---|
 | TS-235 | Spec: baseline completion | P0 | **done** | — |
-| TS-236 | Award comparison vs tender assumptions | P0 | todo | TS-235 |
-| TS-237 | Risk → project watchlist | P0 | todo | TS-235 |
+| TS-236 | Award comparison vs tender assumptions | P0 | **done** | TS-235 |
+| TS-237 | Risk → project watchlist | P0 | **done** | TS-235 |
 | TS-238 | Notice-rule register (deterministic deadlines) | P0 | todo | TS-235 |
 | TS-239 | Approval matrix / authority limits | P1 | todo | TS-235 |
 | TS-240 | Cost-code model mapped to BOQ + variations | P0 | todo | TS-235 |

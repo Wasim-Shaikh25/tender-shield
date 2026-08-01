@@ -2,6 +2,7 @@ from app.core.module import AppContext, ModuleSpec
 from app.modules.ingestion.doc_text import DocTextService
 from app.modules.ingestion.ocr import NullOcrProvider, RapidOcrProvider, RapidTableProvider
 from app.modules.ingestion.router import router
+from app.modules.ingestion.segment import segment_clauses
 from app.modules.ingestion.service import IngestionService
 from app.modules.ingestion.tables import file_to_boq_csv, scanned_boq_csv
 from app.modules.ingestion.tus import sweep_expired_uploads
@@ -27,6 +28,8 @@ def setup(ctx: AppContext) -> None:
     # Pure file→BOQ-CSV helper so the BOQ module reads PDF/XLSX tables without
     # importing ingestion.
     reg.provide("ingestion.file_to_boq_csv", file_to_boq_csv)
+    # Pure text→clause segmentation so baseline award comparison never imports ingestion.
+    reg.provide("ingestion.segment_clauses", segment_clauses)
     # Scanned-table fallback (offline rapid-table; no cloud) — only when OCR is on.
     if ctx.settings.ocr_enabled:
         table_provider = RapidTableProvider()

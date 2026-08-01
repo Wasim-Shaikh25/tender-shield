@@ -15,8 +15,14 @@ from collections.abc import Callable
 from sqlalchemy import func, insert, select
 from sqlalchemy.orm import Session
 
-from app.modules.baseline.models import AwardDocument, Baseline
+from app.modules.baseline.compare_award import diff_boq, diff_clauses, diff_findings
+from app.modules.baseline.models import AwardDocument, Baseline, WatchlistControl
 from app.modules.baseline.notices import extract_notice_rules
+from app.modules.baseline.watchlist import (
+    apply_cadence,
+    control_dict,
+    seed_watchlist,
+)
 
 _ACCEPTED = {"accepted", "edited"}
 
@@ -35,6 +41,7 @@ class BaselineService:
         findings_factory: Callable | None = None,
         review_factory: Callable | None = None,
         ingestion_factory: Callable | None = None,
+        segment_clauses_fn: Callable[[str], list] | None = None,
         loader_provider: Callable[[], object | None] = lambda: None,
         standards_factory: Callable | None = None,
         export_factory: Callable | None = None,
@@ -45,6 +52,7 @@ class BaselineService:
         self._findings_factory = findings_factory
         self._review_factory = review_factory
         self._ingestion_factory = ingestion_factory
+        self._segment_clauses_fn = segment_clauses_fn
         self._loader_provider = loader_provider
         self._standards_factory = standards_factory
         self._export_factory = export_factory
@@ -58,6 +66,8 @@ class BaselineService:
         rows = self._findings_factory(self.s).list(workspace_id, opportunity_id)
         return [
             {
+                "id": str(r.id),
+                "kind": r.kind,
                 "category": r.category,
                 "severity": r.severity,
                 "title": r.title,
@@ -66,6 +76,9 @@ class BaselineService:
                 "source_quote": r.source_quote,
                 "suggested_action": r.suggested_action,
                 "amount_exposure": r.amount_exposure,
+                "currency": r.currency,
+                "pattern_id": r.pattern_id,
+                "document_id": str(r.document_id) if r.document_id else None,
                 "review_status": r.review_status,
             }
             for r in rows
@@ -140,6 +153,19 @@ class BaselineService:
                 }
             )
         return out
+
+    def _segment_clause_dicts(self, text: str) -> list[dict]:
+        if self._segment_clauses_fn is None:
+            raise BaselineError("ingestion_unavailable")
+        return [
+            {
+                "clause_ref": seg.clause_ref,
+                "heading": seg.heading,
+                "text": seg.text,
+                "page_from": seg.page_from,
+            }
+            for seg in self._segment_clauses_fn(text)
+        ]
 
     def _rulepack_categories(self, region: str | None) -> list[dict]:
         """Universal base + regional overlay from the rulepack loader, as dicts
@@ -276,6 +302,7 @@ class BaselineService:
             award_text = award_text or self._award_text(workspace_id, opportunity_id)
             findings = findings + self._award_findings(award_text)
         deadlines = self._confirmed_deadlines(workspace_id, opportunity_id)
+        clauses = self._clause_records(workspace_id, opportunity_id)
         meta = self._opportunity_meta(workspace_id, opportunity_id)
         analysis = self._notice_analysis(
             workspace_id, opportunity_id, findings, meta.get("jurisdiction")
@@ -284,12 +311,14 @@ class BaselineService:
             "source": source,
             "opportunity": meta,
             "findings": findings,
+            "clauses": clauses,
             "deadlines": deadlines,
             "notice_rules": analysis["rules"],
             "notice_gaps": analysis["gaps"],
             "notice_region": analysis["region"],
             "counts": {
                 "findings": len(findings),
+                "clauses": len(clauses),
                 "deadlines": len(deadlines),
                 "notice_rules": len(analysis["rules"]),
                 "notice_gaps": len(analysis["gaps"]),
@@ -370,11 +399,19 @@ class BaselineService:
         self._publish(
             "baseline.sealed",
             {
+                "workspace_id": str(workspace_id),
                 "opportunity_id": str(opp),
                 "baseline_id": str(row.id),
                 "version": row.version,
                 "source": source,
             },
+        )
+        seed_watchlist(
+            self.s,
+            workspace_id=workspace_id,
+            opportunity_id=opp,
+            baseline_id=row.id,
+            findings=snapshot.get("findings", []),
         )
         return row
 
@@ -447,38 +484,97 @@ class BaselineService:
             "gaps": analysis["gaps"],
         }
 
-    @staticmethod
-    def _by_identity(findings: list[dict]) -> dict[tuple[str, str], dict]:
-        return {(f.get("category", ""), f.get("title", "")): f for f in findings}
-
     def compare(self, workspace_id, opportunity_id) -> dict:
-        """Award-vs-tender delta: latest tender seal vs latest award seal
-        (spec B5). Deterministic diff by finding identity (category+title)."""
+        """Award-vs-tender finding delta (spec B5)."""
+        return self.compare_award(workspace_id, opportunity_id, findings_only=True)
+
+    def compare_award(self, workspace_id, opportunity_id, *, findings_only: bool = False) -> dict:
+        """Full award comparison with clause and BOQ deltas (TS-236)."""
         tender = self.latest(workspace_id, opportunity_id, source="tender")
         award = self.latest(workspace_id, opportunity_id, source="award")
         if tender is None or award is None:
             raise BaselineError("need_two_baselines")
-        t = self._by_identity(tender.snapshot.get("findings", []))
-        a = self._by_identity(award.snapshot.get("findings", []))
-        added = [a[k] for k in a.keys() - t.keys()]
-        removed = [t[k] for k in t.keys() - a.keys()]
-        changed = []
-        for k in t.keys() & a.keys():
-            tf, af = t[k], a[k]
-            diffs = {
-                field: {"tender": tf.get(field), "award": af.get(field)}
-                for field in ("severity", "detail", "amount_exposure")
-                if tf.get(field) != af.get(field)
-            }
-            if diffs:
-                changed.append({"category": k[0], "title": k[1], "changes": diffs})
-        return {
+
+        tender_findings = tender.snapshot.get("findings", [])
+        award_findings = award.snapshot.get("findings", [])
+        findings_delta = diff_findings(tender_findings, award_findings)
+        payload = {
+            "baseline_refs": {
+                "tender_id": str(tender.id),
+                "award_id": str(award.id),
+            },
             "tender_version": tender.version,
             "award_version": award.version,
-            "added": added,
-            "removed": removed,
-            "changed": changed,
+            "findings": findings_delta,
+            "added": findings_delta["added"],
+            "removed": findings_delta["removed"],
+            "changed": findings_delta["changed"],
         }
+        if findings_only:
+            return payload
+
+        tender_clauses = tender.snapshot.get("clauses") or []
+        award_text = self._award_text(workspace_id, opportunity_id)
+        award_clauses = self._segment_clause_dicts(award_text) if award_text else []
+        payload["clauses"] = diff_clauses(tender_clauses, award_clauses)
+        payload["boq"] = diff_boq(tender_findings, award_findings)
+        return payload
+
+    def list_watchlist(self, workspace_id, opportunity_id) -> list[dict]:
+        rows = list(
+            self.s.scalars(
+                select(WatchlistControl)
+                .where(
+                    WatchlistControl.workspace_id == uuid.UUID(str(workspace_id)),
+                    WatchlistControl.opportunity_id == uuid.UUID(str(opportunity_id)),
+                    WatchlistControl.status == "active",
+                )
+                .order_by(WatchlistControl.severity.desc(), WatchlistControl.title)
+            )
+        )
+        return [control_dict(r) for r in rows]
+
+    def update_watchlist(
+        self,
+        workspace_id,
+        control_id,
+        *,
+        owner_user_id=None,
+        trigger_text=None,
+        review_cadence=None,
+        status=None,
+    ) -> WatchlistControl:
+        row = self.s.scalar(
+            select(WatchlistControl).where(
+                WatchlistControl.id == uuid.UUID(str(control_id)),
+                WatchlistControl.workspace_id == uuid.UUID(str(workspace_id)),
+            )
+        )
+        if row is None:
+            raise BaselineError("not_found")
+        if owner_user_id is not None:
+            row.owner_user_id = uuid.UUID(str(owner_user_id))
+        if trigger_text is not None:
+            row.trigger_text = trigger_text
+        if review_cadence is not None:
+            row.review_cadence = review_cadence
+            apply_cadence(row)
+        if status is not None:
+            if status not in {"active", "closed"}:
+                raise BaselineError("bad_status")
+            row.status = status
+        self.s.commit()
+        self.s.refresh(row)
+        self._publish(
+            "baseline.watchlist_updated",
+            {
+                "workspace_id": str(workspace_id),
+                "opportunity_id": str(row.opportunity_id),
+                "control_id": str(row.id),
+                "status": row.status,
+            },
+        )
+        return row
 
     def handover(self, workspace_id, opportunity_id) -> dict:
         """Commercial handover pack assembled from the latest sealed baseline

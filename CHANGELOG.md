@@ -6,6 +6,22 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-08-01 (TS-238 + TS-239: notice register + approval matrix)
+
+- **TS-238 notice register completion** — enriched rules with `notice_type`, `trigger_event`,
+  `deadline_days`, `deadline_basis`, `required_content`, correspondence, and deterministic
+  milestone deadline arithmetic; `bl_notice_contacts` table;
+  `PUT /api/baseline/opportunities/{id}/notice-register/contacts`.
+- **TS-239 approval matrix** — `auth_approval_limits` table; `auth.approval_matrix` capability;
+  `GET/PUT /api/auth/workspaces/{id}/approval-matrix`; baseline enforces on watchlist and
+  notice-contact mutations (`approval_denied` when below limit).
+
+Tests: 508 passed / 5 skipped.
+
+### Next
+
+- TS-240 + TS-241 (cost codes + multi-view handover export).
+
 ### Done — 2026-08-01 (TS-236 + TS-237: award compare + watchlist)
 
 - **TS-236 award comparison** — `compare_award()` with finding, clause, and BOQ deltas;
@@ -16,10 +32,6 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   registry capability (no cross-module import).
 
 Tests: 500 passed / 5 skipped.
-
-### Next
-
-- TS-238 + TS-239 (notice register completion + approval matrix).
 
 ### Done — 2026-08-01 (TS-235: baseline Phase 17 spec)
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Uuid, func
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, UniqueConstraint, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base, WorkspaceScopedMixin
@@ -72,6 +72,33 @@ class WatchlistControl(Base, WorkspaceScopedMixin):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class NoticeContact(Base, WorkspaceScopedMixin):
+    _tablename_ = "bl_notice_contacts"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id",
+            "opportunity_id",
+            "notice_type",
+            name="uq_bl_notice_contacts_type",
+        ),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    opportunity_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("opportunities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    notice_type: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    party: Mapped[str] = mapped_column(String, nullable=False, default="employer")
+    role_label: Mapped[str | None] = mapped_column(String, nullable=True)
+    authorized_representative: Mapped[str | None] = mapped_column(String, nullable=True)
+    postal_address: Mapped[str | None] = mapped_column(String, nullable=True)
+    email: Mapped[str | None] = mapped_column(String, nullable=True)
+    required_content: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    updated_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )

@@ -25,6 +25,7 @@ _ERROR_STATUS = {
     "bad_source": 400,
     "bad_status": 400,
     "export_unavailable": 503,
+    "approval_denied": 403,
 }
 
 
@@ -38,6 +39,8 @@ def _service(request: Request, session: Session) -> BaselineService:
         segment_clauses_fn=reg.get("ingestion.segment_clauses"),
         loader_provider=lambda: reg.get("rulepacks.loader"),
         standards_factory=reg.get("standards.org_notice_provider"),
+        export_factory=reg.get("export.service_factory"),
+        approval_matrix_factory=reg.get("auth.approval_matrix"),
         publish=request.app.state.ctx.events.publish,
     )
 
@@ -68,6 +71,20 @@ class WatchlistBody(BaseModel):
     trigger_text: str | None = None
     review_cadence: str | None = None
     status: str | None = None
+
+
+class NoticeContactEntry(BaseModel):
+    notice_type: str
+    party: str = "employer"
+    role_label: str | None = None
+    authorized_representative: str | None = None
+    postal_address: str | None = None
+    email: str | None = None
+    required_content: list[str] | None = None
+
+
+class NoticeContactsBody(BaseModel):
+    contacts: list[NoticeContactEntry]
 
 
 @router.post("/opportunities/{opportunity_id}/freeze")
@@ -186,6 +203,27 @@ def notice_register(
         _raise(exc)
 
 
+@router.put("/opportunities/{opportunity_id}/notice-register/contacts")
+def update_notice_contacts(
+    opportunity_id: str,
+    body: NoticeContactsBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    try:
+        contacts = _service(request, session).upsert_notice_contacts(
+            principal.workspace_id,
+            opportunity_id,
+            [c.model_dump() for c in body.contacts],
+            actor_user_id=principal.user_id,
+            actor_role=principal.role,
+        )
+    except BaselineError as exc:
+        _raise(exc)
+    return {"contacts": contacts}
+
+
 @router.get("/opportunities/{opportunity_id}/compare/award")
 def compare_award(
     opportunity_id: str,
@@ -242,6 +280,7 @@ def update_watchlist(
             trigger_text=body.trigger_text,
             review_cadence=body.review_cadence,
             status=body.status,
+            actor_role=principal.role,
         )
     except BaselineError as exc:
         _raise(exc)

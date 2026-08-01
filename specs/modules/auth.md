@@ -4,7 +4,7 @@
 is created explicitly after login; platform-only registration/login; email + mobile verification;
 OTP required on every login. Social login (Google/Apple) removed.
 **Requirement refs:** Doc §5, §3.2, §16; user request (account-first, OTP login)
-**Task refs:** TS-011, TS-012, TS-035, TS-036, TS-074..TS-078, TS-079, TS-106, TS-163, TS-171
+**Task refs:** TS-011, TS-012, TS-035, TS-036, TS-074..TS-078, TS-079, TS-106, TS-163, TS-171, TS-239
 
 ## Purpose
 
@@ -17,7 +17,8 @@ application-owner endpoints under `/api/auth/admin/*`.
 ## Public interface
 
 - **Capabilities published:** `auth.current_principal` (FastAPI dependency),
-  `auth.require(min_role)` guard factory, `auth.workspace_factory`.
+  `auth.require(min_role)` guard factory, `auth.workspace_factory`,
+  `auth.approval_matrix` (TS-239).
 - **Events emitted:** `auth.user_registered`, `auth.workspace_created`,
   `auth.refresh_reuse_detected`.
 - **API routes:**
@@ -32,6 +33,8 @@ application-owner endpoints under `/api/auth/admin/*`.
   - `/api/auth/account` (DELETE) — GDPR/DPDP account erasure
   - `/api/auth/workspaces` (create/list)
   - `/api/auth/workspaces/{id}/members` (add/list/change-role/remove)
+  - `/api/auth/workspaces/{id}/approval-matrix` (GET/PUT, admin) — role/action limits
+    for post-award controls (**TS-239**)
   - `/api/auth/workspaces/{id}/projects` (create/list)
   - `/api/auth/projects/{id}/members` (add/list)
   - `/api/auth/invitations` (create/list) + `/api/auth/invitations/{token}/accept`
@@ -55,7 +58,8 @@ application-owner endpoints under `/api/auth/admin/*`.
 `email_verified`, `mobile_verified`, `is_superadmin`, `suspended_at`, `suspended_by`,
 `mfa_method`, `mfa_phone`),
 `mobile_verifications`, `workspaces`, `workspace_members`, `projects`, `project_members`,
-`invitations`, `password_resets`, `refresh_tokens` (family-tracked).
+`invitations`, `password_resets`, `refresh_tokens` (family-tracked),
+`auth_approval_limits` (workspace-scoped role/monetary limits per action, TS-239).
 
 ## Behavior
 
@@ -137,6 +141,10 @@ application-owner endpoints under `/api/auth/admin/*`.
 - **B28 — Email change with verification:** `POST /api/auth/settings/email` requests a
   change to a new email and sends a verification token. `POST /api/auth/settings/email/verify`
   confirms the change and updates the user's email. Duplicate emails are rejected.
+- **B29 — Approval matrix (TS-239).** Workspace admins configure per-action limits in
+  `auth_approval_limits`: `min_role` and optional `max_amount_minor` (paise). Published as
+  `auth.approval_matrix`. Missing row for an action → allow (graceful degradation).
+  `baseline` consumes this for `watchlist_edit` and `notice_contacts_edit`.
 
 ## Acceptance criteria
 
@@ -202,6 +210,8 @@ application-owner endpoints under `/api/auth/admin/*`.
   active workspaces, pending verifications, and recent sign-ups.
 - A34: `POST /api/auth/admin/workspaces/{id}/plan` updates the workspace plan and
   logs an `admin.workspace_plan_changed` audit event.
+- A35 (TS-239): estimator below configured `watchlist_edit` minimum role receives
+  `approval_denied` from baseline mutations.
 
 ## Out of scope
 

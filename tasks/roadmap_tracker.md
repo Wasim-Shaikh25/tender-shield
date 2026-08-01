@@ -17,7 +17,7 @@
 | 1. Pre-bid assessment | Per-tender fee + team subscription | 0–15 | TS-001 – TS-194 | ✅ done |
 | 1. (hardening) | — | **16** | TS-195 – TS-234 | ✅ **done** |
 | 2. Baseline lock | Project activation fee | **17** | TS-235 – TS-242 | ✅ **done** |
-| **3. Change & notice control** | **Per-project recurring** ★ | **18** | TS-243 – TS-256 | ⚪ todo |
+| **3. Change & notice control** | **Per-project recurring** ★ | **18** | TS-243 – TS-256 | 🔵 **in-progress** |
 | 4. Claims workspace | Premium module | 19 | TS-257 – TS-270 | ⚪ todo |
 | 5. Portfolio intelligence | Enterprise annual | 20 | TS-271 – TS-280 | ⚪ todo |
 | — | Channel + platform | 21 | TS-281 – TS-292 | ⚪ todo |
@@ -90,8 +90,8 @@ least two contract forms; cost codes mapped end-to-end.
 
 | ID | Task | Priority | Status | Depends on |
 |---|---|---|---|---|
-| TS-243 | Spec: `change` module | P0 | todo | Phase 17 |
-| TS-244 | `change` scaffold + migrations | P0 | todo | TS-243 |
+| TS-243 | Spec: `change` module | P0 | **done** | Phase 17 |
+| TS-244 | `change` scaffold + migrations | P0 | **done** | TS-243 |
 | TS-245 | Baseline diff engine | P0 | todo | TS-244, TS-236 |
 | TS-246 | Change-signal ingestion (RFI, SI, minutes, daily reports) | P0 | todo | TS-244 |
 | TS-247 | Email ingestion + prompt-injection defenses | P1 | todo | TS-246 |

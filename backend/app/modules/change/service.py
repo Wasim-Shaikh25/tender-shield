@@ -15,6 +15,11 @@ from app.modules.change.baseline_diff import (
     content_hash,
     normalize_clause,
 )
+from app.modules.change.email_inbox import (
+    build_forward_address,
+    compose_signal_text,
+    generate_inbox_token,
+)
 from app.modules.change.impacts import (
     compute_impact_exposure,
     normalize_impact_links,
@@ -24,6 +29,8 @@ from app.modules.change.inbox import INBOX_STATUSES, sort_inbox
 from app.modules.change.models import (
     ChangeConfirmation,
     ChangeEvent,
+    ChangeInboundEmail,
+    ChangeInboxAddress,
     ChangeSource,
 )
 from app.modules.change.notice_deadline import compute_notice_deadline
@@ -65,6 +72,7 @@ class ChangeService:
         drafting_factory: Callable[[Session], object] | None = None,
         evidence_factory: Callable[[Session], object] | None = None,
         project_active_fn: Callable[..., bool] | None = None,
+        inbox_domain: str = "inbox.tendershield.local",
         publish: Callable[[str, dict], int] | None = None,
     ):
         self.s = session
@@ -79,6 +87,7 @@ class ChangeService:
         self._drafting_factory = drafting_factory
         self._evidence_factory = evidence_factory
         self._project_active_fn = project_active_fn
+        self._inbox_domain = inbox_domain
         self._publish = publish
 
     def _baseline(self):
@@ -355,6 +364,123 @@ class ChangeService:
             "event": self._event_dict(event, include_sources=True),
             "created": was_new,
             "classification": classified,
+        }
+
+    def register_inbox_email(self, workspace_id, opportunity_id) -> dict:
+        self._require_baseline(workspace_id, opportunity_id)
+        wid = uuid.UUID(str(workspace_id))
+        oid = uuid.UUID(str(opportunity_id))
+        existing = self.s.scalar(
+            select(ChangeInboxAddress).where(
+                ChangeInboxAddress.workspace_id == wid,
+                ChangeInboxAddress.opportunity_id == oid,
+                ChangeInboxAddress.active.is_(True),
+            )
+        )
+        if existing is not None:
+            return self._inbox_address_dict(existing)
+        token = generate_inbox_token()
+        row = ChangeInboxAddress(
+            workspace_id=wid,
+            opportunity_id=oid,
+            address_token=token,
+            forward_address=build_forward_address(token, self._inbox_domain),
+        )
+        self.s.add(row)
+        self.s.commit()
+        self.s.refresh(row)
+        return self._inbox_address_dict(row)
+
+    def get_inbox_email(self, workspace_id, opportunity_id) -> dict:
+        wid = uuid.UUID(str(workspace_id))
+        oid = uuid.UUID(str(opportunity_id))
+        row = self.s.scalar(
+            select(ChangeInboxAddress).where(
+                ChangeInboxAddress.workspace_id == wid,
+                ChangeInboxAddress.opportunity_id == oid,
+                ChangeInboxAddress.active.is_(True),
+            )
+        )
+        if row is None:
+            raise ChangeError("not_found")
+        return self._inbox_address_dict(row)
+
+    def process_inbound_email(self, address_token: str, payload: dict) -> dict:
+        row = self.s.scalar(
+            select(ChangeInboxAddress).where(
+                ChangeInboxAddress.address_token == address_token,
+                ChangeInboxAddress.active.is_(True),
+            )
+        )
+        if row is None:
+            raise ChangeError("not_found")
+        from app.core.db import bind_workspace_context
+
+        bind_workspace_context(self.s, row.workspace_id)
+        message_id = (payload.get("message_id") or "").strip()
+        if not message_id:
+            raise ChangeError("bad_request")
+        duplicate = self.s.scalar(
+            select(ChangeInboundEmail).where(
+                ChangeInboundEmail.workspace_id == row.workspace_id,
+                ChangeInboundEmail.message_id == message_id,
+            )
+        )
+        if duplicate is not None:
+            return {"duplicate": True, "inbound_email_id": str(duplicate.id)}
+
+        body_plain = compose_signal_text(
+            subject=payload.get("subject"),
+            body_plain=payload.get("body_plain") or "",
+        )
+        if not body_plain.strip():
+            raise ChangeError("bad_request")
+
+        received_at = payload.get("received_at")
+        parsed_received = None
+        if received_at:
+            try:
+                parsed_received = datetime.fromisoformat(str(received_at).replace("Z", "+00:00"))
+            except ValueError:
+                parsed_received = None
+
+        inbound = ChangeInboundEmail(
+            workspace_id=row.workspace_id,
+            opportunity_id=row.opportunity_id,
+            inbox_address_id=row.id,
+            message_id=message_id,
+            from_address=payload.get("from"),
+            subject=payload.get("subject"),
+            body_plain=body_plain,
+            raw_payload=payload,
+            received_at=parsed_received,
+        )
+        self.s.add(inbound)
+        self.s.flush()
+
+        ingest = self.ingest_signal(
+            row.workspace_id,
+            row.opportunity_id,
+            signal_kind="email",
+            text=body_plain,
+            title=payload.get("subject"),
+            external_ref=message_id,
+        )
+        self.s.commit()
+        if self._publish:
+            self._publish(
+                "change.email_received",
+                {
+                    "workspace_id": str(row.workspace_id),
+                    "opportunity_id": str(row.opportunity_id),
+                    "message_id": message_id,
+                    "inbound_email_id": str(inbound.id),
+                },
+            )
+        return {
+            "duplicate": False,
+            "inbound_email_id": str(inbound.id),
+            "ingest": ingest,
         }
 
     def record_confirmation(
@@ -818,6 +944,16 @@ class ChangeService:
             "external_ref": row.external_ref,
             "text_preview": row.text_preview,
             "received_at": row.received_at.isoformat() if row.received_at else None,
+        }
+
+    def _inbox_address_dict(self, row: ChangeInboxAddress) -> dict:
+        return {
+            "id": str(row.id),
+            "opportunity_id": str(row.opportunity_id),
+            "address_token": row.address_token,
+            "forward_address": row.forward_address,
+            "active": row.active,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
         }
 
     def _confirmation_dict(self, row: ChangeConfirmation) -> dict:

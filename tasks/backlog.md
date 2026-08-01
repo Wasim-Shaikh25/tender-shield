@@ -443,7 +443,7 @@ subscription (Research Doc §10.1), and creates the first real switching cost in
 | TS-244 | `change` module scaffold + migrations: `change_events`, `change_sources`, `change_confirmations` (workspace-scoped, RLS) | Research Doc §4.F | `specs/modules/change.md` | done |
 | TS-245 | Baseline diff engine: compare new drawing/spec/instruction revisions against the locked baseline; emit candidate change events with citations | Research Doc §4.F, §5.3(15) | `specs/modules/change.md` | done |
 | TS-246 | Change-signal ingestion: RFIs, site instructions, meeting minutes, daily reports — classified into candidate events with source provenance | Research Doc §4.F | `specs/modules/change.md` | done |
-| TS-247 | Email ingestion adapter (forward-to-inbox address per project), with prompt-injection defenses for untrusted correspondence | Research Doc §4.F; Build Doc §11.3 | `specs/modules/change.md` | todo |
+| TS-247 | Email ingestion adapter (forward-to-inbox address per project), with prompt-injection defenses for untrusted correspondence | Research Doc §4.F; Build Doc §11.3 | `specs/modules/change.md` | done |
 | TS-248 | Potential-variation inbox: reason, source, affected scope, confidence band, triage queue | Research Doc §4.F | `specs/modules/change.md` | done |
 | TS-249 | Impact linking: connect a change event to affected BOQ items, cost codes and subcontract packages | Research Doc §4.F | `specs/modules/change.md` | done |
 | TS-250 | Site confirmation workflow: changed / not changed / clarification only / contractor risk / client risk / unknown — with recorded confirmer and timestamp | Research Doc §4.F, §5.3(16) | `specs/modules/change.md` | done |

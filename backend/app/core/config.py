@@ -99,6 +99,10 @@ class Settings(BaseSettings):
     enabled_modules: str = ""
     rulepacks_dir: str = ""
 
+    # Change inbox email webhook (TS-247). HMAC secret for inbound provider callbacks.
+    change_email_webhook_secret: SecretStr | None = None
+    change_inbox_domain: str = "inbox.tendershield.local"
+
     # Product flag: when True, paying workspaces may see unvalidated rule-patterns
     # with a clear disclaimer. False hides unvalidated patterns from paid plans.
     beta_unvalidated: bool = False

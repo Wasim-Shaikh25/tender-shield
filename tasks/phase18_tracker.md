@@ -52,7 +52,7 @@ sustained usage once the workflow is proven.
 | TS-244 | `change` scaffold + migrations | `change` | P0 | **done** | Tables + boot + manual event API | TS-243 |
 | TS-245 | Baseline diff engine | `change` | P0 | **done** | Cited clause/finding deltas vs seal | TS-244, TS-236 |
 | TS-246 | Change-signal ingestion | `change` | P0 | **done** | RFI/SI/minutes/daily reports classified | TS-244 |
-| TS-247 | Email ingestion adapter | `change` | P1 | todo | Forward-to-inbox + injection defenses | TS-246 |
+| TS-247 | Email ingestion adapter | `change` | P1 | **done** | Forward-to-inbox + injection defenses | TS-246 |
 | TS-248 | Potential-variation inbox | `change` | P0 | **done** | Triage queue with confidence bands | TS-245, TS-246 |
 | TS-249 | Impact linking | `change` | P0 | **done** | BOQ + cost codes + subcontract refs | TS-240, TS-248 |
 | TS-250 | Site confirmation workflow | `change` | P0 | **done** | Six outcomes + confirmer/timestamp | TS-248 |

@@ -6,6 +6,19 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-08-01 (TS-247: email inbox adapter)
+
+- **TS-247 email ingestion** — per-opportunity forward address (`POST/GET
+  /api/change/opportunities/{id}/inbox/email`); HMAC webhook
+  `POST /api/change/webhooks/inbound-email`; append-only `change_inbound_emails`;
+  reuses signal classification with sanitized untrusted body.
+
+Tests: 552 passed / 5 skipped.
+
+### Next
+
+- Phase 19 claims workspace (TS-257+).
+
 ### Done — 2026-08-01 (TS-254–TS-256: evidence + project billing)
 
 - **TS-254 evidence module** — `evidence_records` with chain-of-custody JSON;
@@ -17,10 +30,6 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   third change event gated with `billing_required` (402).
 
 Tests: 546 passed / 5 skipped.
-
-### Next
-
-- TS-247 (email ingestion adapter).
 
 ### Done — 2026-08-01 (TS-251–TS-253: notice engine)
 

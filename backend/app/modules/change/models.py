@@ -11,6 +11,7 @@ from datetime import date, datetime
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
@@ -95,5 +96,37 @@ class ChangeNoticeAlertLog(Base, WorkspaceScopedMixin):
     change_event_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
     alert_day: Mapped[int] = mapped_column(Integer, nullable=False)
     sent_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ChangeInboxAddress(Base, WorkspaceScopedMixin):
+    _tablename_ = "change_inbox_addresses"
+    __table_args__ = (UniqueConstraint("address_token"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    opportunity_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
+    address_token: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    forward_address: Mapped[str] = mapped_column(String, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ChangeInboundEmail(Base, WorkspaceScopedMixin):
+    _tablename_ = "change_inbound_emails"
+    __table_args__ = (UniqueConstraint("workspace_id", "message_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    opportunity_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
+    inbox_address_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
+    message_id: Mapped[str] = mapped_column(String, nullable=False)
+    from_address: Mapped[str | None] = mapped_column(String, nullable=True)
+    subject: Mapped[str | None] = mapped_column(String, nullable=True)
+    body_plain: Mapped[str] = mapped_column(String, nullable=False)
+    raw_payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

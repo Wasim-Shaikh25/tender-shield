@@ -83,7 +83,18 @@ subscription or switching cost.
 - `POST /opportunities/{id}/signals` (estimator) — ingest RFI / site instruction / minutes /
   daily-report / email text with deterministic classification and provenance quote.
 
-#### Planned (TS-247 – TS-256)
+#### Implemented (TS-248, TS-249, TS-250)
+
+- `GET  /opportunities/{id}/inbox` (viewer) — potential-variation triage queue (`candidate` +
+  `triaged`), sorted by confidence then recency.
+- `PUT  /events/{event_id}/triage` (estimator) — `triaged` or `rejected` transitions.
+- `PUT  /events/{event_id}/impacts` (estimator) — link BOQ rows, cost codes, findings,
+  subcontract refs; returns exposure summary in minor units.
+- `GET  /events/{event_id}/confirmations` (viewer) — confirmation history.
+- Site confirmation outcomes map to event status (`changed`→`confirmed`, `clarification_only`→
+  `triaged`, `client_risk`→`closed`, etc.).
+
+#### Planned (TS-247, TS-251 – TS-256)
 - `POST /opportunities/{id}/inbox/email` (admin) — register project forward-to-inbox address
   (**TS-247**).
 - `GET  /opportunities/{id}/inbox` (viewer) — potential-variation triage queue (**TS-248**).
@@ -308,8 +319,12 @@ Site confirmation workflow (TS-250). Append-only history — latest row wins for
   verbatim `source_quote`.
 - A7 (TS-246): `POST /signals` classifies site instructions deterministically; duplicate ingest
   within 24h attaches to the existing event instead of creating a new row.
+- A8 (TS-248): `GET /inbox` returns only `candidate`/`triaged` events in confidence order.
+- A9 (TS-249): `PUT /impacts` rejects unknown cost-code or finding IDs; exposure totals use minor
+  units.
+- A10 (TS-250): confirmation outcomes update event status; history is listable.
 
-### TS-247–TS-256 (planned)
+### TS-247, TS-251–TS-256 (planned)
 - A7 (TS-248): Inbox lists only `candidate`/`triaged` for the opportunity.
 - A8 (TS-250): Confirmation appends row; `changed` sets `status=confirmed`.
 - A9 (TS-251): Deadline matches `notice_register.compute_deadline` for same inputs.

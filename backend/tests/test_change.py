@@ -194,3 +194,89 @@ def test_signal_ingestion_creates_candidate(client):
     )
     assert second.status_code == 200
     assert second.json()["created"] is False
+
+
+def test_inbox_triage_and_impact_linking(client):
+    headers = _auth(client)
+    opp_id = _opp_with_findings(client, headers)
+    finding_id = client.get(
+        f"/api/review/opportunities/{opp_id}/queue", headers=headers
+    ).json()["findings"][0]["id"]
+    cost_codes = client.post(
+        f"/api/baseline/opportunities/{opp_id}/cost-codes",
+        json={
+            "codes": [{"code": "ST01", "label": "Structural"}],
+            "mappings": [],
+        },
+        headers=headers,
+    )
+    assert cost_codes.status_code == 200, cost_codes.text
+    code_id = cost_codes.json()["codes"][0]["id"]
+    _accept_all(client, headers, opp_id)
+    _freeze(client, headers, opp_id)
+
+    event_id = client.post(
+        f"/api/change/opportunities/{opp_id}/events",
+        json={
+            "title": "Extra steel",
+            "confidence_band": "high",
+            "sources": [{"source_quote": "additional steel bracing required", "source_page": 3}],
+        },
+        headers=headers,
+    ).json()["id"]
+
+    inbox = client.get(f"/api/change/opportunities/{opp_id}/inbox", headers=headers)
+    assert inbox.status_code == 200
+    assert any(e["id"] == event_id for e in inbox.json()["events"])
+
+    triaged = client.put(
+        f"/api/change/events/{event_id}/triage",
+        json={"decision": "triaged"},
+        headers=headers,
+    )
+    assert triaged.status_code == 200
+    assert triaged.json()["status"] == "triaged"
+
+    impacts = client.put(
+        f"/api/change/events/{event_id}/impacts",
+        json={
+            "cost_code_ids": [code_id],
+            "finding_ids": [finding_id],
+            "boq_src_rows": ["row-12"],
+            "subcontract_refs": ["sub-steel"],
+        },
+        headers=headers,
+    )
+    assert impacts.status_code == 200
+    links = impacts.json()["impact_links"]
+    assert links["cost_code_ids"] == [code_id]
+    assert links["exposure_summary"]["linked_cost_codes"] == 1
+
+
+def test_confirmation_outcomes_update_status(client):
+    headers = _auth(client)
+    opp_id = _opp_with_findings(client, headers)
+    _accept_all(client, headers, opp_id)
+    _freeze(client, headers, opp_id)
+
+    event_id = client.post(
+        f"/api/change/opportunities/{opp_id}/signals",
+        json={
+            "signal_kind": "daily_report",
+            "text": "Daily report notes clarification only on access road width.",
+        },
+        headers=headers,
+    ).json()["event"]["id"]
+
+    clarification = client.post(
+        f"/api/change/events/{event_id}/confirmations",
+        json={"outcome": "clarification_only"},
+        headers=headers,
+    )
+    assert clarification.status_code == 200
+    detail = client.get(f"/api/change/events/{event_id}", headers=headers).json()
+    assert detail["status"] == "triaged"
+
+    history = client.get(f"/api/change/events/{event_id}/confirmations", headers=headers)
+    assert history.status_code == 200
+    assert len(history.json()["confirmations"]) == 1

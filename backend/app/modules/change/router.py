@@ -21,6 +21,11 @@ _ERROR_STATUS = {
     "quote_too_long": 400,
     "bad_outcome": 400,
     "bad_signal_kind": 400,
+    "bad_triage_decision": 400,
+    "bad_triage_transition": 409,
+    "bad_confirmation_state": 409,
+    "invalid_cost_code": 400,
+    "invalid_finding": 400,
 }
 
 
@@ -61,6 +66,17 @@ class SignalBody(BaseModel):
     external_ref: str | None = None
 
 
+class TriageBody(BaseModel):
+    decision: str = Field(min_length=1)
+
+
+class ImpactLinksBody(BaseModel):
+    boq_src_rows: list[str] = Field(default_factory=list)
+    cost_code_ids: list[str] = Field(default_factory=list)
+    finding_ids: list[str] = Field(default_factory=list)
+    subcontract_refs: list[str] = Field(default_factory=list)
+
+
 def _service(request: Request, session: Session) -> ChangeService:
     reg = request.app.state.ctx.registry
     factory = reg.get("change.service_factory")
@@ -73,6 +89,8 @@ def _service(request: Request, session: Session) -> ChangeService:
         review_factory=reg.get("review.service_factory"),
         segment_clauses_fn=reg.get("ingestion.segment_clauses"),
         diff_clauses_fn=reg.get("baseline.diff_clauses"),
+        findings_factory=reg.get("findings.store_factory"),
+        cost_codes_fn=reg.get("baseline.cost_codes_for_opportunity"),
         publish=request.app.state.ctx.events.publish,
     )
 
@@ -194,5 +212,69 @@ def ingest_signal(
             external_ref=body.external_ref,
             created_by=principal.user_id,
         )
+    except ChangeError as exc:
+        _raise(exc)
+
+
+@router.get("/opportunities/{opportunity_id}/inbox")
+def list_inbox(
+    opportunity_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    return _service(request, session).list_inbox(principal.workspace_id, opportunity_id)
+
+
+@router.put("/events/{event_id}/triage")
+def triage_event(
+    event_id: str,
+    body: TriageBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    try:
+        return _service(request, session).triage_event(
+            principal.workspace_id,
+            event_id,
+            decision=body.decision,
+            actor_user_id=principal.user_id,
+        )
+    except ChangeError as exc:
+        _raise(exc)
+
+
+@router.put("/events/{event_id}/impacts")
+def update_impacts(
+    event_id: str,
+    body: ImpactLinksBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    try:
+        return _service(request, session).update_impacts(
+            principal.workspace_id,
+            event_id,
+            impact_links=body.model_dump(),
+        )
+    except ChangeError as exc:
+        _raise(exc)
+
+
+@router.get("/events/{event_id}/confirmations")
+def list_confirmations(
+    event_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    try:
+        return {
+            "confirmations": _service(request, session).list_confirmations(
+                principal.workspace_id, event_id
+            )
+        }
     except ChangeError as exc:
         _raise(exc)

@@ -24,7 +24,7 @@ notices issued on time via the platform; one customer on per-project billing.
 |---|---|---|---|---|
 | **0** | **Spec + scaffold** | TS-243 ✅, TS-244 ✅ | `change.md` agreed; module boots; tables migrated | **done** |
 | **1** | **Detection** | TS-245 ✅, TS-246 ✅ | Baseline diff + signal ingestion emit cited candidates | **done** |
-| **2** | **Inbox + confirmation** | TS-248, TS-249, TS-250 | Triage queue; impact links; site confirmation | todo |
+| **2** | **Inbox + confirmation** | TS-248 ✅, TS-249 ✅, TS-250 ✅ | Triage queue; impact links; site confirmation | **done** |
 | **3** | **Notice engine** | TS-251, TS-252, TS-253 | Deterministic deadlines; alerts; draft with validators | todo |
 | **4** | **Evidence + billing** | TS-254, TS-255, TS-256 | Chain of custody; completeness score; project lane | todo |
 
@@ -53,9 +53,9 @@ sustained usage once the workflow is proven.
 | TS-245 | Baseline diff engine | `change` | P0 | **done** | Cited clause/finding deltas vs seal | TS-244, TS-236 |
 | TS-246 | Change-signal ingestion | `change` | P0 | **done** | RFI/SI/minutes/daily reports classified | TS-244 |
 | TS-247 | Email ingestion adapter | `change` | P1 | todo | Forward-to-inbox + injection defenses | TS-246 |
-| TS-248 | Potential-variation inbox | `change` | P0 | todo | Triage queue with confidence bands | TS-245, TS-246 |
-| TS-249 | Impact linking | `change` | P0 | todo | BOQ + cost codes + subcontract refs | TS-240, TS-248 |
-| TS-250 | Site confirmation workflow | `change` | P0 | todo | Six outcomes + confirmer/timestamp | TS-248 |
+| TS-248 | Potential-variation inbox | `change` | P0 | **done** | Triage queue with confidence bands | TS-245, TS-246 |
+| TS-249 | Impact linking | `change` | P0 | **done** | BOQ + cost codes + subcontract refs | TS-240, TS-248 |
+| TS-250 | Site confirmation workflow | `change` | P0 | **done** | Six outcomes + confirmer/timestamp | TS-248 |
 | TS-251 | Deterministic notice-deadline engine | `change` | P0 | todo | Never LLM; uses notice register | TS-238, TS-250 |
 | TS-252 | Countdown + escalation alerts | `notifications` | P0 | todo | 7/3/1/0 deduped alerts | TS-251 |
 | TS-253 | Notice drafting | `drafting` | P0 | todo | Verified facts + validators + approval | TS-251 |

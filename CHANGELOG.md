@@ -6,6 +6,21 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-08-01 (TS-245 + TS-246: change detection)
+
+- **TS-245 baseline diff engine** — `POST /api/change/opportunities/{id}/diff` compares revised
+  document text against sealed baseline clauses via `ingestion.segment_clauses` and
+  `baseline.diff_clauses`; emits cited `baseline_diff` candidate events with 24h dedup.
+- **TS-246 change-signal ingestion** — `POST /api/change/opportunities/{id}/signals` accepts
+  RFI/site instruction/minutes/daily-report/email text with deterministic keyword classification
+  and provenance quotes.
+
+Tests: 525 passed / 5 skipped.
+
+### Next
+
+- TS-248 (potential-variation inbox), TS-250 (site confirmation workflow enhancements).
+
 ### Done — 2026-08-01 (TS-243 + TS-244: change module spec + scaffold)
 
 - **TS-243 `change` module spec** — `specs/modules/change.md`: event/source/confirmation model,
@@ -17,10 +32,6 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   capabilities `change.service_factory` and `change.events_for_opportunity`.
 
 Tests: 520 passed / 5 skipped.
-
-### Next
-
-- TS-245 (baseline diff engine), TS-246 (change-signal ingestion).
 
 ### Done — 2026-08-01 (TS-242: baseline adoption telemetry)
 

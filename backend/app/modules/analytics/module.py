@@ -13,6 +13,8 @@ def setup(ctx: AppContext) -> None:
             session,
             findings_factory=reg.get("findings.store_factory"),
             ingestion_factory=reg.get("ingestion.service_factory"),
+            sealed_opportunity_count_fn=reg.get("baseline.sealed_opportunity_count"),
+            baseline_activity_metrics_fn=reg.get("review.baseline_activity_metrics"),
         )
 
     reg.provide("analytics.service_factory", _service)
@@ -33,6 +35,6 @@ module = ModuleSpec(
     name="analytics",
     version="0.1.0",
     router=router,
-    soft_deps=("findings", "ingestion"),
+    soft_deps=("findings", "ingestion", "baseline", "review"),
     setup=setup,
 )

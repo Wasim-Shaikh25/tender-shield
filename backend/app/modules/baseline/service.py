@@ -462,7 +462,12 @@ class BaselineService:
                 action="baseline.sealed",
                 object_type="baseline",
                 object_id=row.id,
-                detail={"version": row.version, "source": source, "hash": row.content_sha256},
+                detail={
+                    "version": row.version,
+                    "source": source,
+                    "hash": row.content_sha256,
+                    "opportunity_id": str(opp),
+                },
             )
         self._publish(
             "baseline.sealed",

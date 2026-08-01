@@ -25,7 +25,7 @@ least two contract forms; cost codes mapped end-to-end.
 | **1** | **Award delta + watchlist** | TS-236 ✅, TS-237 ✅ | Award-vs-tender diff with citations; accepted findings → watchlist rows | **done** |
 | **2** | **Notice register + approval** | TS-238 ✅, TS-239 ✅ | Per-contract notice types with addresses/reps; approval matrix enforced | **done** |
 | **3** | **Cost codes + handover** | TS-240 ✅, TS-241 ✅ | BOQ→cost-code map; site/planning/procurement/finance handover exports | **done** |
-| **4** | **Telemetry** | TS-242 | Baseline adoption metrics visible; Phase 18 unlock gate measurable | todo |
+| **4** | **Telemetry** | TS-242 ✅ | Baseline adoption metrics visible; Phase 18 unlock gate measurable | **done** |
 
 ### Why this order
 
@@ -54,7 +54,7 @@ valuation in Phases 18–19 and should not block notice work.
 | TS-239 | Approval matrix | `auth` | P1 | **done** | Role limits on notice/variation/claim actions | TS-235 |
 | TS-240 | Cost-code model | `baseline` | P0 | **done** | Codes mapped to BOQ + variation categories | TS-235 |
 | TS-241 | Handover pack multi-view export | `export` + `baseline` | P1 | **done** | Site/planning/procurement/finance views + seal ref | TS-237 |
-| TS-242 | Baseline adoption telemetry | `analytics` | P0 | todo | Locked baselines + weekly active users | TS-235 |
+| TS-242 | Baseline adoption telemetry | `analytics` | P0 | **done** | Locked baselines + weekly active users | TS-235 |
 
 ---
 

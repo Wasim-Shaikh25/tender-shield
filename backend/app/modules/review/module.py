@@ -11,6 +11,12 @@ def setup(ctx: AppContext) -> None:
         "review.service_factory",
         lambda session: ReviewService(session, store_factory=reg.get("findings.store_factory")),
     )
+    reg.provide(
+        "review.baseline_activity_metrics",
+        lambda session, workspace_id, since_days=7: ReviewService(
+            session, store_factory=reg.get("findings.store_factory")
+        ).baseline_activity_metrics(workspace_id, since_days=since_days),
+    )
 
 
 module = ModuleSpec(

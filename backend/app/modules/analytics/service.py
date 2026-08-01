@@ -35,10 +35,14 @@ class AnalyticsService:
         *,
         findings_factory: Callable[[Session], object] | None = None,
         ingestion_factory: Callable[[Session], object] | None = None,
+        sealed_opportunity_count_fn: Callable[[Session, object], int] | None = None,
+        baseline_activity_metrics_fn: Callable[[Session, object], dict] | None = None,
     ):
         self.s = session
         self._findings_factory = findings_factory
         self._ingestion_factory = ingestion_factory
+        self._sealed_opportunity_count_fn = sealed_opportunity_count_fn
+        self._baseline_activity_metrics_fn = baseline_activity_metrics_fn
 
     def accuracy_dashboard(self, workspace_id) -> dict:
         findings = self._findings(workspace_id)
@@ -51,6 +55,37 @@ class AnalyticsService:
             "per_pattern": per_pattern,
             "per_source": per_source,
             "most_rejected": most_rejected,
+        }
+
+    def baseline_adoption(self, workspace_id) -> dict:
+        """Phase 17 adoption telemetry for the Phase 18 unlock gate (TS-242)."""
+        opportunities_with_sealed_baseline = 0
+        if self._sealed_opportunity_count_fn is not None:
+            opportunities_with_sealed_baseline = self._sealed_opportunity_count_fn(
+                self.s, workspace_id
+            )
+
+        activity = {
+            "weekly_active_baseline_users": 0,
+            "weekly_active_baseline_opportunities": 0,
+            "window_days": 7,
+            "window_start": None,
+        }
+        if self._baseline_activity_metrics_fn is not None:
+            activity = self._baseline_activity_metrics_fn(self.s, workspace_id)
+
+        weekly_users = activity["weekly_active_baseline_users"]
+        weekly_opps = activity["weekly_active_baseline_opportunities"]
+        return {
+            "opportunities_with_sealed_baseline": opportunities_with_sealed_baseline,
+            "weekly_active_baseline_users": weekly_users,
+            "weekly_active_baseline_opportunities": weekly_opps,
+            "window_days": activity.get("window_days", 7),
+            "window_start": activity.get("window_start"),
+            "phase_18_gate": {
+                "required_weekly_projects": 2,
+                "met": weekly_opps >= 2,
+            },
         }
 
     def _findings(self, workspace_id) -> list:

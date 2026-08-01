@@ -18,9 +18,14 @@ performance telemetry.
   - `findings.store_factory` — all org findings and review states.
   - `ingestion.service_factory` — opportunity list (optional, for per-opportunity
     roll-ups).
+  - `baseline.sealed_opportunity_count` — distinct opportunities with ≥1 sealed baseline
+    (TS-242).
+  - `review.baseline_activity_metrics` — weekly active baseline users and projects from
+    the append-only audit log (TS-242).
 - **Events:** none.
 - **API routes** (prefix `/api/analytics`):
   - `GET /accuracy` — admin-only accuracy dashboard.
+  - `GET /baseline-adoption` — admin-only baseline adoption telemetry (TS-242).
   - `GET /risk-summary` — workspace risk findings grouped by severity and category.
   - `GET /deadline-dashboard` — opportunities expiring in 7/15/30 days and overdue.
   - `GET /boq-defect-summary` — BOQ defects by trade and defect type.
@@ -59,6 +64,15 @@ None. Read-only aggregator over findings and opportunities.
 - **B11 — Report export.** `POST /reports/export` accepts `format` (`csv|xlsx|pdf`)
   and `filter` (`risk|boq|deadlines|all`) and returns a downloadable file. Export
   runs are bounded by the workspace context and respect date-range filters.
+- **B12 — Baseline adoption (TS-242).** `GET /baseline-adoption` reports:
+  - `opportunities_with_sealed_baseline` — distinct opportunities with ≥1 sealed baseline.
+  - `weekly_active_baseline_users` — distinct users with `baseline.sealed` or
+    `export.handover_created` audit events in the rolling 7-day window.
+  - `weekly_active_baseline_opportunities` — distinct opportunities with baseline activity
+    in the same window (measures the Phase 18 unlock gate: *two projects use baseline
+    weekly*).
+  - `phase_18_gate.met` — `true` when `weekly_active_baseline_opportunities >= 2`.
+  Degrades to zeros when `baseline` or `review` capabilities are absent.
 
 ## Response shape
 
@@ -96,6 +110,9 @@ None. Read-only aggregator over findings and opportunities.
 - A7: `GET /boq-defect-summary` groups only findings with `producer='boq'`.
 - A8: `POST /reports/export` returns a downloadable file and rejects unsupported
   formats with `400`.
+- A9 (TS-242): `GET /baseline-adoption` returns sealed-opportunity count and weekly
+  active baseline users; `403` for non-admin; degrades to zeros when `baseline` is
+  disabled.
 
 ## Out of scope
 

@@ -8,6 +8,7 @@ findings module."""
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -15,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.modules.review.models import AuditLog
 
 DECISIONS = {"accepted", "edited", "rejected", "false_positive", "needs_clarification"}
+_BASELINE_ACTIONS = ("baseline.sealed", "export.handover_created")
 
 
 class ReviewError(Exception):
@@ -139,4 +141,34 @@ class ReviewService:
         return {
             "reviewer_id": str(log.actor_user_id) if log.actor_user_id else None,
             "reviewed_at": log.at,
+        }
+
+    def baseline_activity_metrics(self, workspace_id, *, since_days: int = 7) -> dict:
+        """Weekly baseline adoption signals from append-only audit rows (TS-242)."""
+        wid = uuid.UUID(str(workspace_id))
+        since = datetime.now(UTC) - timedelta(days=since_days)
+        rows = list(
+            self.s.scalars(
+                select(AuditLog).where(
+                    AuditLog.workspace_id == wid,
+                    AuditLog.action.in_(_BASELINE_ACTIONS),
+                    AuditLog.at >= since,
+                )
+            )
+        )
+        users = {str(row.actor_user_id) for row in rows if row.actor_user_id}
+        opportunities: set[str] = set()
+        for row in rows:
+            if row.action == "export.handover_created" and row.object_id:
+                opportunities.add(str(row.object_id))
+                continue
+            if row.action == "baseline.sealed":
+                opp = (row.detail or {}).get("opportunity_id")
+                if opp:
+                    opportunities.add(str(opp))
+        return {
+            "weekly_active_baseline_users": len(users),
+            "weekly_active_baseline_opportunities": len(opportunities),
+            "window_days": since_days,
+            "window_start": since.isoformat(),
         }

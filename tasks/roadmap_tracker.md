@@ -16,7 +16,7 @@
 |---|---|---|---|---|
 | 1. Pre-bid assessment | Per-tender fee + team subscription | 0–15 | TS-001 – TS-194 | ✅ done |
 | 1. (hardening) | — | **16** | TS-195 – TS-234 | ✅ **done** |
-| 2. Baseline lock | Project activation fee | **17** | TS-235 – TS-242 | 🔵 **in-progress** |
+| 2. Baseline lock | Project activation fee | **17** | TS-235 – TS-242 | ✅ **done** |
 | **3. Change & notice control** | **Per-project recurring** ★ | **18** | TS-243 – TS-256 | ⚪ todo |
 | 4. Claims workspace | Premium module | 19 | TS-257 – TS-270 | ⚪ todo |
 | 5. Portfolio intelligence | Enterprise annual | 20 | TS-271 – TS-280 | ⚪ todo |
@@ -81,7 +81,7 @@ Detail in `tasks/phase16_tracker.md`. Summary:
 | TS-239 | Approval matrix / authority limits | P1 | **done** | TS-235 |
 | TS-240 | Cost-code model mapped to BOQ + variations | P0 | **done** | TS-235 |
 | TS-241 | Commercial handover pack export | P1 | **done** | TS-237, TS-240 |
-| TS-242 | Baseline adoption telemetry (measures the P18 gate) | P0 | todo | TS-236 |
+| TS-242 | Baseline adoption telemetry (measures the P18 gate) | P0 | **done** | TS-236 |
 
 **Phase 17 exit:** two projects with a locked baseline in weekly use; notice rules configured for at
 least two contract forms; cost codes mapped end-to-end.
@@ -187,7 +187,7 @@ commercial promise to actual project change."* Track it link by link:
 | Category | Instrumented by | Status |
 |---|---|---|
 | **North star — margin protected** | TS-234, extended by TS-269 | ⚪ |
-| Adoption | existing `analytics` + TS-242 | 🟡 partial |
+| Adoption | existing `analytics` + TS-242 | ✅ done |
 | Quality | existing `analytics` (TS-057) | 🟡 partial |
 | Workflow (time to review, notice timeliness, evidence completeness, claim cycle) | TS-255, TS-268 | ⚪ |
 | Economics (conversion, margin, CAC payback, retention, expansion) | TS-223, TS-279 | ⚪ |

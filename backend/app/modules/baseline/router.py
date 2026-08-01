@@ -87,6 +87,27 @@ class NoticeContactsBody(BaseModel):
     contacts: list[NoticeContactEntry]
 
 
+class CostCodeEntry(BaseModel):
+    id: str | None = None
+    parent_id: str | None = None
+    code: str
+    label: str
+    variation_category: str | None = None
+
+
+class CostCodeMappingEntry(BaseModel):
+    id: str | None = None
+    cost_code_id: str
+    boq_src_row: str | None = None
+    finding_id: str | None = None
+    description_match: str | None = None
+
+
+class CostCodesBody(BaseModel):
+    codes: list[CostCodeEntry]
+    mappings: list[CostCodeMappingEntry] = []
+
+
 @router.post("/opportunities/{opportunity_id}/freeze")
 def freeze(
     opportunity_id: str,
@@ -224,6 +245,39 @@ def update_notice_contacts(
     return {"contacts": contacts}
 
 
+@router.get("/opportunities/{opportunity_id}/cost-codes")
+def list_cost_codes(
+    opportunity_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    try:
+        return _service(request, session).list_cost_codes(principal.workspace_id, opportunity_id)
+    except BaselineError as exc:
+        _raise(exc)
+
+
+@router.post("/opportunities/{opportunity_id}/cost-codes")
+def upsert_cost_codes(
+    opportunity_id: str,
+    body: CostCodesBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    try:
+        return _service(request, session).upsert_cost_codes(
+            principal.workspace_id,
+            opportunity_id,
+            codes=[c.model_dump() for c in body.codes],
+            mappings=[m.model_dump() for m in body.mappings],
+            actor_role=principal.role,
+        )
+    except BaselineError as exc:
+        _raise(exc)
+
+
 @router.get("/opportunities/{opportunity_id}/compare/award")
 def compare_award(
     opportunity_id: str,
@@ -290,12 +344,15 @@ def update_watchlist(
 @router.get("/opportunities/{opportunity_id}/handover")
 def handover(
     opportunity_id: str,
-    request: Request,
+    view: str | None = None,
+    request: Request = None,
     session: Session = Depends(get_session),
     principal: Any = Depends(require("estimator")),
 ):
     try:
-        return _service(request, session).handover(principal.workspace_id, opportunity_id)
+        return _service(request, session).handover(
+            principal.workspace_id, opportunity_id, view=view
+        )
     except BaselineError as exc:
         _raise(exc)
 
@@ -304,6 +361,7 @@ def handover(
 def handover_export(
     opportunity_id: str,
     format: str = "docx",
+    view: str | None = None,
     request: Request = None,
     session: Session = Depends(get_session),
     principal: Any = Depends(require("estimator")),
@@ -311,7 +369,7 @@ def handover_export(
     """Download the sealed handover pack as a DOCX/PDF/XLSX file."""
     try:
         filename, media_type, data = _service(request, session).export_handover(
-            principal.workspace_id, opportunity_id, format
+            principal.workspace_id, opportunity_id, format, view=view
         )
     except BaselineError as exc:
         _raise(exc)
@@ -323,7 +381,7 @@ def handover_export(
         action="export.handover_created",
         object_type="opportunity",
         object_id=opportunity_id,
-        detail={"format": format, "filename": filename},
+        detail={"format": format, "filename": filename, "view": view or "full"},
     )
     return Response(
         content=data,

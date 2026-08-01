@@ -79,8 +79,8 @@ Detail in `tasks/phase16_tracker.md`. Summary:
 | TS-237 | Risk → project watchlist | P0 | **done** | TS-235 |
 | TS-238 | Notice-rule register (deterministic deadlines) | P0 | **done** | TS-235 |
 | TS-239 | Approval matrix / authority limits | P1 | **done** | TS-235 |
-| TS-240 | Cost-code model mapped to BOQ + variations | P0 | todo | TS-235 |
-| TS-241 | Commercial handover pack export | P1 | todo | TS-237, TS-240 |
+| TS-240 | Cost-code model mapped to BOQ + variations | P0 | **done** | TS-235 |
+| TS-241 | Commercial handover pack export | P1 | **done** | TS-237, TS-240 |
 | TS-242 | Baseline adoption telemetry (measures the P18 gate) | P0 | todo | TS-236 |
 
 **Phase 17 exit:** two projects with a locked baseline in weekly use; notice rules configured for at

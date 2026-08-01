@@ -27,6 +27,12 @@ def setup(ctx: AppContext) -> None:
             workspace_id, opportunity_id
         ),
     )
+    reg.provide(
+        "baseline.cost_codes_for_opportunity",
+        lambda session, workspace_id, opportunity_id: factory(session).list_cost_codes(
+            workspace_id, opportunity_id
+        ),
+    )
 
 
 module = ModuleSpec(

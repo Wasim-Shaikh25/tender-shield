@@ -102,3 +102,47 @@ class NoticeContact(Base, WorkspaceScopedMixin):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class CostCode(Base, WorkspaceScopedMixin):
+    _tablename_ = "bl_cost_codes"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id",
+            "opportunity_id",
+            "code",
+            name="uq_bl_cost_codes_code",
+        ),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    opportunity_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("opportunities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True, index=True)
+    code: Mapped[str] = mapped_column(String, nullable=False)
+    label: Mapped[str] = mapped_column(String, nullable=False)
+    variation_category: Mapped[str | None] = mapped_column(String, nullable=True)
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class CostCodeMapping(Base, WorkspaceScopedMixin):
+    _tablename_ = "bl_cost_code_mappings"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    opportunity_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("opportunities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    cost_code_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("bl_cost_codes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    boq_src_row: Mapped[str | None] = mapped_column(String, nullable=True)
+    finding_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True, index=True)
+    description_match: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

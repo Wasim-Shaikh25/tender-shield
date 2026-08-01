@@ -16,7 +16,26 @@ from sqlalchemy import func, insert, select
 from sqlalchemy.orm import Session
 
 from app.modules.baseline.compare_award import diff_boq, diff_clauses, diff_findings
-from app.modules.baseline.models import AwardDocument, Baseline, NoticeContact, WatchlistControl
+from app.modules.baseline.cost_codes import (
+    boq_assumption_findings,
+    build_tree,
+    code_dict,
+    compute_exposure_totals,
+    finance_notice_windows,
+    lock_timestamp,
+    mapping_dict,
+    scope_gap_findings,
+    snapshot_cost_codes,
+)
+from app.modules.baseline.handover_views import filter_handover
+from app.modules.baseline.models import (
+    AwardDocument,
+    Baseline,
+    CostCode,
+    CostCodeMapping,
+    NoticeContact,
+    WatchlistControl,
+)
 from app.modules.baseline.notice_register import enrich_rule
 from app.modules.baseline.notices import extract_notice_rules
 from app.modules.baseline.watchlist import (
@@ -371,6 +390,10 @@ class BaselineService:
         }
         if source == "award":
             snapshot["award_text_preview"] = award_text[:500]
+        cost_payload = self._cost_code_payload(workspace_id, opportunity_id)
+        if cost_payload["codes"]:
+            snapshot["cost_codes"] = cost_payload["snapshot"]
+            snapshot["counts"]["cost_codes"] = len(cost_payload["codes"])
         return snapshot
 
     def store_award_document(
@@ -458,6 +481,17 @@ class BaselineService:
             baseline_id=row.id,
             findings=snapshot.get("findings", []),
         )
+        self._lock_cost_codes(workspace_id, opportunity_id)
+        if snapshot.get("cost_codes"):
+            self._publish(
+                "baseline.cost_codes_locked",
+                {
+                    "workspace_id": str(workspace_id),
+                    "opportunity_id": str(opp),
+                    "baseline_id": str(row.id),
+                    "count": len(snapshot["cost_codes"]),
+                },
+            )
         return row
 
     def list(self, workspace_id, opportunity_id) -> list[Baseline]:
@@ -611,6 +645,135 @@ class BaselineService:
         )
         return [self._contact_dict(row) for row in out]
 
+    def _cost_codes_locked(self, workspace_id, opportunity_id) -> bool:
+        return self.latest(workspace_id, opportunity_id) is not None
+
+    def _cost_code_rows(self, workspace_id, opportunity_id) -> list[CostCode]:
+        return list(
+            self.s.scalars(
+                select(CostCode)
+                .where(
+                    CostCode.workspace_id == uuid.UUID(str(workspace_id)),
+                    CostCode.opportunity_id == uuid.UUID(str(opportunity_id)),
+                )
+                .order_by(CostCode.code)
+            )
+        )
+
+    def _mapping_rows(self, workspace_id, opportunity_id) -> list[CostCodeMapping]:
+        return list(
+            self.s.scalars(
+                select(CostCodeMapping).where(
+                    CostCodeMapping.workspace_id == uuid.UUID(str(workspace_id)),
+                    CostCodeMapping.opportunity_id == uuid.UUID(str(opportunity_id)),
+                )
+            )
+        )
+
+    def _cost_code_payload(self, workspace_id, opportunity_id) -> dict:
+        codes = self._cost_code_rows(workspace_id, opportunity_id)
+        mappings = self._mapping_rows(workspace_id, opportunity_id)
+        mapping_dicts = [mapping_dict(row) for row in mappings]
+        code_dicts = [
+            code_dict(row, mappings=[m for m in mapping_dicts if m["cost_code_id"] == str(row.id)])
+            for row in codes
+        ]
+        return {
+            "codes": code_dicts,
+            "mappings": mapping_dicts,
+            "tree": build_tree(code_dicts),
+            "snapshot": snapshot_cost_codes(code_dicts, mapping_dicts),
+        }
+
+    def list_cost_codes(self, workspace_id, opportunity_id) -> dict:
+        payload = self._cost_code_payload(workspace_id, opportunity_id)
+        findings = self._accepted_findings(workspace_id, opportunity_id)
+        payload["exposure_totals"] = compute_exposure_totals(findings, payload["mappings"])
+        payload["locked"] = self._cost_codes_locked(workspace_id, opportunity_id)
+        return payload
+
+    def upsert_cost_codes(
+        self,
+        workspace_id,
+        opportunity_id,
+        *,
+        codes: list[dict],
+        mappings: list[dict],
+        actor_role: str = "estimator",
+    ) -> dict:
+        if self._cost_codes_locked(workspace_id, opportunity_id):
+            self._require_approval(workspace_id, role=actor_role, action="cost_code_edit")
+        wid = uuid.UUID(str(workspace_id))
+        oid = uuid.UUID(str(opportunity_id))
+        existing_codes = {
+            str(row.id): row for row in self._cost_code_rows(workspace_id, opportunity_id)
+        }
+        seen_codes: set[str] = set()
+        for entry in codes:
+            code_value = entry["code"].strip()
+            if not code_value:
+                raise BaselineError("bad_source")
+            row = existing_codes.get(entry.get("id", "")) if entry.get("id") else None
+            parent_id = entry.get("parent_id")
+            if row is None:
+                row = CostCode(
+                    workspace_id=wid,
+                    opportunity_id=oid,
+                    code=code_value,
+                    label=entry["label"],
+                    variation_category=entry.get("variation_category"),
+                    parent_id=uuid.UUID(str(parent_id)) if parent_id else None,
+                )
+                self.s.add(row)
+                self.s.flush()
+            else:
+                if row.locked_at is not None:
+                    raise BaselineError("bad_status")
+                row.code = code_value
+                row.label = entry["label"]
+                row.variation_category = entry.get("variation_category")
+                row.parent_id = uuid.UUID(str(parent_id)) if parent_id else None
+            seen_codes.add(str(row.id))
+        for code_id, row in existing_codes.items():
+            if code_id not in seen_codes and row.locked_at is None:
+                self.s.delete(row)
+
+        existing_mappings = {
+            str(row.id): row for row in self._mapping_rows(workspace_id, opportunity_id)
+        }
+        seen_mappings: set[str] = set()
+        code_ids = {str(row.id) for row in self._cost_code_rows(workspace_id, opportunity_id)}
+        for entry in mappings:
+            cost_code_id = entry["cost_code_id"]
+            if cost_code_id not in code_ids:
+                raise BaselineError("not_found")
+            row = existing_mappings.get(entry.get("id", "")) if entry.get("id") else None
+            if row is None:
+                row = CostCodeMapping(
+                    workspace_id=wid,
+                    opportunity_id=oid,
+                    cost_code_id=uuid.UUID(str(cost_code_id)),
+                )
+                self.s.add(row)
+            row.boq_src_row = entry.get("boq_src_row")
+            row.finding_id = (
+                uuid.UUID(str(entry["finding_id"])) if entry.get("finding_id") else None
+            )
+            row.description_match = entry.get("description_match")
+            self.s.flush()
+            seen_mappings.add(str(row.id))
+        for mapping_id, row in existing_mappings.items():
+            if mapping_id not in seen_mappings:
+                self.s.delete(row)
+        self.s.commit()
+        return self.list_cost_codes(workspace_id, opportunity_id)
+
+    def _lock_cost_codes(self, workspace_id, opportunity_id) -> None:
+        locked_at = lock_timestamp()
+        for row in self._cost_code_rows(workspace_id, opportunity_id):
+            row.locked_at = locked_at
+        self.s.commit()
+
     def compare(self, workspace_id, opportunity_id) -> dict:
         """Award-vs-tender finding delta (spec B5)."""
         return self.compare_award(workspace_id, opportunity_id, findings_only=True)
@@ -705,9 +868,9 @@ class BaselineService:
         )
         return row
 
-    def handover(self, workspace_id, opportunity_id) -> dict:
+    def handover(self, workspace_id, opportunity_id, *, view: str | None = None) -> dict:
         """Commercial handover pack assembled from the latest sealed baseline
-        (spec B6)."""
+        (spec B6 / B16)."""
         latest = self.latest(workspace_id, opportunity_id)
         if latest is None:
             raise BaselineError("no_baseline")
@@ -721,7 +884,11 @@ class BaselineService:
             snap.get("notice_rules", []),
             region=region,
         )
-        return {
+        cost_codes = snap.get("cost_codes") or self._cost_code_payload(
+            workspace_id, opportunity_id
+        )["snapshot"]
+        mappings = [m for code in cost_codes for m in code.get("mappings", [])]
+        pack = {
             "baseline_id": str(latest.id),
             "version": latest.version,
             "source": latest.source,
@@ -732,12 +899,23 @@ class BaselineService:
             "notice_register": notice_rules,
             "notice_gaps": snap.get("notice_gaps", []),
             "deadline_calendar": snap.get("deadlines", []),
+            "watchlist_controls": self.list_watchlist(workspace_id, opportunity_id),
+            "boq_assumptions": boq_assumption_findings(findings),
+            "scope_gap_findings": scope_gap_findings(findings),
+            "cost_codes": cost_codes,
+            "exposure_totals": compute_exposure_totals(findings, mappings),
+            "finance_notice_windows": finance_notice_windows(notice_rules),
             "counts": snap.get("counts", {}),
         }
+        return filter_handover(pack, view)
 
-    def export_handover(self, workspace_id, opportunity_id, fmt: str) -> tuple[str, str, bytes]:
+    def export_handover(
+        self, workspace_id, opportunity_id, fmt: str, *, view: str | None = None
+    ) -> tuple[str, str, bytes]:
         """Render the latest sealed handover pack to a file."""
         if self._export_factory is None:
             raise BaselineError("export_unavailable")
-        pack = self.handover(workspace_id, opportunity_id)
-        return self._export_factory(self.s).export_handover(str(opportunity_id), fmt, pack)
+        pack = self.handover(workspace_id, opportunity_id, view=view)
+        return self._export_factory(self.s).export_handover(
+            str(opportunity_id), fmt, pack, view=view or pack.get("view", "full")
+        )

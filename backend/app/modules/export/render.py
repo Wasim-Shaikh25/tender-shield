@@ -209,84 +209,123 @@ def render_pdf(
     return buf.getvalue()
 
 
+def _handover_table_sections(handover: dict) -> list[tuple[str, list[str], list, list[str]]]:
+    specs = [
+        (
+            "watchlist_controls",
+            "Watchlist Controls",
+            ["Title", "Severity", "Cadence"],
+            ["title", "severity", "review_cadence"],
+        ),
+        (
+            "key_obligations",
+            "Key Obligations",
+            ["Severity", "Category", "Title", "Quote"],
+            ["severity", "category", "title", "source_quote"],
+        ),
+        (
+            "notice_register",
+            "Notice Register",
+            ["Category", "Days", "Trigger", "Quote"],
+            ["category", "days", "trigger", "source_quote"],
+        ),
+        (
+            "notice_gaps",
+            "Notice Gaps",
+            ["Category", "Typical Days", "Note"],
+            ["key", "typical_days", "note"],
+        ),
+        (
+            "deadline_calendar",
+            "Deadlines",
+            ["Kind", "Due At", "Description"],
+            ["kind", "due_at", "description"],
+        ),
+        (
+            "boq_assumptions",
+            "BOQ Assumptions",
+            ["Category", "Title", "Exposure"],
+            ["category", "title", "amount_exposure"],
+        ),
+        (
+            "scope_gap_findings",
+            "Scope Gaps",
+            ["Category", "Title", "Quote"],
+            ["category", "title", "source_quote"],
+        ),
+        (
+            "finance_notice_windows",
+            "Finance Notice Windows",
+            ["Category", "Days", "Trigger"],
+            ["category", "days", "trigger"],
+        ),
+    ]
+    out = []
+    for key, heading, headers, fields in specs:
+        if key not in handover:
+            continue
+        out.append((heading, headers, handover.get(key) or [], fields))
+    return out
+
+
 def render_handover_pack(
     opportunity_title: str, handover: dict, fmt: str, meta: dict
 ) -> bytes:
     """Render a sealed-baseline handover pack in the requested office format."""
-    obligations = handover.get("key_obligations", [])
-    notice_rules = handover.get("notice_register", [])
-    gaps = handover.get("notice_gaps", [])
-    deadlines = handover.get("deadline_calendar", [])
+    view = handover.get("view") or meta.get("view") or "full"
+    sections = _handover_table_sections(handover)
+    cost_codes = handover.get("cost_codes") or []
+    exposure = handover.get("exposure_totals") or {}
 
     if fmt == "xlsx":
         wb = Workbook()
         ws = wb.active
         ws.title = "Handover"
-        ws.append([f"Handover Pack — {opportunity_title}"])
+        ws.append([f"Handover Pack — {opportunity_title} ({view})"])
         ws.append([stamp_line(meta)])
         version = handover.get("version")
         source = handover.get("source")
         sealed_hash = handover.get("sealed_hash", "")[:16]
         ws.append([f"Version: {version}  Source: {source}  Hash: {sealed_hash}"])
         ws.append([])
-        ws.append(["Key Obligations"])
-        ws.append(["Severity", "Category", "Title", "Quote"])
-        for r in obligations:
-            ws.append([r.get("severity"), r.get("category"), r.get("title"), r.get("source_quote")])
-        ws.append([])
-        ws.append(["Notice Register"])
-        ws.append(["Category", "Days", "Trigger", "Quote"])
-        for r in notice_rules:
-            ws.append([r.get("category"), r.get("days"), r.get("trigger"), r.get("source_quote")])
-        ws.append([])
-        ws.append(["Notice Gaps"])
-        ws.append(["Category", "Typical Days", "Note"])
-        for r in gaps:
-            ws.append([r.get("key"), r.get("typical_days"), r.get("note")])
-        ws.append([])
-        ws.append(["Deadlines"])
-        ws.append(["Kind", "Due At", "Description"])
-        for r in deadlines:
-            ws.append([r.get("kind"), r.get("due_at"), r.get("description")])
+        for heading, headers, rows, fields in sections:
+            ws.append([heading])
+            ws.append(headers)
+            for r in rows:
+                ws.append([r.get(f) for f in fields])
+            ws.append([])
+        if cost_codes:
+            ws.append(["Cost Codes"])
+            ws.append(["Code", "Label", "Variation Category", "Mappings"])
+            for r in cost_codes:
+                ws.append(
+                    [
+                        r.get("code"),
+                        r.get("label"),
+                        r.get("variation_category"),
+                        len(r.get("mappings", [])),
+                    ]
+                )
+            ws.append([])
+        if exposure:
+            ws.append(["Exposure Totals"])
+            ws.append(
+                ["Currency", exposure.get("currency"), "Total Minor", exposure.get("total_minor")]
+            )
         buf = io.BytesIO()
         wb.save(buf)
         return buf.getvalue()
 
     if fmt == "docx":
         doc = Document()
-        doc.add_heading(f"Handover Pack — {opportunity_title}", level=0)
+        doc.add_heading(f"Handover Pack — {opportunity_title} ({view})", level=0)
         doc.add_paragraph(stamp_line(meta)).italic = True
         doc.add_paragraph(
             f"Version: {handover.get('version')}  Source: {handover.get('source')}  "
             f"Hash: {handover.get('sealed_hash', '')[:16]}"
         )
 
-        for heading, headers, rows, fields in [
-            (
-                "Key Obligations",
-                ["Severity", "Category", "Title", "Quote"],
-                obligations,
-                ["severity", "category", "title", "source_quote"],
-            ),
-            (
-                "Notice Register",
-                ["Category", "Days", "Trigger", "Quote"],
-                notice_rules,
-                ["category", "days", "trigger", "source_quote"],
-            ),
-            (
-                "Notice Gaps",
-                ["Category", "Typical Days", "Note"],
-                gaps,
-                ["key", "typical_days", "note"],
-            ),
-            (
-                "Deadlines",
-                ["Kind", "Due At", "Description"],
-                deadlines,
-                ["kind", "due_at", "description"],
-            ),
-        ]:
+        for heading, headers, rows, fields in sections:
             doc.add_heading(heading, level=1)
             if not rows:
                 doc.add_paragraph("None.")
@@ -298,6 +337,25 @@ def render_handover_pack(
                 cells = table.add_row().cells
                 for i, f in enumerate(fields):
                     cells[i].text = str(r.get(f))
+
+        if cost_codes:
+            doc.add_heading("Cost Codes", level=1)
+            table = doc.add_table(rows=1, cols=4)
+            for i, h in enumerate(["Code", "Label", "Variation Category", "Mappings"]):
+                table.rows[0].cells[i].text = h
+            for r in cost_codes:
+                cells = table.add_row().cells
+                cells[0].text = str(r.get("code"))
+                cells[1].text = str(r.get("label"))
+                cells[2].text = str(r.get("variation_category"))
+                cells[3].text = str(len(r.get("mappings", [])))
+
+        if exposure:
+            doc.add_heading("Exposure Totals", level=1)
+            doc.add_paragraph(
+                f"Currency: {exposure.get('currency')}  "
+                f"Total (minor units): {exposure.get('total_minor')}"
+            )
 
         buf = io.BytesIO()
         doc.save(buf)
@@ -314,7 +372,7 @@ def render_handover_pack(
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, title=f"Handover Pack — {opportunity_title}")
     flow = [
-        Paragraph(f"Handover Pack — {opportunity_title}", styles["Title"]),
+        Paragraph(f"Handover Pack — {opportunity_title} ({view})", styles["Title"]),
         Paragraph(stamp_line(meta), small),
         Paragraph(
             f"Version: {handover.get('version')}  Source: {handover.get('source')}  "
@@ -333,25 +391,22 @@ def render_handover_pack(
         for row in rows:
             flow.append(Paragraph(formatter(row), normal))
 
-    pdf_section(
-        "Key Obligations",
-        obligations,
-        lambda r: f"[{r.get('severity')}] {r.get('category')} — {r.get('title')}",
-    )
-    pdf_section(
-        "Notice Register",
-        notice_rules,
-        lambda r: f"[{r.get('category')}] {r.get('days')} days — {r.get('trigger')}",
-    )
-    pdf_section(
-        "Notice Gaps",
-        gaps,
-        lambda r: f"[{r.get('key')}] typical {r.get('typical_days')} days — {r.get('note')}",
-    )
-    pdf_section(
-        "Deadlines",
-        deadlines,
-        lambda r: f"[{r.get('kind')}] {r.get('due_at')} — {r.get('description')}",
-    )
+    for heading, _headers, rows, fields in sections:
+        pdf_section(
+            heading,
+            rows,
+            lambda r, fields=fields: " | ".join(
+                f"{f}: {r.get(f)}" for f in fields if r.get(f) is not None
+            ),
+        )
+    if exposure:
+        summary = (
+            f"Currency: {exposure.get('currency')} Total: {exposure.get('total_minor')}"
+        )
+        pdf_section(
+            "Exposure Totals",
+            [{"summary": summary}],
+            lambda r: r["summary"],
+        )
     doc.build(flow)
     return buf.getvalue()

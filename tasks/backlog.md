@@ -466,15 +466,15 @@ before work completion."*
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
 | TS-257 | Spec: `claims` module — chronology, quantum, delay register, negotiation tracking | Research Doc §4.G | `specs/modules/claims.md` (new) | **done** |
-| TS-258 | `claims` module scaffold + migrations (workspace-scoped, RLS) | Research Doc §4.G | `specs/modules/claims.md` | **in-progress** |
-| TS-259 | Chronology builder from approved correspondence, revisions and confirmed events — every entry cited | Research Doc §4.G | `specs/modules/claims.md` | todo |
-| TS-260 | Evidence checklist per claim type: instruction, baseline, revised scope, labour, plant, material, schedule, photos, approvals | Research Doc §4.G | `specs/modules/evidence.md` (update) | todo |
-| TS-261 | **Quantum workspace**: deterministic quantity × rate × daywork calculation with reviewer sign-off; zero LLM arithmetic | Research Doc §4.G, §7.1; `CLAUDE.md` §4 | `specs/modules/claims.md` | todo |
-| TS-262 | Delay-event register with links to programme records; **no autonomous entitlement conclusion** | Research Doc §4.G | `specs/modules/claims.md` | todo |
-| TS-263 | Draft generators: interim particulars, variation proposal, EOT narrative, full claim package — facts injected, prose generated, all validators applied | Research Doc §4.G; Build Doc §6.5 | `specs/modules/drafting.md` (update) | todo |
-| TS-264 | Issue → response → negotiation → settlement tracking with outcome capture | Research Doc §4.G, §5.3(21) | `specs/modules/claims.md` | todo |
-| TS-265 | Outcome feedback into the private learning set: approved / negotiated / rejected / withdrawn / disputed | Research Doc §5.3(22) | `specs/modules/outcomes.md` (update) | todo |
-| TS-266 | Chain-integrity test: every claim traces to a notice → event → baseline obligation → tender clause; a broken link fails the build | Research Doc §14; Roadmap §5 | `specs/modules/claims.md` | todo |
+| TS-258 | `claims` module scaffold + migrations (workspace-scoped, RLS) | Research Doc §4.G | `specs/modules/claims.md` | **done** |
+| TS-259 | Chronology builder from approved correspondence, revisions and confirmed events — every entry cited | Research Doc §4.G | `specs/modules/claims.md` | **done** |
+| TS-260 | Evidence checklist per claim type: instruction, baseline, revised scope, labour, plant, material, schedule, photos, approvals | Research Doc §4.G | `specs/modules/evidence.md` (update) | **done** |
+| TS-261 | **Quantum workspace**: deterministic quantity × rate × daywork calculation with reviewer sign-off; zero LLM arithmetic | Research Doc §4.G, §7.1; `CLAUDE.md` §4 | `specs/modules/claims.md` | **done** |
+| TS-262 | Delay-event register with links to programme records; **no autonomous entitlement conclusion** | Research Doc §4.G | `specs/modules/claims.md` | **done** |
+| TS-263 | Draft generators: interim particulars, variation proposal, EOT narrative, full claim package — facts injected, prose generated, all validators applied | Research Doc §4.G; Build Doc §6.5 | `specs/modules/drafting.md` (update) | **done** |
+| TS-264 | Issue → response → negotiation → settlement tracking with outcome capture | Research Doc §4.G, §5.3(21) | `specs/modules/claims.md` | **done** |
+| TS-265 | Outcome feedback into the private learning set: approved / negotiated / rejected / withdrawn / disputed | Research Doc §5.3(22) | `specs/modules/outcomes.md` (update) | **done** |
+| TS-266 | Chain-integrity test: every claim traces to a notice → event → baseline obligation → tender clause; a broken link fails the build | Research Doc §14; Roadmap §5 | `specs/modules/claims.md` | **done** |
 | TS-267 | Conflicts control: block serving opposing parties on the same project | Research Doc §11.1 | `specs/modules/auth.md` (update) | todo |
 | TS-268 | Claim-cycle-time and notice-timeliness workflow metrics | Research Doc §12.2 | `specs/modules/analytics.md` (update) | todo |
 | TS-269 | North-star extension: recovered claim value linked to TenderShield evidence feeds "margin protected" | Research Doc §12.1 | `specs/modules/outcomes.md` (update) | todo |

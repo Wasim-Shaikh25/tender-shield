@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 import app.modules.analytics.models  # noqa: F401
 import app.modules.auth.models  # noqa: F401
 import app.modules.auth.security as sec  # noqa: F401
+import app.modules.baseline.models  # noqa: F401
 import app.modules.drafting.models  # noqa: F401
 import app.modules.findings.models  # noqa: F401
 import app.modules.ingestion.models  # noqa: F401
@@ -23,7 +24,8 @@ def client():
     app = create_app(
         Settings(
             enabled_modules=(
-                "health,rulepacks,auth,ingestion,findings,risk,review,drafting,analytics"
+                "health,rulepacks,auth,ingestion,findings,risk,review,drafting,"
+                "analytics,baseline"
             ),
             database_url="sqlite:///:memory:",
         )
@@ -194,3 +196,80 @@ def test_plan_snapshot_lifecycle_and_export(client):
         client.get(f"/api/analytics/plan/snapshots/{snapshot_id}", headers=viewer).status_code
         == 404
     )
+
+
+def _freeze_baseline(client, headers, title):
+    opp_id = client.post(
+        "/api/ingestion/opportunities", json={"title": title}, headers=headers
+    ).json()["id"]
+    client.post(
+        f"/api/ingestion/opportunities/{opp_id}/documents",
+        json={"filename": "gcc.pdf", "sample_text": "[p1]\nClause 5 — Scope. Build a bridge.\n"},
+        headers=headers,
+    )
+    client.post(f"/api/risk/opportunities/{opp_id}/run", headers=headers)
+    for finding in client.get(
+        f"/api/review/opportunities/{opp_id}/queue", headers=headers
+    ).json()["findings"]:
+        client.post(
+            f"/api/review/findings/{finding['id']}",
+            json={"opportunity_id": opp_id, "decision": "accepted"},
+            headers=headers,
+        )
+    client.post(
+        f"/api/baseline/opportunities/{opp_id}/freeze",
+        json={"source": "tender"},
+        headers=headers,
+    )
+    return opp_id
+
+
+def test_baseline_adoption_admin_only(client):
+    owner = _owner(client)
+    _freeze_baseline(client, owner, "Adoption Bridge")
+
+    resp = client.get("/api/analytics/baseline-adoption", headers=owner)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["opportunities_with_sealed_baseline"] == 1
+    assert body["weekly_active_baseline_users"] >= 1
+    assert body["weekly_active_baseline_opportunities"] >= 1
+    assert body["phase_18_gate"]["required_weekly_projects"] == 2
+    assert body["phase_18_gate"]["met"] is False
+
+    viewer = _viewer_headers(client)
+    assert client.get("/api/analytics/baseline-adoption", headers=viewer).status_code == 403
+
+
+def test_baseline_adoption_phase18_gate_met(client):
+    owner = _owner(client)
+    _freeze_baseline(client, owner, "Gate Project A")
+    opp_b = _freeze_baseline(client, owner, "Gate Project B")
+    client.get(
+        f"/api/baseline/opportunities/{opp_b}/handover/export?format=docx",
+        headers=owner,
+    )
+
+    body = client.get("/api/analytics/baseline-adoption", headers=owner).json()
+    assert body["opportunities_with_sealed_baseline"] == 2
+    assert body["weekly_active_baseline_opportunities"] >= 2
+    assert body["phase_18_gate"]["met"] is True
+
+
+def test_baseline_adoption_degrades_without_baseline_module():
+    app = create_app(
+        Settings(
+            enabled_modules=(
+                "health,rulepacks,auth,ingestion,findings,risk,review,drafting,analytics"
+            ),
+            database_url="sqlite:///:memory:",
+        )
+    )
+    Base.metadata.create_all(app.state.ctx.registry.require("db.engine"))
+    client = TestClient(app)
+    owner = auth_headers(client, "owner2@x.com")
+    resp = client.get("/api/analytics/baseline-adoption", headers=owner)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["opportunities_with_sealed_baseline"] == 0
+    assert body["weekly_active_baseline_users"] == 0

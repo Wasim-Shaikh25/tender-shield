@@ -6,6 +6,19 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-08-01 (TS-242: baseline adoption telemetry)
+
+- **TS-242 baseline adoption telemetry** — `GET /api/analytics/baseline-adoption` (admin-only)
+  reports opportunities with sealed baselines, weekly active baseline users/opportunities, and
+  `phase_18_gate.met`; `baseline.sealed_opportunity_count` and `review.baseline_activity_metrics`
+  registry capabilities; graceful degradation when `baseline` is disabled.
+
+Tests: 517 passed / 5 skipped.
+
+### Next
+
+- Phase 18 (TS-243+) — change & notice control module.
+
 ### Done — 2026-08-01 (TS-240 + TS-241: cost codes + handover views)
 
 - **TS-240 cost-code model** — `bl_cost_codes` + `bl_cost_code_mappings` tables; hierarchical
@@ -15,10 +28,6 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   export; role-specific sections with baseline seal in every view header.
 
 Tests: 514 passed / 5 skipped.
-
-### Next
-
-- TS-242 (baseline adoption telemetry).
 
 ### Done — 2026-08-01 (TS-238 + TS-239: notice register + approval matrix)
 

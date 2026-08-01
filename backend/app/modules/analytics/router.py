@@ -33,6 +33,8 @@ def _service(request: Request, session: Session) -> AnalyticsService:
         session,
         findings_factory=reg.get("findings.store_factory"),
         ingestion_factory=reg.get("ingestion.service_factory"),
+        sealed_opportunity_count_fn=reg.get("baseline.sealed_opportunity_count"),
+        baseline_activity_metrics_fn=reg.get("review.baseline_activity_metrics"),
     )
 
 
@@ -43,6 +45,15 @@ def accuracy_dashboard(
     principal: Any = Depends(require("admin")),
 ):
     return _service(request, session).accuracy_dashboard(principal.workspace_id)
+
+
+@router.get("/baseline-adoption")
+def baseline_adoption(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    return _service(request, session).baseline_adoption(principal.workspace_id)
 
 
 @router.get("/risk-summary")

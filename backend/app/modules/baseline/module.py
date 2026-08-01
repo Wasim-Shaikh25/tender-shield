@@ -1,4 +1,5 @@
 from app.core.module import AppContext, ModuleSpec
+from app.modules.baseline.adoption import sealed_opportunity_count
 from app.modules.baseline.router import router
 from app.modules.baseline.service import BaselineService
 
@@ -32,6 +33,10 @@ def setup(ctx: AppContext) -> None:
         lambda session, workspace_id, opportunity_id: factory(session).list_cost_codes(
             workspace_id, opportunity_id
         ),
+    )
+    reg.provide(
+        "baseline.sealed_opportunity_count",
+        lambda session, workspace_id: sealed_opportunity_count(session, workspace_id),
     )
 
 

@@ -465,8 +465,8 @@ before work completion."*
 
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
-| TS-257 | Spec: `claims` module — chronology, quantum, delay register, negotiation tracking | Research Doc §4.G | `specs/modules/claims.md` (new) | todo |
-| TS-258 | `claims` module scaffold + migrations (workspace-scoped, RLS) | Research Doc §4.G | `specs/modules/claims.md` | todo |
+| TS-257 | Spec: `claims` module — chronology, quantum, delay register, negotiation tracking | Research Doc §4.G | `specs/modules/claims.md` (new) | **done** |
+| TS-258 | `claims` module scaffold + migrations (workspace-scoped, RLS) | Research Doc §4.G | `specs/modules/claims.md` | **in-progress** |
 | TS-259 | Chronology builder from approved correspondence, revisions and confirmed events — every entry cited | Research Doc §4.G | `specs/modules/claims.md` | todo |
 | TS-260 | Evidence checklist per claim type: instruction, baseline, revised scope, labour, plant, material, schedule, photos, approvals | Research Doc §4.G | `specs/modules/evidence.md` (update) | todo |
 | TS-261 | **Quantum workspace**: deterministic quantity × rate × daywork calculation with reviewer sign-off; zero LLM arithmetic | Research Doc §4.G, §7.1; `CLAUDE.md` §4 | `specs/modules/claims.md` | todo |

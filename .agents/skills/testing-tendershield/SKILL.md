@@ -223,3 +223,70 @@ Expected local baseline:
 - `mypy app` clean
 - `pytest -q` 184 passed, 4 skipped
 - `npm run lint`, `npm run typecheck`, `npm run build` clean
+
+## Claims workspace API smoke test (PR #96+)
+
+### Module discovery gotchas
+
+- The `evidence` module lives at `backend/app/modules/evidence/` but has **no `__init__.py`**,
+  so `app.core.loader.discover_module_names()` (which uses `pkgutil.iter_modules`) does **not**
+  pick it up when `TS_ENABLED_MODULES` is left empty. Either set `TS_ENABLED_MODULES` explicitly:
+  ```bash
+  TS_ENABLED_MODULES=health,rulepacks,auth,ingestion,findings,risk,review,baseline,change,evidence,claims
+  ```
+  or add an empty `backend/app/modules/evidence/__init__.py` to make it a regular package.
+- Without `evidence` loaded, `POST /api/change/events/{id}/evidence` returns `503 evidence_unavailable`
+  and the claims checklist/chronology will be incomplete.
+
+### SQLite migration gotcha
+
+- The `change_events` migration (`migrations/versions/f1a8c3d92e40_change_events_scaffold.py`)
+  uses `server_default=sa.text("now()")`, which SQLite does **not** support at runtime
+  (it accepts the DDL but inserts fail with `unknown function: now()`).
+- For a quick local API smoke test, recreate tables from the SQLAlchemy models instead of using
+  `alembic upgrade head`:
+  ```bash
+  cd /home/ubuntu/repos/tender-shield/backend
+  .venv/bin/python - <<'PY'
+  import app.modules.auth.models  # noqa
+  import app.modules.baseline.models  # noqa
+  import app.modules.change.models  # noqa
+  import app.modules.claims.models  # noqa
+  import app.modules.evidence.models  # noqa
+  import app.modules.findings.models  # noqa
+  import app.modules.ingestion.models  # noqa
+  import app.modules.review.models  # noqa
+  from app.core.config import Settings
+  from app.core.db import Base
+  from app.main import create_app
+  url = "sqlite:////tmp/tendershield_claims_smoke.db"
+  app = create_app(Settings(database_url=url))
+  Base.metadata.create_all(app.state.ctx.registry.require("db.engine"))
+  PY
+  TS_DATABASE_URL=sqlite:////tmp/tendershield_claims_smoke.db \
+    .venv/bin/uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
+  ```
+
+### Deterministic happy-path payload
+
+1. Sign up / verify / login / MFA → `access_token`.
+2. `POST /api/auth/workspaces` → `workspace_id`, then `POST /api/auth/workspaces/{id}/switch`.
+3. Create opportunity; upload `evals/in-works/sample_tender/boq.csv`.
+4. `POST /api/risk/opportunities/{id}/run`; accept all `GET /api/review/opportunities/{id}/queue` findings.
+5. `POST /api/baseline/opportunities/{id}/freeze` `{"source":"tender"}`.
+6. `POST /api/change/opportunities/{id}/events` (source required) then
+   `POST /api/change/events/{id}/confirmations` `{"outcome":"changed"}`.
+7. `POST /api/claims/opportunities/{id}/claims` with `change_event_id` and `baseline_id`.
+8. `POST /api/claims/claims/{id}/quantum/line-items` with `quantity` as a JSON string,
+   e.g. `{"description":"Extra RCC pile","quantity":"3.50","unit":"m3","rate_minor":50000,"daywork_days":2,"daywork_rate_minor":10000}`;
+   `GET /api/claims/claims/{id}/quantum` should return `total_minor: 195000`.
+9. `POST /api/change/events/{id}/evidence` with `record_type` values
+   `site_instruction`, `photograph`, `drawing_revision`, `meeting_minutes`.
+10. `GET /api/claims/claims/{id}/checklist` should show the mapped checklist items `present: true`.
+11. `GET /api/claims/claims/{id}/chronology` should have `event` and `evidence` entries
+    with `source_id`, `source_quote`, and `document_id`.
+12. A claim created without `change_event_id` must submit with `409 chain_broken`.
+13. Submit linked claim, add response, negotiation, then settlement;
+    `GET /api/claims/claims/{id}` should return `status: settled` and the chosen
+    `recovered_amount_minor`.
+14. Unit gate: `cd backend && .venv/bin/pytest tests/test_claims.py -q` → `8 passed`.

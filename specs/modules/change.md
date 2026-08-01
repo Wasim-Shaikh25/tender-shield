@@ -56,6 +56,7 @@ subscription or switching cost.
 | `change.event_confirmed` | `workspace_id`, `event_id`, `outcome`, `confirmed_by` |
 | `change.notice_deadline_computed` | `workspace_id`, `event_id`, `notice_deadline`, `notice_type` |
 | `change.notice_draft_requested` | `workspace_id`, `event_id` — consumed by `drafting` (TS-253) |
+| `change.email_received` | `workspace_id`, `opportunity_id`, `message_id`, `inbound_email_id` |
 
 ### Events consumed
 
@@ -108,8 +109,12 @@ subscription or switching cost.
 - `POST /events/{event_id}/evidence` (estimator) — attach evidence via `evidence` module.
 - Event detail includes `evidence_completeness` when `evidence` is enabled.
 
-#### Planned (TS-247, TS-256)
+#### Implemented (TS-247)
 
+- `POST /opportunities/{id}/inbox/email` (admin) — register per-project forward address.
+- `GET  /opportunities/{id}/inbox/email` (admin) — retrieve active forward address.
+- `POST /webhooks/inbound-email` — HMAC-verified inbound provider callback; stores raw
+  message append-only and emits email signal candidate via B10–B11.
 
 ## Data owned
 
@@ -174,6 +179,14 @@ Site confirmation workflow (TS-250). Append-only history — latest row wins for
 | `confirmed_at` | timestamptz | server default now |
 | `note` | string nullable | |
 | `evidence_ids` | JSON | list of evidence UUIDs (Phase 19 module; no FK) |
+
+### `change_inbox_addresses` (TS-247)
+
+Per-opportunity forward-to-inbox token and display address.
+
+### `change_inbound_emails` (TS-247)
+
+Append-only raw inbound messages (`message_id` unique per workspace).
 
 ## Behavior
 
@@ -340,7 +353,10 @@ Site confirmation workflow (TS-250). Append-only history — latest row wins for
 - A15 (TS-255): Completeness score lists missing types deterministically.
 - A16 (TS-256): Third change event on unactivated project returns 402; webhook activates project.
 
-### TS-247 (planned)
+### TS-247 (implemented)
+
+- A17 (TS-247): Inbound webhook with bad signature returns 400; valid email creates email
+  `candidate` with `message_id` dedup.
 
 ## Cross-module specs (Phase 18)
 

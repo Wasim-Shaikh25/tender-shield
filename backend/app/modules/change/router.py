@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
+from app.core.ratelimit import RateLimitDep
+from app.modules.change.email_inbox import verify_inbound_signature
 from app.modules.change.service import ChangeError, ChangeService
 
 router = APIRouter()
@@ -112,6 +114,7 @@ def _service(request: Request, session: Session) -> ChangeService:
         drafting_factory=reg.get("drafting.service_factory"),
         evidence_factory=reg.get("evidence.service_factory"),
         project_active_fn=reg.get("billing.is_project_active"),
+        inbox_domain=request.app.state.ctx.settings.change_inbox_domain,
         publish=request.app.state.ctx.events.publish,
     )
 
@@ -352,6 +355,71 @@ def attach_evidence(
             captured_at=body.captured_at,
             document_id=body.document_id,
             created_by=principal.user_id,
+        )
+    except ChangeError as exc:
+        _raise(exc)
+
+
+@router.post("/opportunities/{opportunity_id}/inbox/email")
+def register_inbox_email(
+    opportunity_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    try:
+        return _service(request, session).register_inbox_email(
+            principal.workspace_id, opportunity_id
+        )
+    except ChangeError as exc:
+        _raise(exc)
+
+
+@router.get("/opportunities/{opportunity_id}/inbox/email")
+def get_inbox_email(
+    opportunity_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    try:
+        return _service(request, session).get_inbox_email(
+            principal.workspace_id, opportunity_id
+        )
+    except ChangeError as exc:
+        _raise(exc)
+
+
+class InboundEmailBody(BaseModel):
+    address_token: str = Field(min_length=1)
+    message_id: str = Field(min_length=1)
+    from_address: str | None = Field(default=None, alias="from")
+    subject: str | None = None
+    body_plain: str = Field(min_length=1, max_length=500_000)
+    received_at: str | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+@router.post("/webhooks/inbound-email", dependencies=[Depends(RateLimitDep(50, 60))])
+async def inbound_email_webhook(
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    secret = request.app.state.ctx.settings.change_email_webhook_secret
+    secret_val = secret.get_secret_value() if secret else None
+    raw = await request.body()
+    signature = request.headers.get("X-Change-Inbox-Signature", "")
+    if not verify_inbound_signature(raw, signature, secret_val):
+        raise HTTPException(400, "bad_signature")
+    try:
+        payload = InboundEmailBody.model_validate_json(raw)
+    except Exception as exc:
+        raise HTTPException(400, "bad_request") from exc
+    try:
+        return _service(request, session).process_inbound_email(
+            payload.address_token,
+            payload.model_dump(by_alias=True),
         )
     except ChangeError as exc:
         _raise(exc)

@@ -22,6 +22,7 @@ def setup(ctx: AppContext) -> None:
             drafting_factory=reg.get("drafting.service_factory"),
             evidence_factory=reg.get("evidence.service_factory"),
             project_active_fn=reg.get("billing.is_project_active"),
+            inbox_domain=ctx.settings.change_inbox_domain,
             publish=ctx.events.publish,
         )
 

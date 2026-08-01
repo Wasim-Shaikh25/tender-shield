@@ -1,8 +1,11 @@
 # Notifications — Spec
 
-**Status:** implemented (core digest + `Sender` protocol + daily deadline alert scheduler). Real adapters and the scheduler are wired as an APScheduler job scanning all workspaces for deadlines in the `7`, `3`, `1`, `0` day buckets and emailing members. SES/MSG91 adapters are credential-gated.
-**Requirement refs:** Doc §11.6, §11.7, `PRODUCTION_READINESS_AUDIT.md` F15/F07
-**Task refs:** TS-027, TS-035, TS-043, TS-079, TS-091, TS-111
+**Status:** implemented (core digest + `Sender` protocol + daily deadline alert scheduler +
+change-notice countdown via `change.process_notice_alerts`). Real adapters and the scheduler are
+wired as an APScheduler job scanning all workspaces for deadlines in the `7`, `3`, `1`, `0` day
+buckets and emailing members. SES/MSG91 adapters are credential-gated.
+**Requirement refs:** Doc §11.6, §11.7, Research Doc §4.F, `PRODUCTION_READINESS_AUDIT.md` F15/F07
+**Task refs:** TS-027, TS-035, TS-043, TS-079, TS-091, TS-111, TS-252
 
 ## Purpose
 
@@ -16,6 +19,7 @@ Deadline-digest notification path: decide which upcoming deadlines warrant an al
 - **Capabilities consumed (soft):**
   - `ingestion.service_factory` (to fetch deadlines + opportunity title).
   - `auth.workspace_factory` (to enumerate workspaces and members).
+  - `change.process_notice_alerts` (notice-deadline countdown for confirmed change events).
 - **Events emitted:** none.
 - **Events consumed:** none.
 - **API routes:** none at this phase. The digest is driven by a periodic job
@@ -28,6 +32,9 @@ Deadline-digest notification path: decide which upcoming deadlines warrant an al
   optional `quiet_hours_start` / `quiet_hours_end`.
 - `deadline_alert_log` — workspace-scoped record of `(user_id, deadline_id, alert_day)`
   alerts already sent. Unique on `(user_id, deadline_id, alert_day)`. RLS-enforced.
+
+Change-notice alerts are deduped in the `change` module's `change_notice_alert_log` table
+(TS-252); this module invokes `change.process_notice_alerts` from the daily scheduler tick.
 
 ## Behavior
 
@@ -52,7 +59,9 @@ Deadline-digest notification path: decide which upcoming deadlines warrant an al
 - **B8 — Scheduler integration:** The `notifications` module registers a daily job on
   `core.scheduler` that scans all workspaces for unconfirmed deadlines in the
   configured buckets, checks per-user preferences and deduplication, and emails
-  workspace members. A Redis lock prevents duplicate scheduler runs across
+  workspace members. When `change` is enabled, the same tick also calls
+  `change.process_notice_alerts` for confirmed change events with computed notice deadlines.
+  A Redis lock prevents duplicate scheduler runs across
   instances. Without Redis/APScheduler it degrades to a no-op.
 - **B9 — Org isolation:** `deadline_alert_log` is workspace-scoped and governed by
   PostgreSQL RLS.

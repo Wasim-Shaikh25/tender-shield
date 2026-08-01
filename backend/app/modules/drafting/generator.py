@@ -17,6 +17,8 @@ def build_body(kind: str, opportunity_title: str, findings: list[dict], weights=
         return _assumptions(opportunity_title, findings)
     if kind == "bid_decision":
         return _bid_decision(opportunity_title, findings, weights)
+    if kind == "variation_notice":
+        return _variation_notice(opportunity_title, findings)
     raise ValueError(f"unknown artifact kind: {kind}")
 
 
@@ -60,6 +62,29 @@ def _assumptions(title: str, findings: list[dict]) -> dict:
     return {
         "kind": "assumptions_register",
         "title": f"Assumptions & exclusions — {title}",
+        "items": items,
+    }
+
+
+def _variation_notice(title: str, findings: list[dict]) -> dict:
+    items = []
+    for i, f in enumerate(findings, 1):
+        items.append(
+            {
+                "n": i,
+                "heading": f.get("title", "Variation detail"),
+                "quote": f.get("source_quote"),
+                "source_page": f.get("source_page"),
+                "detail": f.get("detail") or "",
+                "category": f.get("category", ""),
+            }
+        )
+    return {
+        "kind": "variation_notice",
+        "title": f"Variation notice — {title}",
+        "preamble": (
+            "We hereby give notice of the following variation in accordance with the contract:"
+        ),
         "items": items,
     }
 
@@ -173,6 +198,14 @@ def render_text(body: dict) -> str:
         for cond in body.get("conditions", []):
             lines.append(f"Condition: {cond}")
         lines.append(f"Recommendation: {body['recommendation']}")
+        return "\n".join(lines)
+    if body["kind"] == "variation_notice":
+        for item in body["items"]:
+            lines.append(f"{item['n']}. {item['heading']}")
+            if item.get("quote"):
+                lines.append(f'   "{item["quote"]}"')
+            if item.get("detail"):
+                lines.append(f"   {item['detail']}")
         return "\n".join(lines)
     for item in body["items"]:
         if body["kind"] == "clarification_letter":

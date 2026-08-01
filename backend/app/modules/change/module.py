@@ -1,5 +1,6 @@
 import app.modules.change.models  # noqa: F401
 from app.core.module import AppContext, ModuleSpec
+from app.modules.change.alert_processor import process_notice_alerts
 from app.modules.change.router import router
 from app.modules.change.service import ChangeService
 
@@ -17,6 +18,8 @@ def setup(ctx: AppContext) -> None:
             diff_clauses_fn=reg.get("baseline.diff_clauses"),
             findings_factory=reg.get("findings.store_factory"),
             cost_codes_fn=reg.get("baseline.cost_codes_for_opportunity"),
+            approval_matrix_factory=reg.get("auth.approval_matrix"),
+            drafting_factory=reg.get("drafting.service_factory"),
             publish=ctx.events.publish,
         )
 
@@ -27,12 +30,42 @@ def setup(ctx: AppContext) -> None:
             workspace_id, opportunity_id
         ),
     )
+    reg.provide(
+        "change.notice_deadline_for_event",
+        lambda session, workspace_id, event_id: factory(session).notice_deadline_for_event(
+            workspace_id, event_id
+        ),
+    )
+
+    def _process_notice_alerts(session):
+        sender = reg.get("notifications.sender")
+        preference_fn = reg.get("notifications.preference_for_user")
+        workspace_factory = reg.get("auth.workspace_factory")
+
+        def send_email(to: str, subject: str, body: str) -> None:
+            if sender is None:
+                return
+            message = type(
+                "Msg",
+                (),
+                {"channel": "email", "to": to, "subject": subject, "body": body},
+            )()
+            sender.send(message)
+
+        return process_notice_alerts(
+            session,
+            workspace_factory=workspace_factory,
+            send_email=send_email if sender else None,
+            preference_fn=preference_fn,
+        )
+
+    reg.provide("change.process_notice_alerts", _process_notice_alerts)
 
 
 module = ModuleSpec(
     name="change",
     version="0.1.0",
     router=router,
-    soft_deps=("baseline", "ingestion", "review", "findings"),
+    soft_deps=("baseline", "ingestion", "review", "findings", "auth", "drafting", "notifications"),
     setup=setup,
 )

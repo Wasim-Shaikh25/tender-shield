@@ -92,6 +92,7 @@ def setup(ctx: AppContext) -> None:
     # ConsoleSender in dev/test; SES/MSG91 adapters register when credentials are set.
     sender = build_sender(ctx.settings)
     ctx.registry.provide("notifications.sender", sender)
+    ctx.registry.provide("notifications.preference_for_user", _preference)
 
     scheduler = ctx.registry.get("core.scheduler")
     if scheduler is not None:
@@ -164,6 +165,9 @@ def setup(ctx: AppContext) -> None:
                                         str(dl.id),
                                         bucket,
                                     )
+                        process_change = ctx.registry.get("change.process_notice_alerts")
+                        if process_change is not None:
+                            process_change(session)
                 finally:
                     session.close()
             finally:
@@ -181,6 +185,6 @@ module = ModuleSpec(
     name="notifications",
     version="0.1.0",
     router=router,
-    soft_deps=("ingestion", "auth"),
+    soft_deps=("ingestion", "auth", "change"),
     setup=setup,
 )

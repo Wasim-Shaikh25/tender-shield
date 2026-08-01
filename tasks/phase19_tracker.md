@@ -24,12 +24,12 @@ chain; recovered value recorded against the north-star metric.
 
 | Sprint | Theme | Tasks | Exit gate | Status |
 |---|---|---|---|---|
-| **0** | **Spec + scaffold** | TS-257, TS-258 | `claims.md` agreed; module boots; tables migrated | **done** |
-| **1** | **Chronology + checklist** | TS-259, TS-260 | Cited chronology; evidence checklist by claim type | **done** |
-| **2** | **Quantum + delay** | TS-261, TS-262 | Deterministic quantum; delay register with no entitlement conclusion | **done** |
-| **3** | **Drafts + negotiation** | TS-263, TS-264 | Verified-facts drafts; issue→response→negotiation→settlement | **done** |
-| **4** | **Outcome + integrity** | TS-265, TS-266, TS-267 | Recovered value; chain-integrity test; conflict control | **in-progress** |
-| **5** | **Metrics + site evidence** | TS-268, TS-269, TS-270 | Cycle-time metrics; north-star feed; site evidence hooks | **todo** |
+| **0** | **Spec + scaffold** | TS-257, TS-258 | `claims.md` agreed; module boots; tables migrated | done |
+| **1** | **Chronology + checklist** | TS-259, TS-260 | Cited chronology; evidence checklist by claim type | done |
+| **2** | **Quantum + delay** | TS-261, TS-262 | Deterministic quantum; delay register with no entitlement conclusion | done |
+| **3** | **Drafts + negotiation** | TS-263, TS-264 | Verified-facts drafts; issue→response→negotiation→settlement | done |
+| **4** | **Outcome + integrity** | TS-265, TS-266, TS-267 | Recovered value; chain-integrity test; conflict control | in-progress |
+| **5** | **Metrics + site evidence** | TS-268, TS-269, TS-270 | Cycle-time metrics; north-star feed; site evidence hooks | todo |
 
 ### Why this order
 
@@ -50,20 +50,20 @@ surfaces missing contemporaneous records before valuation.
 
 | ID | Title | Module | Priority | Status | Acceptance (short) | Blockers |
 |---|---|---|---|---|---|---|
-| TS-257 | Spec: `claims` module | `claims` | P0 | **done** | Spec in `specs/modules/claims.md` | Phase 18 |
-| TS-258 | `claims` scaffold + migrations | `claims` | P0 | **done** | Tables + boot + list/create claim API | TS-257 |
-| TS-259 | Chronology builder | `claims` | P0 | **done** | Every entry cited; sorted by occurred_at | TS-258 |
-| TS-260 | Evidence checklist per claim type | `claims` | P0 | **done** | Required-type map; present/missing flags | TS-258 |
-| TS-261 | Quantum workspace | `claims` | P0 | **done** | Quantity × rate + daywork; zero LLM | TS-258 |
-| TS-262 | Delay-event register | `claims` | P1 | **done** | Facts only; no entitlement conclusion | TS-258 |
-| TS-263 | Draft generators: particulars, variation proposal, EOT, full pack | `claims` + `drafting` | P0 | **done** | Verified facts + validators + approval | TS-259, TS-261 |
-| TS-264 | Issue → response → negotiation → settlement tracking | `claims` | P1 | **done** | Append-only; status transitions | TS-258 |
-| TS-265 | Outcome feedback into private learning set | `claims` + `outcomes` | P0 | **done** | Publish settlement event | TS-264 |
-| TS-266 | Chain-integrity test | `claims` | P0 | **done** | claim → notice → event → obligation → clause | TS-258 |
-| TS-267 | Conflicts control | `claims` + `auth` | P1 | **todo** | Block opposing parties on same project | TS-258 |
-| TS-268 | Claim-cycle-time + notice-timeliness metrics | `claims` + `analytics` | P1 | **todo** | Cycle time and status counts | TS-264 |
-| TS-269 | North-star extension: recovered claim value | `claims` + `outcomes` | P0 | **todo** | Feeds `margin_protected` | TS-265 |
-| TS-270 | Site evidence capture hooks | `claims` + `evidence` | P1 | **todo** | Mobile geotagged/ labour/ plant/ daywork record types | TS-260 |
+| TS-257 | Spec: `claims` module | `claims` | P0 | done | Spec in `specs/modules/claims.md` | Phase 18 |
+| TS-258 | `claims` scaffold + migrations | `claims` | P0 | done | Tables + boot + list/create claim API | TS-257 |
+| TS-259 | Chronology builder | `claims` | P0 | done | Every entry cited; sorted by occurred_at | TS-258 |
+| TS-260 | Evidence checklist per claim type | `claims` | P0 | done | Required-type map; present/missing flags | TS-258 |
+| TS-261 | Quantum workspace | `claims` | P0 | done | Quantity × rate + daywork; zero LLM | TS-258 |
+| TS-262 | Delay-event register | `claims` | P1 | done | Facts only; no entitlement conclusion | TS-258 |
+| TS-263 | Draft generators: particulars, variation proposal, EOT, full pack | `claims` + `drafting` | P0 | done | Verified facts + validators + approval | TS-259, TS-261 |
+| TS-264 | Issue → response → negotiation → settlement tracking | `claims` | P1 | done | Append-only; status transitions | TS-258 |
+| TS-265 | Outcome feedback into private learning set | `claims` + `outcomes` | P0 | done | Publish settlement event | TS-264 |
+| TS-266 | Chain-integrity test | `claims` | P0 | done | claim → notice → event → obligation → clause | TS-258 |
+| TS-267 | Conflicts control | `claims` + `auth` | P1 | todo | Block opposing parties on same project | TS-258 |
+| TS-268 | Claim-cycle-time + notice-timeliness metrics | `claims` + `analytics` | P1 | todo | Cycle time and status counts | TS-264 |
+| TS-269 | North-star extension: recovered claim value | `claims` + `outcomes` | P0 | todo | Feeds `margin_protected` | TS-265 |
+| TS-270 | Site evidence capture hooks | `claims` + `evidence` | P1 | todo | Mobile geotagged/ labour/ plant/ daywork record types | TS-260 |
 
 ---
 

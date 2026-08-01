@@ -103,7 +103,13 @@ subscription or switching cost.
 - Registry: `change.notice_deadline_for_event`, `change.process_notice_alerts` (consumed by
   `notifications` scheduler for 7/3/1/0 deduped alerts — **TS-252**).
 
-#### Planned (TS-247, TS-254 – TS-256)
+#### Implemented (TS-254, TS-255)
+
+- `POST /events/{event_id}/evidence` (estimator) — attach evidence via `evidence` module.
+- Event detail includes `evidence_completeness` when `evidence` is enabled.
+
+#### Planned (TS-247, TS-256)
+
 
 ## Data owned
 
@@ -243,18 +249,18 @@ Site confirmation workflow (TS-250). Append-only history — latest row wins for
   `drafting.service_factory` with three validators (no invented quotes, no uncited clauses, no
   invented numbers). Human approval in `review` workbench is mandatory before issue.
 
-### Evidence (B19–B20, TS-254–TS-255)
+### Evidence (B19–B20, TS-254–TS-255) — implemented
 
-- **B19 — Delegation.** Evidence attachments live in the `evidence` module (Phase 18/19 spec).
-  `change` stores `evidence_ids` on confirmations and events; chain-of-custody rules apply there.
-- **B20 — Completeness score.** `evidence.completeness_for_event` capability returns missing record
-  types; surfaced on event detail when module present.
+- **B19 — Delegation.** Evidence attachments live in the `evidence` module.
+  `POST /events/{id}/evidence` delegates to `evidence.service_factory.attach`.
+- **B20 — Completeness score.** `evidence.completeness_for_event` returns score and missing
+  types; surfaced on event detail when the module is present.
 
-### Billing (B21, TS-256)
+### Billing (B21, TS-256) — implemented
 
-- **B21 — Per-project lane.** Project activation fee + monthly subscription keyed by
-  `opportunity_id` with server-owned prices and webhook-only activation (Build Doc §15). Gating:
-  creating the third active change event on an unactivated project returns `billing_required` (402).
+- **B21 — Per-project lane.** `billing.is_project_active` gates creation of the third active
+  change event per opportunity (`billing_required` / 402). Activation via
+  `POST /api/billing/projects/{id}/checkout` with webhook-only truth.
 
 ## Response shapes (illustrative)
 
@@ -328,7 +334,13 @@ Site confirmation workflow (TS-250). Append-only history — latest row wins for
 - A12 (TS-252): Alert fires once per (user, event, bucket) via `change_notice_alert_log`.
 - A13 (TS-253): Draft request blocked until confirmation; artifact `status=draft`; validators pass.
 
-### TS-247, TS-254–TS-256 (planned)
+### TS-254–TS-256 (implemented)
+
+- A14 (TS-254): Evidence record persists with `created` custody entry.
+- A15 (TS-255): Completeness score lists missing types deterministically.
+- A16 (TS-256): Third change event on unactivated project returns 402; webhook activates project.
+
+### TS-247 (planned)
 
 ## Cross-module specs (Phase 18)
 

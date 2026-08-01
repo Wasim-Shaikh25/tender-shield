@@ -25,6 +25,7 @@ change (`CLAUDE.md` §1.2).
 | `modules/assistant.md` | Grounded in-app assistant | §8 |
 | `modules/baseline.md` | Baseline lock: freeze, watchlist, notice register, cost codes, handover | §0.1, §10, Research §4.E |
 | `modules/change.md` | Change & notice control: variation inbox, site confirmation, deadlines | Research §4.F, §5.3 |
+| `modules/evidence.md` | Evidence chain of custody + completeness scoring | Research §4.G, §6.3 |
 | `modules/standards.md` | Org-custom notice standards (prevail / side-by-side layer) | §10, §0.1, §2 |
 | `modules/findings.md` | Shared findings table + store capability | §3.2, §6.3, §6.4, §11.4 |
 | `modules/export.md` | Bid Review Pack export (DOCX/XLSX/PDF) with review gate | §1.1(8), §6.5, §11.4 |

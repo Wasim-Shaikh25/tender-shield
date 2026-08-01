@@ -1,5 +1,6 @@
 from app.core.module import AppContext, ModuleSpec
 from app.modules.billing.plans import PLAN_LIMITS
+from app.modules.billing.project_activation import activate_from_webhook, is_project_active
 from app.modules.billing.providers import get_provider
 from app.modules.billing.router import router
 from app.modules.billing.service import BillingService
@@ -16,12 +17,17 @@ def setup(ctx: AppContext) -> None:
         fn = reg.get("express.validate_checkout_amount")
         return fn(tier, currency, amount_minor) if fn else True
 
+    def project_handler(session, **kwargs):
+        return activate_from_webhook(session, **kwargs)
+
     def billing_factory(session):
         return BillingService(
             session,
             workspace_factory=reg.get("auth.workspace_factory"),
             express_payment_handler=express_handler,
             express_price_validator=express_validator,
+            project_payment_handler=project_handler,
+            publish=ctx.events.publish,
         )
 
     reg.provide("billing.service_factory", billing_factory)
@@ -45,6 +51,12 @@ def setup(ctx: AppContext) -> None:
         lambda session, workspace_id, new_plan, changed_by, reason=None: billing_factory(
             session
         ).set_workspace_plan(workspace_id, new_plan, changed_by, reason=reason),
+    )
+    reg.provide(
+        "billing.is_project_active",
+        lambda session, workspace_id, opportunity_id: is_project_active(
+            session, workspace_id, opportunity_id
+        ),
     )
     reg.provide("billing.provider_factory", lambda provider: get_provider(ctx.settings, provider))
 

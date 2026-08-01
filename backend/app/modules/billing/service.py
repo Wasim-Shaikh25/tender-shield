@@ -24,11 +24,13 @@ from app.modules.billing.models import (
 from app.modules.billing.plans import (
     PAYGO_PRICE_INR_PAISE,
     PLAN_LIMITS,
+    PROJECT_ACTIVATION_PRICE_INR_PAISE,
     SUBSCRIPTION_PRICES,
     Grant,
     PaywallError,
     authorize,
 )
+from app.modules.billing.project_activation import is_project_active
 from app.modules.billing.webhook import verify_signature, verify_stripe_signature
 
 
@@ -40,11 +42,15 @@ class BillingService:
         workspace_factory=None,
         express_payment_handler=None,
         express_price_validator=None,
+        project_payment_handler=None,
+        publish=None,
     ):
         self.s = session
         self._workspace_factory = workspace_factory
         self._express_payment_handler = express_payment_handler
         self._express_price_validator = express_price_validator
+        self._project_payment_handler = project_payment_handler
+        self._publish = publish
 
     def _workspaces(self):
         if self._workspace_factory is None:
@@ -205,6 +211,8 @@ class BillingService:
             if self._express_price_validator:
                 return self._express_price_validator(tier, currency, amount)
             return True
+        if kind == "project_activation":
+            return currency.upper() == "INR" and amount == PROJECT_ACTIVATION_PRICE_INR_PAISE
         if kind == "paygo":
             expected = PAYGO_PRICE_INR_PAISE
         elif kind == "subscription" and plan:
@@ -414,6 +422,23 @@ class BillingService:
         self.s.commit()
         return {"plan": "free", "previous_plan": old_plan}
 
+    def project_is_active(self, workspace_id, opportunity_id) -> bool:
+        return is_project_active(self.s, workspace_id, opportunity_id)
+
+    def create_project_checkout(self, workspace_id, opportunity_id, user_id) -> dict:
+        """Return server-owned checkout notes for project activation (webhook-only truth)."""
+        if self.project_is_active(workspace_id, opportunity_id):
+            return {"already_active": True, "opportunity_id": str(opportunity_id)}
+        return {
+            "kind": "project_activation",
+            "amount_minor": PROJECT_ACTIVATION_PRICE_INR_PAISE,
+            "currency": "inr",
+            "opportunity_id": str(opportunity_id),
+            "workspace_id": str(workspace_id),
+            "user_id": str(user_id),
+            "note": "activation happens via the signed webhook, never this response",
+        }
+
     # ---- webhook: the only billing truth (Doc §15.5) ----------------------
     def process_razorpay_webhook(self, raw_body: bytes, signature: str, secret: str) -> dict:
         # 1) log receipt BEFORE trusting anything (fraud/debug trail, §16.5)
@@ -480,6 +505,41 @@ class BillingService:
             )
             self.s.commit()
             return {"ok": applied, "applied": typ, "kind": "express"}
+
+        if kind == "project_activation":
+            if amount is not None and not self._valid_amount(
+                currency, kind, None, amount, notes=notes
+            ):
+                self._log(
+                    user_id,
+                    "razorpay",
+                    event_id,
+                    typ or "unknown",
+                    status="amount_mismatch",
+                    raw=evt,
+                    workspace_id=workspace_id,
+                )
+                self.s.commit()
+                return {"ok": False, "reason": "amount_mismatch"}
+            if event_id and not self._claim_event_id(event_id, "razorpay", user_id=user_id):
+                self.s.commit()
+                return {"ok": True, "duplicate": True}
+            handler = self._project_payment_handler
+            if handler is None:
+                self.s.commit()
+                return {"ok": False, "reason": "project_billing_unavailable"}
+            order_id = _extract_order_id(evt) or notes.get("provider_order_id", "")
+            applied = handler(
+                self.s,
+                notes=notes,
+                provider="razorpay",
+                provider_order_id=order_id,
+                amount_minor=amount or int(notes.get("amount_minor", 0)),
+                currency=currency,
+                publish=self._publish,
+            )
+            self.s.commit()
+            return {"ok": applied, "applied": typ, "kind": "project_activation"}
 
         if user_id is None:
             self.s.commit()
@@ -617,6 +677,42 @@ class BillingService:
                 )
                 self.s.commit()
                 return {"ok": applied, "applied": event_type, "kind": "express"}
+
+            if kind == "project_activation":
+                amount = obj.get("amount_total")
+                currency = obj.get("currency", "INR").upper()
+                if amount is not None and not self._valid_amount(
+                    currency, kind, None, int(amount), notes=metadata
+                ):
+                    self._log(
+                        user_id,
+                        "stripe",
+                        event_id,
+                        event_type,
+                        status="amount_mismatch",
+                        raw=evt,
+                        workspace_id=workspace_id,
+                    )
+                    self.s.commit()
+                    return {"ok": False, "reason": "amount_mismatch"}
+                if event_id and not self._claim_event_id(event_id, "stripe", user_id=user_id):
+                    self.s.commit()
+                    return {"ok": True, "duplicate": True}
+                handler = self._project_payment_handler
+                if handler is None:
+                    self.s.commit()
+                    return {"ok": False, "reason": "project_billing_unavailable"}
+                applied = handler(
+                    self.s,
+                    notes=metadata,
+                    provider="stripe",
+                    provider_order_id=obj.get("id") or event_id,
+                    amount_minor=int(amount or metadata.get("amount_minor", 0)),
+                    currency=currency,
+                    publish=self._publish,
+                )
+                self.s.commit()
+                return {"ok": applied, "applied": event_type, "kind": "project_activation"}
 
             if user_id is None:
                 self.s.commit()

@@ -2,7 +2,7 @@
 
 **Status:** implemented — free-tier metering + paywall (pure), Razorpay/Stripe webhooks, plan activation via webhook only, checkout with coupon support, payment history, plan history, coupon CRUD, billing settings, subscription cancel; billing account state and financial history stored on `users` account (not per-workspace)
 **Requirement refs:** Doc §7, §15, §16.5
-**Task refs:** TS-022, TS-037, TS-172, TS-183, TS-184, TS-185, TS-192
+**Task refs:** TS-022, TS-037, TS-172, TS-183, TS-184, TS-185, TS-192, TS-256
 
 ## Purpose
 
@@ -45,6 +45,8 @@ invoicing, and the append-only `payment_log`.
   - `POST /api/billing/change-plan` (admin — upgrade/downgrade to `free`/`pro`/`scale`)
   - `POST /api/billing/webhooks/razorpay` (unauthenticated, HMAC-verified)
   - `POST /api/billing/webhooks/stripe` (unauthenticated, signature-verified)
+  - `GET /api/billing/projects/{opportunity_id}/status` (viewer)
+  - `POST /api/billing/projects/{opportunity_id}/checkout` (admin — project activation fee)
 
 ## Data owned
 
@@ -55,6 +57,9 @@ scoped), `plan_history` (every user account plan change with old/new plan, chang
 `coupons` (global discount codes with usage counts and validity windows), plan state,
 `billing_provider`, and `billing_settings` on `users` (a user can create or delete workspaces
 without affecting their subscription or financial history).
+
+`project_subscriptions` — per-opportunity change-control activation (`workspace_id` +
+`opportunity_id` unique). Status `pending|active`; `activated_at` set only by verified webhook.
 
 ## Behavior
 
@@ -122,7 +127,11 @@ without affecting their subscription or financial history).
 - **B21 (Payment history):** `GET /api/billing/payments` lists all `payment_log`
   rows for the current user account so account owners can trace every transaction
   regardless of which workspace triggered the payment.
-- **B22 (Plan history read):** `GET /api/billing/plan-history` returns the current
+- **B22 (Project lane — TS-256):** `POST /api/billing/projects/{id}/checkout` creates a
+  `project_activation` checkout at the server-owned price (`PROJECT_ACTIVATION_PRICE_INR_PAISE`).
+  Webhook handler activates `project_subscriptions`; client redirects activate nothing. The `change`
+  module gates the third active event per opportunity when `billing.is_project_active` is false.
+- **B23 (Plan history read):** `GET /api/billing/plan-history` returns the current
   user's chronological account plan changes.
 
 ## Acceptance criteria

@@ -26,7 +26,7 @@ notices issued on time via the platform; one customer on per-project billing.
 | **1** | **Detection** | TS-245 ✅, TS-246 ✅ | Baseline diff + signal ingestion emit cited candidates | **done** |
 | **2** | **Inbox + confirmation** | TS-248 ✅, TS-249 ✅, TS-250 ✅ | Triage queue; impact links; site confirmation | **done** |
 | **3** | **Notice engine** | TS-251, TS-252, TS-253 | Deterministic deadlines; alerts; draft with validators | **done** |
-| **4** | **Evidence + billing** | TS-254, TS-255, TS-256 | Chain of custody; completeness score; project lane | todo |
+| **4** | **Evidence + billing** | TS-254, TS-255, TS-256 | Chain of custody; completeness score; project lane | **done** |
 
 ### Why this order
 
@@ -59,9 +59,9 @@ sustained usage once the workflow is proven.
 | TS-251 | Deterministic notice-deadline engine | `change` | P0 | **done** | Never LLM; uses notice register | TS-238, TS-250 |
 | TS-252 | Countdown + escalation alerts | `notifications` | P0 | **done** | 7/3/1/0 deduped alerts | TS-251 |
 | TS-253 | Notice drafting | `drafting` | P0 | **done** | Verified facts + validators + approval | TS-251 |
-| TS-254 | Evidence attachment + custody | `evidence` | P0 | todo | Type, date, creator, chain | TS-250 |
-| TS-255 | Evidence-completeness scoring | `evidence` | P1 | todo | Missing records list per event | TS-254 |
-| TS-256 | Per-project billing lane | `billing` | P0 | todo | Webhook-only activation | TS-250 |
+| TS-254 | Evidence attachment + custody | `evidence` | P0 | **done** | Type, date, creator, chain | TS-250 |
+| TS-255 | Evidence-completeness scoring | `evidence` | P1 | **done** | Missing records list per event | TS-254 |
+| TS-256 | Per-project billing lane | `billing` | P0 | **done** | Webhook-only activation | TS-250 |
 
 ---
 

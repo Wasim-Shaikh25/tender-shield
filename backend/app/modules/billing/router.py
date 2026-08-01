@@ -9,7 +9,12 @@ from app.core import audit as audit_log
 from app.core.deps import current_principal, get_session, require
 from app.core.pagination import PaginationParams, paginated_list_response
 from app.core.ratelimit import RateLimitDep
-from app.modules.billing.plans import PAYGO_PRICE_INR_PAISE, SUBSCRIPTION_PRICES, PaywallError
+from app.modules.billing.plans import (
+    PAYGO_PRICE_INR_PAISE,
+    PROJECT_ACTIVATION_PRICE_INR_PAISE,
+    SUBSCRIPTION_PRICES,
+    PaywallError,
+)
 from app.modules.billing.providers import BillingError
 from app.modules.billing.service import BillingService
 
@@ -134,6 +139,10 @@ def _create_checkout(
 
     if body.kind == "paygo":
         expected = PAYGO_PRICE_INR_PAISE
+    elif body.kind == "project_activation":
+        if not body.opportunity_id:
+            raise HTTPException(400, "opportunity_id_required")
+        expected = PROJECT_ACTIVATION_PRICE_INR_PAISE
     elif body.kind == "subscription":
         expected = SUBSCRIPTION_PRICES.get(currency, {}).get(body.plan or "")
         if not expected:
@@ -214,6 +223,43 @@ def checkout(
     """Creates a provider order/subscription handle for the client SDK.
     Activates NOTHING — only the verified webhook does (Doc §15.1)."""
     return _create_checkout(request, session, principal, body)
+
+
+@router.get("/projects/{opportunity_id}/status")
+def project_status(
+    opportunity_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    active = _service(request, session).project_is_active(
+        principal.workspace_id, opportunity_id
+    )
+    return {
+        "opportunity_id": opportunity_id,
+        "active": active,
+        "activation_fee_minor": PROJECT_ACTIVATION_PRICE_INR_PAISE,
+        "currency": "INR",
+    }
+
+
+@router.post("/projects/{opportunity_id}/checkout", dependencies=[Depends(RateLimitDep(10, 60))])
+def project_checkout(
+    opportunity_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    svc = _service(request, session)
+    if svc.project_is_active(principal.workspace_id, opportunity_id):
+        return {"already_active": True, "opportunity_id": opportunity_id}
+    return _create_checkout(
+        request,
+        session,
+        principal,
+        CheckoutBody(kind="project_activation", opportunity_id=opportunity_id),
+        action="billing.project_checkout",
+    )
 
 
 @router.post("/change-plan", dependencies=[Depends(RateLimitDep(10, 60))])

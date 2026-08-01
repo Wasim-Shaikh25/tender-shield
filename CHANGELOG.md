@@ -6,6 +6,22 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-08-01 (TS-254–TS-256: evidence + project billing)
+
+- **TS-254 evidence module** — `evidence_records` with chain-of-custody JSON;
+  `POST /api/change/events/{id}/evidence` and `/api/evidence/events/{id}/records`.
+- **TS-255 completeness scoring** — deterministic required-type map per event `reason`;
+  `GET /api/evidence/events/{id}/completeness`; surfaced on change event detail.
+- **TS-256 per-project billing** — `project_subscriptions` table; `GET/POST
+  /api/billing/projects/{id}/status|checkout`; webhook `project_activation` handler;
+  third change event gated with `billing_required` (402).
+
+Tests: 546 passed / 5 skipped.
+
+### Next
+
+- TS-247 (email ingestion adapter).
+
 ### Done — 2026-08-01 (TS-251–TS-253: notice engine)
 
 - **TS-251 deterministic notice-deadline engine** — `GET /api/change/events/{id}/notice-deadline`
@@ -22,7 +38,7 @@ Tests: 538 passed / 5 skipped.
 
 ### Next
 
-- TS-247 (email ingestion), TS-254–TS-256 (evidence + billing).
+- TS-247 (email ingestion).
 
 ### Done — 2026-08-01 (TS-245 + TS-246: change detection)
 

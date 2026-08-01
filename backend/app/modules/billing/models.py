@@ -27,7 +27,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.db import Base
+from app.core.db import Base, WorkspaceScopedMixin
 
 _BigId = BigInteger().with_variant(Integer, "sqlite")
 
@@ -132,6 +132,25 @@ class Coupon(Base):
     valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ProjectSubscription(Base, WorkspaceScopedMixin):
+    """Per-opportunity change-control lane (TS-256)."""
+
+    _tablename_ = "project_subscriptions"
+    __table_args__ = (UniqueConstraint("workspace_id", "opportunity_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    opportunity_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    activation_fee_minor: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    currency: Mapped[str] = mapped_column(String, nullable=False, default="INR")
+    provider: Mapped[str | None] = mapped_column(String, nullable=True)
+    provider_order_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

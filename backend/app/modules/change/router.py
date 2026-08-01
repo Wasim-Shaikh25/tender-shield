@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -33,6 +33,8 @@ _ERROR_STATUS = {
     "approval_denied": 403,
     "role_below_minimum": 403,
     "amount_above_limit": 403,
+    "evidence_unavailable": 503,
+    "billing_required": 402,
 }
 
 
@@ -84,6 +86,14 @@ class ImpactLinksBody(BaseModel):
     subcontract_refs: list[str] = Field(default_factory=list)
 
 
+class EvidenceBody(BaseModel):
+    record_type: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    description: str | None = None
+    captured_at: datetime | None = None
+    document_id: str | None = None
+
+
 def _service(request: Request, session: Session) -> ChangeService:
     reg = request.app.state.ctx.registry
     factory = reg.get("change.service_factory")
@@ -100,6 +110,8 @@ def _service(request: Request, session: Session) -> ChangeService:
         cost_codes_fn=reg.get("baseline.cost_codes_for_opportunity"),
         approval_matrix_factory=reg.get("auth.approval_matrix"),
         drafting_factory=reg.get("drafting.service_factory"),
+        evidence_factory=reg.get("evidence.service_factory"),
+        project_active_fn=reg.get("billing.is_project_active"),
         publish=request.app.state.ctx.events.publish,
     )
 
@@ -317,6 +329,29 @@ def request_notice_draft(
             event_id,
             actor_user_id=principal.user_id,
             actor_role=getattr(principal, "role", "estimator"),
+        )
+    except ChangeError as exc:
+        _raise(exc)
+
+
+@router.post("/events/{event_id}/evidence")
+def attach_evidence(
+    event_id: str,
+    body: EvidenceBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    try:
+        return _service(request, session).attach_evidence(
+            principal.workspace_id,
+            event_id,
+            record_type=body.record_type,
+            title=body.title,
+            description=body.description,
+            captured_at=body.captured_at,
+            document_id=body.document_id,
+            created_by=principal.user_id,
         )
     except ChangeError as exc:
         _raise(exc)

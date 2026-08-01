@@ -63,6 +63,8 @@ class ChangeService:
         cost_codes_fn: Callable[..., dict] | None = None,
         approval_matrix_factory: Callable[[Session], object] | None = None,
         drafting_factory: Callable[[Session], object] | None = None,
+        evidence_factory: Callable[[Session], object] | None = None,
+        project_active_fn: Callable[..., bool] | None = None,
         publish: Callable[[str, dict], int] | None = None,
     ):
         self.s = session
@@ -75,6 +77,8 @@ class ChangeService:
         self._cost_codes_fn = cost_codes_fn
         self._approval_matrix_factory = approval_matrix_factory
         self._drafting_factory = drafting_factory
+        self._evidence_factory = evidence_factory
+        self._project_active_fn = project_active_fn
         self._publish = publish
 
     def _baseline(self):
@@ -113,7 +117,16 @@ class ChangeService:
 
     def get_event(self, workspace_id, event_id) -> dict:
         row = self._get_event_row(workspace_id, event_id)
-        return self._event_dict(row, include_sources=True, include_confirmation=True)
+        return self._event_dict(
+            row,
+            include_sources=True,
+            include_confirmation=True,
+            include_completeness=True,
+        )
+
+    def get_event_core(self, workspace_id, event_id) -> dict:
+        row = self._get_event_row(workspace_id, event_id)
+        return self._event_dict(row)
 
     def list_inbox(self, workspace_id, opportunity_id) -> dict:
         events = [
@@ -522,6 +535,60 @@ class ChangeService:
             facts[0]["amount_exposure"] = int(total_minor)
         return facts
 
+    def attach_evidence(
+        self,
+        workspace_id,
+        event_id,
+        *,
+        record_type: str,
+        title: str,
+        description: str | None = None,
+        captured_at: datetime | None = None,
+        document_id: str | None = None,
+        created_by,
+    ) -> dict:
+        if self._evidence_factory is None:
+            raise ChangeError("evidence_unavailable")
+        evidence = self._evidence_factory(self.s)
+        if not hasattr(evidence, "attach"):
+            raise ChangeError("evidence_unavailable")
+        try:
+            return evidence.attach(
+                workspace_id,
+                event_id,
+                record_type=record_type,
+                title=title,
+                description=description,
+                captured_at=captured_at,
+                document_id=document_id,
+                created_by=created_by,
+            )
+        except Exception as exc:
+            code = getattr(exc, "code", None)
+            if code in {"not_found", "bad_record_type", "bad_request"}:
+                raise ChangeError(str(code)) from exc
+            raise ChangeError("evidence_unavailable") from exc
+
+    def _require_project_slot(self, workspace_id, opportunity_id) -> None:
+        if self._project_active_fn is None:
+            return
+        if self._active_event_count(workspace_id, opportunity_id) < 2:
+            return
+        if not self._project_active_fn(self.s, workspace_id, opportunity_id):
+            raise ChangeError("billing_required")
+
+    def _active_event_count(self, workspace_id, opportunity_id) -> int:
+        wid = uuid.UUID(str(workspace_id))
+        oid = uuid.UUID(str(opportunity_id))
+        rows = self.s.scalars(
+            select(ChangeEvent).where(
+                ChangeEvent.workspace_id == wid,
+                ChangeEvent.opportunity_id == oid,
+                ChangeEvent.status.not_in(["rejected", "closed"]),
+            )
+        ).all()
+        return len(rows)
+
     def _inbox_rows(self, workspace_id, opportunity_id) -> list[ChangeEvent]:
         wid = uuid.UUID(str(workspace_id))
         oid = uuid.UUID(str(opportunity_id))
@@ -654,6 +721,7 @@ class ChangeService:
         sources: list[dict],
         publish_kind: str,
     ) -> ChangeEvent:
+        self._require_project_slot(workspace_id, opportunity_id)
         wid = uuid.UUID(str(workspace_id))
         oid = uuid.UUID(str(opportunity_id))
         event = ChangeEvent(
@@ -768,6 +836,7 @@ class ChangeService:
         *,
         include_sources: bool = False,
         include_confirmation: bool = False,
+        include_completeness: bool = False,
     ) -> dict:
         payload = {
             "id": str(row.id),
@@ -794,4 +863,13 @@ class ChangeService:
             payload["latest_confirmation"] = (
                 self._confirmation_dict(latest) if latest else None
             )
+        if self._evidence_factory is not None and include_completeness:
+            evidence = self._evidence_factory(self.s)
+            if hasattr(evidence, "completeness_for_event"):
+                try:
+                    payload["evidence_completeness"] = evidence.completeness_for_event(
+                        row.workspace_id, row.id
+                    )
+                except Exception:
+                    payload["evidence_completeness"] = None
         return payload

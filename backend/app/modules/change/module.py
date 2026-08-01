@@ -20,10 +20,18 @@ def setup(ctx: AppContext) -> None:
             cost_codes_fn=reg.get("baseline.cost_codes_for_opportunity"),
             approval_matrix_factory=reg.get("auth.approval_matrix"),
             drafting_factory=reg.get("drafting.service_factory"),
+            evidence_factory=reg.get("evidence.service_factory"),
+            project_active_fn=reg.get("billing.is_project_active"),
             publish=ctx.events.publish,
         )
 
     reg.provide("change.service_factory", factory)
+    reg.provide(
+        "change.event_for_id",
+        lambda session, workspace_id, event_id: factory(session).get_event_core(
+            workspace_id, event_id
+        ),
+    )
     reg.provide(
         "change.events_for_opportunity",
         lambda session, workspace_id, opportunity_id: factory(session).list_events(
@@ -66,6 +74,16 @@ module = ModuleSpec(
     name="change",
     version="0.1.0",
     router=router,
-    soft_deps=("baseline", "ingestion", "review", "findings", "auth", "drafting", "notifications"),
+    soft_deps=(
+        "baseline",
+        "ingestion",
+        "review",
+        "findings",
+        "auth",
+        "drafting",
+        "notifications",
+        "evidence",
+        "billing",
+    ),
     setup=setup,
 )

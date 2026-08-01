@@ -22,6 +22,10 @@ SUBSCRIPTION_PRICES: dict[str, dict[str, int]] = {
     "inr": {"pro": 4_999_00, "scale": 14_999_00},
 }
 
+# Per-project change-control lane (TS-256) — activation fee in paise.
+PROJECT_ACTIVATION_PRICE_INR_PAISE = 25_000_00  # ₹25,000
+PROJECT_MONTHLY_PRICE_INR_PAISE = 4_999_00  # ₹4,999/month (future recurring)
+
 
 class PaywallError(Exception):
     def __init__(self, code: str, upsell: dict | None = None):

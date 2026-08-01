@@ -16,7 +16,7 @@
 |---|---|---|---|---|
 | 1. Pre-bid assessment | Per-tender fee + team subscription | 0–15 | TS-001 – TS-194 | ✅ done |
 | 1. (hardening) | — | **16** | TS-195 – TS-234 | ✅ **done** |
-| 2. Baseline lock | Project activation fee | 17 | TS-235 – TS-242 | ⚪ todo |
+| 2. Baseline lock | Project activation fee | **17** | TS-235 – TS-242 | 🔵 **in-progress** |
 | **3. Change & notice control** | **Per-project recurring** ★ | **18** | TS-243 – TS-256 | ⚪ todo |
 | 4. Claims workspace | Premium module | 19 | TS-257 – TS-270 | ⚪ todo |
 | 5. Portfolio intelligence | Enterprise annual | 20 | TS-271 – TS-280 | ⚪ todo |
@@ -70,11 +70,11 @@ Detail in `tasks/phase16_tracker.md`. Summary:
 | 16.H | TS-224 – TS-233 | Evaluation at scale (1,000+ tenders) | in-progress (TS-224/226/230/231 **done**) |
 | **16.I** | **TS-234** | **North-star metric — margin protected** | todo (blocked on TS-215) |
 
-### Phase 17 — Baseline Lock & Handover (Stage 2) ⚪
+### Phase 17 — Baseline Lock & Handover (Stage 2) 🔵
 
 | ID | Task | Priority | Status | Depends on |
 |---|---|---|---|---|
-| TS-235 | Spec: baseline completion | P0 | todo | — |
+| TS-235 | Spec: baseline completion | P0 | **done** | — |
 | TS-236 | Award comparison vs tender assumptions | P0 | todo | TS-235 |
 | TS-237 | Risk → project watchlist | P0 | todo | TS-235 |
 | TS-238 | Notice-rule register (deterministic deadlines) | P0 | todo | TS-235 |

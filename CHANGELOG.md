@@ -6,6 +6,17 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-08-01 (TS-235: baseline Phase 17 spec)
+
+- **`specs/modules/baseline.md`** — Phase 17 completion spec: watchlist controls (TS-237),
+  award comparison with citations (TS-236), notice register completion (TS-238), cost-code model
+  (TS-240), multi-view handover (TS-241); cross-refs to `auth`, `export`, `analytics`.
+- **`tasks/phase17_tracker.md`** — sprint map and task table for TS-235–TS-242.
+
+### Next
+
+- TS-236 + TS-237 (award comparison + project watchlist).
+
 ### Done — 2026-07-31 (TS-222: SAE Rung 2 risk patterns)
 
 - **TS-222 supply-and-erection patterns** — five unvalidated risk patterns in
@@ -17,7 +28,7 @@ Tests: 495 passed / 5 skipped.
 
 ### Next
 
-- Phase 17 — TS-235 (baseline spec).
+- Phase 17 — TS-236 (award comparison + watchlist).
 
 ### Done — 2026-07-31 (TS-233 + TS-234: M5 gold set + margin protected metric)
 

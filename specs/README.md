@@ -23,7 +23,7 @@ change (`CLAUDE.md` §1.2).
 | `modules/review.md` | Review workbench, audit log, export gating | §1.1(7), §11.4 |
 | `modules/billing.md` | Metering, paywall, Razorpay/Stripe, payment_log | §7, §15, §16.5 |
 | `modules/assistant.md` | Grounded in-app assistant | §8 |
-| `modules/baseline.md` | Baseline lock: hash-sealed freeze, notice register, handover | §0.1, §10, §1.2 |
+| `modules/baseline.md` | Baseline lock: freeze, watchlist, notice register, cost codes, handover | §0.1, §10, Research §4.E |
 | `modules/standards.md` | Org-custom notice standards (prevail / side-by-side layer) | §10, §0.1, §2 |
 | `modules/findings.md` | Shared findings table + store capability | §3.2, §6.3, §6.4, §11.4 |
 | `modules/export.md` | Bid Review Pack export (DOCX/XLSX/PDF) with review gate | §1.1(8), §6.5, §11.4 |

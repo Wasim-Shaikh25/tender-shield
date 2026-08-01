@@ -76,12 +76,14 @@ subscription or switching cost.
 - `GET  /events/{event_id}` (viewer) — event detail with sources and latest confirmation.
 - `POST /events/{event_id}/confirmations` (estimator) — record site confirmation outcome.
 
-#### Planned (TS-245 – TS-256)
+#### Implemented (TS-245, TS-246)
 
-- `POST /opportunities/{id}/diff` (estimator) — run baseline diff on a new document revision;
-  returns candidate events (**TS-245**).
+- `POST /opportunities/{id}/diff` (estimator) — run baseline clause diff on document text or
+  `document_id`; emits cited candidate events with 24h dedup.
 - `POST /opportunities/{id}/signals` (estimator) — ingest RFI / site instruction / minutes /
-  daily-report text with classification (**TS-246**).
+  daily-report / email text with deterministic classification and provenance quote.
+
+#### Planned (TS-247 – TS-256)
 - `POST /opportunities/{id}/inbox/email` (admin) — register project forward-to-inbox address
   (**TS-247**).
 - `GET  /opportunities/{id}/inbox` (viewer) — potential-variation triage queue (**TS-248**).
@@ -300,9 +302,14 @@ Site confirmation workflow (TS-250). Append-only history — latest row wins for
 - A4: `POST /events` without sealed baseline returns `no_baseline`.
 - A5: Manual event persists with ≥1 source row; list returns it scoped to workspace.
 
-### TS-245–TS-256 (planned)
+### TS-245–TS-246 (implemented)
 
-- A6 (TS-245): Diff on revised spec emits candidate with verified quote.
+- A6 (TS-245): `POST /diff` on revised clause text emits a `baseline_diff` candidate with a
+  verbatim `source_quote`.
+- A7 (TS-246): `POST /signals` classifies site instructions deterministically; duplicate ingest
+  within 24h attaches to the existing event instead of creating a new row.
+
+### TS-247–TS-256 (planned)
 - A7 (TS-248): Inbox lists only `candidate`/`triaged` for the opportunity.
 - A8 (TS-250): Confirmation appends row; `changed` sets `status=confirmed`.
 - A9 (TS-251): Deadline matches `notice_register.compute_deadline` for same inputs.

@@ -1,21 +1,27 @@
-"""ChangeService — variation event lifecycle (TS-244 scaffold)."""
+"""ChangeService — variation event lifecycle (TS-244+)."""
 
 from __future__ import annotations
 
 import uuid
 from collections.abc import Callable
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.modules.change.baseline_diff import (
+    candidates_from_diff,
+    clauses_from_segments,
+    content_hash,
+    normalize_clause,
+)
 from app.modules.change.models import (
     ChangeConfirmation,
     ChangeEvent,
     ChangeSource,
 )
+from app.modules.change.signals import classify_signal
 
-_EVENT_STATUSES = frozenset({"candidate", "triaged", "confirmed", "rejected", "closed"})
 _CONFIRMATION_OUTCOMES = frozenset(
     {
         "changed",
@@ -43,18 +49,27 @@ class ChangeService:
         baseline_factory: Callable[[Session], object] | None = None,
         ingestion_factory: Callable[[Session], object] | None = None,
         review_factory: Callable[[Session], object] | None = None,
+        segment_clauses_fn: Callable[[str], list] | None = None,
+        diff_clauses_fn: Callable[..., dict] | None = None,
         publish: Callable[[str, dict], int] | None = None,
     ):
         self.s = session
         self._baseline_factory = baseline_factory
         self._ingestion_factory = ingestion_factory
         self._review_factory = review_factory
+        self._segment_clauses_fn = segment_clauses_fn
+        self._diff_clauses_fn = diff_clauses_fn
         self._publish = publish
 
     def _baseline(self):
         if self._baseline_factory is None:
             raise ChangeError("baseline_unavailable")
         return self._baseline_factory(self.s)
+
+    def _ingestion(self):
+        if self._ingestion_factory is None:
+            raise ChangeError("ingestion_unavailable")
+        return self._ingestion_factory(self.s)
 
     def _require_baseline(self, workspace_id, opportunity_id):
         baseline = self._baseline()
@@ -105,61 +120,122 @@ class ChangeService:
         if not sources:
             raise ChangeError("source_required")
         baseline = self._require_baseline(workspace_id, opportunity_id)
-        wid = uuid.UUID(str(workspace_id))
-        oid = uuid.UUID(str(opportunity_id))
-        event = ChangeEvent(
-            workspace_id=wid,
-            opportunity_id=oid,
+        event = self._create_event_with_sources(
+            workspace_id,
+            opportunity_id,
             baseline_id=baseline.id,
-            status="candidate",
             title=title.strip(),
             reason=reason or "other",
             affected_scope=affected_scope,
             confidence_band=confidence_band,
             notice_type=notice_type,
             trigger_date=trigger_date,
-            created_by=uuid.UUID(str(created_by)) if created_by else None,
+            created_by=created_by,
+            sources=sources,
+            publish_kind="manual",
         )
-        self.s.add(event)
-        self.s.flush()
-        for entry in sources:
-            quote = (entry.get("source_quote") or "").strip()
-            if not quote and not entry.get("document_id"):
-                raise ChangeError("source_required")
-            if quote and len(quote) > 200:
-                raise ChangeError("quote_too_long")
-            self.s.add(
-                ChangeSource(
-                    workspace_id=wid,
-                    opportunity_id=oid,
-                    change_event_id=event.id,
-                    source_kind=entry.get("source_kind", "manual"),
-                    document_id=(
-                        uuid.UUID(str(entry["document_id"]))
-                        if entry.get("document_id")
-                        else None
-                    ),
-                    source_page=entry.get("source_page"),
-                    source_quote=quote or None,
-                    external_ref=entry.get("external_ref"),
-                    text_preview=entry.get("text_preview"),
-                    sha256=entry.get("sha256"),
-                )
-            )
-        self.s.commit()
-        self.s.refresh(event)
-        if self._publish:
-            self._publish(
-                "change.event_created",
-                {
-                    "workspace_id": str(wid),
-                    "opportunity_id": str(oid),
-                    "event_id": str(event.id),
-                    "status": event.status,
-                    "source_kind": "manual",
-                },
-            )
         return self._event_dict(event, include_sources=True)
+
+    def run_baseline_diff(
+        self,
+        workspace_id,
+        opportunity_id,
+        *,
+        document_id: str | None = None,
+        text: str | None = None,
+        created_by=None,
+    ) -> dict:
+        if self._segment_clauses_fn is None or self._diff_clauses_fn is None:
+            raise ChangeError("diff_unavailable")
+        baseline = self._require_baseline(workspace_id, opportunity_id)
+        baseline_clauses = [
+            normalize_clause(c) for c in (baseline.snapshot or {}).get("clauses", [])
+        ]
+        doc_id = document_id
+        if text is None:
+            if not document_id:
+                raise ChangeError("bad_request")
+            text = self._document_text(workspace_id, document_id)
+            if not text.strip():
+                raise ChangeError("not_found")
+        else:
+            text = text.strip()
+            if not text:
+                raise ChangeError("bad_request")
+
+        new_clauses = clauses_from_segments(self._segment_clauses_fn(text))
+        diff = self._diff_clauses_fn(baseline_clauses, new_clauses)
+        reason = "spec_revision"
+        if doc_id:
+            doc = self._ingestion().get_document(workspace_id, doc_id)
+            if doc is not None and getattr(doc, "kind", None) in {"drawing_log", "instruction"}:
+                reason = "drawing_revision" if doc.kind == "drawing_log" else "instruction"
+
+        created_events: list[dict] = []
+        new_count = 0
+        attached = 0
+        for candidate in candidates_from_diff(diff, document_id=doc_id, reason=reason):
+            event, was_new = self._upsert_candidate(
+                workspace_id,
+                opportunity_id,
+                baseline_id=baseline.id,
+                created_by=created_by,
+                **candidate,
+            )
+            created_events.append(self._event_dict(event, include_sources=True))
+            if was_new:
+                new_count += 1
+            else:
+                attached += 1
+
+        return {
+            "diff": diff,
+            "events": created_events,
+            "created": new_count,
+            "attached_to_existing": attached,
+        }
+
+    def ingest_signal(
+        self,
+        workspace_id,
+        opportunity_id,
+        *,
+        signal_kind: str,
+        text: str,
+        title: str | None = None,
+        external_ref: str | None = None,
+        created_by=None,
+    ) -> dict:
+        baseline = self._require_baseline(workspace_id, opportunity_id)
+        try:
+            classified = classify_signal(signal_kind, text, title=title)
+        except ValueError as exc:
+            code = str(exc)
+            if code == "bad_signal_kind":
+                raise ChangeError("bad_signal_kind") from exc
+            raise ChangeError("bad_request") from exc
+
+        sha = content_hash(signal_kind, classified["source_quote"], external_ref or "")
+        event, was_new = self._upsert_candidate(
+            workspace_id,
+            opportunity_id,
+            baseline_id=baseline.id,
+            created_by=created_by,
+            title=classified["title"],
+            reason=classified["reason"],
+            confidence_band=classified["confidence_band"],
+            notice_type=classified["notice_type"],
+            source_kind=classified["source_kind"],
+            source_quote=classified["source_quote"],
+            text_preview=classified["text_preview"],
+            external_ref=external_ref,
+            sha256=sha,
+        )
+        return {
+            "event": self._event_dict(event, include_sources=True),
+            "created": was_new,
+            "classification": classified,
+        }
 
     def record_confirmation(
         self,
@@ -210,6 +286,167 @@ class ChangeService:
                 },
             )
         return self._confirmation_dict(row)
+
+    def _document_text(self, workspace_id, document_id: str) -> str:
+        ing = self._ingestion()
+        doc = ing.get_document(workspace_id, document_id)
+        if doc is None:
+            raise ChangeError("not_found")
+        payload = ing.get_doc_text(workspace_id, document_id)
+        pages = payload.get("pages") or {}
+        if not pages:
+            return ""
+        return "\n".join(f"[p{page}]\n{text}" for page, text in sorted(pages.items()))
+
+    def _upsert_candidate(
+        self,
+        workspace_id,
+        opportunity_id,
+        *,
+        baseline_id,
+        created_by,
+        title: str,
+        reason: str,
+        confidence_band: str = "medium",
+        notice_type: str | None = None,
+        source_kind: str,
+        source_quote: str,
+        document_id: str | None = None,
+        source_page: int | None = None,
+        text_preview: str | None = None,
+        external_ref: str | None = None,
+        sha256: str | None = None,
+        affected_scope: str | None = None,
+        trigger_date: date | None = None,
+    ) -> tuple[ChangeEvent, bool]:
+        wid = uuid.UUID(str(workspace_id))
+        oid = uuid.UUID(str(opportunity_id))
+        digest = sha256 or content_hash(source_kind, source_quote, str(document_id or ""))
+        existing = self._find_recent_duplicate(wid, oid, digest, source_kind)
+        source_entry = {
+            "source_kind": source_kind,
+            "document_id": document_id,
+            "source_page": source_page,
+            "source_quote": source_quote,
+            "external_ref": external_ref,
+            "text_preview": text_preview,
+            "sha256": digest,
+        }
+        if existing is not None:
+            self._add_source(wid, oid, existing.id, source_entry)
+            self.s.commit()
+            self.s.refresh(existing)
+            return existing, False
+
+        event = self._create_event_with_sources(
+            workspace_id,
+            opportunity_id,
+            baseline_id=baseline_id,
+            title=title,
+            reason=reason,
+            affected_scope=affected_scope,
+            confidence_band=confidence_band,
+            notice_type=notice_type,
+            trigger_date=trigger_date,
+            created_by=created_by,
+            sources=[source_entry],
+            publish_kind=source_kind,
+        )
+        return event, True
+
+    def _find_recent_duplicate(
+        self, workspace_id: uuid.UUID, opportunity_id: uuid.UUID, sha256: str, source_kind: str
+    ) -> ChangeEvent | None:
+        since = datetime.now(UTC) - timedelta(hours=24)
+        rows = self.s.scalars(
+            select(ChangeSource)
+            .where(
+                ChangeSource.workspace_id == workspace_id,
+                ChangeSource.opportunity_id == opportunity_id,
+                ChangeSource.source_kind == source_kind,
+                ChangeSource.sha256 == sha256,
+                ChangeSource.created_at >= since,
+            )
+            .order_by(ChangeSource.created_at.desc())
+        ).all()
+        if not rows:
+            return None
+        return self.s.get(ChangeEvent, rows[0].change_event_id)
+
+    def _create_event_with_sources(
+        self,
+        workspace_id,
+        opportunity_id,
+        *,
+        baseline_id,
+        title: str,
+        reason: str,
+        affected_scope: str | None,
+        confidence_band: str,
+        notice_type: str | None,
+        trigger_date: date | None,
+        created_by,
+        sources: list[dict],
+        publish_kind: str,
+    ) -> ChangeEvent:
+        wid = uuid.UUID(str(workspace_id))
+        oid = uuid.UUID(str(opportunity_id))
+        event = ChangeEvent(
+            workspace_id=wid,
+            opportunity_id=oid,
+            baseline_id=baseline_id,
+            status="candidate",
+            title=title,
+            reason=reason,
+            affected_scope=affected_scope,
+            confidence_band=confidence_band,
+            notice_type=notice_type,
+            trigger_date=trigger_date,
+            created_by=uuid.UUID(str(created_by)) if created_by else None,
+        )
+        self.s.add(event)
+        self.s.flush()
+        for entry in sources:
+            self._add_source(wid, oid, event.id, entry)
+        self.s.commit()
+        self.s.refresh(event)
+        if self._publish:
+            self._publish(
+                "change.event_created",
+                {
+                    "workspace_id": str(wid),
+                    "opportunity_id": str(oid),
+                    "event_id": str(event.id),
+                    "status": event.status,
+                    "source_kind": publish_kind,
+                },
+            )
+        return event
+
+    def _add_source(
+        self, workspace_id: uuid.UUID, opportunity_id: uuid.UUID, event_id: uuid.UUID, entry: dict
+    ) -> None:
+        quote = (entry.get("source_quote") or "").strip()
+        if not quote and not entry.get("document_id"):
+            raise ChangeError("source_required")
+        if quote and len(quote) > 200:
+            raise ChangeError("quote_too_long")
+        self.s.add(
+            ChangeSource(
+                workspace_id=workspace_id,
+                opportunity_id=opportunity_id,
+                change_event_id=event_id,
+                source_kind=entry.get("source_kind", "manual"),
+                document_id=(
+                    uuid.UUID(str(entry["document_id"])) if entry.get("document_id") else None
+                ),
+                source_page=entry.get("source_page"),
+                source_quote=quote or None,
+                external_ref=entry.get("external_ref"),
+                text_preview=entry.get("text_preview"),
+                sha256=entry.get("sha256"),
+            )
+        )
 
     def _get_event_row(self, workspace_id, event_id) -> ChangeEvent:
         row = self.s.scalar(

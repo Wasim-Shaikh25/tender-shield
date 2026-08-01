@@ -12,12 +12,15 @@ router = APIRouter()
 
 _ERROR_STATUS = {
     "baseline_unavailable": 503,
+    "ingestion_unavailable": 503,
+    "diff_unavailable": 503,
     "no_baseline": 404,
     "not_found": 404,
     "bad_request": 400,
     "source_required": 400,
     "quote_too_long": 400,
     "bad_outcome": 400,
+    "bad_signal_kind": 400,
 }
 
 
@@ -46,6 +49,18 @@ class ConfirmationBody(BaseModel):
     evidence_ids: list[str] = Field(default_factory=list)
 
 
+class DiffBody(BaseModel):
+    document_id: str | None = None
+    text: str | None = Field(default=None, max_length=1_000_000)
+
+
+class SignalBody(BaseModel):
+    signal_kind: str = Field(min_length=1)
+    text: str = Field(min_length=1, max_length=1_000_000)
+    title: str | None = None
+    external_ref: str | None = None
+
+
 def _service(request: Request, session: Session) -> ChangeService:
     reg = request.app.state.ctx.registry
     factory = reg.get("change.service_factory")
@@ -56,6 +71,8 @@ def _service(request: Request, session: Session) -> ChangeService:
         baseline_factory=reg.get("baseline.service_factory"),
         ingestion_factory=reg.get("ingestion.service_factory"),
         review_factory=reg.get("review.service_factory"),
+        segment_clauses_fn=reg.get("ingestion.segment_clauses"),
+        diff_clauses_fn=reg.get("baseline.diff_clauses"),
         publish=request.app.state.ctx.events.publish,
     )
 
@@ -132,6 +149,50 @@ def record_confirmation(
             confirmed_by=principal.user_id,
             note=body.note,
             evidence_ids=body.evidence_ids,
+        )
+    except ChangeError as exc:
+        _raise(exc)
+
+
+@router.post("/opportunities/{opportunity_id}/diff")
+def run_baseline_diff(
+    opportunity_id: str,
+    body: DiffBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    if not body.document_id and not body.text:
+        raise HTTPException(400, "bad_request")
+    try:
+        return _service(request, session).run_baseline_diff(
+            principal.workspace_id,
+            opportunity_id,
+            document_id=body.document_id,
+            text=body.text,
+            created_by=principal.user_id,
+        )
+    except ChangeError as exc:
+        _raise(exc)
+
+
+@router.post("/opportunities/{opportunity_id}/signals")
+def ingest_signal(
+    opportunity_id: str,
+    body: SignalBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    try:
+        return _service(request, session).ingest_signal(
+            principal.workspace_id,
+            opportunity_id,
+            signal_kind=body.signal_kind,
+            text=body.text,
+            title=body.title,
+            external_ref=body.external_ref,
+            created_by=principal.user_id,
         )
     except ChangeError as exc:
         _raise(exc)

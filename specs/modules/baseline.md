@@ -2,7 +2,8 @@
 
 **Status:** partial — Phase 1 scaffold **implemented** (TS-041–TS-045); Phase 17
 **in progress** — TS-236 award comparison + TS-237 watchlist **done**;
-remaining TS-238–TS-242 **todo**
+TS-238 notice register + TS-239 approval matrix **done**;
+remaining TS-240–TS-242 **todo**
 **Requirement refs:** Doc §0.1 (Baseline lock P2 stage), §10 (Phase 2/3), §1.2 (feature matrix);
 Research Doc §4.E, §5.2(10–13); `docs/TenderShield_Roadmap_Stage1_to_5.md` §4
 **Task refs:** TS-041, TS-042, TS-043, TS-044, TS-045, TS-235, TS-236, TS-237, TS-238, TS-240, TS-241

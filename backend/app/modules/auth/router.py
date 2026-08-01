@@ -12,6 +12,7 @@ from app.core.db import bind_workspace_context
 from app.core.deps import current_principal, get_session, require
 from app.core.pagination import PaginationParams, paginated_list_response, set_pagination_headers
 from app.core.ratelimit import RateLimitDep
+from app.modules.auth.approval import ACTIONS, ApprovalMatrix
 from app.modules.auth.deps import require_superadmin
 from app.modules.auth.models import User
 from app.modules.auth.rbac import Principal, principal_requires_verified
@@ -199,6 +200,16 @@ class CreateInvitationBody(BaseModel):
 
 class ChangeRoleBody(BaseModel):
     role: str
+
+
+class ApprovalLimitEntry(BaseModel):
+    action: str
+    min_role: str = "estimator"
+    max_amount_minor: int | None = None
+
+
+class ApprovalMatrixBody(BaseModel):
+    limits: list[ApprovalLimitEntry]
 
 
 class MfaEnrollBody(BaseModel):
@@ -856,6 +867,42 @@ def remove_workspace_member(
             workspace_id, user_id, principal.user_id
         )
     )
+
+
+@router.get("/workspaces/{workspace_id}/approval-matrix")
+def get_approval_matrix(
+    workspace_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require("admin")),
+):
+    if not principal.is_superadmin and str(principal.workspace_id) != workspace_id:
+        raise HTTPException(403, "not_workspace_member")
+    matrix = ApprovalMatrix(session)
+    return {"actions": list(ACTIONS), "limits": matrix.list_limits(workspace_id)}
+
+
+@router.put("/workspaces/{workspace_id}/approval-matrix")
+def put_approval_matrix(
+    workspace_id: str,
+    body: ApprovalMatrixBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require("admin")),
+):
+    if not principal.is_superadmin and str(principal.workspace_id) != workspace_id:
+        raise HTTPException(403, "not_workspace_member")
+    matrix = ApprovalMatrix(session)
+    try:
+        limits = matrix.replace_limits(
+            workspace_id,
+            [entry.model_dump() for entry in body.limits],
+            updated_by=principal.user_id,
+        )
+    except ValueError as exc:
+        code = str(exc)
+        raise HTTPException(400, code.split(":", 1)[0]) from exc
+    return {"limits": limits}
 
 
 @router.post("/workspaces/{workspace_id}/projects")

@@ -16,7 +16,8 @@ from sqlalchemy import func, insert, select
 from sqlalchemy.orm import Session
 
 from app.modules.baseline.compare_award import diff_boq, diff_clauses, diff_findings
-from app.modules.baseline.models import AwardDocument, Baseline, WatchlistControl
+from app.modules.baseline.models import AwardDocument, Baseline, NoticeContact, WatchlistControl
+from app.modules.baseline.notice_register import enrich_rule
 from app.modules.baseline.notices import extract_notice_rules
 from app.modules.baseline.watchlist import (
     apply_cadence,
@@ -45,6 +46,7 @@ class BaselineService:
         loader_provider: Callable[[], object | None] = lambda: None,
         standards_factory: Callable | None = None,
         export_factory: Callable | None = None,
+        approval_matrix_factory: Callable | None = None,
         publish: Callable[[str, dict], object] = lambda event, payload: None,
         pack_id: str = "in-works",
     ):
@@ -56,8 +58,51 @@ class BaselineService:
         self._loader_provider = loader_provider
         self._standards_factory = standards_factory
         self._export_factory = export_factory
+        self._approval_matrix_factory = approval_matrix_factory
         self._publish = publish
         self._pack_id = pack_id
+
+    def _require_approval(
+        self, workspace_id, *, role: str, action: str, amount_minor: int = 0
+    ) -> None:
+        if self._approval_matrix_factory is None:
+            return
+        matrix = self._approval_matrix_factory(self.s)
+        decision = matrix.check(
+            workspace_id, role=role, action=action, amount_minor=amount_minor
+        )
+        if not decision.allowed:
+            raise BaselineError("approval_denied")
+
+    def _notice_contacts_map(self, workspace_id, opportunity_id) -> dict[str, NoticeContact]:
+        rows = self.s.scalars(
+            select(NoticeContact).where(
+                NoticeContact.workspace_id == uuid.UUID(str(workspace_id)),
+                NoticeContact.opportunity_id == uuid.UUID(str(opportunity_id)),
+            )
+        ).all()
+        return {row.notice_type: row for row in rows}
+
+    def _enrich_notice_rules(
+        self,
+        workspace_id,
+        opportunity_id,
+        rules: list[dict],
+        *,
+        region: str | None,
+    ) -> list[dict]:
+        categories = self._effective_categories(workspace_id, region)
+        contacts = self._notice_contacts_map(workspace_id, opportunity_id)
+        deadlines = self._confirmed_deadlines(workspace_id, opportunity_id)
+        return [
+            enrich_rule(
+                rule,
+                categories=categories,
+                contacts=contacts,
+                deadlines=deadlines,
+            )
+            for rule in rules
+        ]
 
     # ---- reads from other modules (capabilities only) ---------------------
     def _accepted_findings(self, workspace_id, opportunity_id) -> list[dict]:
@@ -464,25 +509,107 @@ class BaselineService:
         latest = self.latest(workspace_id, opportunity_id)
         if latest is not None:
             snap = latest.snapshot
+            region = snap.get("notice_region")
+            rules = self._enrich_notice_rules(
+                workspace_id,
+                opportunity_id,
+                snap.get("notice_rules", []),
+                region=region,
+            )
             return {
                 "source": "baseline",
                 "version": latest.version,
-                "region": snap.get("notice_region"),
-                "rules": snap.get("notice_rules", []),
+                "region": region,
+                "rules": rules,
                 "gaps": snap.get("notice_gaps", []),
+                "contacts": [
+                    self._contact_dict(row)
+                    for row in self._notice_contacts_map(workspace_id, opportunity_id).values()
+                ],
             }
         findings = self._accepted_findings(workspace_id, opportunity_id)
         meta = self._opportunity_meta(workspace_id, opportunity_id)
         analysis = self._notice_analysis(
             workspace_id, opportunity_id, findings, meta.get("jurisdiction")
         )
+        rules = self._enrich_notice_rules(
+            workspace_id,
+            opportunity_id,
+            analysis["rules"],
+            region=analysis["region"],
+        )
         return {
             "source": "live",
             "version": None,
             "region": analysis["region"],
-            "rules": analysis["rules"],
+            "rules": rules,
             "gaps": analysis["gaps"],
+            "contacts": [
+                self._contact_dict(row)
+                for row in self._notice_contacts_map(workspace_id, opportunity_id).values()
+            ],
         }
+
+    @staticmethod
+    def _contact_dict(row: NoticeContact) -> dict:
+        return {
+            "id": str(row.id),
+            "notice_type": row.notice_type,
+            "party": row.party,
+            "role_label": row.role_label,
+            "authorized_representative": row.authorized_representative,
+            "postal_address": row.postal_address,
+            "email": row.email,
+            "required_content": row.required_content or [],
+            "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+        }
+
+    def upsert_notice_contacts(
+        self,
+        workspace_id,
+        opportunity_id,
+        contacts: list[dict],
+        *,
+        actor_user_id,
+        actor_role: str,
+    ) -> list[dict]:
+        self._require_approval(
+            workspace_id, role=actor_role, action="notice_contacts_edit"
+        )
+        wid = uuid.UUID(str(workspace_id))
+        oid = uuid.UUID(str(opportunity_id))
+        existing = self._notice_contacts_map(workspace_id, opportunity_id)
+        out: list[NoticeContact] = []
+        for entry in contacts:
+            notice_type = entry["notice_type"]
+            row = existing.get(notice_type)
+            if row is None:
+                row = NoticeContact(
+                    workspace_id=wid,
+                    opportunity_id=oid,
+                    notice_type=notice_type,
+                )
+                self.s.add(row)
+            row.party = entry.get("party", row.party or "employer")
+            row.role_label = entry.get("role_label")
+            row.authorized_representative = entry.get("authorized_representative")
+            row.postal_address = entry.get("postal_address")
+            row.email = entry.get("email")
+            row.required_content = entry.get("required_content")
+            row.updated_by = uuid.UUID(str(actor_user_id)) if actor_user_id else None
+            out.append(row)
+        self.s.commit()
+        for row in out:
+            self.s.refresh(row)
+        self._publish(
+            "baseline.notice_contacts_updated",
+            {
+                "workspace_id": str(workspace_id),
+                "opportunity_id": str(opportunity_id),
+                "count": len(out),
+            },
+        )
+        return [self._contact_dict(row) for row in out]
 
     def compare(self, workspace_id, opportunity_id) -> dict:
         """Award-vs-tender finding delta (spec B5)."""
@@ -543,7 +670,9 @@ class BaselineService:
         trigger_text=None,
         review_cadence=None,
         status=None,
+        actor_role: str = "estimator",
     ) -> WatchlistControl:
+        self._require_approval(workspace_id, role=actor_role, action="watchlist_edit")
         row = self.s.scalar(
             select(WatchlistControl).where(
                 WatchlistControl.id == uuid.UUID(str(control_id)),
@@ -585,6 +714,13 @@ class BaselineService:
         snap = latest.snapshot
         findings = snap.get("findings", [])
         obligations = [f for f in findings if f.get("severity") in {"critical", "high"}]
+        region = snap.get("notice_region")
+        notice_rules = self._enrich_notice_rules(
+            workspace_id,
+            opportunity_id,
+            snap.get("notice_rules", []),
+            region=region,
+        )
         return {
             "baseline_id": str(latest.id),
             "version": latest.version,
@@ -593,7 +729,7 @@ class BaselineService:
             "sealed_at": latest.sealed_at.isoformat() if latest.sealed_at else None,
             "opportunity": snap.get("opportunity", {}),
             "key_obligations": obligations,
-            "notice_register": snap.get("notice_rules", []),
+            "notice_register": notice_rules,
             "notice_gaps": snap.get("notice_gaps", []),
             "deadline_calendar": snap.get("deadlines", []),
             "counts": snap.get("counts", {}),

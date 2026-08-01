@@ -369,3 +369,84 @@ def test_watchlist_seeded_on_freeze_and_owner_assignable(client):
     assert updated.status_code == 200
     assert updated.json()["owner_user_id"] == user_id
     assert updated.json()["review_cadence"] == "weekly"
+
+
+def test_notice_contacts_surface_in_register_and_handover(client):
+    headers = _auth(client)
+    opp_id = _opp_with_claims_clause(client, headers)
+    client.put(
+        f"/api/baseline/opportunities/{opp_id}/notice-register/contacts",
+        headers=headers,
+        json={
+            "contacts": [
+                {
+                    "notice_type": "claim",
+                    "party": "employer",
+                    "role_label": "Engineer",
+                    "authorized_representative": "Resident Engineer",
+                    "postal_address": "Site office, Depot",
+                    "email": "re@employer.example",
+                    "required_content": ["Written claim notice", "Clause reference"],
+                }
+            ]
+        },
+    ).raise_for_status()
+    reg = client.get(
+        f"/api/baseline/opportunities/{opp_id}/notice-register", headers=headers
+    ).json()
+    claim_rules = [r for r in reg["rules"] if r.get("notice_type") == "claim"]
+    assert claim_rules
+    assert claim_rules[0]["authorized_representative"] == "Resident Engineer"
+    assert claim_rules[0]["correspondence"]["email"] == "re@employer.example"
+    assert reg["contacts"][0]["authorized_representative"] == "Resident Engineer"
+
+    client.post(f"/api/risk/opportunities/{opp_id}/run", headers=headers)
+    _accept_all(client, headers, opp_id, decision="accepted")
+    client.post(
+        f"/api/baseline/opportunities/{opp_id}/freeze", json={"source": "tender"}, headers=headers
+    ).raise_for_status()
+    handover = client.get(
+        f"/api/baseline/opportunities/{opp_id}/handover", headers=headers
+    ).json()
+    handover_claim = [r for r in handover["notice_register"] if r.get("notice_type") == "claim"]
+    assert handover_claim
+    assert handover_claim[0]["authorized_representative"] == "Resident Engineer"
+
+
+def test_notice_deadline_arithmetic_uses_confirmed_milestone(client):
+    headers = _auth(client)
+    opp_id = client.post(
+        "/api/ingestion/opportunities", json={"title": "Deadline test"}, headers=headers
+    ).json()["id"]
+    client.post(
+        f"/api/ingestion/opportunities/{opp_id}/documents",
+        json={
+            "filename": "gcc.pdf",
+            "sample_text": (
+                "[p3]\nClause 44 — Claims. Notify any claim within 14 days after "
+                "practical completion, failing which it is time-barred.\n"
+                "[p4]\nPractical completion: 01/08/2026"
+            ),
+        },
+        headers=headers,
+    )
+    deadlines = client.get(
+        f"/api/ingestion/opportunities/{opp_id}/deadlines", headers=headers
+    ).json()["deadlines"]
+    milestone = next((d for d in deadlines if d.get("due_at")), deadlines[0])
+    client.post(
+        f"/api/ingestion/opportunities/{opp_id}/deadlines/{milestone['id']}/confirm",
+        headers=headers,
+    ).raise_for_status()
+    reg = client.get(
+        f"/api/baseline/opportunities/{opp_id}/notice-register", headers=headers
+    ).json()
+    claim_rules = [r for r in reg["rules"] if r.get("notice_type") == "claim"]
+    assert claim_rules
+    first = claim_rules[0]
+    assert first["deadline_days"] == 14
+    assert first["trigger_event"] == "milestone"
+    assert first.get("deadline_unknown") is False
+    assert first["notice_deadline"]
+    assert first["trigger_date"] == milestone["due_at"]
+

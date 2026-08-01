@@ -16,6 +16,7 @@ def setup(ctx: AppContext) -> None:
             loader_provider=lambda: reg.get("rulepacks.loader"),
             standards_factory=reg.get("standards.org_notice_provider"),
             export_factory=reg.get("export.service_factory"),
+            approval_matrix_factory=reg.get("auth.approval_matrix"),
             publish=ctx.events.publish,
         )
 

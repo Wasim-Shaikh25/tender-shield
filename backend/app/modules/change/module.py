@@ -15,6 +15,8 @@ def setup(ctx: AppContext) -> None:
             review_factory=reg.get("review.service_factory"),
             segment_clauses_fn=reg.get("ingestion.segment_clauses"),
             diff_clauses_fn=reg.get("baseline.diff_clauses"),
+            findings_factory=reg.get("findings.store_factory"),
+            cost_codes_fn=reg.get("baseline.cost_codes_for_opportunity"),
             publish=ctx.events.publish,
         )
 
@@ -31,6 +33,6 @@ module = ModuleSpec(
     name="change",
     version="0.1.0",
     router=router,
-    soft_deps=("baseline", "ingestion", "review"),
+    soft_deps=("baseline", "ingestion", "review", "findings"),
     setup=setup,
 )

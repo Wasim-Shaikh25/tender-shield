@@ -15,6 +15,12 @@ from app.modules.change.baseline_diff import (
     content_hash,
     normalize_clause,
 )
+from app.modules.change.impacts import (
+    compute_impact_exposure,
+    normalize_impact_links,
+    validate_impact_links,
+)
+from app.modules.change.inbox import INBOX_STATUSES, sort_inbox
 from app.modules.change.models import (
     ChangeConfirmation,
     ChangeEvent,
@@ -33,6 +39,7 @@ _CONFIRMATION_OUTCOMES = frozenset(
     }
 )
 _CONFIDENCE_BANDS = frozenset({"high", "medium", "low"})
+_TRIAGE_DECISIONS = frozenset({"triaged", "rejected"})
 
 
 class ChangeError(Exception):
@@ -51,6 +58,8 @@ class ChangeService:
         review_factory: Callable[[Session], object] | None = None,
         segment_clauses_fn: Callable[[str], list] | None = None,
         diff_clauses_fn: Callable[..., dict] | None = None,
+        findings_factory: Callable[[Session], object] | None = None,
+        cost_codes_fn: Callable[..., dict] | None = None,
         publish: Callable[[str, dict], int] | None = None,
     ):
         self.s = session
@@ -59,6 +68,8 @@ class ChangeService:
         self._review_factory = review_factory
         self._segment_clauses_fn = segment_clauses_fn
         self._diff_clauses_fn = diff_clauses_fn
+        self._findings_factory = findings_factory
+        self._cost_codes_fn = cost_codes_fn
         self._publish = publish
 
     def _baseline(self):
@@ -98,6 +109,97 @@ class ChangeService:
     def get_event(self, workspace_id, event_id) -> dict:
         row = self._get_event_row(workspace_id, event_id)
         return self._event_dict(row, include_sources=True, include_confirmation=True)
+
+    def list_inbox(self, workspace_id, opportunity_id) -> dict:
+        events = [
+            self._event_dict(row, include_sources=True)
+            for row in self._inbox_rows(workspace_id, opportunity_id)
+        ]
+        return {"events": sort_inbox(events)}
+
+    def triage_event(
+        self,
+        workspace_id,
+        event_id,
+        *,
+        decision: str,
+        actor_user_id=None,
+    ) -> dict:
+        if decision not in _TRIAGE_DECISIONS:
+            raise ChangeError("bad_triage_decision")
+        event = self._get_event_row(workspace_id, event_id)
+        prior = event.status
+        if prior == "candidate" and decision not in {"triaged", "rejected"}:
+            raise ChangeError("bad_triage_transition")
+        if prior == "triaged" and decision != "rejected":
+            raise ChangeError("bad_triage_transition")
+        if prior not in INBOX_STATUSES:
+            raise ChangeError("bad_triage_transition")
+        event.status = decision
+        self.s.commit()
+        self.s.refresh(event)
+        if self._review_factory is not None:
+            self._review_factory(self.s).audit(
+                workspace_id,
+                actor=actor_user_id,
+                action="change.triaged",
+                object_type="change_event",
+                object_id=event.id,
+                detail={"decision": decision, "prior_status": prior},
+            )
+        if self._publish:
+            self._publish(
+                "change.event_triaged",
+                {
+                    "workspace_id": str(event.workspace_id),
+                    "event_id": str(event.id),
+                    "prior_status": prior,
+                    "new_status": decision,
+                },
+            )
+        return self._event_dict(event, include_sources=True)
+
+    def update_impacts(
+        self,
+        workspace_id,
+        event_id,
+        *,
+        impact_links: dict,
+    ) -> dict:
+        event = self._get_event_row(workspace_id, event_id)
+        links = normalize_impact_links(impact_links)
+        valid_cost_codes, valid_findings = self._impact_id_sets(
+            workspace_id, event.opportunity_id
+        )
+        try:
+            validate_impact_links(
+                links,
+                valid_cost_code_ids=valid_cost_codes,
+                valid_finding_ids=valid_findings,
+            )
+        except ValueError as exc:
+            code = str(exc)
+            if code == "invalid_cost_code":
+                raise ChangeError("invalid_cost_code") from exc
+            raise ChangeError("invalid_finding") from exc
+
+        findings_by_id = self._findings_by_id(workspace_id, event.opportunity_id)
+        summary = compute_impact_exposure(links, findings_by_id)
+        event.impact_links = {**links, "exposure_summary": summary}
+        self.s.commit()
+        self.s.refresh(event)
+        return self._event_dict(event, include_sources=True)
+
+    def list_confirmations(self, workspace_id, event_id) -> list[dict]:
+        event = self._get_event_row(workspace_id, event_id)
+        rows = list(
+            self.s.scalars(
+                select(ChangeConfirmation)
+                .where(ChangeConfirmation.change_event_id == event.id)
+                .order_by(ChangeConfirmation.confirmed_at.desc())
+            )
+        )
+        return [self._confirmation_dict(row) for row in rows]
 
     def create_manual_event(
         self,
@@ -250,6 +352,8 @@ class ChangeService:
         if outcome not in _CONFIRMATION_OUTCOMES:
             raise ChangeError("bad_outcome")
         event = self._get_event_row(workspace_id, event_id)
+        if event.status not in {"candidate", "triaged", "confirmed"}:
+            raise ChangeError("bad_confirmation_state")
         row = ChangeConfirmation(
             workspace_id=event.workspace_id,
             opportunity_id=event.opportunity_id,
@@ -262,8 +366,10 @@ class ChangeService:
         self.s.add(row)
         if outcome == "changed":
             event.status = "confirmed"
-        elif outcome in {"not_changed", "contractor_risk"}:
+        elif outcome in {"not_changed", "contractor_risk", "client_risk"}:
             event.status = "closed"
+        elif outcome in {"clarification_only", "unknown"}:
+            event.status = "triaged"
         self.s.commit()
         self.s.refresh(row)
         if self._review_factory is not None:
@@ -286,6 +392,36 @@ class ChangeService:
                 },
             )
         return self._confirmation_dict(row)
+
+    def _inbox_rows(self, workspace_id, opportunity_id) -> list[ChangeEvent]:
+        wid = uuid.UUID(str(workspace_id))
+        oid = uuid.UUID(str(opportunity_id))
+        return list(
+            self.s.scalars(
+                select(ChangeEvent).where(
+                    ChangeEvent.workspace_id == wid,
+                    ChangeEvent.opportunity_id == oid,
+                    ChangeEvent.status.in_(INBOX_STATUSES),
+                )
+            )
+        )
+
+    def _impact_id_sets(self, workspace_id, opportunity_id) -> tuple[set[str], set[str]]:
+        cost_codes: set[str] = set()
+        if self._cost_codes_fn is not None:
+            payload = self._cost_codes_fn(self.s, workspace_id, opportunity_id)
+            cost_codes = {c["id"] for c in payload.get("codes", [])}
+        findings = self._findings_by_id(workspace_id, opportunity_id)
+        return cost_codes, set(findings.keys())
+
+    def _findings_by_id(self, workspace_id, opportunity_id) -> dict[str, object]:
+        if self._findings_factory is None:
+            return {}
+        store = self._findings_factory(self.s)
+        if not hasattr(store, "list"):
+            return {}
+        rows = store.list(workspace_id, opportunity_id)
+        return {str(row.id): row for row in rows}
 
     def _document_text(self, workspace_id, document_id: str) -> str:
         ing = self._ingestion()

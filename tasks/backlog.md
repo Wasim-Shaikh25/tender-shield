@@ -444,9 +444,9 @@ subscription (Research Doc §10.1), and creates the first real switching cost in
 | TS-245 | Baseline diff engine: compare new drawing/spec/instruction revisions against the locked baseline; emit candidate change events with citations | Research Doc §4.F, §5.3(15) | `specs/modules/change.md` | done |
 | TS-246 | Change-signal ingestion: RFIs, site instructions, meeting minutes, daily reports — classified into candidate events with source provenance | Research Doc §4.F | `specs/modules/change.md` | done |
 | TS-247 | Email ingestion adapter (forward-to-inbox address per project), with prompt-injection defenses for untrusted correspondence | Research Doc §4.F; Build Doc §11.3 | `specs/modules/change.md` | todo |
-| TS-248 | Potential-variation inbox: reason, source, affected scope, confidence band, triage queue | Research Doc §4.F | `specs/modules/change.md` | todo |
-| TS-249 | Impact linking: connect a change event to affected BOQ items, cost codes and subcontract packages | Research Doc §4.F | `specs/modules/change.md` | todo |
-| TS-250 | Site confirmation workflow: changed / not changed / clarification only / contractor risk / client risk / unknown — with recorded confirmer and timestamp | Research Doc §4.F, §5.3(16) | `specs/modules/change.md` | todo |
+| TS-248 | Potential-variation inbox: reason, source, affected scope, confidence band, triage queue | Research Doc §4.F | `specs/modules/change.md` | done |
+| TS-249 | Impact linking: connect a change event to affected BOQ items, cost codes and subcontract packages | Research Doc §4.F | `specs/modules/change.md` | done |
+| TS-250 | Site confirmation workflow: changed / not changed / clarification only / contractor risk / client risk / unknown — with recorded confirmer and timestamp | Research Doc §4.F, §5.3(16) | `specs/modules/change.md` | done |
 | TS-251 | **Deterministic notice-deadline engine**: compute the notice deadline and required content from the Phase-17 notice-rule register; never LLM | Research Doc §4.F, §5.3(17); `CLAUDE.md` §4 | `specs/modules/change.md` | todo |
 | TS-252 | Deadline countdown, escalation rules and multi-channel alerts (email/WhatsApp) with per-event dedup | Research Doc §4.F | `specs/modules/notifications.md` (update) | todo |
 | TS-253 | Notice drafting: contract-specific template populated with **verified facts only**; three validators applied; human approval mandatory before issue | Research Doc §4.G, §5.3(18); Build Doc §6.5, §11.4 | `specs/modules/drafting.md` (update) | todo |

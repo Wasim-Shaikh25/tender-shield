@@ -92,12 +92,12 @@ least two contract forms; cost codes mapped end-to-end.
 |---|---|---|---|---|
 | TS-243 | Spec: `change` module | P0 | **done** | Phase 17 |
 | TS-244 | `change` scaffold + migrations | P0 | **done** | TS-243 |
-| TS-245 | Baseline diff engine | P0 | todo | TS-244, TS-236 |
-| TS-246 | Change-signal ingestion (RFI, SI, minutes, daily reports) | P0 | todo | TS-244 |
+| TS-245 | Baseline diff engine | P0 | **done** | TS-244, TS-236 |
+| TS-246 | Change-signal ingestion (RFI, SI, minutes, daily reports) | P0 | **done** | TS-244 |
 | TS-247 | Email ingestion + prompt-injection defenses | P1 | todo | TS-246 |
-| TS-248 | Potential-variation inbox | P0 | todo | TS-245, TS-246 |
-| TS-249 | Impact linking → BOQ, cost codes, subcontracts | P0 | todo | TS-240, TS-248 |
-| TS-250 | Site confirmation workflow | P0 | todo | TS-248 |
+| TS-248 | Potential-variation inbox | P0 | **done** | TS-245, TS-246 |
+| TS-249 | Impact linking → BOQ, cost codes, subcontracts | P0 | **done** | TS-240, TS-248 |
+| TS-250 | Site confirmation workflow | P0 | **done** | TS-248 |
 | TS-251 | **Deterministic notice-deadline engine** | P0 | todo | TS-238, TS-250 |
 | TS-252 | Countdown, escalation, multi-channel alerts | P0 | todo | TS-251 |
 | TS-253 | Notice drafting (verified facts + validators + human approval) | P0 | todo | TS-251 |

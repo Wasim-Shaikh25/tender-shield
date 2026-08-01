@@ -450,3 +450,66 @@ def test_notice_deadline_arithmetic_uses_confirmed_milestone(client):
     assert first["notice_deadline"]
     assert first["trigger_date"] == milestone["due_at"]
 
+
+def test_cost_codes_map_to_findings_and_lock_on_freeze(client):
+    headers = _auth(client)
+    opp_id = _opp_with_findings(client, headers)
+    findings = client.get(f"/api/review/opportunities/{opp_id}/queue", headers=headers).json()[
+        "findings"
+    ]
+    finding_id = findings[0]["id"]
+    created = client.post(
+        f"/api/baseline/opportunities/{opp_id}/cost-codes",
+        headers=headers,
+        json={"codes": [{"code": "01", "label": "Civil works"}], "mappings": []},
+    )
+    assert created.status_code == 200, created.text
+    code_id = created.json()["tree"][0]["id"]
+    updated = client.post(
+        f"/api/baseline/opportunities/{opp_id}/cost-codes",
+        headers=headers,
+        json={
+            "codes": [{"id": code_id, "code": "01", "label": "Civil works"}],
+            "mappings": [{"cost_code_id": code_id, "finding_id": finding_id}],
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["exposure_totals"]["total_minor"] >= 0
+
+    _accept_all(client, headers, opp_id, decision="accepted")
+    client.post(
+        f"/api/baseline/opportunities/{opp_id}/freeze", json={"source": "tender"}, headers=headers
+    ).raise_for_status()
+    locked = client.get(
+        f"/api/baseline/opportunities/{opp_id}/cost-codes", headers=headers
+    ).json()
+    assert locked["locked"] is True
+    baseline = client.get(
+        f"/api/baseline/opportunities/{opp_id}/baselines", headers=headers
+    ).json()["baselines"][0]
+    snap = client.get(f"/api/baseline/baselines/{baseline['id']}", headers=headers).json()
+    assert snap["snapshot"]["cost_codes"]
+
+
+def test_handover_site_view_omits_finance_sections(client):
+    headers = _auth(client)
+    opp_id = _opp_with_findings(client, headers)
+    _accept_all(client, headers, opp_id, decision="accepted")
+    client.post(
+        f"/api/baseline/opportunities/{opp_id}/freeze", json={"source": "tender"}, headers=headers
+    ).raise_for_status()
+    site = client.get(
+        f"/api/baseline/opportunities/{opp_id}/handover?view=site", headers=headers
+    ).json()
+    assert site["view"] == "site"
+    assert site["sealed_hash"]
+    assert "watchlist_controls" in site
+    assert "exposure_totals" not in site
+    finance = client.get(
+        f"/api/baseline/opportunities/{opp_id}/handover?view=finance", headers=headers
+    ).json()
+    assert finance["view"] == "finance"
+    assert "exposure_totals" in finance
+    assert "watchlist_controls" not in finance
+
+

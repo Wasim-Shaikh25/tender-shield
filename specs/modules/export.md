@@ -69,3 +69,5 @@ ingestion, and rulepack capabilities.
 - Cloud storage upload / signed download URLs (P2).
 - Handover-pack export from baseline (TS-045) reuses this renderer but is
   triggered from the `baseline` module.
+- **TS-241:** per-view handover export (`site|planning|procurement|finance`) embeds
+  baseline seal reference and view name in the rendered header.

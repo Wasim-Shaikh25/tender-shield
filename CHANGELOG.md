@@ -6,6 +6,20 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-08-01 (TS-240 + TS-241: cost codes + handover views)
+
+- **TS-240 cost-code model** — `bl_cost_codes` + `bl_cost_code_mappings` tables; hierarchical
+  codes with BOQ/finding mappings; exposure totals in minor units; lock on freeze with snapshot
+  embed; `GET/POST /api/baseline/opportunities/{id}/cost-codes`; `baseline.cost_codes_locked` event.
+- **TS-241 multi-view handover** — `?view=site|planning|procurement|finance` on handover and
+  export; role-specific sections with baseline seal in every view header.
+
+Tests: 514 passed / 5 skipped.
+
+### Next
+
+- TS-242 (baseline adoption telemetry).
+
 ### Done — 2026-08-01 (TS-238 + TS-239: notice register + approval matrix)
 
 - **TS-238 notice register completion** — enriched rules with `notice_type`, `trigger_event`,
@@ -17,10 +31,6 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   notice-contact mutations (`approval_denied` when below limit).
 
 Tests: 508 passed / 5 skipped.
-
-### Next
-
-- TS-240 + TS-241 (cost codes + multi-view handover export).
 
 ### Done — 2026-08-01 (TS-236 + TS-237: award compare + watchlist)
 

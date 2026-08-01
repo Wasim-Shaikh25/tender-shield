@@ -189,7 +189,7 @@ class ExportService:
         return filename, media_type, data
 
     def export_handover(
-        self, opportunity_id: str, fmt: str, handover: dict
+        self, opportunity_id: str, fmt: str, handover: dict, *, view: str = "full"
     ) -> tuple[str, str, bytes]:
         if fmt not in HANDOVER_FORMATS:
             raise ExportError("bad_format")
@@ -198,6 +198,7 @@ class ExportService:
             "date": date.today().isoformat(),
             "pack": self._pack_version,
             "integrity_hash": handover.get("sealed_hash", ""),
+            "view": view,
         }
         data = render_handover_pack(title, handover, fmt, meta)
         # Re-render so the hash in the stamp is over the final bytes.
@@ -205,5 +206,6 @@ class ExportService:
         data = render_handover_pack(title, handover, fmt, meta)
 
         media_type, ext = HANDOVER_FORMATS[fmt]
-        filename = f"handover-pack-{opportunity_id}.{ext}"
+        suffix = f"-{view}" if view and view != "full" else ""
+        filename = f"handover-pack-{opportunity_id}{suffix}.{ext}"
         return filename, media_type, data

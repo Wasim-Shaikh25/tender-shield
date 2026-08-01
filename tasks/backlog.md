@@ -424,8 +424,8 @@ documents but produces none of the *controls* stage 3 consumes.
 | TS-237 | Risk → project watchlist: convert accepted tender findings into monitored project controls with owner, trigger and review cadence | Research Doc §4.E | `specs/modules/baseline.md` | done |
 | TS-238 | Notice-rule register: per-contract notice types, trigger events, deadline arithmetic (deterministic), required content, correspondence addresses, authorized representatives | Research Doc §4.E, §5.2(13) | `specs/modules/standards.md` (update) | done |
 | TS-239 | Approval matrix: role-based authority limits per action (notice issue, variation acceptance, claim submission) | Research Doc §4.E, §13 Negotiation | `specs/modules/auth.md` (update) | done |
-| TS-240 | Cost-code model: create cost codes, map to BOQ items and variation categories; foundation for stage 3/4 valuation | Research Doc §4.E | `specs/modules/baseline.md` | todo |
-| TS-241 | Commercial handover pack export (site, planning, procurement, finance views) with hash-sealed baseline reference | Research Doc §4.E, §5.2(12) | `specs/modules/export.md` (update) | todo |
+| TS-240 | Cost-code model: create cost codes, map to BOQ items and variation categories; foundation for stage 3/4 valuation | Research Doc §4.E | `specs/modules/baseline.md` | done |
+| TS-241 | Commercial handover pack export (site, planning, procurement, finance views) with hash-sealed baseline reference | Research Doc §4.E, §5.2(12) | `specs/modules/export.md` (update) | done |
 | TS-242 | Baseline adoption telemetry: projects with a locked baseline, weekly active baseline users — measures the Phase 18 unlock gate | Research Doc §12.4 | `specs/modules/analytics.md` (update) | todo |
 
 ---

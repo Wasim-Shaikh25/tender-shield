@@ -22,12 +22,13 @@ import { SeverityBadge, SourceBadge } from "@/components/badges";
 import { artifactLabel, categoryLabel, deadlineLabel, statusLabel } from "@/lib/labels";
 import { ChangesTab } from "./changes-tab";
 import { ClaimsTab } from "./claims-tab";
+import { PricingTab } from "./pricing-tab";
 
 export default function OpportunityDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { session } = useSession();
   const [tab, setTab] = useState<
-    "overview" | "risks" | "boq" | "artifacts" | "handover" | "audit" | "changes" | "claims"
+    "overview" | "risks" | "boq" | "artifacts" | "handover" | "audit" | "changes" | "claims" | "pricing"
   >("overview");
   const [title, setTitle] = useState("Opportunity");
   const [missing, setMissing] = useState<MissingDocs | null>(null);
@@ -206,7 +207,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
       {note && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{note}</p>}
 
       <div className="flex gap-1 border-b border-slate-200">
-        {(["overview", "risks", "boq", "artifacts", "handover", "audit", "changes", "claims"] as const).map((t) => (
+        {(["overview", "risks", "boq", "artifacts", "handover", "audit", "changes", "claims", "pricing"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -476,6 +477,10 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
 
       {tab === "claims" && session && (
         <ClaimsTab token={session.token} opportunityId={id} claims={claims} onRefresh={refresh} />
+      )}
+
+      {tab === "pricing" && session && (
+        <PricingTab token={session.token} opportunityId={id} boqCsv={boqCsv} gate={gate} />
       )}
     </div>
   );

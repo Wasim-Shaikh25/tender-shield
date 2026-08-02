@@ -59,6 +59,8 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   dashboard health, executive summary, response times, payment schedule with event
   recording, forecast, plus workspace-level portfolio, clause trends, economics,
   and customer outcomes. Frontend build and lint pass.
+- **TS-309** — Pricing tab on the opportunity detail page with loadings, rate
+  benchmark (BOQ CSV vs schedule), and cashflow forecast. Frontend build and lint pass.
 - **TS-310** — DOCX text extraction in `backend/app/modules/ingestion/extract.py`
   using `python-docx`; paragraphs and tables are emitted with `[pN]` markers.
   Backend tests pass; frontend build passes.

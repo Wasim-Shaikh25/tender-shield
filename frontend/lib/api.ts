@@ -221,6 +221,59 @@ export type ClaimDraft = {
   created_at?: string;
 };
 
+export type PricingLoading = {
+  finding_id: string;
+  pattern_id: string;
+  produced: boolean;
+  amount_minor?: number | null;
+  currency: string;
+  basis: string;
+  formula: string;
+  rulepack_version: string;
+  inputs_used: Record<string, unknown>;
+  missing_inputs?: string[];
+  reason?: string | null;
+};
+
+export type RateMatch = {
+  src_row: number;
+  boq_description: string;
+  boq_unit: string;
+  boq_rate_minor: number;
+  matched_by: string;
+  schedule_code?: string | null;
+  schedule_description?: string | null;
+  schedule_rate_minor?: number | null;
+  variance_minor?: number | null;
+  variance_pct?: number | null;
+};
+
+export type RateBenchmark = {
+  schedule_id?: string | null;
+  schedule_confidence?: string | null;
+  headline_variance_pct?: number | null;
+  code_matched: RateMatch[];
+  description_matched: RateMatch[];
+  unmatched: RateMatch[];
+};
+
+export type CashflowMonth = {
+  month: number;
+  billed_minor: number;
+  incurred_minor: number;
+  received_minor: number;
+  cumulative_net_minor: number;
+};
+
+export type CashflowResult = {
+  monthly: CashflowMonth[];
+  peak_requirement_minor: number;
+  peak_month: number;
+  total_financing_cost_minor: number;
+  currency: string;
+  assumptions: string[];
+};
+
 export type PlanSection = {
   type: "kpi" | "table" | "chart" | "mermaid" | "text";
   title: string;
@@ -697,6 +750,24 @@ export const api = {
     req<Record<string, unknown>>(`/controltower/economics?${new URLSearchParams({ currency: params?.currency ?? "INR" })}`, {}, token),
   getCustomerOutcomes: (token: string, params?: { hours_per_review_saved?: number; currency?: string }) =>
     req<Record<string, unknown>>(`/controltower/customer-outcomes?${new URLSearchParams({ hours_per_review_saved: String(params?.hours_per_review_saved ?? 2), currency: params?.currency ?? "INR" })}`, {}, token),
+  // Pricing intelligence (Phase 1)
+  getLoadings: (token: string, opportunityId: string, params?: { contract_value_minor?: number; currency?: string; facts?: string }) =>
+    req<{ loadings: PricingLoading[] }>(`/pricing/opportunities/${opportunityId}/loading?${new URLSearchParams({ ...(params?.contract_value_minor ? { contract_value_minor: String(params.contract_value_minor) } : {}), currency: params?.currency ?? "INR", ...(params?.facts ? { facts: params.facts } : {}) })}`, {}, token),
+  runRateBenchmark: (token: string, opportunityId: string, body: { csv: string; authority?: string; year?: string }) =>
+    req<RateBenchmark>(`/pricing/opportunities/${opportunityId}/rate-benchmark`, { method: "POST", body: JSON.stringify(body) }, token),
+  runCashflow: (token: string, opportunityId: string, body: {
+    contract_value_minor: number;
+    duration_months: number;
+    cost_of_capital_pa: number;
+    currency?: string;
+    payment_days?: number;
+    retention_pct?: number;
+    retention_release_month?: number;
+    mobilization_advance_pct?: number;
+    mobilization_recovery_months?: number;
+    milestone_billing_minor?: Record<string, number>;
+  }) =>
+    req<CashflowResult>(`/pricing/opportunities/${opportunityId}/cashflow`, { method: "POST", body: JSON.stringify(body) }, token),
 };
 
 export type PlanSnapshot = {

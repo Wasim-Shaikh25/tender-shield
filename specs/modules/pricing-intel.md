@@ -140,6 +140,20 @@ All verified by `backend/tests/test_pricing.py` (31 tests).
    until the review gate passes — verified end to end through the real router, not just the service.
 10. ✅ Disabling `pricing` leaves risk, BOQ and export fully functional (all deps are soft).
 
+## Frontend UI (TS-309)
+
+### Public pages
+
+- `/opportunities/{id}` gains a **Pricing** tab.
+
+### Acceptance criteria
+
+- F1: Tab exposes sub-tabs for loadings, rate benchmark, and cashflow.
+- F2: Loadings sub-tab calls `GET /api/pricing/opportunities/{id}/loading` and displays produced/non-produced results with amounts and reasons.
+- F3: Rate-benchmark sub-tab has a BOQ CSV textarea plus authority/year inputs and calls `POST /api/pricing/opportunities/{id}/rate-benchmark`, displaying headline variance and a match table.
+- F4: Cashflow sub-tab has inputs for contract value, duration, cost of capital, payment days, retention, and mobilization, and calls `POST /api/pricing/opportunities/{id}/cashflow`, displaying peak requirement, total financing cost, assumptions, and a monthly table.
+- F5: The review gate status is surfaced and blocked outputs show the backend error message.
+
 ## Out of scope
 
 - Recommending a bid price or a margin

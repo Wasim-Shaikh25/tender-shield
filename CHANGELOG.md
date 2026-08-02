@@ -152,6 +152,21 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   selected template to DOCX/XLSX/PDF/hanover reports (title, footer, watermark);
   settings UI supports create/edit/default/delete.
 
+### Done — final Phase 22 frontend UI gaps (TS-304–TS-307)
+
+- **TS-304** — Subcontract management UI: new `SubcontractsTab` under each opportunity
+  with create/list subcontracts, add clauses/scope items/payment events, flow-down
+  check, scope gaps, notice calendar, and payment exposure.
+- **TS-305** — Integration source configuration UI: the `Settings → Integrations`
+  page now lists/creates `IntegrationSource` rows for any adapter or connector,
+  with inline import for static adapters and OAuth/poll actions for live connectors.
+- **TS-306** — Public API key management UI: new `Settings → API keys` page to
+  create (with one-time plaintext reveal), list, and revoke workspace API keys;
+  backend adds `DELETE /api/public_api/keys/{id}`.
+- **TS-307** — Advisor / admin multi-client workspace UI: new `/advisor` page showing
+  all client workspaces plus an admin workspace switcher for superadmins; switches
+  via the existing `POST /api/auth/workspaces/{id}/switch` flow.
+
 ### Done — generic dynamic REST connector (TS-334)
 
 - New `dynamic_connector_configs` table (RLS, workspace-scoped) stores base URL,

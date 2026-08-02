@@ -103,6 +103,20 @@ def list_keys(
     return {"keys": [{"id": str(r.id), "name": r.name, "scopes": r.scopes} for r in rows]}
 
 
+@router.delete("/keys/{key_id}")
+def revoke_key(
+    key_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    try:
+        _service(request, session).revoke_key(principal.workspace_id, key_id)
+    except PublicApiError as exc:
+        _raise(exc)
+    return {"revoked": True}
+
+
 @router.post("/notices/{notice_id}/request-signature")
 def request_signature(
     notice_id: str,

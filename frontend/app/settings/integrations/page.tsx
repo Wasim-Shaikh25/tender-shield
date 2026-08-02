@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/components/session";
 import { api, type DynamicConnectorConfig } from "@/lib/api";
+import IntegrationSourcesPanel from "./integration-sources";
 
 const DEFAULT_COST_LINE_MAPPING = JSON.stringify(
   {
@@ -340,6 +341,8 @@ export default function IntegrationsSettingsPage() {
           </ul>
         )}
       </section>
+
+      {session && <IntegrationSourcesPanel token={session.token} isAdmin={!!isAdmin} />}
     </div>
   );
 }

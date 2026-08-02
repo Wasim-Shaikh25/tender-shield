@@ -31,6 +31,8 @@ export type Opportunity = { id: string; title: string; status: string; submissio
 export type MissingDocs = { present: string[]; missing: string[]; expected: string[] };
 export type ReportTemplate = { id: string; name: string; is_default: boolean; report_title?: string | null; primary_color?: string | null; accent_color?: string | null; logo_url?: string | null; watermark_text?: string | null; footer_text?: string | null };
 export type DynamicConnectorConfig = { id?: string; name: string; base_url: string; auth_type: "none" | "bearer" | "basic" | "api_key"; auth_config?: Record<string, string>; headers?: Record<string, string>; pagination?: Record<string, unknown>; mappings?: Record<string, { items?: string; fields?: Record<string, string> }>; enabled?: boolean; last_tested_at?: string | null; last_test_status?: string | null };
+export type IntegrationSource = { id: string; adapter_kind: string; name: string; opportunity_id?: string | null; status: string; config?: Record<string, unknown>; rate_limit_calls_per_minute?: number | null; last_synced_at?: string | null; created_at?: string };
+export type Subcontract = { id: string; opportunity_id: string; subcontractor_name: string; reference?: string | null; contract_value_minor?: number | null; currency?: string; scope?: string | null; notice_buffer_days?: number; postal_buffer_days?: number; status: string; created_at?: string };
 export type Clause = { id: string; clause_ref: string | null; heading: string | null; page_from: number | null };
 export type Deadline = {
   id: string;
@@ -497,6 +499,46 @@ export const api = {
     req<{ status: string; http_status: number | null; latency_ms: number; preview: string }>(`/integrations/dynamic-connectors/${id}/test`, { method: "POST" }, token),
   pollDynamicConnector: (token: string, id: string) =>
     req<Record<string, unknown>>(`/integrations/dynamic-connectors/${id}/poll`, { method: "POST" }, token),
+  listConnectors: (token: string) =>
+    req<{ connectors: { kind: string; name: string; auth_required: boolean }[] }>("/integrations/connectors", {}, token),
+  listAdapters: (token: string) =>
+    req<{ adapters: { kind: string; supported_mimetypes: string[] }[] }>("/integrations/adapters", {}, token),
+  listSources: (token: string) =>
+    req<{ sources: IntegrationSource[] }>("/integrations/sources", {}, token),
+  createSource: (token: string, body: { adapter_kind: string; name: string; opportunity_id?: string; config?: Record<string, unknown>; rate_limit_calls_per_minute?: number }) =>
+    req<IntegrationSource>("/integrations/sources", { method: "POST", body: JSON.stringify(body) }, token),
+  startOAuth: (token: string, sourceId: string, redirectUri: string) =>
+    req<{ authorization_url: string; state: string }>(`/integrations/sources/${sourceId}/oauth`, { method: "POST", body: JSON.stringify({ redirect_uri: redirectUri }) }, token),
+  pollSource: (token: string, sourceId: string) =>
+    req<Record<string, unknown>>(`/integrations/sources/${sourceId}/poll`, { method: "POST" }, token),
+  importSource: (token: string, sourceId: string, payload: Record<string, unknown>) =>
+    req<Record<string, unknown>>(`/integrations/sources/${sourceId}/import`, { method: "POST", body: JSON.stringify({ payload }) }, token),
+  listSubcontracts: (token: string, opportunityId: string) =>
+    req<{ subcontracts: Subcontract[] }>(`/subcontract/opportunities/${opportunityId}/subcontracts`, {}, token),
+  createSubcontract: (token: string, opportunityId: string, body: { subcontractor_name: string; reference?: string; contract_value_minor?: number; currency?: string; scope?: string; notice_buffer_days?: number; postal_buffer_days?: number }) =>
+    req<{ id: string }>(`/subcontract/opportunities/${opportunityId}/subcontracts`, { method: "POST", body: JSON.stringify(body) }, token),
+  getSubcontract: (token: string, id: string) =>
+    req<Subcontract>(`/subcontract/subcontracts/${id}`, {}, token),
+  addSubcontractClause: (token: string, id: string, body: { title: string; source_quote?: string; present?: boolean; status?: string }) =>
+    req<{ id: string }>(`/subcontract/subcontracts/${id}/clauses`, { method: "POST", body: JSON.stringify(body) }, token),
+  addSubcontractScopeItem: (token: string, id: string, body: { item_text: string; covered?: boolean; source_event_id?: string }) =>
+    req<{ id: string }>(`/subcontract/subcontracts/${id}/scope-items`, { method: "POST", body: JSON.stringify(body) }, token),
+  addSubcontractPaymentEvent: (token: string, id: string, body: { kind: string; due_date: string; amount_minor: number; certified_amount_minor?: number; currency?: string; status?: string }) =>
+    req<{ id: string }>(`/subcontract/subcontracts/${id}/payment-events`, { method: "POST", body: JSON.stringify(body) }, token),
+  flowdownCheck: (token: string, id: string) =>
+    req<{ matched: { id: string; title: string }[]; missing: { id: string; title: string }[] }>(`/subcontract/subcontracts/${id}/flowdown-check`, {}, token),
+  scopeGaps: (token: string, id: string) =>
+    req<{ uncovered: { id: string; item_text: string; source_event_id?: string | null }[]; covered: { id: string; item_text: string }[] }>(`/subcontract/subcontracts/${id}/scope-gaps`, {}, token),
+  noticeCalendar: (token: string, id: string) =>
+    req<{ events: { kind: string; due_date: string; buffer_date: string; status: string }[] }>(`/subcontract/subcontracts/${id}/notice-calendar`, {}, token),
+  paymentExposure: (token: string, id: string) =>
+    req<{ currency: string; total_certified_minor: number; total_paid_minor: number; pending_minor: number; pay_when_paid_exposed_minor: number; age_days_max: number }>(`/subcontract/subcontracts/${id}/payment-exposure`, {}, token),
+  listPublicApiKeys: (token: string) =>
+    req<{ keys: { id: string; name: string; scopes: string[] }[] }>("/public_api/keys", {}, token),
+  createPublicApiKey: (token: string, body: { name: string; scopes?: string[] }) =>
+    req<{ id: string; name: string; plaintext_key: string; scopes: string[] }>("/public_api/keys", { method: "POST", body: JSON.stringify(body) }, token),
+  revokePublicApiKey: (token: string, id: string) =>
+    req<{ revoked: boolean }>(`/public_api/keys/${id}`, { method: "DELETE" }, token),
   listInvitations: (token: string) =>
     req<InvitationResponse[]>("/auth/invitations", {}, token),
   createInvitation: (token: string, body: { email: string; role: string; project_id?: string }) =>

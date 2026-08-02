@@ -236,6 +236,15 @@ def list_connectors(
     return {"connectors": _service(request, session).list_connectors()}
 
 
+@router.get("/adapters")
+def list_adapters(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    return {"adapters": _service(request, session).list_adapters()}
+
+
 class OAuthStartBody(BaseModel):
     redirect_uri: str = Field(min_length=1)
 

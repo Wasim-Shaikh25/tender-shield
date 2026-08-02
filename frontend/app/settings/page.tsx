@@ -580,6 +580,7 @@ export default function SettingsPage() {
         </div>
         <div className="mt-4">
           <a href="/settings/integrations" className="text-sm text-indigo-600 hover:underline">Manage integrations &rarr;</a>
+          <a href="/settings/api-keys" className="ml-4 text-sm text-indigo-600 hover:underline">Manage API keys &rarr;</a>
         </div>
       </section>
     </div>

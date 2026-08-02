@@ -6,6 +6,32 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-08-02 (Phase 20 completion: TS-274–TS-280)
+
+- **TS-274 risk-adjusted forecast** — `POST /api/controltower/forecast` computes
+  `forecast_revenue_minor` and `forecast_cost_minor` from explicit inputs
+  (`projected_final_cost_minor`, `contingency_percent`, `cost_of_capital_pa`) and the
+  deterministic exposure model.
+- **TS-275 response-time analytics** — `GET /api/controltower/response-times` returns
+  per-responder min/max/avg/median/p90 response days and negotiation cadence.
+- **TS-276 portfolio clause trends** — `GET /api/controltower/clause-trends` rolls up
+  findings by category, pattern, and loss reason across the workspace.
+- **TS-277 executive summaries** — `GET /api/controltower/executive-summary` returns
+  top risks with source links, exposure, dashboard, response times, and forecast.
+- **TS-278 payment control** — `ct_payment_events` table with migration; endpoints
+  `GET /api/controltower/payment-schedule` and `POST /api/controltower/payment-schedule`
+  expose certification variance, ageing, collection actions, and retention/security release actions.
+- **TS-279 economics metrics** — `GET /api/controltower/economics` computes paid conversion,
+  gross margin, CAC payback, project retention, and expansion revenue from billing data plus
+  explicit cost-of-sales and CAC inputs.
+- **TS-280 customer-outcome metrics** — `GET /api/controltower/customer-outcomes` reports
+  risks priced, bad bids declined, omissions corrected, value notified/certified, and hours saved.
+- **Registry additions** — `claims.response_analytics_for_opportunity`,
+  `outcomes.bid_outcomes_for_workspace`, `outcomes.risk_materializations_for_workspace`,
+  `outcomes.claim_recoveries_for_workspace`, `controltower.*` capabilities, and
+  `billing.invoices_for_workspace` / `project_subscriptions_for_workspace`.
+- **Migrations** — `438b78d6770c_add_ct_payment_events` with workspace RLS.
+
 ### Done — 2026-08-02 (Phase 20 first slice: TS-271–TS-273)
 
 - **TS-271 control tower spec** — `specs/modules/controltower.md` defines exposure model,
@@ -44,8 +70,7 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ### Next
 
-- Phase 20 remaining (TS-274–TS-280): risk-adjusted forecast, response-time analytics,
-  portfolio clause trends, executive summaries, payment control, economics metrics.
+- Phase 21 (TS-281–TS-292): integration adapters, subcontract control, and Advisor Edition.
 
 ### Done — 2026-08-01 (Phase 19 claims workspace: TS-258–TS-266)
 

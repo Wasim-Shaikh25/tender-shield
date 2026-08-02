@@ -118,6 +118,18 @@ None. Read-only aggregator over findings and opportunities.
   active baseline users; `403` for non-admin; degrades to zeros when `baseline` is
   disabled.
 
+## Cross-module portfolio analytics (TS-276, TS-279, TS-280)
+
+Portfolio-level commercial intelligence is implemented by the `controltower` module and
+exposed via registry capabilities consumed by analytics for unified dashboards:
+
+- `controltower.clause_trends_for_workspace` — pattern counts, exposure totals and
+  loss-reason breakdown by finding category/pattern.
+- `controltower.economics_for_workspace` — paid conversion, gross margin, CAC payback,
+  project retention and expansion revenue from billing data plus explicit cost inputs.
+- `controltower.customer_outcomes_for_workspace` — risks priced, bad bids declined,
+  omissions corrected, value notified/certified and hours saved.
+
 ## Out of scope
 
 - Golden-label import and true recall computation (requires labelled evaluation

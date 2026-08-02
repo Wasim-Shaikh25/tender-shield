@@ -23,8 +23,8 @@ invented numbers.
 |---|---|---|---|---|
 | **0** | **Spec + scaffold** | TS-271, TS-272 | `controltower.md` agreed; module boots; exposure model computed | done |
 | **1** | **Dashboard** | TS-273 | Deadline + evidence-health dashboard per opportunity | done |
-| **2** | **Portfolio + forecast** | TS-274, TS-275, TS-276 | Portfolio rollup; response-time analytics; clause trends | todo |
-| **3** | **Payment + economics** | TS-277, TS-278, TS-279, TS-280 | Payment control; executive summaries; economics metrics | todo |
+| **2** | **Portfolio + forecast** | TS-274, TS-275, TS-276 | Portfolio rollup; response-time analytics; clause trends | done |
+| **3** | **Payment + economics** | TS-277, TS-278, TS-279, TS-280 | Payment control; executive summaries; economics metrics | done |
 
 ### Why this order
 
@@ -43,13 +43,13 @@ information on top of the exposure numbers.
 | TS-271 | Spec: `controltower` module | `controltower` | P0 | done | Spec in `specs/modules/controltower.md` | Phase 19 |
 | TS-272 | Commercial exposure model | `controltower` | P0 | done | Deterministic submitted/certified/rejected/unnotified/ageing/cash exposure | TS-271 |
 | TS-273 | Project deadline + evidence-health dashboard | `controltower` | P1 | done | Per-opportunity deadline list + evidence-health + unclaimed events | TS-272 |
-| TS-274 | Risk-adjusted forecast at completion | `controltower` | P1 | todo | Explicit assumptions block; deterministic | TS-273 |
-| TS-275 | Client / consultant response-time analytics | `controltower` + `analytics` | P1 | todo | Response-time percentiles per counterparty | TS-272 |
-| TS-276 | Portfolio clause trends and loss-reason analysis | `analytics` | P1 | todo | Cross-project pattern rollup | TS-273 |
-| TS-277 | Executive summaries with source links | `controltower` | P1 | todo | Drill-down to source documents | TS-273 |
-| TS-278 | Payment control | `controltower` | P1 | todo | RA/progress bill checklist, retention, ageing | TS-272 |
-| TS-279 | Economics metrics | `analytics` | P1 | todo | Paid conversion, gross margin, CAC payback | TS-278 |
-| TS-280 | Customer-outcome metrics | `analytics` | P1 | todo | Risks priced, bad bids declined, omissions corrected | TS-276 |
+| TS-274 | Risk-adjusted forecast at completion | `controltower` | P1 | done | Explicit assumptions block; deterministic | TS-273 |
+| TS-275 | Client / consultant response-time analytics | `controltower` + `analytics` | P1 | done | Response-time percentiles per counterparty | TS-272 |
+| TS-276 | Portfolio clause trends and loss-reason analysis | `analytics` | P1 | done | Cross-project pattern rollup | TS-273 |
+| TS-277 | Executive summaries with source links | `controltower` | P1 | done | Drill-down to source documents | TS-273 |
+| TS-278 | Payment control | `controltower` | P1 | done | RA/progress bill checklist, retention, ageing | TS-272 |
+| TS-279 | Economics metrics | `analytics` | P1 | done | Paid conversion, gross margin, CAC payback | TS-278 |
+| TS-280 | Customer-outcome metrics | `analytics` | P1 | done | Risks priced, bad bids declined, omissions corrected | TS-276 |
 
 ---
 

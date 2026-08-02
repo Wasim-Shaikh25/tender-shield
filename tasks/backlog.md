@@ -492,13 +492,13 @@ Requirement source: Research Doc §4.H, §12.2.
 | TS-271 | Spec: `controltower` module — exposure model, dashboards, forecasting | Research Doc §4.H | `specs/modules/controltower.md` (new) | done |
 | TS-272 | Commercial exposure model (deterministic): at-risk revenue, unnotified change, submitted / certified / rejected value, ageing, cash exposure | Research Doc §4.H | `specs/modules/controltower.md` | done |
 | TS-273 | Project deadline + evidence-health dashboard | Research Doc §4.H | `specs/modules/controltower.md` | done |
-| TS-274 | Risk-adjusted forecast at completion with explicit assumptions block | Research Doc §4.H | `specs/modules/controltower.md` | todo |
-| TS-275 | Client / consultant response-time analytics | Research Doc §4.H | `specs/modules/controltower.md` | todo |
-| TS-276 | Portfolio clause trends, recurring omission patterns and loss-reason analysis across projects | Research Doc §4.H | `specs/modules/analytics.md` (update) | todo |
-| TS-277 | Executive summaries with source links and drill-down | Research Doc §4.H | `specs/modules/controltower.md` | todo |
-| TS-278 | Payment control: RA/progress bill checklist, certification variance, retention and security release dates, ageing and collection actions | Research Doc §13 Payment control | `specs/modules/controltower.md` | todo |
-| TS-279 | Economics metrics: paid conversion, gross margin, CAC payback, project retention, expansion revenue | Research Doc §12.2 | `specs/modules/analytics.md` (update) | todo |
-| TS-280 | Customer-outcome metrics: risks priced, bad bids declined, omissions corrected, value notified/certified, hours saved | Research Doc §12.2 | `specs/modules/analytics.md` (update) | todo |
+| TS-274 | Risk-adjusted forecast at completion with explicit assumptions block | Research Doc §4.H | `specs/modules/controltower.md` | done |
+| TS-275 | Client / consultant response-time analytics | Research Doc §4.H | `specs/modules/controltower.md` | done |
+| TS-276 | Portfolio clause trends, recurring omission patterns and loss-reason analysis across projects | Research Doc §4.H | `specs/modules/analytics.md` (update) | done |
+| TS-277 | Executive summaries with source links and drill-down | Research Doc §4.H | `specs/modules/controltower.md` | done |
+| TS-278 | Payment control: RA/progress bill checklist, certification variance, retention and security release dates, ageing and collection actions | Research Doc §13 Payment control | `specs/modules/controltower.md` | done |
+| TS-279 | Economics metrics: paid conversion, gross margin, CAC payback, project retention, expansion revenue | Research Doc §12.2 | `specs/modules/analytics.md` (update) | done |
+| TS-280 | Customer-outcome metrics: risks priced, bad bids declined, omissions corrected, value notified/certified, hours saved | Research Doc §12.2 | `specs/modules/analytics.md` (update) | done |
 
 ---
 

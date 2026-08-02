@@ -17,12 +17,14 @@
 
 The catastrophic cross-tenant and billing release blockers from the previous audit are structurally resolved in the current `main` branch. Tenant isolation is now enforced by `FORCE ROW LEVEL SECURITY` on workspace-scoped tables, checkout amounts are computed server-side and re-checked by webhooks, and the broken session / invalid LLM model / plaintext invitation / missing Dockerfile extras issues are all fixed.
 
-Two release-blocking conditions remain:
+Four release-blocking conditions remain:
 
 1. **Product value blocker — every bundled risk rulepack is `confidence: unvalidated`.** Paying workspaces are shown only validated patterns by default, which currently means **zero risk findings**. The product cannot charge for a risk review that returns no findings unless `TS_BETA_UNVALIDATED=true`.
 2. **Operational blocker — the `public_api` module is not RLS-bound and will not function under Postgres with `FORCE ROW LEVEL SECURITY` enabled.** Its routes authenticate with an API key but never set the `app.workspace_id` GUC, so queries against `public_api_keys` and `public_signature_requests` will see no rows. The e-signature callback is also unauthenticated.
+3. **E2E team/workflow blocker — `POST /api/auth/invitations` and `POST /api/auth/workspaces/{id}/members` return 500 in the browser.** The golden-path test could not invite or add members; the `/team` page shows a global "Failed to fetch" banner.
+4. **Out-of-box onboarding blocker — the default `.env.local` disables mobile verification (`TS_AUTH_MOBILE_VERIFICATION_ENABLED` is commented out), but the sign-up form always requires a mobile verification code.** This blocks the first local run until the flag is explicitly enabled.
 
-Additional high/medium issues are detailed below.
+Additional high/medium/low issues are detailed below.
 
 ### 1.2 Verification summary
 
@@ -38,16 +40,17 @@ Additional high/medium issues are detailed below.
 | Frontend npm audit | `npm audit --audit-level=high` | 0 vulnerabilities |
 | Backend pip-audit (local venv) | `pip-audit` | 1 local dependency finding (`setuptools` 59.6.0; CI upgrades setuptools before audit) |
 | Eval smoke (M1 + M4) | `scripts/eval_ci_smoke.py --limit 5` | M1/M4 pass; deadline/tender-value match 25% vs 95% bar; severity rule fails on missing `project_duration_months` fact |
+| End-to-end golden path | Playwright/CDP local stack (`./scripts/run.sh local`) | Core flow passes; team invitation/member-add 500; `.env.local` mobile-verification default blocks sign-up unless overridden |
 
 ### 1.3 Finding count by severity (Round 8)
 
 | Severity | Open | Release-blocking | IDs |
 |---|---|---|---|
 | **Critical** | 1 | 1 | TS-P02 |
-| **High** | 5 | 3 | TS-PUB-01, TS-PUB-02, TS-PUB-03, TS-INT-01, TS-O01 |
-| **Medium** | 6 | 0 | TS-BOQ-01, TS-I10, TS-R03, TS-B07, TS-I06*, TS-B05* |
-| **Low** | 2 | 0 | TS-DOC-01, TS-O06 |
-| **Total** | **14** | **4** | |
+| **High** | 6 | 4 | TS-PUB-01, TS-PUB-02, TS-PUB-03, TS-INT-01, TS-O01, TS-UI-01 |
+| **Medium** | 7 | 0 | TS-BOQ-01, TS-I10, TS-R03, TS-B07, TS-I06*, TS-B05*, TS-UI-02 |
+| **Low** | 4 | 0 | TS-DOC-01, TS-O06, TS-UI-03, TS-UI-04 |
+| **Total** | **18** | **5** | |
 
 `*` Re-verified / retained from previous rounds; see §4.3.
 
@@ -70,6 +73,26 @@ Round 8 focused on:
 2. Checking that the security/auth/RLS fixes are complete and consistent.
 3. Spot-checking modules added or heavily changed since the previous audit (`public_api`, `integrations`, `subcontract`, `controltower`, `outcomes`, `express`, `claims`, `change`, `evidence`).
 4. Running the full validation matrix and eval smoke.
+5. Exercising the full browser golden path through sign-up, workspace creation, opportunity creation, document upload, BOQ, and role-based access.
+
+### 2.3 End-to-end golden-path test
+
+A Playwright/CDP golden-path smoke test was executed against the local stack (`./scripts/run.sh local`) on the audited branch.
+
+* **What passed:**
+  * Sign-up → email/mobile verification → MFA login → workspace creation → opportunity creation.
+  * Tender PDF upload processed successfully (`test_doc_ocr.pdf`, 1823 chars extracted via OCR).
+  * Risk review ran and returned 0 findings as expected because no OpenRouter key was configured.
+  * BOQ run returned the deterministic 10 findings (`4 defects + 5 scope gaps + blank/duplicate/grand-total` checks).
+  * Workspace switch persisted across reloads; `viewer`/`reviewer`/`estimator`/`admin` role enforcement returned 403 for unauthorized actions.
+* **What failed / needs attention:**
+  * `POST /api/auth/invitations` returned `500`.
+  * `POST /api/auth/workspaces/{id}/members` returned `500`.
+  * The `/team` page showed a global "Failed to fetch" banner.
+  * Out-of-the-box sign-up was blocked until `TS_AUTH_MOBILE_VERIFICATION_ENABLED=true` was set; the default `.env.local` comments this out.
+  * Opportunity detail emitted baseline 404/409 console noise (`/handover`, `/compare`).
+
+Test artifacts: screen recording at `/home/ubuntu/screencasts/tendershield-golden-20260802/tendershield-golden-20260802-edited.mp4` and `/home/ubuntu/test-report.md`.
 
 ---
 
@@ -79,7 +102,7 @@ Round 8 focused on:
 
 | Capability | Backend module | Frontend route | Tests | Status |
 |---|---|---|---|---|
-| Auth / workspaces / roles | `auth` | `/login`, `/team`, `/settings` | `test_auth_module.py` | Ready |
+| Auth / workspaces / roles | `auth` | `/login`, `/team`, `/settings` | `test_auth_module.py` | **E2E team invitation/member-add 500; mobile verification mismatch** |
 | Workspace/Project RBAC | `auth` | `/team` | `test_auth_module.py` | Ready |
 | Tender document ingestion | `ingestion` | `/opportunities/[id]` | `test_ingestion.py`, `test_hardening.py` | Ready |
 | Risk classification | `risk` | `/opportunities/[id]` | `test_risk.py` | **Blocked by unvalidated rulepacks** |
@@ -99,7 +122,8 @@ Round 8 focused on:
 
 1. **Validated risk rulepacks missing.** Every rulepack under `rulepacks/in-works/` is `confidence: unvalidated`. `risk/service.py:89` sets `validated_only = paying and not self._settings.beta_unvalidated`, so paid workspaces see zero patterns. This is a product-level release blocker.
 2. **Eval smoke quality gaps.** The M1/M4 smoke passes, but the `Deadline / tender-value match vs portal` metric is 25% vs a 95% bar, and a severity rule fails because `project_duration_months` is not supplied by the classifier.
-3. **No end-to-end UI/browser validation performed.** While the test suite is green, this audit did not exercise the full user journey in a browser with multiple roles/tabs.
+3. **Team invitation and member-add endpoints return 500 in the browser.** `POST /api/auth/invitations` and `POST /api/auth/workspaces/{id}/members` both fail during the E2E team workflow; `/team` shows a global fetch-failure banner.
+4. **Out-of-box onboarding is broken by the default `.env.local`.** The sign-up form requires a mobile verification code, but `TS_AUTH_MOBILE_VERIFICATION_ENABLED` is commented out by default.
 
 ---
 
@@ -229,6 +253,46 @@ Round 8 focused on:
 * **Impact:** Local/development installs only; not a production runtime blocker if CI and Docker base images are current.
 * **Fix:** Pin a minimum `setuptools>=83.0.0` in `pyproject.toml` build-system requirements or the dev install step.
 
+### 4.5 End-to-end / UX findings
+
+#### TS-UI-01 — Team invitation and member-add endpoints return 500
+
+* **Status:** New in Round 8 (E2E golden path).
+* **Severity:** High (release blocker).
+* **Evidence:**
+  * Playwright/CDP test: `POST /api/auth/invitations` → `500 Internal Server Error`.
+  * Playwright/CDP test: `POST /api/auth/workspaces/{id}/members` → `500 Internal Server Error`.
+  * `/team` page displays a global "Failed to fetch" banner that correlates with these calls.
+  * `backend/app/modules/auth/router.py:855-871` and `1022-1036` wrap `add_workspace_member` and `create_invitation` in `_handle`, which only catches `AuthError`; any other exception propagates as 500.
+* **Impact:** Collaborators cannot be invited or added to a workspace; the team management feature is non-functional in the UI.
+* **Fix:** Reproduce and capture the server traceback, then guard the affected service calls and/or add explicit validation to convert expected error conditions into `AuthError` (or add a catch-all logger that still returns a safe 400/500 with an error code).
+
+#### TS-UI-02 — Default `.env.local` disables mobile verification while the sign-up form requires it
+
+* **Status:** New in Round 8 (E2E golden path).
+* **Severity:** Medium.
+* **Evidence:**
+  * `frontend/app/login/page.tsx` always prompts for a mobile verification code during sign-up.
+  * `.env.local` comments out `TS_AUTH_MOBILE_VERIFICATION_ENABLED`, so the backend does not send a mobile OTP and the user cannot complete sign-up.
+* **Impact:** A new developer or evaluator cannot complete sign-up without reading the code and manually enabling the flag.
+* **Fix:** Either enable mobile verification by default in `.env.local` or make the sign-up form conditional on `settings.auth_mobile_verification_enabled`.
+
+#### TS-UI-03 — Baseline endpoints emit 404/409 console noise on opportunity detail
+
+* **Status:** New in Round 8 (E2E golden path).
+* **Severity:** Low.
+* **Evidence:** Opportunity detail page issues calls to `/handover` and `/compare`; before a baseline exists these return `404` / `409` and show in the browser console.
+* **Impact:** Cosmetic noise and may confuse users; does not block the happy path.
+* **Fix:** Suppress expected missing-baseline errors or use 204/empty-state responses handled by the UI.
+
+#### TS-UI-04 — `/team` page shows a global "Failed to fetch" banner
+
+* **Status:** New in Round 8 (E2E golden path).
+* **Severity:** Low.
+* **Evidence:** The `/team` page renders a global error toast/banner even when workspace member list loads successfully; this correlates with the invitation 500 in TS-UI-01.
+* **Impact:** Distracting UI error; combined with TS-UI-01 it makes the team feature appear broken.
+* **Fix:** Scope the error banner to the failing call (invitations only) and avoid global banners for partial endpoint failures.
+
 ---
 
 ## 5. Historical Finding Status (prior audit → Round 8)
@@ -297,11 +361,13 @@ Round 8 focused on:
 | TS-PUB-03 | Add provider signature/header auth to `signature_callback`; validate `status` enum | Backend |
 | TS-INT-01 | Validate `opportunity_id` in `IntegrationsService.create_source` | Backend |
 | TS-PUB-02 | Validate `opportunity_id` in `PublicApiService.request_signature` | Backend |
+| TS-UI-01 | Reproduce and fix 500 on invitation and workspace-member-add endpoints; add error handling so only valid client errors surface | Backend/Frontend |
 
 ### 6.2 High/medium hardening (fix before general availability)
 
 | ID | Fix |
 |---|---|
+| TS-UI-02 | Align `.env.local` default with sign-up form (enable mobile verification by default or make the form conditional) |
 | TS-O01 | Require Redis + proxy-aware client IP for production rate limiting |
 | TS-BOQ-01 | Wrap BOQ `to_csv`/`scanned` in `asyncio.to_thread` |
 | TS-I10 | Emit `[pN]` markers from `xlsx_to_csv` |
@@ -313,8 +379,8 @@ Round 8 focused on:
 
 ### 6.3 Validation gaps to close
 
-1. Run a Postgres-backed golden path with multiple workspaces: sign up → invite → switch workspace → upload tender → extract deadline → run BOQ → review findings → export. Confirm cross-tenant isolation at the API level.
-2. Run the frontend in a browser through login, workspace creation, document upload, and review queue with `viewer`/`reviewer`/`estimator`/`admin` roles.
+1. Run a Postgres-backed golden path with multiple workspaces: sign up → invite → switch workspace → upload tender → extract deadline → run BOQ → review findings → export. Confirm cross-tenant isolation at the API level. (SQLite golden path done; Postgres multi-tenant run still pending.)
+2. Re-run the browser golden path after fixing TS-UI-01/TS-UI-02 to verify login, workspace creation, document upload, and review queue with `viewer`/`reviewer`/`estimator`/`admin` roles.
 3. Run `eval_ci_smoke.py` with a corpus that includes portal-matched deadlines and `project_duration_months` facts; bring the `Deadline / tender-value match` metric to ≥95%.
 4. Run `pip-audit` in the Docker image, not just the local venv.
 
@@ -326,7 +392,8 @@ Round 8 focused on:
 
 * **Domain risk:** The product's core value proposition (validated construction-risk patterns) is currently unshipped because no patterns are validated. This is the single biggest business risk.
 * **Operational risk:** Several new modules (`public_api`, `integrations`) were added but are not yet exercised by the CI Postgres/RLS test suite. They may fail silently in production.
-* **Testing gap:** No end-to-end browser or multi-tenant runtime test was performed in this round. The green test suite and build are necessary but not sufficient for production confidence.
+* **UX/onboarding risk:** The first-run sign-up experience is blocked by a mismatch between the default `.env.local` and the UI, and the team-management workflow crashes. These were found through an end-to-end browser test, which is positive, but they must be fixed before any pilot.
+* **Testing gap:** A local SQLite golden path passed, but a Postgres-backed multi-tenant runtime test and cross-tenant API isolation still need to be performed.
 * **Observability risk:** The codebase has tracing/logging hooks, but production alerting, runbooks, and on-call rotations were not reviewed.
 
 ### 7.2 Final production-readiness checklist
@@ -342,12 +409,15 @@ Round 8 focused on:
 | Cross-tenant takeover fixed | ✅ |
 | Validated risk content available | ❌ |
 | Public API production-ready | ❌ |
-| Real-world multi-tenant smoke passed | ❌ (not performed) |
+| Local browser golden path passed | ✅ (team feature blocked by TS-UI-01) |
+| Team invitation / member-add works in UI | ❌ (TS-UI-01) |
+| Out-of-box sign-up works with default `.env.local` | ❌ (TS-UI-02) |
+| Real-world Postgres multi-tenant smoke passed | ❌ (not performed) |
 | Observability + runbooks reviewed | ❌ (not performed) |
 
 ### 7.3 Final recommendation
 
-The codebase has made substantial, credible progress: the architecture is sound, the prior release-blocking security and billing flaws are fixed, and the automated validation matrix is green. It is **not ready for a public or paid production launch** because (1) the risk rulepacks are all unvalidated, and (2) the `public_api` / e-signature feature is not RLS-aware and would be broken in a Postgres deployment. It **could support a controlled single-customer or internal pilot** once those two blockers are resolved and a real-world multi-tenant smoke test is completed.
+The codebase has made substantial, credible progress: the architecture is sound, the prior release-blocking security and billing flaws are fixed, the automated validation matrix is green, and a local browser golden path now passes for sign-up, opportunity creation, tender upload, BOQ, and role enforcement. It is **not ready for a public or paid production launch** because (1) the risk rulepacks are all unvalidated, (2) the `public_api` / e-signature feature is not RLS-aware and would break in a Postgres deployment, (3) team invitation and member-add endpoints return 500 in the browser, and (4) the default `.env.local` blocks out-of-box sign-up due to a mobile-verification mismatch. It **could support a controlled single-customer or internal pilot** once the release blockers above are resolved and a Postgres-backed multi-tenant smoke test is completed.
 
 ---
 

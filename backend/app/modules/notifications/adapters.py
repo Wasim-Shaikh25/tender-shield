@@ -82,10 +82,53 @@ class Msg91Sender:
             return False
 
 
+class ResendSender:
+    """Resend email adapter; falls back to console when credentials are missing."""
+
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+        self._api_key = (
+            settings.resend_api_key.get_secret_value() if settings.resend_api_key else None
+        )
+
+    def send(self, message: Message) -> bool:
+        if message.channel != "email" or not self._api_key:
+            logger.info(
+                "[resend-fallback] %s to %s: %s",
+                message.channel,
+                message.to,
+                message.subject,
+            )
+            return True
+        try:
+            import httpx
+
+            r = httpx.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {self._api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": self.settings.email_from,
+                    "to": [message.to],
+                    "subject": message.subject,
+                    "text": message.body,
+                },
+                timeout=30,
+            )
+            return r.status_code in (200, 202)
+        except Exception as exc:
+            logger.exception("resend send failed: %s", exc)
+            return False
+
+
 def build_sender(settings: Settings) -> Sender:
     """Pick the richest configured sender; default to console."""
     if settings.ses_access_key_id and settings.ses_secret_access_key:
         return SesSender(settings)
+    if settings.resend_api_key:
+        return ResendSender(settings)
     if settings.msg91_auth_key:
         return Msg91Sender(settings)
     return ConsoleSender()

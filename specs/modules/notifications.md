@@ -3,19 +3,19 @@
 **Status:** implemented (core digest + `Sender` protocol + daily deadline alert scheduler +
 change-notice countdown via `change.process_notice_alerts`). Real adapters and the scheduler are
 wired as an APScheduler job scanning all workspaces for deadlines in the `7`, `3`, `1`, `0` day
-buckets and emailing members. SES/MSG91 adapters are credential-gated.
+buckets and emailing members. SES/Resend/MSG91 adapters are credential-gated.
 **Requirement refs:** Doc §11.6, §11.7, Research Doc §4.F, `PRODUCTION_READINESS_AUDIT.md` F15/F07
 **Task refs:** TS-027, TS-035, TS-043, TS-079, TS-091, TS-111, TS-252
 
 ## Purpose
 
-Deadline-digest notification path: decide which upcoming deadlines warrant an alert, format the message, and hand it to a pluggable sender. The core logic is pure and dependency-free; the `Sender` protocol is backed by `ConsoleSender` in dev/test and by SES/MSG91 adapters when credentials are configured.
+Deadline-digest notification path: decide which upcoming deadlines warrant an alert, format the message, and hand it to a pluggable sender. The core logic is pure and dependency-free; the `Sender` protocol is backed by `ConsoleSender` in dev/test and by SES/Resend/MSG91 adapters when credentials are configured.
 
 ## Public interface
 
 - **Capabilities published:**
   - `notifications.sender` → a `Sender` instance (`ConsoleSender` by default;
-    `SESSender` or `MSG91Sender` when configured).
+    `SESSender`, `ResendSender`, or `MSG91Sender` when configured).
 - **Capabilities consumed (soft):**
   - `ingestion.service_factory` (to fetch deadlines + opportunity title).
   - `auth.workspace_factory` (to enumerate workspaces and members).
@@ -54,7 +54,8 @@ Change-notice alerts are deduped in the `change` module's `change_notice_alert_l
 - **B6 — Graceful degradation:** If no sender is configured, notifications are
   silently skipped. If `ingestion` or `auth` is disabled, the scheduler tick returns.
 - **B7 — Adapters:** `SESSender` sends via AWS SES when `TS_SES_*` credentials
-  are configured; `MSG91Sender` sends SMS via MSG91 when `TS_MSG91_*` is
+  are configured; `ResendSender` sends email via Resend when `TS_RESEND_API_KEY`
+  is configured; `MSG91Sender` sends SMS via MSG91 when `TS_MSG91_*` is
   configured; otherwise `ConsoleSender` is used and logs a warning in production.
 - **B8 — Scheduler integration:** The `notifications` module registers a daily job on
   `core.scheduler` that scans all workspaces for unconfirmed deadlines in the

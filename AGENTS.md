@@ -66,10 +66,8 @@ cd backend && set -a && source ../.env.local && set +a && .venv/bin/alembic upgr
   Sample data in `evals/in-works/sample_tender/`. Skill:
   `.agents/skills/testing-tendershield/SKILL.md`.
 - **Health:** `curl http://localhost:8000/api/health` → `{"status":"ok",...}`.
-- **Known UI bug (TS-F01):** `GET /api/auth/workspaces` response shape mismatches the
-  frontend `SessionProvider`; sign-up/login may crash the header with
-  `Cannot read properties of undefined (reading 'find')`. This is pre-existing — use
-  the API curl flow to verify backend behavior.
+- **Workspace list shape** is aligned: `GET /api/auth/workspaces` returns a
+  `WorkspaceResponse[]` list and `SessionProvider` consumes it directly.
 
 ### Optional services (not needed for local golden path)
 

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core import audit as audit_log
 from app.core.deps import get_session, require
+from app.core.storage import sanitize_filename
 from app.modules.export.service import ExportError, ExportService
 
 router = APIRouter()
@@ -53,8 +54,9 @@ def export_pack(
         object_id=opportunity_id,
         detail={"format": format, "filename": filename},
     )
+    safe = sanitize_filename(filename)
     return Response(
         content=data,
         media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'attachment; filename="{safe}"'},
     )

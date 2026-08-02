@@ -63,7 +63,7 @@ auth = ["google-auth>=2.32"]
 observability = ["sentry-sdk[fastapi]>=2.0,<3.0"]
 
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=83.0.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]

@@ -21,6 +21,9 @@ class Baseline(Base, WorkspaceScopedMixin):
         Uuid, ForeignKey("opportunities.id", ondelete="CASCADE"), nullable=False, index=True
     )
     version: Mapped[int] = mapped_column(Integer, nullable=False)
+    __table_args__ = (
+        UniqueConstraint("opportunity_id", "version", name="uq_baselines_opportunity_version"),
+    )
     # "tender" (the bid we reviewed) | "award" (state at award, after negotiation).
     source: Mapped[str] = mapped_column(String, nullable=False, default="tender")
     # SHA-256 over the canonical snapshot JSON (excludes sealed_at) — the seal.

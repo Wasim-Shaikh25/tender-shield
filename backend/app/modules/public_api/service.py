@@ -9,9 +9,10 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from app.core.db import bind_workspace_context
 from app.modules.public_api.models import PublicApiKey, PublicSignatureRequest
 
 
@@ -31,11 +32,18 @@ class PublicApiService:
         session: Session,
         *,
         change_factory: Callable[[Session], object] | None = None,
+        ingestion_factory: Callable[[Session], object] | None = None,
         publish: Callable[[str, dict], Any] | None = None,
     ) -> None:
         self.s = session
         self._change_factory = change_factory
+        self._ingestion_factory = ingestion_factory
         self._publish = publish or (lambda event, payload: None)
+
+    def _ingestion(self):
+        if self._ingestion_factory is None:
+            raise PublicApiError("ingestion_unavailable")
+        return self._ingestion_factory(self.s)
 
     def create_key(
         self,
@@ -72,6 +80,10 @@ class PublicApiService:
         if not token:
             return None
         hash_value = _hash_key(token)
+        # Allow the key lookup to bypass workspace RLS because the workspace is
+        # not known until the key is found. The RLS policy on public_api_keys
+        # accepts the key hash as an alternative predicate.
+        self.s.execute(text("SET LOCAL app.api_key_hash = :hash"), {"hash": hash_value})
         row = self.s.scalar(
             select(PublicApiKey).where(
                 PublicApiKey.key_hash == hash_value,
@@ -80,6 +92,7 @@ class PublicApiService:
         )
         if row is None:
             return None
+        bind_workspace_context(self.s, row.workspace_id)
         row.last_used_at = datetime.now(UTC)
         self.s.commit()
         return {
@@ -97,6 +110,10 @@ class PublicApiService:
         change_event_id: str | None = None,
         provider: str = "docusign_stub",
     ) -> PublicSignatureRequest:
+        opportunity_uuid = uuid.UUID(str(opportunity_id))
+        opp = self._ingestion().get_opportunity(workspace_id, opportunity_uuid)
+        if opp is None:
+            raise PublicApiError("no_such_opportunity")
         external_id = secrets.token_urlsafe(16)
         row = PublicSignatureRequest(
             workspace_id=uuid.UUID(str(workspace_id)),
@@ -123,6 +140,12 @@ class PublicApiService:
         return row
 
     def signature_callback(self, external_id: str, status: str) -> PublicSignatureRequest:
+        # Allow the callback lookup to use the external_id as a secret key.
+        # The RLS policy on public_signature_requests accepts external_id as an
+        # alternative predicate.
+        self.s.execute(
+            text("SET LOCAL app.external_id = :external_id"), {"external_id": external_id}
+        )
         row = self.s.scalar(
             select(PublicSignatureRequest).where(
                 PublicSignatureRequest.external_id == external_id,
@@ -130,6 +153,8 @@ class PublicApiService:
         )
         if row is None:
             raise PublicApiError("not_found")
+        # Bind to the row's workspace before writing so the update policy passes.
+        bind_workspace_context(self.s, row.workspace_id)
         row.status = status
         if status == "signed":
             row.signed_at = datetime.now(UTC)

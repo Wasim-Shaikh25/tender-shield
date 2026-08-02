@@ -132,6 +132,19 @@ def _validate_prod_settings(settings: Settings) -> None:
             "At least one payment provider (Razorpay or Stripe) is required in production"
         )
 
+    # Public application URL is required for payment redirects, email links, and
+    # signature callbacks in production.
+    if not settings.app_url:
+        errors.append("TS_APP_URL is required in production")
+
+    # Rate limiting is distributed in production; without Redis a multi-instance
+    # deployment would allow trivial quota bypass. Proxies must be counted so the
+    # client IP is derived correctly from X-Forwarded-For.
+    if not settings.redis_url:
+        errors.append("TS_REDIS_URL is required in production for distributed rate limiting")
+    if settings.trusted_proxies <= 0:
+        errors.append("TS_TRUSTED_PROXIES must be > 0 for proxy-aware rate limiting in production")
+
     # Reject obviously dev/test placeholder secrets and short secrets.
     bad_secrets = {"dev-razorpay-secret", "secret", "changeme"}
     for secret_name, secret in (

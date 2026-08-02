@@ -6,7 +6,6 @@ they are flagged `needs_ocr` and degrade honestly (Doc §12.4)."""
 
 from __future__ import annotations
 
-import csv
 import io
 
 _MIN_PAGE_CHARS = 10  # a page with less digital text than this is "empty"
@@ -96,14 +95,15 @@ def _csv(data: bytes) -> str:
     return "\n".join(lines)
 
 
-def xlsx_to_csv(data: bytes) -> str:
-    """First sheet → CSV text, for the BOQ engine (which reads a workbook)."""
+def xlsx_to_rows(data: bytes) -> list[list[str]] | None:
+    """First sheet → list of row lists, for BOQ canonical CSV conversion."""
     from openpyxl import load_workbook
 
     wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
     ws = wb.worksheets[0]
-    buf = io.StringIO()
-    writer = csv.writer(buf)
+    rows: list[list[str]] = []
     for row in ws.iter_rows(values_only=True):
-        writer.writerow(["" if c is None else c for c in row])
-    return buf.getvalue()
+        cells = ["" if c is None else str(c) for c in row]
+        if any(cells):
+            rows.append(cells)
+    return rows if rows else None

@@ -140,7 +140,9 @@ class RateLimitDep:
         limiter = request.app.state.ctx.registry.get("core.rate_limiter")
         if limiter is None:
             return
-        host = _client_host(request)
+        settings = request.app.state.ctx.settings
+        trusted = settings.trusted_proxies if settings else 0
+        host = _client_host(request, trusted)
         # include the path so each endpoint has its own bucket
         key = f"{host}:{request.url.path}"
         if not await limiter.is_allowed(key, self.limit, self.window):
@@ -151,17 +153,16 @@ class RateLimitDep:
             )
 
 
-def _client_host(request: Request) -> str:
-    """Pick the client IP, preferring the rightmost X-Forwarded-For value.
-
-    The rightmost entry is the closest trusted proxy and cannot be spoofed by
-    the original client; it falls back to the transport-level peer.
-    """
+def _client_host(request: Request, trusted_proxies: int = 0) -> str:
+    """Pick the client IP from X-Forwarded-For, stripping the rightmost
+    trusted proxies. Falls back to the transport-level peer."""
     xff = request.headers.get("x-forwarded-for")
     if xff:
         parts = [p.strip() for p in xff.split(",") if p.strip()]
         if parts:
-            return parts[-1]
+            # The rightmost `trusted_proxies` entries are our own proxies.
+            idx = max(0, len(parts) - 1 - trusted_proxies)
+            return parts[idx]
     client = request.client
     return client.host if client else "unknown"
 

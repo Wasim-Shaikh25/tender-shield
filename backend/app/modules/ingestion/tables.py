@@ -57,13 +57,21 @@ def find_boq_table(tables: list[list[list[str]]]) -> list[list[str]] | None:
 
 
 def boq_table_to_csv(table: list[list[str]]) -> str:
-    """Rewrite a detected BOQ table to canonical-header CSV for the BOQ engine."""
+    """Rewrite a detected BOQ table to canonical-header CSV for the BOQ engine.
+    Always includes a `src_row` column so row/page provenance is preserved."""
     header = [(_map_header(c) or c.strip().lower().replace(" ", "_")) for c in table[0]]
+    body = [list(row) for row in table[1:]]
+    if "src_row" not in header:
+        header.insert(0, "src_row")
+        body = [[str(i + 1)] + row for i, row in enumerate(body)]
+    else:
+        idx = header.index("src_row")
+        header = [header[idx]] + header[:idx] + header[idx + 1 :]
+        body = [row[idx : idx + 1] + row[:idx] + row[idx + 1 :] for row in body]
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(header)
-    for row in table[1:]:
-        writer.writerow(row)
+    writer.writerows(body)
     return buf.getvalue()
 
 
@@ -114,13 +122,14 @@ def file_to_boq_csv(filename: str, data: bytes) -> str | None:
     """Turn an uploaded BOQ file into canonical CSV for the engine. CSV as-is,
     XLSX via openpyxl, PDF via table detection. Published as a capability so the
     BOQ module reads workbooks without importing ingestion."""
-    from app.modules.ingestion.extract import xlsx_to_csv
+    from app.modules.ingestion.extract import xlsx_to_rows
 
     name = filename.lower()
     if name.endswith(".csv"):
         return data.decode("utf-8", errors="replace")
     if name.endswith((".xlsx", ".xlsm")):
-        return xlsx_to_csv(data)
+        rows = xlsx_to_rows(data)
+        return boq_table_to_csv(rows) if rows else None
     if name.endswith(".pdf"):
         table = find_boq_table(extract_tables(data))
         return boq_table_to_csv(table) if table else None

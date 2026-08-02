@@ -84,6 +84,9 @@ class Settings(BaseSettings):
     # Rate limiting / async task broker. Redis is required for distributed rate
     # limiting in multi-instance deployments; falls back to in-memory when empty.
     redis_url: str | None = None
+    # Number of trusted reverse proxies in front of the API. Used to derive the
+    # client IP from X-Forwarded-For (0 means use the transport peer directly).
+    trusted_proxies: int = 0
 
     # Cookie policy for httpOnly refresh-token delivery. In production, Secure is
     # forced and SameSite is configurable ("lax" | "strict" | "none").
@@ -99,6 +102,10 @@ class Settings(BaseSettings):
     # Change inbox email webhook (TS-247). HMAC secret for inbound provider callbacks.
     change_email_webhook_secret: SecretStr | None = None
     change_inbox_domain: str = "inbox.tendershield.local"
+
+    # Public API e-signature callback secret (TS-292). Providers must send this in
+    # the X-Callback-Secret header. Empty in dev disables the check; required in prod.
+    public_api_callback_secret: SecretStr | None = None
 
     # Product flag: when True, paying workspaces may see unvalidated rule-patterns
     # with a clear disclaimer. Defaults to True during pre-QS launch so the product

@@ -64,6 +64,10 @@ class IntegrationsService:
     ) -> IntegrationSource:
         if adapter_kind not in ADAPTER_REGISTRY:
             raise IntegrationsError("unknown_adapter")
+        if opportunity_id:
+            opp = self._ingestion().get_opportunity(workspace_id, opportunity_id)
+            if opp is None:
+                raise IntegrationsError("no_such_opportunity")
         source = IntegrationSource(
             workspace_id=uuid.UUID(str(workspace_id)),
             opportunity_id=uuid.UUID(str(opportunity_id)) if opportunity_id else None,

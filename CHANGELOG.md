@@ -8,8 +8,42 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ### Done — Round 8 release-blocker fixes (TS-299)
 
-- **TS-299 backlog tracker cleanup** — removed duplicate `TS-297` entry and malformed
-  table row from `tasks/backlog.md`; `scripts/task_tracker.py --validate` is now clean.
+- **Auth team invitation/member-add 500s** — `add_workspace_member` now returns the
+  `email` field required by `MemberResponse`, so `POST /api/auth/workspaces/{id}/members`
+  and `POST /api/auth/invitations` respond correctly.
+- **Public API RLS + auth** — API-key lookup in `public_api/service.py` sets the
+  `app.api_key_hash` GUC before querying `public_api_keys`; the signature callback
+  route now requires an `X-Callback-Secret` header (production) and validates status,
+  and `signature_callback` uses `app.external_id` + workspace binding for RLS-safe
+  updates. New migration `d56668489ef4` relaxes the RLS predicates for key/callback
+  authentication.
+- **Opportunity validation** — `public_api.request_signature` and
+  `integrations.create_source` now verify `opportunity_id` belongs to the caller's
+  workspace via the ingestion service factory.
+- **Mobile verification default** — `.env.local` now sets
+  `TS_AUTH_MOBILE_VERIFICATION_ENABLED=true` so the sign-up flow matches the UI.
+- **BOQ async I/O** — `boq/router.py` wraps `to_csv` and `scanned` extraction in
+  `asyncio.to_thread`.
+- **BOQ XLSX provenance** — XLSX uploads are converted to canonical BOQ CSV with a
+  guaranteed `src_row` column; BOQ engine defects now carry `source_page` from
+  `src_row`.
+- **Severity missing facts** — `risk/severity.py` raises `MissingFactError` and
+  logs the specific missing fact before defaulting, making rule/fact alignment
+  visible.
+- **Production startup guards** — `app/main.py` now enforces `TS_APP_URL`,
+  `TS_REDIS_URL`, and `TS_TRUSTED_PROXIES` in production; `core/ratelimit.py` derives
+  the client IP from `X-Forwarded-For` after stripping trusted proxies.
+- **Baselines / artifacts version race** — added `UniqueConstraint` on
+  `(opportunity_id, version)` for both `baselines` and `artifacts`; new migration
+  `6dd2ea16bfc9` adds the DB-level constraint for `baselines`.
+- **Content-Disposition injection** — `export`, `analytics`, `express`, and `baseline`
+  download routes sanitize filenames with `sanitize_filename` before setting the
+  `Content-Disposition` header.
+- **Assistant output guard** — `assistant/agent.py` sanitizes the LLM response with
+  `sanitize_message` before citation validation.
+- **Build requirements** — `backend/pyproject.toml` pins `setuptools>=83.0.0`.
+- **AGENTS.md refresh** — removed the stale `TS-F01` workspace-list warning; the
+  response shape is aligned with `SessionProvider`.
 
 ### Done — auth configuration and login methods (TS-297)
 

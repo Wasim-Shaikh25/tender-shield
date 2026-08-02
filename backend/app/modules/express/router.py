@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core import audit as audit_log
 from app.core.deps import get_session, require
+from app.core.storage import sanitize_filename
 from app.modules.express.errors import ExpressError
 from app.modules.express.service import (
     ACKNOWLEDGMENT_VERSION,
@@ -203,10 +204,11 @@ def export_report(
         filename, media_type, data = _service(request, session).export_report(token, format)
     except ExpressError as exc:
         _raise(exc)
+    safe = sanitize_filename(filename)
     return Response(
         content=data,
         media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'attachment; filename="{safe}"'},
     )
 
 

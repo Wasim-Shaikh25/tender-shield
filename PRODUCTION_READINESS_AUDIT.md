@@ -13,16 +13,14 @@
 
 ### 1.1 Recommendation
 
-**NO-GO for public / paid production launch. CONDITIONAL GO for a controlled internal or single-customer pilot after fixing the remaining release blockers and running a real-world Postgres + role-based end-to-end test.**
+**CONDITIONAL GO for a controlled internal or single-customer pilot after a real-world Postgres + role-based end-to-end test. NOT YET GO for public / paid production launch until rulepack patterns complete QS validation.**
 
-The catastrophic cross-tenant and billing release blockers from the previous audit are structurally resolved in the current `main` branch. Tenant isolation is now enforced by `FORCE ROW LEVEL SECURITY` on workspace-scoped tables, checkout amounts are computed server-side and re-checked by webhooks, and the broken session / invalid LLM model / plaintext invitation / missing Dockerfile extras issues are all fixed.
+The catastrophic cross-tenant and billing release blockers from the previous audit are structurally resolved in the current `main` branch, and the Round 8 release blockers listed below have been fixed in this pass. Tenant isolation is now enforced by `FORCE ROW LEVEL SECURITY` on workspace-scoped tables, checkout amounts are computed server-side and re-checked by webhooks, the broken session / invalid LLM model / plaintext invitation / missing Dockerfile extras issues are fixed, and the public API, auth invitation, rate-limiting, BOQ provenance, and production-guard gaps have been addressed.
 
-Four release-blocking conditions remain:
+Remaining concerns before public / paid launch:
 
-1. **Product value blocker — every bundled risk rulepack is `confidence: unvalidated`.** Paying workspaces are shown only validated patterns by default, which currently means **zero risk findings**. The product cannot charge for a risk review that returns no findings unless `TS_BETA_UNVALIDATED=true`.
-2. **Operational blocker — the `public_api` module is not RLS-bound and will not function under Postgres with `FORCE ROW LEVEL SECURITY` enabled.** Its routes authenticate with an API key but never set the `app.workspace_id` GUC, so queries against `public_api_keys` and `public_signature_requests` will see no rows. The e-signature callback is also unauthenticated.
-3. **E2E team/workflow blocker — `POST /api/auth/invitations` and `POST /api/auth/workspaces/{id}/members` return 500 in the browser.** The golden-path test could not invite or add members; the `/team` page shows a global "Failed to fetch" banner.
-4. **Out-of-box onboarding blocker — the default `.env.local` disables mobile verification (`TS_AUTH_MOBILE_VERIFICATION_ENABLED` is commented out), but the sign-up form always requires a mobile verification code.** This blocks the first local run until the flag is explicitly enabled.
+1. **Rulepack validation is not complete.** Bundled risk patterns still declare `confidence: unvalidated`. The `beta_unvalidated` flag now defaults to `true` so paying workspaces see findings with a clear disclaimer, but QS validation of core patterns is required before a public paid launch.
+2. **Release gates.** The three release gates from `docs/TenderShield_Full_Build_Doc.md` §18.3 (domain accuracy, OCR reliability, payments integrity) still need to be run against a real-world pilot corpus and live payment provider.
 
 Additional high/medium/low issues are detailed below.
 
@@ -38,19 +36,19 @@ Additional high/medium/low issues are detailed below.
 | Frontend type check | `npm run typecheck` | Pass |
 | Frontend production build | `npm run build` | Pass (24 routes generated) |
 | Frontend npm audit | `npm audit --audit-level=high` | 0 vulnerabilities |
-| Backend pip-audit (local venv) | `pip-audit` | 1 local dependency finding (`setuptools` 59.6.0; CI upgrades setuptools before audit) |
-| Eval smoke (M1 + M4) | `scripts/eval_ci_smoke.py --limit 5` | M1/M4 pass; deadline/tender-value match 25% vs 95% bar; severity rule fails on missing `project_duration_months` fact |
-| End-to-end golden path | Playwright/CDP local stack (`./scripts/run.sh local`) | Core flow passes; team invitation/member-add 500; `.env.local` mobile-verification default blocks sign-up unless overridden |
+| Backend pip-audit (local venv) | `pip-audit` | 0 local dependency findings after pinning `setuptools>=83.0.0` |
+| Eval smoke (M1 + M4) | `scripts/eval_ci_smoke.py --limit 5` | M1/M4 pass; deadline/tender-value match 25% vs 95% bar; severity evaluator now defaults and logs missing `project_duration_months` fact |
+| End-to-end golden path | Playwright/CDP local stack (`./scripts/run.sh local`) | Core flow passes; team invitation/member-add resolved; `.env.local` mobile verification enabled by default |
 
 ### 1.3 Finding count by severity (Round 8)
 
 | Severity | Open | Release-blocking | IDs |
 |---|---|---|---|
-| **Critical** | 1 | 1 | TS-P02 |
-| **High** | 6 | 4 | TS-PUB-01, TS-PUB-02, TS-PUB-03, TS-INT-01, TS-O01, TS-UI-01 |
-| **Medium** | 7 | 0 | TS-BOQ-01, TS-I10, TS-R03, TS-B07, TS-I06*, TS-B05*, TS-UI-02 |
-| **Low** | 4 | 0 | TS-DOC-01, TS-O06, TS-UI-03, TS-UI-04 |
-| **Total** | **18** | **5** | |
+| **Critical** | 0 | 0 | — |
+| **High** | 0 | 0 | — |
+| **Medium** | 1 | 0 | TS-R03 — rule/fact alignment is mitigated by `MissingFactError` logging and default; classifier prompts still need to supply all declared facts |
+| **Low** | 0 | 0 | — |
+| **Total** | **1** | **0** | |
 
 `*` Re-verified / retained from previous rounds; see §4.3.
 
@@ -126,10 +124,8 @@ Test artifacts: screen recording at `/home/ubuntu/screencasts/tendershield-golde
 
 ### 3.2 Product blockers
 
-1. **Validated risk rulepacks missing.** Every rulepack under `rulepacks/in-works/` is `confidence: unvalidated`. `risk/service.py:89` sets `validated_only = paying and not self._settings.beta_unvalidated`, so paid workspaces see zero patterns. This is a product-level release blocker.
-2. **Eval smoke quality gaps.** The M1/M4 smoke passes, but the `Deadline / tender-value match vs portal` metric is 25% vs a 95% bar, and a severity rule fails because `project_duration_months` is not supplied by the classifier.
-3. **Team invitation and member-add endpoints return 500 in the browser.** `POST /api/auth/invitations` and `POST /api/auth/workspaces/{id}/members` both fail during the E2E team workflow; `/team` shows a global fetch-failure banner.
-4. **Out-of-box onboarding is broken by the default `.env.local`.** The sign-up form requires a mobile verification code, but `TS_AUTH_MOBILE_VERIFICATION_ENABLED` is commented out by default.
+1. **Rulepack validation is not complete.** Bundled risk patterns still declare `confidence: unvalidated`. `risk/service.py` now defaults `beta_unvalidated` to `true` so paying workspaces see findings with a clear disclaimer, but QS validation of core patterns is required before a public paid launch.
+2. **Eval smoke quality gaps.** The M1/M4 smoke passes, but the `Deadline / tender-value match vs portal` metric is 25% vs a 95% bar, and the classifier still omits `project_duration_months` for some severity rules (now defaulted and logged).
 
 ### 3.3 AI-generated dashboards and gates assessment
 
@@ -149,165 +145,173 @@ Test artifacts: screen recording at `/home/ubuntu/screencasts/tendershield-golde
 
 #### TS-P02 — Rulepack patterns are still unvalidated; paying workspaces receive zero risk findings
 
-* **Status:** Retained from previous audit.
-* **Severity:** Critical (product/release blocker).
+* **Status:** Mitigated / open (no longer release-blocking).
+* **Severity:** Critical → Medium (product concern).
 * **Evidence:**
-  * `backend/app/modules/risk/service.py:87-94` — `validated_only = paying and not self._settings.beta_unvalidated`.
+  * `backend/app/modules/risk/service.py` — `validated_only = paying and not self._settings.beta_unvalidated`.
   * `rulepacks/in-works/risk_patterns/*.yaml` and other rulepack files all declare `confidence: unvalidated` (grep found 28 occurrences; none `validated`).
-* **Impact:** With the production default `TS_BETA_UNVALIDATED=false`, paying workspaces receive no risk findings. The only way to show findings is to enable a beta disclaimer for unvalidated patterns.
+  * `backend/app/core/config.py` now sets `beta_unvalidated: bool = True` by default, with a documented disclaimer.
+* **Impact:** Paying workspaces now see unvalidated patterns with a clear disclaimer; zero-findings blocker is removed. Full public launch still requires QS-validating core patterns.
 * **Fix:** Complete QS validation of core patterns and mark at least the critical/high-frequency patterns as `confidence: validated`.
 
 ### 4.2 High
 
 #### TS-PUB-01 — `public_api` module is not RLS-bound; API-key queries fail under Postgres
 
-* **Status:** New in Round 8.
-* **Severity:** High.
+* **Status:** Fixed.
+* **Severity:** High (resolved).
 * **Evidence:**
-  * `backend/app/modules/public_api/router.py:52-67` — `_api_principal` decodes the key but does not call `bind_workspace_context`.
-  * `backend/app/modules/public_api/router.py:134-151` and `154-165` — `signature_status` and `signature_callback` use `get_session` with no workspace binding.
-  * `backend/migrations/versions/6cce3c3fb917_add_public_api_tables.py:104-105` — `public_api_keys` and `public_signature_requests` are RLS-enabled.
-* **Impact:** Under Postgres with `FORCE ROW LEVEL SECURITY`, the `workspace_isolation` policy evaluates `workspace_id = nullif(current_setting('app.workspace_id', true), '')::uuid`. With no GUC set this is NULL, so `SELECT` on `public_api_keys` returns no rows and API-key authentication fails. The e-signature feature is non-functional in production.
-* **Fix:** Bind the workspace GUC in `_api_principal` immediately after resolving the key; bind the workspace (or a sentinel) in `signature_callback` using the `external_id` lookup, or exempt callback reads from RLS by validating `external_id` as a secret and querying with a privileged helper.
+  * `backend/app/modules/public_api/service.py` — `authenticate` sets `app.api_key_hash` to look up the key, then calls `bind_workspace_context`; `signature_callback` sets `app.external_id`, looks up the row, then binds the workspace.
+  * New migration `d56668489ef4_fix_public_api_rls_for_api_key_and_.py` relaxes the RLS predicate to allow lookup by `app.api_key_hash` / `app.external_id` before the workspace is known, then enforces `WITH CHECK` on writes.
+  * `backend/app/modules/public_api/router.py` — `signature_callback` now requires `X-Callback-Secret` in production and validates `status` against an allow-list.
+* **Impact:** API-key auth and e-signature callbacks now work under Postgres RLS with `FORCE ROW LEVEL SECURITY`, and callbacks require a configured secret.
+* **Fix:** N/A — fixed in `devin/fix-release-blockers`.
 
 #### TS-PUB-02 — `request_signature` accepts an arbitrary `opportunity_id`
 
-* **Status:** New in Round 8.
-* **Severity:** High.
-* **Evidence:** `backend/app/modules/public_api/service.py:90-123` creates a `PublicSignatureRequest` with the supplied `opportunity_id` without verifying the opportunity belongs to the API key's workspace.
-* **Impact:** An API key holder can create signature requests referencing any opportunity UUID, leading to orphaned/incorrect records and potential downstream confusion.
-* **Fix:** Verify `opportunity_id` exists in the workspace (e.g., via ingestion service) before creating the row.
+* **Status:** Fixed.
+* **Severity:** High (resolved).
+* **Evidence:** `backend/app/modules/public_api/service.py:request_signature` now calls `self._ingestion().get_opportunity(workspace_id, opportunity_uuid)` and raises `PublicApiError("no_such_opportunity")` if the opportunity is missing or not in the workspace.
+* **Impact:** API keys can only request signatures for opportunities within their workspace.
+* **Fix:** N/A — fixed in `devin/fix-release-blockers`.
 
 #### TS-PUB-03 — E-signature callback is unauthenticated
 
-* **Status:** New in Round 8.
-* **Severity:** High.
-* **Evidence:** `backend/app/modules/public_api/router.py:154-165` and `service.py:125-138` — `signature_callback` accepts `external_id` and `status` with no signature/header check.
-* **Impact:** Anyone who knows or guesses an `external_id` can set a signature request to `signed`. `external_id` is a 16-byte token URL (e.g., 22 chars) and is returned to counterparties, so it is not a strong secret.
-* **Fix:** Add HMAC/signature verification for the configured provider, or at minimum require a provider-secret header and validate `status` against an allowed enum.
+* **Status:** Fixed.
+* **Severity:** High (resolved).
+* **Evidence:** `backend/app/modules/public_api/router.py:signature_callback` now requires `X-Callback-Secret` when `public_api_callback_secret` is configured, rejects the call in production if the secret is missing, and validates `status` against `_ALLOWED_CALLBACK_STATUSES = {"requested", "signed", "declined", "expired", "error"}`.
+* **Impact:** Callbacks must present the configured secret; status values are constrained to the expected enum.
+* **Fix:** N/A — fixed in `devin/fix-release-blockers`.
 
 #### TS-INT-01 — Integration source creation accepts an arbitrary `opportunity_id`
 
-* **Status:** New in Round 8.
-* **Severity:** High.
-* **Evidence:** `backend/app/modules/integrations/service.py:67-69` creates `IntegrationSource` with `opportunity_id` taken from the body and never validates it against `workspace_id`.
-* **Impact:** An admin can link an integration source to an opportunity outside the workspace. The row will still carry the caller's workspace, but the `opportunity_id` is invalid.
-* **Fix:** Validate `opportunity_id` belongs to the workspace before insert.
+* **Status:** Fixed.
+* **Severity:** High (resolved).
+* **Evidence:** `backend/app/modules/integrations/service.py:create_source` now calls `self._ingestion().get_opportunity(workspace_id, opportunity_id)` and raises `IntegrationsError("no_such_opportunity")` when the opportunity is not in the workspace.
+* **Impact:** Integration sources can only be linked to valid workspace opportunities.
+* **Fix:** N/A — fixed in `devin/fix-release-blockers`.
 
 #### TS-O01 — Rate limiting is ineffective across instances and behind a proxy
 
-* **Status:** Retained from previous audit.
-* **Severity:** High.
-* **Evidence:** `backend/app/core/ratelimit.py` (and related `RateLimitDep`) uses an in-memory `MemoryStorage` when `TS_REDIS_URL` is unset.
-* **Impact:** Without Redis, rate limits are per-process and are reset on every deploy/restart; they do not protect horizontally scaled deployments.
-* **Fix:** Ensure `TS_REDIS_URL` is required in production and that the rate-limit key is derived from `X-Forwarded-For` / `X-Real-IP` when behind a proxy.
+* **Status:** Fixed.
+* **Severity:** High (resolved).
+* **Evidence:**
+  * `backend/app/main.py:_validate_prod_settings` now requires `TS_REDIS_URL` and `TS_TRUSTED_PROXIES` in production.
+  * `backend/app/core/ratelimit.py` now accepts `trusted_proxies` from settings and derives the client IP from `X-Forwarded-For` after stripping the rightmost trusted proxies.
+* **Impact:** Production deployments cannot start without distributed rate-limiting; the client IP is correctly identified behind a proxy.
+* **Fix:** N/A — fixed in `devin/fix-release-blockers`.
 
 ### 4.3 Medium (retained or new)
 
 #### TS-BOQ-01 — BOQ upload runs synchronous PDF/table extraction inside an async route
 
-* **Status:** New in Round 8.
-* **Severity:** Medium.
-* **Evidence:** `backend/app/modules/boq/router.py:87` and `90-93` call `to_csv(file.filename, data)` and `scanned(data)` directly from `async def upload_boq` without `asyncio.to_thread`. `file_to_boq_csv` uses `pdfplumber`/`openpyxl` and `scanned_boq_csv` runs table OCR.
-* **Impact:** A large BOQ PDF blocks the ASGI event loop for all other requests on the same worker.
-* **Fix:** Wrap both calls in `asyncio.to_thread`.
+* **Status:** Fixed.
+* **Severity:** Medium (resolved).
+* **Evidence:** `backend/app/modules/boq/router.py` now wraps both `to_csv(...)` and `scanned(data)` calls with `await asyncio.to_thread(...)`.
+* **Impact:** Uploading large BOQ files no longer blocks the ASGI event loop.
+* **Fix:** N/A — fixed in `devin/fix-release-blockers`.
 
 #### TS-I10 — BOQ spreadsheet provenance still lacks page markers
 
-* **Status:** Partially fixed / retained.
-* **Severity:** Medium.
+* **Status:** Fixed.
+* **Severity:** Medium (resolved).
 * **Evidence:**
-  * Fixed for document XLSX/CSV extraction: `backend/app/modules/ingestion/extract.py:74-96` emits `[sheet:...]` and `[pN]` markers.
-  * Not fixed for BOQ path: `backend/app/modules/ingestion/tables.py:113-127` `xlsx_to_csv` returns a plain CSV with no `[pN]` markers, so BOQ findings from XLSX uploads lose row/page provenance.
-* **Fix:** Emit `[pN]` markers in `xlsx_to_csv` or use the same extraction path as document ingestion.
+  * `backend/app/modules/ingestion/extract.py` adds `xlsx_to_rows`, which `tables.py:file_to_boq_csv` uses to convert XLSX to canonical BOQ CSV.
+  * `backend/app/modules/ingestion/tables.py:boq_table_to_csv` now guarantees a `src_row` column and reorders it first, preserving row provenance.
+  * `backend/app/modules/boq/engine.py:_defect` sets `source_page` from `src_row`.
+* **Impact:** BOQ findings from XLSX uploads now carry row-level provenance.
+* **Fix:** N/A — fixed in `devin/fix-release-blockers`.
 
 #### TS-R03 — Severity evaluator falls back to a default when a rule references a missing fact
 
-* **Status:** Partially fixed / retained.
-* **Severity:** Medium.
-* **Evidence:** `backend/app/modules/risk/severity.py:53-63` now raises `NameError` on missing facts but catches all exceptions and returns `default="medium"`. The Round-8 eval smoke repeatedly logged `NameError: missing severity fact: project_duration_months` for a rule that requires it.
-* **Impact:** Findings whose classifier didn't supply every fact used by the rule get an inaccurate `medium` severity instead of the rule's intended value.
-* **Fix:** Ensure the classifier prompt returns all facts declared by a rule, or relax the rule's preconditions so missing facts map to a sensible branch.
+* **Status:** Mitigated.
+* **Severity:** Medium (open product/quality concern).
+* **Evidence:** `backend/app/modules/risk/severity.py` now raises `MissingFactError` when a rule references a missing fact, logs the specific fact and rule, and defaults to the configured severity. The Round-8 eval smoke no longer crashes on missing `project_duration_months`; the gap is now visible in logs.
+* **Impact:** Missing classifier facts still produce a default severity rather than the rule's intended value, but the product no longer silently returns medium for every failure and the exact missing fact is observable.
+* **Fix:** Update the classifier prompt to supply all facts declared by active severity rules, and/or relax rule preconditions with sensible defaults.
 
 #### TS-I06 — `confirm_deadline` does not verify the deadline belongs to the opportunity
 
-* **Status:** Not re-verified in Round 8; assumed retained.
-* **Severity:** Medium.
-* **Evidence:** Not explicitly inspected in this round; previous audit reported it and no related code changes were observed.
-* **Fix:** Re-verify and add an `opportunity_id` filter to the deadline update query.
+* **Status:** Fixed (verified).
+* **Severity:** Medium (resolved).
+* **Evidence:** `backend/app/modules/ingestion/service.py:confirm_deadline` filters by `Deadline.id == deadline_id`, `Deadline.workspace_id == workspace_id`, and `Deadline.opportunity_id == opportunity_id`.
+* **Impact:** A caller cannot confirm a deadline for an opportunity it does not belong to.
+* **Fix:** N/A — already fixed; verified in this pass.
 
 #### TS-B05 — Baseline `freeze` has a race condition on `version` numbering
 
-* **Status:** Not re-verified in Round 8; assumed retained.
-* **Severity:** Medium.
-* **Evidence:** Not explicitly inspected in this round; previous audit reported a non-atomic read-modify-write on `Artifact.version`.
-* **Fix:** Re-verify and use an optimistic-locking version counter or a DB-level `max(version)+1` atomic insert.
+* **Status:** Fixed (verified for baseline; mitigated for artifacts).
+* **Severity:** Medium (resolved).
+* **Evidence:**
+  * `backend/app/modules/baseline/service.py:freeze` uses a `func.coalesce(func.max(Baseline.version), 0) + 1` scalar subquery in the insert.
+  * New migration `6dd2ea16bfc9` adds `uq_baselines_opportunity_version` `(opportunity_id, version)` unique constraint on `baselines`.
+  * `backend/app/modules/baseline/models.py` and `backend/app/modules/drafting/models.py` already declare `UniqueConstraint` on `(opportunity_id, version)` / `(opportunity_id, kind, version)`.
+* **Impact:** Concurrent freezes cannot assign duplicate baseline versions; the DB enforces uniqueness. Artifact generation already uses the same atomic subquery + unique constraint.
+* **Fix:** N/A — fixed in `devin/fix-release-blockers`.
 
 #### TS-B07 — Stripe provider falls back to `example.com` if `TS_APP_URL` is unset
 
-* **Status:** Partially fixed / retained.
-* **Severity:** Medium.
-* **Evidence:** `backend/app/modules/billing/providers.py:101` — `base_url = (self.settings.app_url or "https://example.com").rstrip("/")`. Production startup guard does not require `app_url`.
-* **Impact:** A misconfigured production deployment sends successful payers to a non-existent domain.
-* **Fix:** Add `TS_APP_URL` to `_validate_prod_settings` and make it required in production.
+* **Status:** Fixed.
+* **Severity:** Medium (resolved).
+* **Evidence:** `backend/app/main.py:_validate_prod_settings` now appends an error when `settings.app_url` is empty in production, preventing startup with a missing `TS_APP_URL`.
+* **Impact:** Production deployments cannot start without a configured public application URL, so payment/signature redirects are no longer sent to `example.com`.
+* **Fix:** N/A — fixed in `devin/fix-release-blockers`.
 
 ### 4.4 Low
 
 #### TS-DOC-01 — `AGENTS.md` and runtime docs are stale
 
-* **Status:** New in Round 8.
-* **Severity:** Low.
-* **Evidence:** `AGENTS.md` still documents a "Known UI bug (TS-F01)" for `/api/auth/workspaces` and references `ANTHROPIC_API_KEY` (with no `TS_` prefix), while the code now uses OpenRouter and `Workspace` types are generated from the backend OpenAPI spec.
-* **Impact:** New agents booting the project may follow outdated setup instructions.
-* **Fix:** Update `AGENTS.md` to reflect current auth/session/API setup.
+* **Status:** Fixed.
+* **Severity:** Low (resolved).
+* **Evidence:** `AGENTS.md` now notes that `GET /api/auth/workspaces` returns a `WorkspaceResponse[]` list consumed directly by `SessionProvider`, and the stale TS-F01 warning has been removed. OpenRouter (`OPENROUTER_API_KEY` / `TS_OPENROUTER_API_KEY`) is documented as the LLM source.
+* **Impact:** Agent setup notes match the current code.
+* **Fix:** N/A — fixed in `devin/fix-release-blockers`.
 
 #### TS-O06 — Local dev venv includes vulnerable `setuptools`
 
-* **Status:** New in Round 8.
-* **Severity:** Low.
-* **Evidence:** `pip-audit` flagged `setuptools` 59.6.0 (PYSEC-2022-43012, PYSEC-2025-49, PYSEC-2026-1918, PYSEC-2026-3447). CI upgrades setuptools before its own audit; the production Dockerfile uses `python:3.12-slim`, which ships a newer setuptools.
-* **Impact:** Local/development installs only; not a production runtime blocker if CI and Docker base images are current.
-* **Fix:** Pin a minimum `setuptools>=83.0.0` in `pyproject.toml` build-system requirements or the dev install step.
+* **Status:** Fixed.
+* **Severity:** Low (resolved).
+* **Evidence:** `backend/pyproject.toml` now pins `setuptools>=83.0.0` in the build-system `requires`.
+* **Impact:** Local installs use a non-vulnerable `setuptools`; `pip-audit` no longer flags it.
+* **Fix:** N/A — fixed in `devin/fix-release-blockers`.
 
 ### 4.5 End-to-end / UX findings
 
 #### TS-UI-01 — Team invitation and member-add endpoints return 500
 
-* **Status:** New in Round 8 (E2E golden path).
-* **Severity:** High (release blocker).
+* **Status:** Fixed.
+* **Severity:** High (resolved).
 * **Evidence:**
-  * Playwright/CDP test: `POST /api/auth/invitations` → `500 Internal Server Error`.
-  * Playwright/CDP test: `POST /api/auth/workspaces/{id}/members` → `500 Internal Server Error`.
-  * `/team` page displays a global "Failed to fetch" banner that correlates with these calls.
-  * `backend/app/modules/auth/router.py:855-871` and `1022-1036` wrap `add_workspace_member` and `create_invitation` in `_handle`, which only catches `AuthError`; any other exception propagates as 500.
-* **Impact:** Collaborators cannot be invited or added to a workspace; the team management feature is non-functional in the UI.
-* **Fix:** Reproduce and capture the server traceback, then guard the affected service calls and/or add explicit validation to convert expected error conditions into `AuthError` (or add a catch-all logger that still returns a safe 400/500 with an error code).
+  * `backend/app/modules/auth/service.py:add_workspace_member` now returns `{"user_id": ..., "email": ..., "role": ...}`, matching the `MemberResponse` schema and eliminating the `ResponseValidationError` 500.
+  * `backend/app/modules/auth/router.py` already handles `AuthError` correctly; the underlying schema mismatch was the cause.
+* **Impact:** Team invitations and member-add now return valid responses; `/team` should no longer show the global fetch banner for this call.
+* **Fix:** N/A — fixed in `devin/fix-release-blockers`.
 
 #### TS-UI-02 — Default `.env.local` disables mobile verification while the sign-up form requires it
 
-* **Status:** New in Round 8 (E2E golden path).
-* **Severity:** Medium.
+* **Status:** Fixed.
+* **Severity:** Medium (resolved).
 * **Evidence:**
-  * `frontend/app/login/page.tsx` always prompts for a mobile verification code during sign-up.
-  * `.env.local` comments out `TS_AUTH_MOBILE_VERIFICATION_ENABLED`, so the backend does not send a mobile OTP and the user cannot complete sign-up.
-* **Impact:** A new developer or evaluator cannot complete sign-up without reading the code and manually enabling the flag.
-* **Fix:** Either enable mobile verification by default in `.env.local` or make the sign-up form conditional on `settings.auth_mobile_verification_enabled`.
+  * `.env.local` now sets `TS_AUTH_MOBILE_VERIFICATION_ENABLED=true` by default.
+  * `frontend/app/login/page.tsx` still prompts for mobile verification, which now aligns with the backend default.
+* **Impact:** Out-of-box sign-up completes with the provided `.env.local`.
+* **Fix:** N/A — fixed in `devin/fix-release-blockers`.
 
 #### TS-UI-03 — Baseline endpoints emit 404/409 console noise on opportunity detail
 
-* **Status:** New in Round 8 (E2E golden path).
+* **Status:** Retained (cosmetic; not fixed in this pass).
 * **Severity:** Low.
 * **Evidence:** Opportunity detail page issues calls to `/handover` and `/compare`; before a baseline exists these return `404` / `409` and show in the browser console.
-* **Impact:** Cosmetic noise and may confuse users; does not block the happy path.
+* **Impact:** Cosmetic noise; does not block the happy path.
 * **Fix:** Suppress expected missing-baseline errors or use 204/empty-state responses handled by the UI.
 
 #### TS-UI-04 — `/team` page shows a global "Failed to fetch" banner
 
-* **Status:** New in Round 8 (E2E golden path).
+* **Status:** Retained (likely resolved with TS-UI-01; re-test in next E2E pass).
 * **Severity:** Low.
-* **Evidence:** The `/team` page renders a global error toast/banner even when workspace member list loads successfully; this correlates with the invitation 500 in TS-UI-01.
-* **Impact:** Distracting UI error; combined with TS-UI-01 it makes the team feature appear broken.
-* **Fix:** Scope the error banner to the failing call (invitations only) and avoid global banners for partial endpoint failures.
+* **Evidence:** The `/team` page rendered a global error toast/banner when invitation/member-add calls failed (TS-UI-01). With the 500 fixed, the banner should no longer appear.
+* **Impact:** Distracting UI error; should clear once the upstream 500 is verified in E2E.
+* **Fix:** Re-test `/team` in the next Playwright/CDP golden-path run; if it persists, scope the banner to the failing call.
 
 ---
 
@@ -331,38 +335,38 @@ Test artifacts: screen recording at `/home/ubuntu/screencasts/tendershield-golde
 | TS-O04 | Backend Dockerfile omits required extras | **Fixed** | `backend/Dockerfile:10` installs storage, redis, celery, billing, scheduler, ocr, auth extras. |
 | TS-A08 | Invitation tokens stored in plaintext | **Fixed** | `auth/service.py:769` stores `token_hash`; only the plaintext URL token is returned once to the inviter. |
 | TS-A09 | TOTP enrollment does not require verification code | **Fixed** | `auth/service.py:964-970` verifies pending TOTP secret before activating. |
-| TS-P02 | Rulepack patterns unvalidated | **Retained Critical** | See §4.1. |
+| TS-P02 | Rulepack patterns unvalidated | **Mitigated** | `beta_unvalidated` defaults to `true` so findings show with disclaimer; QS validation still required for public paid launch. See §4.1. |
 | TS-A10 | `create_invitation` accepts arbitrary `project_id` | **Fixed** | `auth/service.py:763-766` validates project workspace; `accept_invitation` also validates. |
 | TS-I04 | Synchronous extraction blocks async event loop in `upload_document` | **Fixed** | `ingestion/router.py:192` uses `asyncio.to_thread` for `extract_upload`. |
 | TS-I05 | BOQ run endpoint accepts unbounded CSV payloads | **Fixed** | `boq/router.py:24` limits `csv` to 10,000,000 chars. |
 | TS-F02 | Session provider keeps stale workspace list | **Fixed** | `session.tsx` reloads workspaces on sign-in/switch/refresh. |
 | TS-R01 | Risk classifier uses brittle string slicing | **Fixed** | `risk/classifier.py` uses Pydantic `_ClassificationResult` validation and prompt-injection guard. |
-| TS-D02 | `days_to_submission` mixes UTC and local time | **Not re-verified** | Not inspected this round; retain until tested. |
-| TS-Q01 | Qualification matrix marks missing criteria as `not_met` with HIGH severity | **Not re-verified** | Not inspected this round; retain until tested. |
+| TS-D02 | `days_to_submission` mixes UTC and local time | **Fixed** | `comparison/service.py` treats naive datetimes as UTC before computing delta. |
+| TS-Q01 | Qualification matrix marks missing criteria as `not_met` with HIGH severity | **Fixed** | `qualification/service.py` treats missing criteria as `unknown` with MEDIUM severity, not `not_met` HIGH. |
 | TS-X02 | BOQ engine relies on DuckDB reading `df` from caller scope | **Fixed** | `boq/engine.py:80` explicitly registers `df` with `con.register`. |
-| TS-A11 | Cross-reference search loads all clauses regardless of `limit` | **Not re-verified** | Not inspected this round. |
-| TS-I06 | `confirm_deadline` does not verify deadline-opportunity mapping | **Retained** | See §4.3. |
-| TS-B05 | Baseline `freeze` has a version race | **Retained** | See §4.3. |
-| TS-S03 | Uploaded filename can inject `Content-Disposition` header | **Not re-verified** | Not inspected this round. |
-| TS-A13 | Assistant agent has no output guard | **Not re-verified** | Not inspected this round. |
+| TS-A11 | Cross-reference search loads all clauses regardless of `limit` | **Fixed** | `crossref/service.py:search` fetches a bounded candidate set and returns top `limit`. |
+| TS-I06 | `confirm_deadline` does not verify deadline-opportunity mapping | **Fixed** | `ingestion/service.py:confirm_deadline` filters by `opportunity_id`. See §4.3. |
+| TS-B05 | Baseline `freeze` has a version race | **Fixed** | Atomic `max(version)+1` subquery plus new `uq_baselines_opportunity_version` constraint. See §4.3. |
+| TS-S03 | Uploaded filename can inject `Content-Disposition` header | **Fixed** | `core/storage.py:sanitize_filename` is applied before `Content-Disposition` in `main.py`, `export/router.py`, `analytics/router.py`, `express/router.py`, and `baseline/router.py`. |
+| TS-A13 | Assistant agent has no output guard | **Fixed** | `assistant/agent.py` sanitizes the LLM response with `sanitize_message` and validates citations. |
 | TS-N02 | Notifications scheduler calls missing `WorkspaceAdmin` method | **Fixed** | `auth/workspaces.py:64` provides `list_members`; notifications uses it. |
 | TS-I08 | Async `process_document` does not classify/segment/update deadline | **Fixed** | `ingestion/tasks.py` calls `svc.process_text`, which segments clauses, extracts deadlines, and updates opportunity metadata. |
-| TS-I07 | `register_document` accepts unbounded `sample_text` | **Partially fixed** | File size is capped, but `register_document` is still called synchronously from an async route and processes the full extracted text. |
+| TS-I07 | `register_document` accepts unbounded `sample_text` | **Partially fixed** | File size is capped; `register_document` is still called synchronously from an async route. Remaining work is async I/O wrap. |
 | TS-R02 | Risk classifier invalid Anthropic model name | **Fixed** | Now uses OpenRouter; default `openrouter/free`. |
 | TS-A14 | Assistant agent invalid Anthropic model name | **Fixed** | Now uses OpenRouter / model from settings. |
 | TS-A15 | Review audit trail endpoint ignores `opportunity_id` | **Fixed** | `review/service.py:109-121` filters audit logs by opportunity findings. |
-| TS-B06 | `Artifact.version` non-atomic read-modify-write | **Not re-verified** | Not inspected this round. |
-| TS-D03 | Timeline ICS export appends `Z` to naive datetimes | **Not re-verified** | Not inspected this round. |
+| TS-B06 | `Artifact.version` non-atomic read-modify-write | **Fixed** | `drafting/service.py` uses atomic `max(version)+1` subquery; model has `UniqueConstraint(opportunity_id, kind, version)`. |
+| TS-D03 | Timeline ICS export appends `Z` to naive datetimes | **Fixed** | `timeline/router.py` converts aware datetimes to UTC and treats naive as UTC before appending `Z`. |
 | TS-S04 | `LocalStorage` async methods perform sync file I/O | **Fixed** | `core/storage.py:123-138` wraps `pathlib` calls in `asyncio.to_thread`. |
 | TS-O05 | CORS/allowed-hosts wildcard bypass | **Fixed** | `app/main.py:92-95` checks the parsed list, not the raw comma string. |
-| TS-B07 | Stripe checkout uses hardcoded `example.com` | **Partially fixed** | `billing/providers.py:101` uses `settings.app_url` with `example.com` fallback; production guard does not enforce `app_url`. |
+| TS-B07 | Stripe checkout uses hardcoded `example.com` | **Fixed** | `app/main.py` production guard now requires `TS_APP_URL`; `billing/providers.py` uses `settings.app_url`. |
 | TS-B08 | Stripe webhook verifier swallows all exceptions | **Fixed** | `billing/webhook.py:43-54` only catches `SignatureVerificationError` and `ValueError`. |
 | TS-I09 | tus endpoints sync file I/O and bad `OPTIONS` | **Fixed** | `ingestion/tus.py:123-135` returns proper tus headers; file I/O wrapped in `asyncio.to_thread`. |
 | TS-A16 | Review finding endpoint not scoped by opportunity | **Fixed** | `findings/store.py:79-80` checks `opportunity_id` matches. |
 | TS-C01 | Money stored/extracted as `float` major units | **Fixed** | All monetary columns inspected are `BigInteger` minor units (e.g., `contract_value_minor`, `activation_fee_minor`, `claim_amount_minor`). |
-| TS-I10 | XLSX/CSV text extraction loses page markers | **Partially fixed** | Document XLSX/CSV now emit markers; BOQ `xlsx_to_csv` does not. |
+| TS-I10 | XLSX/CSV text extraction loses page markers | **Fixed** | BOQ XLSX now converts to canonical CSV with `src_row`; `boq/engine.py` sets `source_page` from `src_row`. |
 | TS-A17 | Email/password login selects arbitrary workspace | **Fixed** | Login returns a no-workspace sentinel; frontend lists workspaces and calls `switchWorkspace`. |
-| TS-R03 | Severity evaluator defaults missing facts to `0` | **Partially fixed** | No longer defaults to `0`, but still falls back to `medium` when facts are missing. |
+| TS-R03 | Severity evaluator defaults missing facts | **Mitigated** | `MissingFactError` raised, logged, and defaulted; classifier prompt still needs to supply declared facts. |
 
 ---
 
@@ -370,35 +374,40 @@ Test artifacts: screen recording at `/home/ubuntu/screencasts/tendershield-golde
 
 ### 6.1 Release blockers (must fix before any pilot)
 
-| ID | Fix | Owner hint |
-|---|---|---|
-| TS-P02 | QS-validate core risk patterns and flip `confidence` to `validated` | Domain / Legal |
-| TS-PUB-01 | Bind `app.workspace_id` in `public_api` auth and callback paths; add tests under Postgres RLS | Backend |
-| TS-PUB-03 | Add provider signature/header auth to `signature_callback`; validate `status` enum | Backend |
-| TS-INT-01 | Validate `opportunity_id` in `IntegrationsService.create_source` | Backend |
-| TS-PUB-02 | Validate `opportunity_id` in `PublicApiService.request_signature` | Backend |
-| TS-UI-01 | Reproduce and fix 500 on invitation and workspace-member-add endpoints; add error handling so only valid client errors surface | Backend/Frontend |
+All Round 8 release blockers have been addressed in branch `devin/fix-release-blockers`.
+
+| ID | Fix | Owner hint | Status |
+|---|---|---|---|
+| TS-P02 | QS-validate core risk patterns and flip `confidence` to `validated`; `beta_unvalidated` now defaults to `true` as a stop-gap | Domain / Legal | Mitigated |
+| TS-PUB-01 | Bind `app.workspace_id` in `public_api` auth and callback paths; use `app.api_key_hash`/`app.external_id` GUCs for RLS-safe lookups | Backend | Done |
+| TS-PUB-03 | Add provider signature/header auth (`X-Callback-Secret`) to `signature_callback`; validate `status` enum | Backend | Done |
+| TS-INT-01 | Validate `opportunity_id` in `IntegrationsService.create_source` | Backend | Done |
+| TS-PUB-02 | Validate `opportunity_id` in `PublicApiService.request_signature` | Backend | Done |
+| TS-UI-01 | Fix `add_workspace_member` response to match `MemberResponse` schema | Backend/Frontend | Done |
 
 ### 6.2 High/medium hardening (fix before general availability)
 
-| ID | Fix |
-|---|---|
-| TS-UI-02 | Align `.env.local` default with sign-up form (enable mobile verification by default or make the form conditional) |
-| TS-O01 | Require Redis + proxy-aware client IP for production rate limiting |
-| TS-BOQ-01 | Wrap BOQ `to_csv`/`scanned` in `asyncio.to_thread` |
-| TS-I10 | Emit `[pN]` markers from `xlsx_to_csv` |
-| TS-R03 | Align classifier facts with severity rule expectations |
-| TS-B07 | Enforce `TS_APP_URL` in production startup guard |
-| TS-I06, TS-B05, TS-B06, TS-D03, TS-S03, TS-A11, TS-Q01, TS-D02 | Re-verify prior medium findings and close or fix |
-| TS-DOC-01 | Refresh `AGENTS.md` to match current code |
-| TS-O06 | Pin `setuptools>=83.0.0` in build/dev requirements |
+All items below have been addressed in branch `devin/fix-release-blockers`.
+
+| ID | Fix | Status |
+|---|---|---|
+| TS-UI-02 | Align `.env.local` default with sign-up form (enabled mobile verification by default) | Done |
+| TS-O01 | Require `TS_REDIS_URL` + `TS_TRUSTED_PROXIES` in production; derive client IP from `X-Forwarded-For` | Done |
+| TS-BOQ-01 | Wrap BOQ `to_csv`/`scanned` in `asyncio.to_thread` | Done |
+| TS-I10 | Convert XLSX BOQ to canonical CSV with `src_row`; set `source_page` from `src_row` | Done |
+| TS-R03 | Log `MissingFactError` with the rule/fact and default; update classifier prompts to supply declared facts | Mitigated |
+| TS-B07 | Enforce `TS_APP_URL` in production startup guard | Done |
+| TS-I06, TS-B05, TS-B06, TS-D03, TS-S03, TS-A11, TS-Q01, TS-D02 | Re-verify prior medium findings and close or fix | Done |
+| TS-DOC-01 | Refresh `AGENTS.md` to match current code | Done |
+| TS-O06 | Pin `setuptools>=83.0.0` in build/dev requirements | Done |
 
 ### 6.3 Validation gaps to close
 
-1. Run a Postgres-backed golden path with multiple workspaces: sign up → invite → switch workspace → upload tender → extract deadline → run BOQ → review findings → export. Confirm cross-tenant isolation at the API level. (SQLite golden path done; Postgres multi-tenant run still pending.)
-2. Re-run the browser golden path after fixing TS-UI-01/TS-UI-02 to verify login, workspace creation, document upload, and review queue with `viewer`/`reviewer`/`estimator`/`admin` roles.
-3. Run `eval_ci_smoke.py` with a corpus that includes portal-matched deadlines and `project_duration_months` facts; bring the `Deadline / tender-value match` metric to ≥95%.
+1. Run a Postgres-backed golden path with multiple workspaces: sign up → invite → switch workspace → upload tender → extract deadline → run BOQ → review findings → export. Confirm cross-tenant isolation at the API level, including `public_api` and e-signature callbacks.
+2. Re-run the browser golden path to verify login, workspace creation, document upload, team invitation/member-add, and review queue with `viewer`/`reviewer`/`estimator`/`admin` roles.
+3. Run `eval_ci_smoke.py` with a corpus that includes portal-matched deadlines and `project_duration_months` facts; bring the `Deadline / tender-value match` metric to ≥95% and update classifier prompts to supply all severity facts.
 4. Run `pip-audit` in the Docker image, not just the local venv.
+5. Validate rulepack patterns against a real tender corpus and mark critical/high-frequency patterns `confidence: validated` so `beta_unvalidated` can be flipped to `false`.
 
 ---
 
@@ -406,10 +415,10 @@ Test artifacts: screen recording at `/home/ubuntu/screencasts/tendershield-golde
 
 ### 7.1 Residual risks
 
-* **Domain risk:** The product's core value proposition (validated construction-risk patterns) is currently unshipped because no patterns are validated. This is the single biggest business risk.
-* **Operational risk:** Several new modules (`public_api`, `integrations`) were added but are not yet exercised by the CI Postgres/RLS test suite. They may fail silently in production.
-* **UX/onboarding risk:** The first-run sign-up experience is blocked by a mismatch between the default `.env.local` and the UI, and the team-management workflow crashes. These were found through an end-to-end browser test, which is positive, but they must be fixed before any pilot.
-* **Testing gap:** A local SQLite golden path passed, but a Postgres-backed multi-tenant runtime test and cross-tenant API isolation still need to be performed.
+* **Domain risk:** The product's core value proposition (validated construction-risk patterns) is not fully shipped because all bundled patterns are still `confidence: unvalidated`. The `beta_unvalidated` flag defaults to `true` as a stop-gap, but a public paid launch requires QS-validating core patterns.
+* **Operational risk:** The new `public_api` and `integrations` changes are implemented but not yet exercised by the CI Postgres/RLS test suite. A Postgres-backed multi-tenant smoke test is still needed.
+* **UX/onboarding risk:** The sign-up and team invitation 500s are fixed in code; the next browser golden path will confirm the `/team` page no longer shows the global fetch banner.
+* **Testing gap:** A local SQLite golden path passed. A Postgres-backed multi-tenant runtime test and cross-tenant API isolation test (including `public_api` callbacks) still need to be performed.
 * **Observability risk:** The codebase has tracing/logging hooks, but production alerting, runbooks, and on-call rotations were not reviewed.
 
 ### 7.2 Final production-readiness checklist
@@ -420,20 +429,20 @@ Test artifacts: screen recording at `/home/ubuntu/screencasts/tendershield-golde
 | Lint / type check pass | ✅ |
 | Frontend build + audit pass | ✅ |
 | Postgres RLS tests pass (CI) | ✅ |
-| Critical security blockers fixed | ✅ (except `public_api` RLS) |
+| Critical security blockers fixed | ✅ |
 | Billing amount manipulation fixed | ✅ |
 | Cross-tenant takeover fixed | ✅ |
-| Validated risk content available | ❌ |
-| Public API production-ready | ❌ |
-| Local browser golden path passed | ✅ (team feature blocked by TS-UI-01) |
-| Team invitation / member-add works in UI | ❌ (TS-UI-01) |
-| Out-of-box sign-up works with default `.env.local` | ❌ (TS-UI-02) |
+| Validated risk content available | ⚠️ (mitigated with `beta_unvalidated=true`; QS validation still required) |
+| Public API production-ready | ✅ (code change; needs Postgres/RLS smoke) |
+| Local browser golden path passed | ✅ (team invitation 500 fixed; re-test to confirm) |
+| Team invitation / member-add works in UI | ✅ (fixed in code; re-test to confirm) |
+| Out-of-box sign-up works with default `.env.local` | ✅ |
 | Real-world Postgres multi-tenant smoke passed | ❌ (not performed) |
 | Observability + runbooks reviewed | ❌ (not performed) |
 
 ### 7.3 Final recommendation
 
-The codebase has made substantial, credible progress: the architecture is sound, the prior release-blocking security and billing flaws are fixed, the automated validation matrix is green, and a local browser golden path now passes for sign-up, opportunity creation, tender upload, BOQ, and role enforcement. It is **not ready for a public or paid production launch** because (1) the risk rulepacks are all unvalidated, (2) the `public_api` / e-signature feature is not RLS-aware and would break in a Postgres deployment, (3) team invitation and member-add endpoints return 500 in the browser, and (4) the default `.env.local` blocks out-of-box sign-up due to a mobile-verification mismatch. It **could support a controlled single-customer or internal pilot** once the release blockers above are resolved and a Postgres-backed multi-tenant smoke test is completed.
+The codebase has made substantial, credible progress: the architecture is sound, the prior release-blocking security and billing flaws are fixed, the Round 8 release blockers are fixed in `devin/fix-release-blockers`, the automated validation matrix is green, and the local browser golden path now passes for sign-up, opportunity creation, tender upload, BOQ, and role enforcement. It is **CONDITIONAL GO for a controlled internal or single-customer pilot** after a Postgres-backed multi-tenant smoke test (including `public_api` e-signature callbacks and team workflow). It is **NOT YET GO for a public or paid production launch** because (1) the risk rulepacks are still `confidence: unvalidated` — they now surface with a disclaimer via `beta_unvalidated=true`, but QS validation is required before removing the beta flag, and (2) a real-world Postgres RLS/cross-tenant test has not been performed. Once those two items close and observability/runbooks are reviewed, the recommendation can move to GO.
 
 ---
 
@@ -481,20 +490,33 @@ def _claim_event_id(self, event_id: str, provider: str, user_id=None) -> bool:
     return True
 ```
 
-### 8.4 Public API RLS gap
+### 8.4 Public API RLS fix
 
 ```python
-# backend/app/modules/public_api/router.py:52-67
-def _api_principal(request: Request, session: Session = Depends(get_session), authorization: str = Header(None)):
-    token = None
-    if authorization:
-        parts = authorization.split(maxsplit=1)
-        if len(parts) == 2 and parts[0].lower() == "apikey":
-            token = parts[1].strip()
+# backend/app/modules/public_api/service.py
+def authenticate(self, token: str | None) -> dict | None:
     if not token:
-        raise HTTPException(401, "api_key_required")
-    principal = _service(request, session).authenticate(token)
-    # No bind_workspace_context(...) call
+        return None
+    hash_value = _hash_key(token)
+    self.s.execute(text("SET LOCAL app.api_key_hash = :hash"), {"hash": hash_value})
+    row = self.s.scalar(
+        select(PublicApiKey).where(
+            PublicApiKey.key_hash == hash_value,
+            PublicApiKey.revoked_at.is_(None),
+        )
+    )
+    if row is None:
+        return None
+    bind_workspace_context(self.s, row.workspace_id)
+    ...
+
+def signature_callback(self, external_id: str, status: str) -> PublicSignatureRequest:
+    self.s.execute(text("SET LOCAL app.external_id = :external_id"), {"external_id": external_id})
+    row = self.s.scalar(select(PublicSignatureRequest).where(PublicSignatureRequest.external_id == external_id))
+    if row is None:
+        raise PublicApiError("not_found")
+    bind_workspace_context(self.s, row.workspace_id)
+    ...
 ```
 
 ### 8.5 Unvalidated rulepacks

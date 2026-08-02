@@ -205,3 +205,7 @@ class ApprovalLimit(Base, WorkspaceScopedMixin):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+# Import document-class ACL model so its table is registered on Base.metadata.
+from app.modules.auth.acl import DocumentClassAcl  # noqa: E402, F401

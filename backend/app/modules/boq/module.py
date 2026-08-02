@@ -16,6 +16,6 @@ module = ModuleSpec(
     name="boq",
     version="0.1.0",
     router=router,
-    soft_deps=("rulepacks", "findings", "ingestion"),
+    soft_deps=("rulepacks", "findings", "ingestion", "integrations", "outcomes"),
     setup=setup,
 )

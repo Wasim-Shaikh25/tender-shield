@@ -1,7 +1,13 @@
 """Page-level text chunks and the `ingestion.doc_text` capability (TS-068).
 
 Text is split on `[pN]` page markers emitted by `extract.py`. If no markers are
-present, the whole text is stored as page 1."""
+present, the whole text is stored as page 1.
+
+Language detection is script-based and lightweight (no external NLP library).
+When an OpenRouter key is configured, a short English summary/translation of
+non-English content is produced on demand and stored in document metadata; the
+original text is never replaced (TS-315).
+"""
 
 from __future__ import annotations
 
@@ -9,6 +15,7 @@ import re
 import uuid
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Any
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -16,6 +23,72 @@ from sqlalchemy.orm import Session
 from app.modules.ingestion.models import DocChunk
 
 _PAGE_MARKER = re.compile(r"^\s*\[p(\d+)\]\s*$", re.MULTILINE)
+
+# Lightweight script-based language detection for Indian + major non-Latin scripts.
+_SCRIPT_RANGES = [
+    ("hi", r"[\u0900-\u097F]"),  # Devanagari
+    ("bn", r"[\u0980-\u09FF]"),  # Bengali
+    ("te", r"[\u0C00-\u0C7F]"),  # Telugu
+    ("ta", r"[\u0B80-\u0BFF]"),  # Tamil
+    ("ml", r"[\u0D00-\u0D7F]"),  # Malayalam
+    ("kn", r"[\u0C80-\u0CFF]"),  # Kannada
+    ("gu", r"[\u0A80-\u0AFF]"),  # Gujarati
+    ("pa", r"[\u0A00-\u0A7F]"),  # Gurmukhi
+    ("or", r"[\u0B00-\u0B7F]"),  # Oriya
+    ("ar", r"[\u0600-\u06FF\u0750-\u077F]"),  # Arabic
+    ("zh", r"[\u4E00-\u9FFF]"),  # CJK
+    ("ja", r"[\u3040-\u309F\u30A0-\u30FF]"),  # Hiragana/Katakana
+    ("ko", r"[\uAC00-\uD7AF]"),  # Hangul
+    ("ru", r"[\u0400-\u04FF]"),  # Cyrillic
+]
+
+
+def detect_language(text: str) -> str:
+    """Return a BCP-47-ish language code from script ranges. Falls back to `en`."""
+    if not text:
+        return "en"
+    sample = text[:5000]
+    counts: dict[str, int] = {}
+    for lang, pattern in _SCRIPT_RANGES:
+        counts[lang] = len(re.findall(pattern, sample))
+    if not any(counts.values()):
+        # No non-Latin script detected; assume English/latin-script.
+        return "en"
+    return max(counts, key=lambda k: counts[k])
+
+
+def translate_summary(text: str, source_language: str, client: Any | None = None) -> str | None:
+    """Return a short English summary/translation of non-English text.
+
+    The original text is preserved; this only produces a metadata helper. If no
+    LLM client is available or the source language is English, returns None.
+    """
+    if source_language == "en" or not text or client is None:
+        return None
+    snippet = text[:2000].strip()
+    if not snippet:
+        return None
+    system = (
+        "You are a translation assistant for tender documents. "
+        "Translate and briefly summarize the user's non-English text into English. "
+        "Keep the summary concise (max 3 sentences) and preserve all named entities, "
+        "dates, and numbers exactly as written."
+    )
+    user = f"<source language=\"{source_language}\">\n{snippet}\n</source>"
+    try:
+        response = client.chat.completions.create(
+            model="openai/gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            max_tokens=300,
+            temperature=0.0,
+        )
+        summary = response.choices[0].message.content.strip()
+        return summary or None
+    except Exception:
+        return None
 
 
 @dataclass(frozen=True)

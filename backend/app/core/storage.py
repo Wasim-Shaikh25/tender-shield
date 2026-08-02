@@ -42,6 +42,7 @@ ALLOWED_UPLOAD_EXTENSIONS = {
     ".xlsx",
     ".xls",
     ".csv",
+    ".ifc",
     ".png",
     ".jpg",
     ".jpeg",
@@ -62,6 +63,7 @@ MAX_UPLOAD_SIZES: dict[str, int] = {
     ".jpeg": 20 * 1024 * 1024,
     ".tiff": 50 * 1024 * 1024,
     ".tif": 50 * 1024 * 1024,
+    ".ifc": 100 * 1024 * 1024,
     ".zip": 100 * 1024 * 1024,
 }
 
@@ -311,8 +313,9 @@ async def validate_and_store(
 
     kind = filetype.guess(data)
     if kind is None:
-        # text-based files (CSV, some PDFs) may not have a reliable magic number; trust extension.
-        if ext not in (".csv", ".xlsx", ".xls", ".docx", ".zip"):
+        # text-based files (CSV, IFC, some PDFs) may not have a reliable magic
+        # number; trust extension.
+        if ext not in (".csv", ".ifc", ".xlsx", ".xls", ".docx", ".zip"):
             raise ValidationError("unrecognised_file_magic")
     else:
         allowed_magics = {

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -16,6 +16,7 @@ router = APIRouter()
 _ERROR_STATUS = {
     "unknown_adapter": 400,
     "source_not_found": 404,
+    "no_such_opportunity": 404,
     "ingestion_unavailable": 503,
     "change_unavailable": 503,
     "import_failed": 422,
@@ -194,3 +195,28 @@ def snapshot_schedule(
     return _service(request, session).snapshot_schedule(
         principal.workspace_id, opportunity_id, principal.user_id
     )
+
+
+@router.post("/schedule/opportunities/{opportunity_id}/upload")
+async def upload_schedule(
+    request: Request,
+    opportunity_id: str,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+    format: str = "csv",  # csv | ms_project_xml | p6_xer | ifc
+    file: UploadFile = File(...),
+):
+    data = await file.read()
+    try:
+        content = data.decode("utf-8", errors="ignore")
+    except Exception as exc:
+        raise HTTPException(400, "invalid_schedule_file") from exc
+    try:
+        return _service(request, session).import_schedule(
+            principal.workspace_id,
+            principal.user_id,
+            opportunity_id,
+            {"format": format, "content": content},
+        )
+    except IntegrationsError as exc:
+        _raise(exc)

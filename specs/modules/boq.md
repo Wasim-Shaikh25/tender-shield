@@ -15,7 +15,9 @@ trade checklists for scope gaps.
 - **Capabilities published:** `boq.items` (query normalized items), `boq.run`.
 - **Capabilities consumed (soft):** `rulepacks.loader` (unit canon map, check
   thresholds, trade checklists), `ingestion.doc_text` (spec text index for
-  scope-gap triggers).
+  scope-gap triggers), `integrations.service_factory` (schedule activities for
+  cross-check, TS-318), `outcomes.service_factory` (historical scope-gap patterns
+  for missing-scope suggestions, TS-319).
 - **Events emitted:** `finding.created` (kinds `boq_defect`, `scope_gap`),
   `boq.run_completed`.
 - **Events consumed:** `document.classified` (kind=`boq` → start normalization).
@@ -43,6 +45,15 @@ trade checklists for scope gaps.
 - **B7 (upload guard):** BOQ upload enforces a 10 MB size cap and the same MIME/
   extension validation as ingestion documents. The `RunBody.csv` field is capped at
   10,000,000 characters.
+- **B8 (drawing schedule cross-check, TS-318):** when `integrations.service_factory`
+  is available and the opportunity has imported schedule activities, the BOQ run
+  compares BOQ descriptions to activity names using conservative token overlap.
+  Unmatched schedule activities raise `SCOPE_GAP` findings; unmatched BOQ items raise
+  `BOQ_DEFECT` findings.
+- **B9 (historical scope suggestions, TS-319):** when `outcomes.service_factory` is
+  available, the BOQ run fetches historical `scope_gap` categories from prior
+  opportunities in the workspace and raises `SCOPE_GAP` suggestions for any that
+  are not already present in the current BOQ.
 
 ## Acceptance criteria
 
@@ -54,6 +65,8 @@ trade checklists for scope gaps.
 - A5: running twice yields byte-identical findings (determinism).
 - A6: oversized BOQ upload returns 413.
 - A7: `POST .../run` rejects a CSV payload > 10,000,000 characters.
+- A8 (TS-318): A schedule activity with no matching BOQ line raises a `SCOPE_GAP`; a BOQ item with no matching schedule activity raises a `BOQ_DEFECT`.
+- A9 (TS-319): A historical `scope_gap` category missing from the current BOQ raises a `SCOPE_GAP` `Consider: ...` suggestion.
 
 ## Out of scope
 

@@ -19,6 +19,7 @@ def _service(request: Request, session: Session) -> ComparisonService:
         ingestion_factory=reg.get("ingestion.service_factory"),
         findings_factory=reg.get("findings.store_factory"),
         drafting_factory=reg.get("drafting.service_factory"),
+        standards_factory=reg.get("standards.commercial_service_factory"),
     )
 
 
@@ -30,3 +31,16 @@ def compare_opportunities(
 ):
     rows = _service(request, session).compare(principal.workspace_id)
     return {"opportunities": rows}
+
+
+@router.get("/opportunities/{opportunity_id}/deviation")
+def clause_deviation(
+    opportunity_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    report = _service(request, session).deviation_report(
+        principal.workspace_id, opportunity_id
+    )
+    return report

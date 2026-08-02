@@ -69,3 +69,69 @@ def segment_clauses(text: str) -> list[ClauseSeg]:
     if current is not None:
         segments.append(_finalize(current))
     return [s for s in segments if s.text]
+
+
+@dataclass(frozen=True)
+class DefinedTermSeg:
+    term: str
+    definition: str
+    source_quote: str
+    source_clause_ref: str | None
+
+
+# Patterns that capture "X means Y" / "X shall mean Y" / "X is defined as" definitions.
+_QUOTED_TERM = r'[“""]([^"]+)["""]?\s+means\s+"?(.+?)"?\s*[.;]\s*$'
+_CAPITAL_TERM = r'\b([A-Z][A-Za-z0-9\s]{1,50})\s+'
+_DEFINITION_PATTERNS = [
+    re.compile(_QUOTED_TERM, re.IGNORECASE | re.MULTILINE),
+    re.compile(_CAPITAL_TERM + r'means\s+(.+?)[.;]\s*$', re.IGNORECASE | re.MULTILINE),
+    re.compile(_CAPITAL_TERM + r'shall\s+mean\s+(.+?)[.;]\s*$', re.IGNORECASE | re.MULTILINE),
+    re.compile(
+        _CAPITAL_TERM + r'shall\s+be\s+defined\s+as\s+(.+?)[.;]\s*$',
+        re.IGNORECASE | re.MULTILINE,
+    ),
+    re.compile(
+        _CAPITAL_TERM + r'is\s+defined\s+as\s+(.+?)[.;]\s*$',
+        re.IGNORECASE | re.MULTILINE,
+    ),
+    re.compile(
+        r'(?:the\s+)?"([A-Z][A-Za-z0-9\s]{1,50})"\s+(?:means|is\s+defined\s+as)\s+(.+?)[.;]\s*$',
+        re.IGNORECASE | re.MULTILINE,
+    ),
+]
+
+
+def segment_defined_terms(text: str) -> list[DefinedTermSeg]:
+    """Extract 'X means Y' style definitions from a tender document.
+
+    Returns terms with the original sentence as the source quote. This is
+    intentionally conservative: it avoids false positives by requiring a capitalised
+    term and a definition verb (means / shall mean / is defined as).
+    """
+    terms: list[DefinedTermSeg] = []
+    seen: set[str] = set()
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or len(line) > 800:
+            continue
+        for pat in _DEFINITION_PATTERNS:
+            for match in pat.finditer(line):
+                term = match.group(1).strip()
+                definition = match.group(2).strip()
+                if not term or not definition or len(term) < 2:
+                    continue
+                if term.lower() in ("this", "that", "the", "a", "an"):
+                    continue
+                key = f"{term.lower()}:{definition.lower()[:80]}"
+                if key in seen:
+                    continue
+                seen.add(key)
+                terms.append(
+                    DefinedTermSeg(
+                        term=term,
+                        definition=definition,
+                        source_quote=line,
+                        source_clause_ref=None,
+                    )
+                )
+    return terms

@@ -540,3 +540,41 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
 | TS-300 | Cross-check every capability in `TenderShield_AI_Architecture_and_Market_Research.pdf` against the codebase, specs, tasks and tests; produce `FEATURE_COVERAGE.md` with implemented/partial/missing verdicts | Research Doc §4, §5, §9 | `FEATURE_COVERAGE.md` | done |
+
+## Phase 22 — Gap closure roadmap
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-301 | Change / variation inbox and confirmation workflow UI | Research Doc §4.F, §5.3; FEATURE_COVERAGE.md §F | frontend/app/opportunities/[id]/changes/ | done |
+| TS-302 | Claims workspace UI | Research Doc §4.G, §5.3; FEATURE_COVERAGE.md §G | frontend/app/opportunities/[id]/claims/ | done |
+| TS-303 | Commercial Control Tower dashboards UI | Research Doc §4.H, §12.2; FEATURE_COVERAGE.md §H | frontend/app/controltower/ or /analytics/controltower | done |
+| TS-304 | Subcontract management UI | Research Doc §13 Subcontract control; FEATURE_COVERAGE.md §I | frontend/app/opportunities/[id]/subcontracts/ | todo |
+| TS-305 | Integration source configuration UI | Research Doc §4.I; FEATURE_COVERAGE.md §I | frontend/app/settings/integrations/ | todo |
+| TS-306 | Public API key management UI | Research Doc §4.I; FEATURE_COVERAGE.md §I | frontend/app/settings/api-keys/ | todo |
+| TS-307 | Admin / Advisor multi-client workspace UI | Research Doc §3.3 Advisor Edition, §8.3; FEATURE_COVERAGE.md §I | frontend/app/advisor/ and admin workspace switcher | todo |
+| TS-308 | Plan dashboard navigation link | Research Doc §4 analytics; plan-dashboard spec | frontend/components/nav/ | done |
+| TS-309 | Pricing / rate benchmark / cashflow results UI | Research Doc §4.C rate build-up; pricing-intel spec | frontend/app/opportunities/[id]/pricing/ | done |
+| TS-310 | DOCX upload and text extraction | Research Doc §4.A bulk upload; FEATURE_COVERAGE.md §A | backend/app/modules/ingestion/extract.py | done |
+| TS-311 | Image (PNG/JPG/TIFF) upload and standalone OCR | Research Doc §4.A OCR; FEATURE_COVERAGE.md §A | backend/app/modules/ingestion/ocr.py | done |
+| TS-312 | ZIP bulk package upload | Research Doc §4.A bulk upload; FEATURE_COVERAGE.md §A | backend/app/modules/ingestion/router.py | done |
+| TS-313 | Exported model schedule ingestion (CSV/IFC) | Research Doc §4.A exported model schedules; FEATURE_COVERAGE.md §A | backend/app/modules/integrations/adapters.py ScheduleAdapter + new ingestion route | done |
+| TS-314 | Automatic addendum comparison and duplicate detection | Research Doc §4.A version detection, addendum comparison; FEATURE_COVERAGE.md §A | backend/app/modules/ingestion/service.py | done |
+| TS-315 | Language detection and multilingual extraction assistance | Research Doc §8.1 localization; FEATURE_COVERAGE.md §A | backend/app/modules/ingestion/doc_text.py | done |
+| TS-316 | Defined-term glossary and linking | Research Doc §4.A defined-term linking; FEATURE_COVERAGE.md §A | backend/app/modules/ingestion/segment.py + new glossary model | done |
+| TS-317 | Clause deviation scoring against playbook/standard | Research Doc §4.B clause deviation comparison; FEATURE_COVERAGE.md §B | backend/app/modules/comparison/ or new risk/deviation.py | done |
+| TS-318 | BOQ cross-check against drawing schedules | Research Doc §4.C cross-check BOQ vs drawings; FEATURE_COVERAGE.md §C | backend/app/modules/boq/engine.py | done |
+| TS-319 | Missing-scope suggestions from historical patterns | Research Doc §4.C historical patterns; FEATURE_COVERAGE.md §C | backend/app/modules/boq/engine.py + outcomes/ | done |
+| TS-320 | Rate build-up templates and sensitivity UI | Research Doc §4.C rate build-up/sensitivity; FEATURE_COVERAGE.md §C | frontend/app/opportunities/[id]/pricing/ + backend/pricing | done |
+| TS-321 | Drawing register, title-block extraction, revision and superseded controls | Research Doc §4.D; FEATURE_COVERAGE.md §D | new backend/app/modules/drawings/ | done |
+| TS-322 | Drawing overlay and region-level change detection | Research Doc §4.D; FEATURE_COVERAGE.md §D | backend/app/modules/drawings/compare.py | done |
+| TS-323 | Drawing symbol and count assistance | Research Doc §4.D; FEATURE_COVERAGE.md §D | backend/app/modules/drawings/vision.py | done |
+| TS-324 | Drawing-to-BOQ link | Research Doc §4.D; FEATURE_COVERAGE.md §D | backend/app/modules/drawings/ + boq/ | done |
+| TS-325 | Drawing confidence heatmap | Research Doc §4.D; FEATURE_COVERAGE.md §D | backend/app/modules/drawings/heatmap.py | done |
+| TS-326 | IFC / model quantity import | Research Doc §4.D; FEATURE_COVERAGE.md §D | backend/app/modules/drawings/ifc.py | done |
+| TS-327 | Live change signal ingestion from RFIs, emails, meeting minutes, site instructions, daily reports | Research Doc §4.F; FEATURE_COVERAGE.md §F | backend/app/modules/change/signals.py + notifications/email adapters | done |
+| TS-328 | Delay-event critical-path and programme links | Research Doc §4.G delay-event register; FEATURE_COVERAGE.md §G | backend/app/modules/change/delay_analysis.py | done |
+| TS-329 | Portfolio clause trends, recurring omission patterns and loss-reason analytics | Research Doc §4.H; FEATURE_COVERAGE.md §H | backend/app/modules/controltower/service.py + frontend/controltower | done |
+| TS-330 | Document-class ACL | Research Doc §4.I role-based access by document class; FEATURE_COVERAGE.md §I | backend/app/modules/auth/acl.py + settings UI | done |
+| TS-331 | Custom branded report templates | Research Doc §4.I export to customer templates; FEATURE_COVERAGE.md §I | backend/app/modules/export/models.py + settings UI | done |
+| TS-332 | Data residency, encryption at rest and retention controls | Research Doc §11.2 security baseline; FEATURE_COVERAGE.md §I | backend/app/core/config.py + storage | todo |
+| TS-333 | Live CDE/ERP connector sync (OAuth + polling/webhooks) | Research Doc §4.I; FEATURE_COVERAGE.md §I | backend/app/modules/integrations/connectors/ | todo |

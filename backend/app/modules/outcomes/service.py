@@ -226,6 +226,40 @@ class OutcomesService:
             )
         return row
 
+    def historical_scope_patterns(self, workspace_id, current_opportunity_id=None) -> list[dict]:
+        """Return scope-gap categories that have historically appeared in this
+        workspace, excluding the current opportunity. Used by the BOQ engine to
+        surface missing-scope suggestions (TS-319)."""
+        if self._findings_factory is None:
+            return []
+        ws = uuid.UUID(str(workspace_id))
+        rows = self._findings_factory(self.s).list_for_workspace(ws, producer="boq")
+        patterns: list[dict] = []
+        seen: set[str] = set()
+        current = str(current_opportunity_id) if current_opportunity_id else None
+        for row in rows:
+            if current and str(row.opportunity_id) == current:
+                continue
+            if row.kind != "scope_gap":
+                continue
+            if row.category in seen or not row.category:
+                continue
+            seen.add(row.category)
+            patterns.append(
+                {
+                    "category": row.category,
+                    "label": row.title or row.category,
+                    "keywords": [row.category.lower()],
+                    "severity": row.severity,
+                    "historical_count": sum(
+                        1
+                        for r in rows
+                        if r.kind == "scope_gap" and r.category == row.category
+                    ),
+                }
+            )
+        return patterns
+
     def margin_protected(self, workspace_id, *, currency: str = "INR") -> dict:
         if self._findings_factory is None:
             raise OutcomesError("findings_unavailable")

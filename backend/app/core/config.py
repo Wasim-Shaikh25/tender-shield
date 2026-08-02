@@ -102,6 +102,7 @@ class Settings(BaseSettings):
     # Change inbox email webhook (TS-247). HMAC secret for inbound provider callbacks.
     change_email_webhook_secret: SecretStr | None = None
     change_inbox_domain: str = "inbox.tendershield.local"
+    change_signal_polling_enabled: bool = False
 
     # Public API e-signature callback secret (TS-292). Providers must send this in
     # the X-Callback-Secret header. Empty in dev disables the check; required in prod.

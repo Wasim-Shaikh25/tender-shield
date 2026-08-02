@@ -6,6 +6,7 @@ import base64
 import csv
 import hashlib
 import io
+import re
 import uuid
 from datetime import date, datetime
 from typing import Any
@@ -287,7 +288,7 @@ class ErpAdapter(BaseAdapter):
 
 class ScheduleAdapter(BaseAdapter):
     name = "schedule"
-    supported_mimetypes = ("text/csv", "application/xml", "application/x-xer")
+    supported_mimetypes = ("text/csv", "application/xml", "application/x-xer", "application/x-step")
 
     def normalize(
         self,
@@ -300,13 +301,67 @@ class ScheduleAdapter(BaseAdapter):
     ) -> dict:
         activities = []
         fmt = payload.get("format", "csv")
+        content = payload.get("content", "")
         if fmt == "csv":
-            activities = self._parse_csv(payload.get("content", ""))
+            activities = self._parse_csv(content)
         elif fmt == "ms_project_xml":
-            activities = self._parse_ms_project_xml(payload.get("content", ""))
+            activities = self._parse_ms_project_xml(content)
         elif fmt == "p6_xer":
-            activities = self._parse_p6_xer(payload.get("content", ""))
+            activities = self._parse_p6_xer(content)
+        elif fmt == "ifc":
+            activities = self._parse_ifc(content)
         return _result(activities=activities)
+
+    def _parse_ifc(self, content: str) -> list[dict]:
+        """Best-effort extraction of IFC tasks from an IFC-SPF file without
+        external IFC libraries. Parses #ID=IFCTASK(...) lines and falls back to
+        IFCRELASSIGNSTASKS links."""
+        rows: list[dict[str, Any]] = []
+        if not content:
+            return rows
+        tasks: dict[str, dict] = {}
+        for line in content.splitlines():
+            line = line.strip()
+            if not line or not line.startswith("#"):
+                continue
+            if "=IFCTASK(" not in line.upper():
+                continue
+            match = re.match(r"#(\d+)\s*=\s*IFCTASK\(([^)]*)\);", line, re.IGNORECASE)
+            if not match:
+                continue
+            ref = f"#{match.group(1)}"
+            parts = [p.strip().strip("'") for p in match.group(2).split(",")]
+            # IFC schema: #id=IFCTASK(GlobalId, OwnerHistory, Name, Description, ...)
+            name = parts[2] if len(parts) > 2 else ""
+            desc = parts[3] if len(parts) > 3 else ""
+            tasks[ref] = {"name": name or desc, "desc": desc, "start": None, "finish": None}
+        for line in content.splitlines():
+            line = line.strip()
+            if not line.startswith("#") or "=IFCRELASSIGNSTASKS(" not in line.upper():
+                continue
+            match = re.match(r"#(\d+)\s*=\s*IFCRELASSIGNSTASKS\(([^)]*)\);", line, re.IGNORECASE)
+            if not match:
+                continue
+            parts = [p.strip() for p in match.group(2).split(",")]
+            for p in parts:
+                p = p.strip()
+                if p in tasks:
+                    # RelatedObjects may include related task time; details optional.
+                    pass
+        for ref, task in tasks.items():
+            rows.append(
+                {
+                    "source_native_id": ref,
+                    "name": task["name"],
+                    "start_date": None,
+                    "finish_date": None,
+                    "duration_days": 0,
+                    "predecessors": None,
+                    "linked_change_event_ids": None,
+                    "metadata": {"description": task["desc"]},
+                }
+            )
+        return rows
 
     def _parse_csv(self, content: str) -> list[dict]:
         rows: list[dict[str, Any]] = []

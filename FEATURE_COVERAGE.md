@@ -134,7 +134,7 @@ Overall: **the five stages described in the research doc are represented in the 
 | Immutable event log, version history, evidence provenance | **Implemented** | `backend/app/core/audit.py`, `findings/store.py`, `baseline/models.py` hash-sealed snapshots |
 | Human approvals before notices/claims issued | **Implemented** | `review/gate`, `auth/approval.py`, artifact `approve` endpoints |
 | Integration adapters (SharePoint/OneDrive, Procore, Autodesk, Aconex, ERP, scheduling) | **Backend adapters implemented, live connectors not** | `backend/app/modules/integrations/adapters.py` has `SharepointOnedriveAdapter`, `ProcoreAdapter`, `AutodeskAdapter`, `AconexAdapter`, `ErpAdapter`, `ScheduleAdapter`; they normalize JSON/CSV/XML payloads but there are no live OAuth/API clients |
-| Open API + export to DOCX/XLSX/PDF/custom templates | **Partial** | `public_api/` module, `export/render.py` supports DOCX/XLSX; PDF export not found |
+| Open API + export to DOCX/XLSX/PDF/custom templates | **Partial** | `public_api/` module, `export/render.py` supports DOCX/XLSX/PDF; customer-branded/custom templates not yet configurable |
 | Data residency, encryption at rest, retention, tenant isolation | **Partial** | Tenant isolation via Postgres RLS (`core/db.py`, migrations `FORCE ROW LEVEL SECURITY`); encryption/retention controls are config placeholders rather than implemented features |
 
 ## End-to-end workflows

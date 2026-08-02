@@ -14,29 +14,36 @@ UNREVIEWED_VARIANT = "unreviewed"
 UNREVIEWED_WATERMARK = "INDICATIVE — NOT REVIEWED BY A QUALIFIED PROFESSIONAL"
 
 
-def stamp_line(meta: dict) -> str:
+def _template_text(template: dict | None, key: str, default: str) -> str:
+    return (template or {}).get(key) or default
+
+
+def stamp_line(meta: dict, template: dict | None = None) -> str:
+    footer = _template_text(template, "footer_text", "")
     if meta.get("variant") == UNREVIEWED_VARIANT:
         integrity = meta.get("integrity_hash")
         integrity_text = f" · integrity {integrity[:16]}" if integrity else ""
-        return (
+        base = (
             f"{UNREVIEWED_WATERMARK} · Prepared with TenderShield · "
             f"{meta.get('date', '')} · pack {meta.get('pack', 'in-works')}"
             f"{integrity_text} · Machine-generated output — requires professional review."
         )
-    reviewed = meta.get("reviewed_by_email")
-    reviewed_at = meta.get("reviewed_at", "")
-    if reviewed:
-        reviewer = f" · reviewed by {reviewed} on {reviewed_at}"
     else:
-        reviewer = ""
-    integrity = meta.get("integrity_hash")
-    integrity_text = f" · integrity {integrity[:16]}" if integrity else ""
-    return (
-        f"Prepared with TenderShield · reviewed and approved on {meta.get('date', '')} "
-        f"· pack {meta.get('pack', 'in-works')}{reviewer}{integrity_text} · This is "
-        f"document-intelligence software, not legal/QS advice — review with a qualified "
-        f"professional."
-    )
+        reviewed = meta.get("reviewed_by_email")
+        reviewed_at = meta.get("reviewed_at", "")
+        if reviewed:
+            reviewer = f" · reviewed by {reviewed} on {reviewed_at}"
+        else:
+            reviewer = ""
+        integrity = meta.get("integrity_hash")
+        integrity_text = f" · integrity {integrity[:16]}" if integrity else ""
+        base = (
+            f"Prepared with TenderShield · reviewed and approved on {meta.get('date', '')} "
+            f"· pack {meta.get('pack', 'in-works')}{reviewer}{integrity_text} · This is "
+            f"document-intelligence software, not legal/QS advice — review with a qualified "
+            f"professional."
+        )
+    return f"{base} {footer}".strip() if footer else base
 
 
 def _pdf_page_watermark(canvas, _doc) -> None:
@@ -78,14 +85,17 @@ def verify_unreviewed_watermark(fmt: str, data: bytes) -> bool:
     return True
 
 
-def render_xlsx(opportunity_title: str, findings: list[dict], meta: dict) -> bytes:
+def render_xlsx(
+    opportunity_title: str, findings: list[dict], meta: dict, template: dict | None = None
+) -> bytes:
     wb = Workbook()
     ws = wb.active
     ws.title = "Risk Register"
-    ws.append([f"Bid Review Pack — {opportunity_title}"])
+    title = _template_text(template, "report_title", "Bid Review Pack")
+    ws.append([f"{title} — {opportunity_title}"])
     if meta.get("variant") == UNREVIEWED_VARIANT:
         ws.append([UNREVIEWED_WATERMARK])
-    ws.append([stamp_line(meta)])
+    ws.append([stamp_line(meta, template)])
     ws.append([])
     ws.append(["Severity", "Category", "Title", "Review", "Page", "Source quote"])
     for f in sorted(findings, key=lambda x: _SEV_RANK.get(x.get("severity", "info"), 9)):
@@ -105,13 +115,18 @@ def render_xlsx(opportunity_title: str, findings: list[dict], meta: dict) -> byt
 
 
 def render_docx(
-    opportunity_title: str, artifacts: list[dict], findings: list[dict], meta: dict
+    opportunity_title: str,
+    artifacts: list[dict],
+    findings: list[dict],
+    meta: dict,
+    template: dict | None = None,
 ) -> bytes:
     doc = Document()
     if meta.get("variant") == UNREVIEWED_VARIANT:
         _docx_apply_watermark(doc)
-    doc.add_heading(f"Bid Review Pack — {opportunity_title}", level=0)
-    doc.add_paragraph(stamp_line(meta)).italic = True
+    title = _template_text(template, "report_title", "Bid Review Pack")
+    doc.add_heading(f"{title} — {opportunity_title}", level=0)
+    doc.add_paragraph(stamp_line(meta, template)).italic = True
 
     unreviewed = meta.get("variant") == UNREVIEWED_VARIANT
     accepted = findings if unreviewed else [
@@ -145,13 +160,20 @@ def render_docx(
                 cat, txt = item.get("category"), item.get("assumption", "")
                 doc.add_paragraph(f"{item.get('n')}. [{cat}] {txt}")
 
+    if template and template.get("footer_text"):
+        doc.add_paragraph(template["footer_text"])
+
     buf = io.BytesIO()
     doc.save(buf)
     return buf.getvalue()
 
 
 def render_pdf(
-    opportunity_title: str, artifacts: list[dict], findings: list[dict], meta: dict
+    opportunity_title: str,
+    artifacts: list[dict],
+    findings: list[dict],
+    meta: dict,
+    template: dict | None = None,
 ) -> bytes:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -167,12 +189,13 @@ def render_pdf(
         if unreviewed
         else {}
     )
+    title = _template_text(template, "report_title", "Bid Review Pack")
     doc = SimpleDocTemplate(
-        buf, pagesize=A4, title=f"Bid Review Pack — {opportunity_title}", **page_callbacks
+        buf, pagesize=A4, title=f"{title} — {opportunity_title}", **page_callbacks
     )
     flow = [
-        Paragraph(f"Bid Review Pack — {opportunity_title}", styles["Title"]),
-        Paragraph(stamp_line(meta), small),
+        Paragraph(f"{title} — {opportunity_title}", styles["Title"]),
+        Paragraph(stamp_line(meta, template), small),
         Spacer(1, 12),
         Paragraph("Risk findings", styles["Heading2"]),
     ]
@@ -269,7 +292,11 @@ def _handover_table_sections(handover: dict) -> list[tuple[str, list[str], list,
 
 
 def render_handover_pack(
-    opportunity_title: str, handover: dict, fmt: str, meta: dict
+    opportunity_title: str,
+    handover: dict,
+    fmt: str,
+    meta: dict,
+    template: dict | None = None,
 ) -> bytes:
     """Render a sealed-baseline handover pack in the requested office format."""
     view = handover.get("view") or meta.get("view") or "full"
@@ -277,12 +304,13 @@ def render_handover_pack(
     cost_codes = handover.get("cost_codes") or []
     exposure = handover.get("exposure_totals") or {}
 
+    title = _template_text(template, "report_title", "Handover Pack")
     if fmt == "xlsx":
         wb = Workbook()
         ws = wb.active
         ws.title = "Handover"
-        ws.append([f"Handover Pack — {opportunity_title} ({view})"])
-        ws.append([stamp_line(meta)])
+        ws.append([f"{title} — {opportunity_title} ({view})"])
+        ws.append([stamp_line(meta, template)])
         version = handover.get("version")
         source = handover.get("source")
         sealed_hash = handover.get("sealed_hash", "")[:16]
@@ -318,8 +346,8 @@ def render_handover_pack(
 
     if fmt == "docx":
         doc = Document()
-        doc.add_heading(f"Handover Pack — {opportunity_title} ({view})", level=0)
-        doc.add_paragraph(stamp_line(meta)).italic = True
+        doc.add_heading(f"{title} — {opportunity_title} ({view})", level=0)
+        doc.add_paragraph(stamp_line(meta, template)).italic = True
         doc.add_paragraph(
             f"Version: {handover.get('version')}  Source: {handover.get('source')}  "
             f"Hash: {handover.get('sealed_hash', '')[:16]}"
@@ -370,10 +398,10 @@ def render_handover_pack(
     normal = styles["Normal"]
     small = ParagraphStyle("stamp", parent=normal, fontSize=8, textColor="#666666")
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, title=f"Handover Pack — {opportunity_title}")
+    doc = SimpleDocTemplate(buf, pagesize=A4, title=f"{title} — {opportunity_title}")
     flow = [
-        Paragraph(f"Handover Pack — {opportunity_title} ({view})", styles["Title"]),
-        Paragraph(stamp_line(meta), small),
+        Paragraph(f"{title} — {opportunity_title} ({view})", styles["Title"]),
+        Paragraph(stamp_line(meta, template), small),
         Paragraph(
             f"Version: {handover.get('version')}  Source: {handover.get('source')}  "
             f"Hash: {handover.get('sealed_hash', '')[:16]}",

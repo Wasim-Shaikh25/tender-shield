@@ -17,6 +17,7 @@ import pandas as pd
 from sqlalchemy import delete, select
 
 from app.modules.pricing.benchmark import benchmark
+from app.modules.pricing.buildup import rate_buildup, sensitivity
 from app.modules.pricing.cashflow import CashflowInputs, run_cashflow
 from app.modules.pricing.loading import compute_loadings
 from app.modules.pricing.models import PiCashflowRun, PiLoading, PiRateMatch
@@ -244,6 +245,54 @@ class PricingService:
         )
         self.s.add(row)
         self.s.commit()
+
+    def get_rate_buildup(
+        self,
+        workspace_id,
+        opportunity_id,
+        csv_text: str,
+        *,
+        currency: str = "INR",
+        material_pct: float = 0.35,
+        labour_pct: float = 0.30,
+        equipment_pct: float = 0.15,
+        overhead_pct: float = 0.10,
+        profit_pct: float = 0.10,
+    ) -> dict:
+        self._require_review_gate(workspace_id, opportunity_id)
+        boq_engine = self._boq_engine_provider() if self._boq_engine_provider else None
+        if boq_engine is None:
+            raise PricingError("boq_unavailable")
+
+        df = pd.read_csv(io.StringIO(csv_text))
+        normalized = boq_engine.normalize_dataframe(df)
+        return rate_buildup(
+            normalized,
+            currency=currency,
+            material_pct=material_pct,
+            labour_pct=labour_pct,
+            equipment_pct=equipment_pct,
+            overhead_pct=overhead_pct,
+            profit_pct=profit_pct,
+        ).to_dict()
+
+    def get_sensitivity(
+        self,
+        workspace_id,
+        opportunity_id,
+        csv_text: str,
+        *,
+        currency: str = "INR",
+        scenarios: list[dict] | None = None,
+    ) -> dict:
+        self._require_review_gate(workspace_id, opportunity_id)
+        boq_engine = self._boq_engine_provider() if self._boq_engine_provider else None
+        if boq_engine is None:
+            raise PricingError("boq_unavailable")
+
+        df = pd.read_csv(io.StringIO(csv_text))
+        normalized = boq_engine.normalize_dataframe(df)
+        return sensitivity(normalized, currency=currency, scenarios=scenarios).to_dict()
 
     def list_loadings(self, workspace_id, opportunity_id) -> list[PiLoading]:
         return list(

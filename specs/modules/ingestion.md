@@ -97,6 +97,23 @@ document is re-registered or re-uploaded.
   returns 404.
 - **B14 (sample text limits):** `POST /opportunities/{id}/documents` rejects a
   `sample_text` longer than 1,000,000 characters.
+- **B15 (addendum/duplicate detection, TS-314):** on registration, documents with a
+  duplicate `sha256` in the same opportunity are flagged `duplicate` and skip
+  re-processing. Filenames containing addendum/revision/version markers are linked to
+  the most recent matching base document via `supersedes` and a clause-level diff is
+  stored in `meta.addendum_changes`. `GET /opportunities/{id}/documents/{doc_id}/addendum`
+  exposes the diff and link.
+- **B16 (language detection / multilingual extraction, TS-315):** `process_text` detects
+  the dominant script of the extracted text (Devanagari, Bengali, Telugu, Tamil, Arabic,
+  CJK, Cyrillic, etc.) and stores `meta.language` with a BCP-47-ish code. When the
+  language is not English and an OpenRouter key is configured, a short English
+  summary/translation is produced and stored in `meta.translation_summary`; the original
+  text and chunks are never replaced.
+- **B17 (defined-term glossary and linking, TS-316):** `process_text` extracts
+  capitalised `X means Y` style definitions and persists them as `DefinedTerm` rows,
+  scoped to workspace + opportunity + document. `GET /opportunities/{id}/glossary`
+  and `GET /opportunities/{id}/documents/{doc_id}/glossary` expose the glossary with
+  verbatim source quotes and clause references.
 
 ## Acceptance criteria
 
@@ -113,6 +130,12 @@ document is re-registered or re-uploaded.
 - A10: `POST /opportunities/{id}/documents` rejects `sample_text` > 1,000,000 chars.
 - A11: CSV and XLSX extraction output contains `[pN]` row markers.
 - A12: tus `OPTIONS` returns `204` with `Tus-Resumable`; `POST` returns `201` and `Location`; invalid upload IDs return `400`.
+- A13 (TS-310): `.docx` uploads are extracted with `python-docx`, paragraphs are joined with `[pN]` markers per paragraph, and `extract_upload` returns `ocr_status=done`.
+- A14 (TS-311): Standalone `.png`/`.jpg`/`.tiff` uploads are routed to an OCR provider; without one `extract_upload` returns `ocr_status=needs_ocr`. OCR results are emitted as a single `[p1]` block.
+- A15 (TS-312): `.zip` uploads extract all supported files inside, prefix each with `[file:<name>]`, and return the most degraded `ocr_status` across members. Nested `.zip` files are skipped.
+- A16 (TS-314): Registering a document whose filename contains addendum/version keywords links it to the most recent matching base doc and stores a clause-level diff; duplicate `sha256` documents are flagged `duplicate`.
+- A17 (TS-315): Hindi (Devanagari) text is detected as `hi` and English text as `en`; when an OpenRouter key is present, non-English documents receive an English `translation_summary` without replacing the original chunks.
+- A18 (TS-316): A document containing "Contractor means..." extracts a `DefinedTerm` with the term, definition, and source quote; the glossary endpoint returns terms scoped to the opportunity.
 
 ## Out of scope
 

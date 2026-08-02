@@ -45,6 +45,113 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - **AGENTS.md refresh** — removed the stale `TS-F01` workspace-list warning; the
   response shape is aligned with `SessionProvider`.
 
+### Done — gap closure roadmap (TS-301)
+
+- **TS-308** — added a `Plan` nav link to `frontend/app/layout.tsx` so the existing
+  `/plan` AI dashboard is discoverable; typecheck and build pass.
+- **TS-301** — change / variation inbox UI on the opportunity detail page: list
+  inbox events, confirm outcomes, triage, view notice deadline, request notice draft,
+  and create manual events with source quotes. Frontend build and lint pass.
+- **TS-302** — claims workspace UI on the opportunity detail page: create claims,
+  view chronology, checklist, quantum with line items, responses, negotiations,
+  settlement, and drafts. Frontend build and lint pass.
+- **TS-303** — Control Tower dashboard at `/controltower` with nav link: exposure,
+  dashboard health, executive summary, response times, payment schedule with event
+  recording, forecast, plus workspace-level portfolio, clause trends, economics,
+  and customer outcomes. Frontend build and lint pass.
+- **TS-309** — Pricing tab on the opportunity detail page with loadings, rate
+  benchmark (BOQ CSV vs schedule), and cashflow forecast. Frontend build and lint pass.
+- **TS-310** — DOCX text extraction in `backend/app/modules/ingestion/extract.py`
+  using `python-docx`; paragraphs and tables are emitted with `[pN]` markers.
+  Backend tests pass; frontend build passes.
+- **TS-311** — standalone image (PNG/JPG/TIFF) upload and OCR: `extract_upload`
+  routes images to an OCR provider; `RapidOcrProvider` gains `ocr_image` and
+  normalizes image uploads to PNG before recognition. Without OCR the upload is
+  flagged `needs_ocr`. Backend tests pass.
+- **TS-312** — ZIP bulk package upload: `extract_upload` recognizes `.zip`, extracts
+  all supported nested files with `[file:<name>]` markers, skips nested `.zip`
+  files, and surfaces the most degraded OCR status across members. Backend tests pass.
+- **TS-313** — exported model schedule ingestion (CSV/IFC): `.ifc` files allowed in
+  upload validation; `ScheduleAdapter` parses IFC-SPF `IfcTask` entities;
+  `POST /api/integrations/schedule/opportunities/{id}/upload` accepts multipart
+  schedule files and validates workspace ownership. Frontend API client updated.
+- **TS-314** — addendum/duplicate detection in `IngestionService`: duplicate SHA
+  documents are flagged `duplicate` and skipped; addendum/revision filenames are
+  linked to the matching base document via `supersedes` and a clause-level diff is
+  stored in `meta.addendum_changes`; `GET /api/ingestion/opportunities/{id}/documents/{doc_id}/addendum`
+  exposes the result.
+- **TS-315** — language detection and multilingual extraction: `doc_text.py` detects
+  dominant script (Devanagari, Bengali, Telugu, Tamil, Arabic, CJK, Cyrillic, etc.) and
+  stores `meta.language`. For non-English text, an optional English summary/translation
+  is produced via OpenRouter and stored in `meta.translation_summary` without
+  replacing the original chunks; `GET /api/ingestion/documents/{id}` exposes both.
+- **TS-316** — defined-term glossary and linking: `segment_defined_terms` extracts
+  capitalised `X means Y` definitions; `process_text` persists them in the new
+  `DefinedTerm` table (workspace/opportunity/document scoped). Glossary exposed via
+  `GET /api/ingestion/opportunities/{id}/glossary` and per-document glossary endpoint.
+- **TS-317** — clause deviation scoring: `ComparisonService.deviation_report` scores
+  each clause against the workspace's commercial standard/playbook. Violations are
+  normalised by the policy threshold; exposed via
+  `GET /api/comparison/opportunities/{id}/deviation`.
+- **TS-318** — BOQ cross-check against drawing/schedule: `boq.engine` matches BOQ
+  line descriptions to imported schedule activities with conservative token overlap;
+  unmatched schedule activities raise `SCOPE_GAP` findings and unmatched BOQ items
+  raise `BOQ_DEFECT` findings during `run_csv`.
+- **TS-319** — missing-scope suggestions from historical patterns: `outcomes` service
+  exposes `historical_scope_patterns`; BOQ run uses them to raise `SCOPE_GAP`
+  `Consider: ...` suggestions for categories missed in prior opportunities.
+- **TS-320** — rate build-up and sensitivity UI: `backend/app/modules/pricing/buildup.py`
+  decomposes BOQ rates into material/labour/equipment/overhead/profit; new
+  `POST /api/pricing/opportunities/{id}/rate-buildup` and `.../sensitivity` endpoints;
+  Pricing tab adds Build-up and Sensitivity sub-tabs.
+- **TS-321** — drawing register and title-block extraction: new
+  `backend/app/modules/drawings/` module with `Drawing` model, title-block regex
+  extraction from PDF/text, revision chain, and `supersedes` controls; API endpoints
+  and a Drawings tab on the opportunity page.
+- **TS-322** — drawing overlay / region-level change detection: `DrawingService.compare`
+  splits extracted text by pages and regions, runs diffs, and returns changed pages and
+  per-region line counts.
+- **TS-323** — drawing symbol and count assistance: `backend/app/modules/drawings/vision.py`
+  scans extracted text for common construction symbol labels and returns per-page counts
+  as low-confidence suggestions.
+- **TS-324** — drawing-to-BOQ link: new `DrawingBoqLink` model and
+  `POST /api/drawings/opportunities/{id}/drawings/{drawing_id}/link-boq` persist a
+  manual link between a drawing page/region and a BOQ item with source quote.
+- **TS-325** — drawing confidence heatmap: `backend/app/modules/drawings/heatmap.py`
+  returns per-page/per-region confidence from text-extraction signals; Drawings tab
+  renders a simple region overlay.
+- **TS-326** — IFC / model quantity import: `backend/app/modules/drawings/ifc.py` parses
+  IFC-SPF building element and quantity entities, returning candidate BOQ lines and
+  schedule activities with `confidence: low` / `verify_manually`; the Drawings tab adds
+  an IFC import file picker and results table.
+- **TS-327** — live change signal ingestion: `POST /api/change/opportunities/{id}/signals/poll`
+  ingests batched email/RFI/site-instruction/daily-report/meeting-minutes messages behind
+  `TS_CHANGE_SIGNAL_POLLING_ENABLED`; Changes tab adds signal ingestion and one-click
+  polling UI.
+- **TS-328** — delay-event critical-path and programme links: `backend/app/modules/change/delay_analysis.py`
+  computes impacted schedule activities from an event trigger date and delay window using
+  imported `integrations.schedule` activities and predecessor links; the Changes tab adds
+  a delay analysis form and impacted-activity list.
+- Added `docs/REMAINING_GAPS_ROADMAP.md` with one row for every `Partial` / `Missing`
+  capability from `FEATURE_COVERAGE.md`.
+- Created **Phase 22** in `tasks/backlog.md` with 33 concrete tasks (TS-301–TS-333)
+  covering frontend surfaces, ingestion, risk/BOQ, drawing intelligence, change/claims,
+  control tower, governance, and live connectors.
+
+### Done — gap closure batch TS-329/TS-330/TS-331
+
+- **TS-329** — control tower recurring omission patterns and loss-reason analytics:
+  `recurring_omissions_for_workspace` reuses `outcomes.historical_scope_patterns`;
+  `GET /api/controltower/recurring-omissions` and loss-reason rendering in the
+  `/controltower` UI surface historical patterns and loss reasons.
+- **TS-330** — document-class ACL: new `DocumentClassAcl` model, registry capability
+  `auth.document_class_permitted`, `GET/POST/DELETE /api/auth/document-classes` for
+  admins, enforcement on document upload/register, and a settings UI to manage rules.
+- **TS-331** — custom branded report templates: new `ReportTemplate` model and
+  `/api/export/templates` CRUD endpoints; `export.service` applies the default or
+  selected template to DOCX/XLSX/PDF/hanover reports (title, footer, watermark);
+  settings UI supports create/edit/default/delete.
+
 ### Done — feature coverage audit (TS-300)
 
 - Added `FEATURE_COVERAGE.md` cross-checking every capability in
@@ -186,7 +293,9 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ### Next
 
-- Phase 21 (TS-281–TS-292): integration adapters, subcontract control, and Advisor Edition.
+- Phase 22 remaining gaps (TS-329+): control tower trends, document-class ACL, custom
+  branded report templates, advisor/white-label, subcontractor portal, integrations UI,
+  and live connectors (Stripe GCC/UK, Razorpay, email/SMS).
 
 ### Done — 2026-08-01 (Phase 19 claims workspace: TS-258–TS-266)
 

@@ -191,6 +191,22 @@ For TS-274–TS-280 the remaining data is read from other modules via the regist
 - A10 (TS-280): `/customer-outcomes` computes risks priced, bad bids declined, omissions corrected,
   value notified/certified, and hours saved.
 
+## Frontend UI (TS-303)
+
+### Public pages
+
+- `/controltower` exposes a Control Tower dashboard with opportunity/workspace selectors.
+- `/layout.tsx` adds a `Control Tower` nav link.
+
+### Acceptance criteria
+
+- F1: Page lists opportunities and lets the user select one.
+- F2: Page fetches and renders `/exposure`, `/dashboard`, `/executive-summary`, `/response-times`, and `/payment-schedule` for the selected opportunity.
+- F3: Portfolio, clause trends, economics, and customer outcomes panels render workspace-level metrics.
+- F4: Forecast inputs (projected final cost, contingency, cost of capital) submit to `/forecast`.
+- F5: Payment schedule allows recording a new payment event with `kind`, `due_date`, and `amount_minor`.
+- F6: All monetary values display in minor units with currency; `unavailable` flags show gracefully.
+
 ## Out of scope
 
 - Phase 21 integrations (Procore, Aconex, Autodesk, ERP, schedule imports) and subcontract control.

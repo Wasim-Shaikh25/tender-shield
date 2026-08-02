@@ -7,17 +7,25 @@ in depth alongside RLS) so isolation holds on any backend."""
 
 from __future__ import annotations
 
+import difflib
+import hashlib
+import re
 import uuid
 from collections.abc import Callable
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.modules.ingestion.classify import classify_text, missing_documents
 from app.modules.ingestion.deadlines import extract_deadlines
-from app.modules.ingestion.doc_text import DocTextService, persist_chunks
-from app.modules.ingestion.models import Clause, Deadline, Document, Opportunity
-from app.modules.ingestion.segment import segment_clauses
+from app.modules.ingestion.doc_text import (
+    DocTextService,
+    detect_language,
+    persist_chunks,
+    translate_summary,
+)
+from app.modules.ingestion.models import Clause, Deadline, DefinedTerm, Document, Opportunity
+from app.modules.ingestion.segment import segment_clauses, segment_defined_terms
 
 _FALLBACK_ANCHORS = {
     "nit": [r"NOTICE\s+INVITING\s+TENDER", r"\bNIT\s*No"],
@@ -25,6 +33,28 @@ _FALLBACK_ANCHORS = {
     "boq": [r"BILL\s+OF\s+QUANTIT", r"SCHEDULE\s+OF\s+QUANTIT"],
 }
 _FALLBACK_EXPECTED = ["nit", "gcc", "boq"]
+
+# Filename markers that indicate an addendum/revision.
+_ADDENDUM_KEYWORDS = (
+    "addendum",
+    "addenda",
+    "amendment",
+    "amended",
+    "revised",
+    "revision",
+    "rev",
+    "corrigendum",
+    "errata",
+    "supplement",
+    "correction",
+    "clarification",
+)
+# Version suffixes like _v2, _2, rev2, version 3 (deliberately permissive).
+_VERSION_RE = re.compile(
+    r"[\s\-_]?(?:v|ver|version|rev|revision)\s*([0-9]+)"
+    r"|[\s\-_]([0-9]+)(?=[\s\-_]|$)",
+    re.IGNORECASE,
+)
 
 
 class IngestionService:
@@ -54,6 +84,9 @@ class IngestionService:
         if not loader:
             return _FALLBACK_EXPECTED
         return loader.get_pack(self._pack_id).expected_documents or _FALLBACK_EXPECTED
+
+    def classify_document_kind(self, text: str) -> str:
+        return classify_text(text, self._anchors()) or "other"
 
     # ---- opportunities ----------------------------------------------------
     def create_opportunity(self, workspace_id, title: str, **fields) -> Opportunity:
@@ -90,29 +123,67 @@ class IngestionService:
     def register_document(
         self, workspace_id, opportunity_id, filename: str, sample_text: str = "", **fields
     ) -> Document:
-        """Classify (rules-first) and persist a document for an opportunity."""
+        """Classify (rules-first), detect duplicates/addenda, and persist a document."""
         kind = classify_text(sample_text, self._anchors()) or "other"
+        sha256 = fields.pop("sha256", "") or ""
+        if not sha256 and sample_text:
+            sha256 = hashlib.sha256(sample_text.encode("utf-8")).hexdigest()
+
+        duplicate = self._find_duplicate(workspace_id, opportunity_id, sha256)
         doc = Document(
             workspace_id=uuid.UUID(str(workspace_id)),
             opportunity_id=uuid.UUID(str(opportunity_id)),
             filename=filename,
             kind=kind,
+            sha256=sha256,
             **fields,
         )
+        if duplicate is not None:
+            doc.meta = {"duplicate_of": str(duplicate.id), "addendum": False}
+            doc.ocr_status = "duplicate"
+            self.s.add(doc)
+            self.s.commit()
+            return doc
+
+        is_addendum, addendum_reason = self._detect_addendum(filename)
+        if is_addendum and not doc.supersedes:
+            superseded = self._find_superseded(workspace_id, opportunity_id, kind, filename)
+            if superseded is not None:
+                doc.supersedes = superseded.id
+                doc.meta = {
+                    "addendum": True,
+                    "addendum_reason": addendum_reason,
+                    "addendum_changes": [],
+                }
+
         self.s.add(doc)
         self.s.commit()
         self._publish("document.classified", {"document_id": str(doc.id), "kind": kind})
         if sample_text.strip():
             self.process_text(doc, sample_text, ocr_status=fields.get("ocr_status") or "done")
+            if is_addendum and doc.supersedes:
+                changes = self._addendum_changes(doc, doc.supersedes)
+                doc.meta["addendum_changes"] = changes
+                self.s.commit()
         return doc
 
     def process_text(self, doc: Document, text: str, ocr_status: str = "done") -> None:
-        """Segment clauses, extract deadlines, persist chunks, and update metadata."""
+        """Segment clauses, extract deadlines, persist chunks, glossary, and update metadata."""
         doc.kind = classify_text(text, self._anchors()) or doc.kind
         doc.ocr_status = ocr_status
         self._segment(doc, text)
         self._extract_deadlines(doc, text)
+        self._extract_defined_terms(doc, text)
         persist_chunks(self.s, doc.workspace_id, doc.opportunity_id, doc.id, text)
+        doc.meta = {**(doc.meta or {}), "language": detect_language(text)}
+        if doc.meta.get("language") != "en":
+            from app.core.llm import openrouter_client
+
+            summary = translate_summary(
+                text[:5000], doc.meta["language"], client=openrouter_client("ingestion.translate")
+            )
+            if summary:
+                doc.meta["translation_summary"] = summary
         self.s.commit()
 
     def _extract_deadlines(self, doc: Document, text: str) -> int:
@@ -193,6 +264,125 @@ class IngestionService:
         if count:
             self._publish("clauses.segmented", {"document_id": str(doc.id), "count": count})
         return count
+
+    # ---- addendum / duplicate detection -----------------------------------
+    def _detect_addendum(self, filename: str) -> tuple[bool, str]:
+        name = filename.lower()
+        if any(k in name for k in _ADDENDUM_KEYWORDS):
+            return True, "keyword"
+        if _VERSION_RE.search(name):
+            return True, "version_suffix"
+        return False, ""
+
+    def _base_filename(self, filename: str) -> str:
+        """Strip version/addendum suffixes so addenda match their base doc."""
+        base = filename.lower().rsplit(".", 1)[0]
+        for keyword in _ADDENDUM_KEYWORDS:
+            base = re.sub(rf"[\s\-_]?{keyword}[\s\-_]?[0-9]*", "", base, flags=re.IGNORECASE)
+        base = _VERSION_RE.sub("", base)
+        return re.sub(r"[\s\-_]+", " ", base).strip()
+
+    def _find_duplicate(self, workspace_id, opportunity_id, sha256: str) -> Document | None:
+        if not sha256:
+            return None
+        return self.s.scalar(
+            select(Document).where(
+                Document.workspace_id == uuid.UUID(str(workspace_id)),
+                Document.opportunity_id == uuid.UUID(str(opportunity_id)),
+                Document.sha256 == sha256,
+            )
+        )
+
+    def _find_superseded(
+        self, workspace_id, opportunity_id, kind: str, filename: str
+    ) -> Document | None:
+        base = self._base_filename(filename)
+        rows = list(
+            self.s.scalars(
+                select(Document)
+                .where(
+                    Document.workspace_id == uuid.UUID(str(workspace_id)),
+                    Document.opportunity_id == uuid.UUID(str(opportunity_id)),
+                    Document.kind == kind,
+                    Document.id != None,  # noqa: E711
+                )
+                .order_by(Document.created_at.desc())
+            )
+        )
+        for row in rows:
+            if row.supersedes is None and base and base in self._base_filename(row.filename):
+                return row
+        # Fall back to the most recent document of the same kind.
+        for row in rows:
+            if row.supersedes is None:
+                return row
+        return rows[0] if rows else None
+
+    def _addendum_changes(self, new_doc: Document, superseded_id: uuid.UUID) -> list[dict]:
+        """Clause-level diff of an addendum against the document it supersedes."""
+        old_clauses = {
+            (c.clause_ref or ""): c.text
+            for c in self.list_clauses_for_document(new_doc.workspace_id, superseded_id)
+        }
+        new_clauses = {
+            (c.clause_ref or ""): c.text
+            for c in self.list_clauses_for_document(new_doc.workspace_id, new_doc.id)
+        }
+        changes: list[dict] = []
+        for ref in sorted(set(old_clauses) | set(new_clauses)):
+            old_text = old_clauses.get(ref)
+            new_text = new_clauses.get(ref)
+            if old_text is None:
+                preview = new_text[:200] if new_text else ""
+                changes.append({"clause_ref": ref, "status": "added", "diff": preview})
+            elif new_text is None:
+                changes.append({"clause_ref": ref, "status": "removed"})
+            elif old_text != new_text:
+                diff = list(
+                    difflib.unified_diff(
+                        old_text.splitlines(), new_text.splitlines(), lineterm=""
+                    )
+                )
+                changes.append({"clause_ref": ref, "status": "modified", "diff_lines": diff[:20]})
+        return changes
+
+    def _extract_defined_terms(self, doc: Document, text: str) -> int:
+        """Extract 'X means Y' definitions and persist them as an opportunity glossary."""
+        self.s.execute(
+            delete(DefinedTerm).where(
+                DefinedTerm.document_id == doc.id,
+                DefinedTerm.workspace_id == doc.workspace_id,
+            )
+        )
+        count = 0
+        for seg in segment_defined_terms(text):
+            self.s.add(
+                DefinedTerm(
+                    workspace_id=doc.workspace_id,
+                    opportunity_id=doc.opportunity_id,
+                    document_id=doc.id,
+                    term=seg.term,
+                    definition=seg.definition,
+                    source_quote=seg.source_quote,
+                    source_clause_ref=seg.source_clause_ref,
+                )
+            )
+            count += 1
+        self.s.commit()
+        if count:
+            self._publish("defined_terms.extracted", {"document_id": str(doc.id), "count": count})
+        return count
+
+    def list_defined_terms(
+        self, workspace_id, opportunity_id, document_id=None
+    ) -> list[DefinedTerm]:
+        stmt = select(DefinedTerm).where(
+            DefinedTerm.workspace_id == uuid.UUID(str(workspace_id)),
+            DefinedTerm.opportunity_id == uuid.UUID(str(opportunity_id)),
+        )
+        if document_id is not None:
+            stmt = stmt.where(DefinedTerm.document_id == uuid.UUID(str(document_id)))
+        return list(self.s.scalars(stmt.order_by(DefinedTerm.term)))
 
     def get_document(self, workspace_id, document_id) -> Document | None:
         return self.s.scalar(

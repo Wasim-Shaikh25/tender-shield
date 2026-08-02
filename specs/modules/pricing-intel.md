@@ -40,6 +40,8 @@ Build Doc §6.4).
 - `pricing.bid_loading` — per-finding price impact for an opportunity
 - `pricing.rate_benchmark` — BOQ rates vs schedule-of-rates variance
 - `pricing.cashflow` — funding curve, peak requirement, financing cost
+- `pricing.rate_buildup` — decompose BOQ rate into material/labour/equipment/overhead/profit (TS-320)
+- `pricing.sensitivity` — what-if scenarios on rates, quantities, profit/overhead margins (TS-320)
 
 **Capabilities consumed (soft)**
 - `findings.store` — accepted findings only
@@ -55,6 +57,8 @@ Build Doc §6.4).
 - `GET /api/pricing/opportunities/{id}/loading`
 - `GET /api/pricing/opportunities/{id}/rate-benchmark`
 - `POST /api/pricing/opportunities/{id}/cashflow` (body carries cost of capital + overrides)
+- `POST /api/pricing/opportunities/{id}/rate-buildup` (TS-320)
+- `POST /api/pricing/opportunities/{id}/sensitivity` (TS-320)
 
 ## Data owned
 
@@ -113,6 +117,20 @@ cost, and an explicit `assumptions[]` block naming every substituted default.
 Missing facts never become silent defaults — each one appears in `assumptions[]` with what was
 assumed and why.
 
+### 4. Rate build-up (TS-320)
+
+Decomposes each BOQ line's unit rate into material, labour, equipment, overhead, and profit
+components. The split is user-configurable; the engine clamps percentages to [0, 1] and
+warns when they do not sum to 100%. All component rates and totals are returned in minor
+units alongside the original amount for comparison.
+
+### 5. Sensitivity analysis (TS-320)
+
+Runs what-if scenarios on the BOQ total by shifting rates, quantities, profit margin, or
+overhead margin by a caller-supplied percentage. Default scenarios cover ±10% on rates
+and quantities and ±5 percentage points on profit margin. Each scenario returns the
+adjusted total, absolute delta, and delta percentage relative to the base total.
+
 ## Guardrails (highest-liability module in the product)
 
 1. **Reviewer gate.** Loadings and cashflow are artifacts and inherit the export gate — no export
@@ -136,9 +154,27 @@ All verified by `backend/tests/test_pricing.py` (31 tests).
 7. ✅ The module imports no LLM client — asserted by a static AST-import-scan test, not just behavior.
 8. ✅ Loadings compute only from accepted findings — enforced inside `compute_loadings` itself, not
    only by caller discipline.
-9. ✅ Every route (`loading`, `rate-benchmark`, `cashflow`) is blocked with `409 review_incomplete`
+9. ✅ Every route (`loading`, `rate-benchmark`, `cashflow`, `rate-buildup`, `sensitivity`) is blocked with `409 review_incomplete`
    until the review gate passes — verified end to end through the real router, not just the service.
 10. ✅ Disabling `pricing` leaves risk, BOQ and export fully functional (all deps are soft).
+11. ✅ Rate build-up returns per-item material/labour/equipment/overhead/profit rates and totals (TS-320).
+12. ✅ Sensitivity returns base total plus default +/- rate/qty/profit scenarios with delta values (TS-320).
+
+## Frontend UI (TS-309)
+
+### Public pages
+
+- `/opportunities/{id}` gains a **Pricing** tab.
+
+### Acceptance criteria
+
+- F1: Tab exposes sub-tabs for loadings, rate benchmark, and cashflow.
+- F2: Loadings sub-tab calls `GET /api/pricing/opportunities/{id}/loading` and displays produced/non-produced results with amounts and reasons.
+- F3: Rate-benchmark sub-tab has a BOQ CSV textarea plus authority/year inputs and calls `POST /api/pricing/opportunities/{id}/rate-benchmark`, displaying headline variance and a match table.
+- F4: Cashflow sub-tab has inputs for contract value, duration, cost of capital, payment days, retention, and mobilization, and calls `POST /api/pricing/opportunities/{id}/cashflow`, displaying peak requirement, total financing cost, assumptions, and a monthly table.
+- F5: Rate build-up sub-tab lets the estimator set component percentages and calls `POST /api/pricing/opportunities/{id}/rate-buildup`, displaying per-item build-up and totals (TS-320).
+- F6: Sensitivity sub-tab calls `POST /api/pricing/opportunities/{id}/sensitivity` and displays the base total plus scenario deltas in a table (TS-320).
+- F7: The review gate status is surfaced and blocked outputs show the backend error message.
 
 ## Out of scope
 
@@ -146,3 +182,4 @@ All verified by `backend/tests/test_pricing.py` (31 tests).
 - Automatically adjusting BOQ rates
 - Competitor-specific bid prediction
 - Any pricing output in an unreviewed tier
+- Persisting rate build-up or sensitivity runs as data rows (computed on request)

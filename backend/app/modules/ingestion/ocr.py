@@ -1,13 +1,15 @@
 """OCR providers (Doc §6.1) — pluggable, no cloud required.
 
 RapidOcrProvider uses RapidOCR (ONNX, bundled models, fully offline) to read
-scanned/image PDF pages; PyMuPDF rasterizes each page. NullOcrProvider is the
-default (OCR off) so a scanned doc is flagged `needs_ocr` and degrades honestly
-rather than silently producing garbage (Doc §12.4). AWS Textract can plug in
-behind the same interface later for the hard table-heavy scans (TS-033)."""
+scanned/image PDF pages and standalone image files (PNG/JPG/TIFF). PyMuPDF
+rasterizes PDF pages and PIL normalizes image uploads to PNG. NullOcrProvider is
+the default (OCR off) so a scanned doc or image is flagged `needs_ocr` and degrades
+honestly rather than silently producing garbage (Doc §12.4). AWS Textract can plug
+in behind the same interface later for the hard table-heavy scans (TS-033)."""
 
 from __future__ import annotations
 
+import io
 import logging
 from typing import Protocol
 
@@ -23,12 +25,19 @@ class OcrProvider(Protocol):
         """Return recognized text per page (index 0 = page 1)."""
         ...
 
+    def ocr_image(self, image_bytes: bytes) -> str:
+        """Return recognized text from a single image file."""
+        ...
+
 
 class NullOcrProvider:
     name = "null"
 
     def ocr_pdf(self, pdf_bytes: bytes) -> list[str]:
         return []
+
+    def ocr_image(self, image_bytes: bytes) -> str:
+        return ""
 
 
 class RapidOcrProvider:
@@ -47,6 +56,27 @@ class RapidOcrProvider:
 
             self._engine = RapidOCR()
         return self._engine
+
+    def _png_bytes(self, image_bytes: bytes) -> bytes:
+        from PIL import Image
+
+        img = Image.open(io.BytesIO(image_bytes))
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        out = io.BytesIO()
+        img.save(out, format="PNG")
+        return out.getvalue()
+
+    def ocr_image(self, image_bytes: bytes) -> str:
+        engine = self._ocr()
+        png = self._png_bytes(image_bytes)
+        try:
+            result, _ = engine(png)
+        except Exception:
+            logger.exception("OCR failed on an image")
+            result = None
+        record_ocr_pages(1)
+        return "\n".join(line[1] for line in result) if result else ""
 
     def ocr_pdf(self, pdf_bytes: bytes) -> list[str]:
         import fitz  # PyMuPDF

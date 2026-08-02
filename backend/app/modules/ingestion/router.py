@@ -117,6 +117,12 @@ def register_document(
     svc = _service(request, session)
     if not svc.get_opportunity(principal.workspace_id, opportunity_id):
         raise HTTPException(404, "not_found")
+    document_class = svc.classify_document_kind(body.sample_text) if body.sample_text else "other"
+    permitted_fn = request.app.state.ctx.registry.get("auth.document_class_permitted")
+    if permitted_fn is not None and not permitted_fn(
+        session, principal.workspace_id, principal.role, document_class
+    ):
+        raise HTTPException(403, "document_class_forbidden")
     doc = svc.register_document(
         principal.workspace_id,
         opportunity_id,
@@ -190,6 +196,14 @@ async def upload_document(
     # `extract_upload` may parse PDF/CSV/XLSX and run OCR; keep it out of the
     # async event loop by running in the default executor.
     text, ocr_status = await asyncio.to_thread(extract_upload, file.filename, data, ocr)
+
+    document_class = svc.classify_document_kind(text) if text else "other"
+    permitted_fn = request.app.state.ctx.registry.get("auth.document_class_permitted")
+    if permitted_fn is not None and not permitted_fn(
+        session, principal.workspace_id, principal.role, document_class
+    ):
+        raise HTTPException(403, "document_class_forbidden")
+
     doc = svc.register_document(
         principal.workspace_id,
         opportunity_id,
@@ -340,6 +354,109 @@ def get_document_text(
     principal: Any = Depends(require("viewer")),
 ):
     return _service(request, session).get_doc_text(principal.workspace_id, document_id, page=page)
+
+
+@router.get("/opportunities/{opportunity_id}/documents/{document_id}/addendum")
+def get_addendum(
+    opportunity_id: str,
+    document_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    svc = _service(request, session)
+    doc = svc.get_document(principal.workspace_id, document_id)
+    if not doc or str(doc.opportunity_id) != opportunity_id:
+        raise HTTPException(404, "not_found")
+    return {
+        "document_id": str(doc.id),
+        "supersedes": str(doc.supersedes) if doc.supersedes else None,
+        "is_addendum": bool(doc.meta.get("addendum")),
+        "addendum_reason": doc.meta.get("addendum_reason"),
+        "addendum_changes": doc.meta.get("addendum_changes", []),
+        "duplicate_of": doc.meta.get("duplicate_of"),
+        "ocr_status": doc.ocr_status,
+    }
+
+
+@router.get("/documents/{document_id}")
+def get_document(
+    document_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    doc = _service(request, session).get_document(principal.workspace_id, document_id)
+    if not doc:
+        raise HTTPException(404, "not_found")
+    return {
+        "id": str(doc.id),
+        "opportunity_id": str(doc.opportunity_id),
+        "filename": doc.filename,
+        "kind": doc.kind,
+        "ocr_status": doc.ocr_status,
+        "language": doc.meta.get("language") if doc.meta else None,
+        "translation_summary": doc.meta.get("translation_summary") if doc.meta else None,
+        "sha256": doc.sha256,
+        "supersedes": str(doc.supersedes) if doc.supersedes else None,
+        "meta": doc.meta,
+        "created_at": doc.created_at.isoformat() if doc.created_at else None,
+    }
+
+
+@router.get("/opportunities/{opportunity_id}/glossary")
+def list_glossary(
+    opportunity_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    terms = _service(request, session).list_defined_terms(
+        principal.workspace_id, opportunity_id
+    )
+    return {
+        "terms": [
+            {
+                "id": str(t.id),
+                "document_id": str(t.document_id),
+                "term": t.term,
+                "definition": t.definition,
+                "source_quote": t.source_quote,
+                "source_clause_ref": t.source_clause_ref,
+            }
+            for t in terms
+        ]
+    }
+
+
+@router.get("/opportunities/{opportunity_id}/documents/{document_id}/glossary")
+def list_document_glossary(
+    opportunity_id: str,
+    document_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    svc = _service(request, session)
+    doc = svc.get_document(principal.workspace_id, document_id)
+    if not doc or str(doc.opportunity_id) != opportunity_id:
+        raise HTTPException(404, "not_found")
+    terms = svc.list_defined_terms(
+        principal.workspace_id, opportunity_id, document_id=document_id
+    )
+    return {
+        "terms": [
+            {
+                "id": str(t.id),
+                "document_id": str(t.document_id),
+                "term": t.term,
+                "definition": t.definition,
+                "source_quote": t.source_quote,
+                "source_clause_ref": t.source_clause_ref,
+            }
+            for t in terms
+        ]
+    }
 
 
 def _to_uuid(value: str):

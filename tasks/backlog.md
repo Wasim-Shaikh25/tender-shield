@@ -523,19 +523,14 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-291 | White-label branded report templates for the advisor channel | Research Doc §8.3 | `specs/modules/advisor.md` | done |
 | TS-292 | Public API + e-signature integration for notice issue | Research Doc §4.I | `specs/modules/public_api.md` (new) | done |
 
----
-
-## Auth configuration and verification methods (TS-297)
-
-Requirement source: user request for configurable mobile verification, OTP toggles,
-login by email/mobile with password or OTP, and Brevo email sender.
-
-|| ID | Title | Req ref | Spec | Status |
-|---|---|---|---|---|---|
-|| TS-297 | Configurable auth: optional mobile verification, OTP on/off toggles, email/mobile + password/OTP login, Brevo email adapter | user request; Doc §5 | `specs/modules/auth.md` (update) | done |
-
 ## Tooling
 
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
 | TS-293 | `scripts/task_tracker.py`: parse/validate `tasks/backlog.md`, report progress by phase, list incomplete/blocked tasks, cross-check tracker files; wired into CI as a blocking job | `CLAUDE.md` §1; user request | `scripts/task_tracker.py` | done |
+
+## Round 8 release-blocker fixes
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-299 | Fix Round 8 audit release blockers: public_api RLS/auth, integrations/public_api opportunity validation, auth invitation/member 500s, `.env.local` mobile verification mismatch, backlog tracker cleanup | Round 8 audit; Build Doc §3.2, §5, §6, §11.4 | `PRODUCTION_READINESS_AUDIT.md` §6 | in-progress |

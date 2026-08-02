@@ -6,6 +6,11 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — Round 8 release-blocker fixes (TS-299)
+
+- **TS-299 backlog tracker cleanup** — removed duplicate `TS-297` entry and malformed
+  table row from `tasks/backlog.md`; `scripts/task_tracker.py --validate` is now clean.
+
 ### Done — auth configuration and login methods (TS-297)
 
 - **TS-297 configurable auth** — `backend/app/modules/auth/service.py` and `router.py`

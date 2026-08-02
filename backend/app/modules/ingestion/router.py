@@ -40,6 +40,8 @@ class CreateOpportunityBody(BaseModel):
     employer: str | None = None
     employer_family: str | None = None
     jurisdiction: str = "IN"
+    contract_value_minor: int | None = Field(default=None, ge=0)
+    currency: str = "INR"
 
 
 class RegisterDocumentBody(BaseModel):
@@ -66,6 +68,8 @@ def _opp_json(o) -> dict:
         "id": str(o.id),
         "title": o.title,
         "status": o.status,
+        "contract_value_minor": o.contract_value_minor,
+        "currency": o.currency,
         "submission_due": o.submission_due.isoformat() if o.submission_due else None,
     }
 
@@ -83,6 +87,8 @@ def create_opportunity(
         employer=body.employer,
         employer_family=body.employer_family,
         jurisdiction=body.jurisdiction,
+        contract_value_minor=body.contract_value_minor,
+        currency=body.currency,
     )
     return _opp_json(opp)
 

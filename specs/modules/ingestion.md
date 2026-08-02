@@ -103,6 +103,12 @@ document is re-registered or re-uploaded.
   the most recent matching base document via `supersedes` and a clause-level diff is
   stored in `meta.addendum_changes`. `GET /opportunities/{id}/documents/{doc_id}/addendum`
   exposes the diff and link.
+- **B16 (language detection / multilingual extraction, TS-315):** `process_text` detects
+  the dominant script of the extracted text (Devanagari, Bengali, Telugu, Tamil, Arabic,
+  CJK, Cyrillic, etc.) and stores `meta.language` with a BCP-47-ish code. When the
+  language is not English and an OpenRouter key is configured, a short English
+  summary/translation is produced and stored in `meta.translation_summary`; the original
+  text and chunks are never replaced.
 
 ## Acceptance criteria
 
@@ -123,6 +129,7 @@ document is re-registered or re-uploaded.
 - A14 (TS-311): Standalone `.png`/`.jpg`/`.tiff` uploads are routed to an OCR provider; without one `extract_upload` returns `ocr_status=needs_ocr`. OCR results are emitted as a single `[p1]` block.
 - A15 (TS-312): `.zip` uploads extract all supported files inside, prefix each with `[file:<name>]`, and return the most degraded `ocr_status` across members. Nested `.zip` files are skipped.
 - A16 (TS-314): Registering a document whose filename contains addendum/version keywords links it to the most recent matching base doc and stores a clause-level diff; duplicate `sha256` documents are flagged `duplicate`.
+- A17 (TS-315): Hindi (Devanagari) text is detected as `hi` and English text as `en`; when an OpenRouter key is present, non-English documents receive an English `translation_summary` without replacing the original chunks.
 
 ## Out of scope
 

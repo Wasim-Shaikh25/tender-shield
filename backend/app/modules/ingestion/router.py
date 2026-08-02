@@ -365,6 +365,31 @@ def get_addendum(
     }
 
 
+@router.get("/documents/{document_id}")
+def get_document(
+    document_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    doc = _service(request, session).get_document(principal.workspace_id, document_id)
+    if not doc:
+        raise HTTPException(404, "not_found")
+    return {
+        "id": str(doc.id),
+        "opportunity_id": str(doc.opportunity_id),
+        "filename": doc.filename,
+        "kind": doc.kind,
+        "ocr_status": doc.ocr_status,
+        "language": doc.meta.get("language") if doc.meta else None,
+        "translation_summary": doc.meta.get("translation_summary") if doc.meta else None,
+        "sha256": doc.sha256,
+        "supersedes": str(doc.supersedes) if doc.supersedes else None,
+        "meta": doc.meta,
+        "created_at": doc.created_at.isoformat() if doc.created_at else None,
+    }
+
+
 def _to_uuid(value: str):
     import uuid
 

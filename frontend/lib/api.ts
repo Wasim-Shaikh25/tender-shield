@@ -781,6 +781,8 @@ export const api = {
   // Addendum / duplicate detection
   getAddendum: (token: string, opportunityId: string, documentId: string) =>
     req<{ document_id: string; supersedes: string | null; is_addendum: boolean; addendum_reason?: string; addendum_changes: Record<string, unknown>[]; duplicate_of?: string; ocr_status: string }>(`/ingestion/opportunities/${opportunityId}/documents/${documentId}/addendum`, {}, token),
+  getDocument: (token: string, documentId: string) =>
+    req<{ id: string; opportunity_id: string; filename: string; kind: string; ocr_status: string; language?: string | null; translation_summary?: string | null; sha256: string; supersedes: string | null; meta: Record<string, unknown>; created_at?: string | null }>(`/ingestion/documents/${documentId}`, {}, token),
 };
 
 export type PlanSnapshot = {

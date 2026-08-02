@@ -18,7 +18,12 @@ from sqlalchemy.orm import Session
 
 from app.modules.ingestion.classify import classify_text, missing_documents
 from app.modules.ingestion.deadlines import extract_deadlines
-from app.modules.ingestion.doc_text import DocTextService, persist_chunks
+from app.modules.ingestion.doc_text import (
+    DocTextService,
+    detect_language,
+    persist_chunks,
+    translate_summary,
+)
 from app.modules.ingestion.models import Clause, Deadline, Document, Opportunity
 from app.modules.ingestion.segment import segment_clauses
 
@@ -166,6 +171,15 @@ class IngestionService:
         self._segment(doc, text)
         self._extract_deadlines(doc, text)
         persist_chunks(self.s, doc.workspace_id, doc.opportunity_id, doc.id, text)
+        doc.meta = {**(doc.meta or {}), "language": detect_language(text)}
+        if doc.meta.get("language") != "en":
+            from app.core.llm import openrouter_client
+
+            summary = translate_summary(
+                text[:5000], doc.meta["language"], client=openrouter_client("ingestion.translate")
+            )
+            if summary:
+                doc.meta["translation_summary"] = summary
         self.s.commit()
 
     def _extract_deadlines(self, doc: Document, text: str) -> int:

@@ -80,6 +80,11 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   linked to the matching base document via `supersedes` and a clause-level diff is
   stored in `meta.addendum_changes`; `GET /api/ingestion/opportunities/{id}/documents/{doc_id}/addendum`
   exposes the result.
+- **TS-315** — language detection and multilingual extraction: `doc_text.py` detects
+  dominant script (Devanagari, Bengali, Telugu, Tamil, Arabic, CJK, Cyrillic, etc.) and
+  stores `meta.language`. For non-English text, an optional English summary/translation
+  is produced via OpenRouter and stored in `meta.translation_summary` without
+  replacing the original chunks; `GET /api/ingestion/documents/{id}` exposes both.
 - Added `docs/REMAINING_GAPS_ROADMAP.md` with one row for every `Partial` / `Missing`
   capability from `FEATURE_COVERAGE.md`.
 - Created **Phase 22** in `tasks/backlog.md` with 33 concrete tasks (TS-301–TS-333)

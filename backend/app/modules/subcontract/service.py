@@ -219,7 +219,7 @@ class SubcontractService:
         covered = []
         for item in items:
             text = item.item_text.lower().strip()
-            if text and text in main_scope:
+            if item.covered or (text and text in main_scope):
                 covered.append({"id": str(item.id), "item_text": item.item_text})
             else:
                 gaps.append({"id": str(item.id), "item_text": item.item_text})

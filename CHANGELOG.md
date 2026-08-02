@@ -180,6 +180,19 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - `/settings/integrations` UI for non-technical users to create, edit, test, poll,
   and delete dynamic connectors with live JSON preview and auth-config masking.
 
+### Done — backend test coverage backfill (TS-335)
+
+- Added `backend/tests/test_integrations.py` for `dynamic-connectors` CRUD,
+  test/poll endpoints, and adapter/source creation; found and fixed
+  `DynamicRestConnector._config_for` UUID/string binding bug against SQLAlchemy `Uuid`.
+- Added `backend/tests/test_public_api.py` for API-key create/list/revoke and
+  `Apikey` authentication; guarded `SET LOCAL app.api_key_hash` to PostgreSQL only.
+- Added `backend/tests/test_subcontract.py` for subcontract CRUD, clauses,
+  scope items, payment events, scope gaps, notice calendar, and payment exposure;
+  fixed `scope_gaps` to honor the `covered` flag.
+- Removed the non-existent `json_payload` adapter default from the integration-source
+  UI; the default adapter is now `erp`.
+
 ### Done — final Phase 22 batch TS-332/TS-333
 
 - **TS-332** — workspace data governance: new `governance` module and

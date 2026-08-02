@@ -97,7 +97,8 @@ class PublicApiService:
         # Allow the key lookup to bypass workspace RLS because the workspace is
         # not known until the key is found. The RLS policy on public_api_keys
         # accepts the key hash as an alternative predicate.
-        self.s.execute(text("SET LOCAL app.api_key_hash = :hash"), {"hash": hash_value})
+        if self.s.bind and self.s.bind.dialect.name == "postgresql":
+            self.s.execute(text("SET LOCAL app.api_key_hash = :hash"), {"hash": hash_value})
         row = self.s.scalar(
             select(PublicApiKey).where(
                 PublicApiKey.key_hash == hash_value,

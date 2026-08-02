@@ -7,6 +7,7 @@ No generated code is stored or executed.
 
 from __future__ import annotations
 
+import uuid
 from typing import Any
 
 import httpx
@@ -68,7 +69,7 @@ class DynamicRestConnector(BaseConnector):
             return None
         return session.scalar(
             select(DynamicConnectorConfig).where(
-                DynamicConnectorConfig.id == config_id,
+                DynamicConnectorConfig.id == uuid.UUID(str(config_id)),
                 DynamicConnectorConfig.enabled == True,  # noqa: E712
             )
         )

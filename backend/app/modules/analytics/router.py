@@ -83,6 +83,19 @@ def boq_defect_summary(
     return _service(request, session).boq_defect_summary(principal.workspace_id)
 
 
+@router.get("/claim-metrics")
+def claim_metrics(
+    opportunity_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    fn = request.app.state.ctx.registry.get("claims.cycle_metrics")
+    if fn is None:
+        raise HTTPException(503, "claims metrics unavailable")
+    return fn(session, principal.workspace_id, opportunity_id)
+
+
 @router.post("/reports/export")
 def export_report(
     request: Request,

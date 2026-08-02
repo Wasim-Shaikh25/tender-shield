@@ -671,6 +671,7 @@ class ChangeService:
         description: str | None = None,
         captured_at: datetime | None = None,
         document_id: str | None = None,
+        metadata: dict | None = None,
         created_by,
     ) -> dict:
         if self._evidence_factory is None:
@@ -687,6 +688,7 @@ class ChangeService:
                 description=description,
                 captured_at=captured_at,
                 document_id=document_id,
+                metadata=metadata,
                 created_by=created_by,
             )
         except Exception as exc:

@@ -29,6 +29,14 @@ _CLAIM_TYPES = frozenset(
 
 _DRAFT_KINDS = frozenset({"particulars", "variation_proposal", "eot", "full_pack"})
 
+_VALID_PARTIES = frozenset({"contractor", "employer", "engineer", "other"})
+
+_OPPOSING_PARTIES: dict[str, frozenset[str]] = {
+    "contractor": frozenset({"employer", "engineer"}),
+    "employer": frozenset({"contractor"}),
+    "engineer": frozenset({"contractor"}),
+}
+
 _CLAIM_TYPE_CHECKLIST = {
     "variation": {
         "instruction",
@@ -143,6 +151,18 @@ def _as_utc(dt: datetime | date | None) -> datetime | None:
     return datetime.combine(dt, time.min, tzinfo=UTC)
 
 
+def _avg(values: list[int]) -> int:
+    if not values:
+        return 0
+    return int(sum(values) / len(values))
+
+
+def _rate(numerator: int, denominator: int) -> int:
+    if denominator <= 0:
+        return 0
+    return int(round(100 * numerator / denominator))
+
+
 class ClaimsService:
     def __init__(
         self,
@@ -179,6 +199,7 @@ class ClaimsService:
         claim_type: str,
         title: str,
         description: str | None = None,
+        claimant_party: str | None = None,
         change_event_id: str | None = None,
         baseline_id: str | None = None,
         claim_amount_minor: int | None = None,
@@ -189,6 +210,8 @@ class ClaimsService:
             raise ClaimsError("bad_claim_type")
         if not title.strip():
             raise ClaimsError("bad_request")
+        if claimant_party and claimant_party not in _VALID_PARTIES:
+            raise ClaimsError("bad_claimant_party")
         wid = _to_uuid(workspace_id)
         oid = _to_uuid(opportunity_id)
         baseline = _to_uuid(baseline_id) if baseline_id else None
@@ -212,6 +235,7 @@ class ClaimsService:
             claim_type=claim_type,
             title=title.strip(),
             description=description,
+            claimant_party=claimant_party,
             claim_amount_minor=claim_amount_minor,
             currency=currency,
             created_by=_to_uuid(created_by),
@@ -256,6 +280,7 @@ class ClaimsService:
         *,
         title: str | None = None,
         description: str | None = None,
+        claimant_party: str | None = None,
         claim_type: str | None = None,
         claim_amount_minor: int | None = None,
         currency: str | None = None,
@@ -265,12 +290,16 @@ class ClaimsService:
             raise ClaimsError("not_editable")
         if claim_type is not None and claim_type not in _CLAIM_TYPES:
             raise ClaimsError("bad_claim_type")
+        if claimant_party is not None and claimant_party not in _VALID_PARTIES:
+            raise ClaimsError("bad_claimant_party")
         if title is not None:
             if not title.strip():
                 raise ClaimsError("bad_request")
             row.title = title.strip()
         if description is not None:
             row.description = description
+        if claimant_party is not None:
+            row.claimant_party = claimant_party
         if claim_type is not None:
             row.claim_type = claim_type
             _ensure_checklist(self.s, row.workspace_id, row)
@@ -812,6 +841,7 @@ class ClaimsService:
                         claim_id=row.id,
                         recovered_amount_minor=settled_amount_minor,
                         currency=row.currency,
+                        recorded_by=recorded_by,
                     )
                 except Exception:
                     pass
@@ -965,13 +995,36 @@ class ClaimsService:
 
     def conflict_check(self, workspace_id, claim_id) -> dict:
         row = self._get_claim_row(workspace_id, claim_id)
-        # Phase 19 scaffold: no conflict resolution data model yet.
-        # TS-267 will surface opposing-party markers from auth/workspace membership.
+        party = row.claimant_party
+        if not party:
+            return {
+                "claim_id": str(row.id),
+                "conflict_detected": False,
+                "opposing_claims": [],
+                "note": "no_party_marked",
+            }
+        opposers = _OPPOSING_PARTIES.get(party, frozenset())
+        others = self.s.scalars(
+            select(Claim).where(
+                Claim.workspace_id == row.workspace_id,
+                Claim.opportunity_id == row.opportunity_id,
+                Claim.id != row.id,
+            )
+        ).all()
+        conflicts = []
+        for other in others:
+            if other.claimant_party in opposers:
+                conflicts.append(
+                    {
+                        "claim_id": str(other.id),
+                        "title": other.title,
+                        "claimant_party": other.claimant_party,
+                    }
+                )
         return {
             "claim_id": str(row.id),
-            "conflict_detected": False,
-            "opposing_claims": [],
-            "note": "conflicts_control_pending_TS_267",
+            "conflict_detected": bool(conflicts),
+            "opposing_claims": conflicts,
         }
 
     def cycle_metrics(self, workspace_id, opportunity_id) -> dict:
@@ -984,10 +1037,19 @@ class ClaimsService:
         )
         status_counts: dict[str, int] = {}
         cycle_times: list[dict] = []
+        draft_to_submit: list[int] = []
+        response_days: list[int] = []
+        total_days: list[int] = []
+        notice_timeliness: list[dict] = []
+        recovered_total = 0
+        claimed_total = 0
         for claim in claims:
             status_counts[claim.status] = status_counts.get(claim.status, 0) + 1
             submitted = claim.submitted_at
             settled = claim.settled_at
+            claimed_total += claim.claim_amount_minor or 0
+            if claim.status == "settled":
+                recovered_total += claim.recovered_amount_minor or 0
             first_response = self.s.scalar(
                 select(ClaimResponse.created_at)
                 .where(ClaimResponse.claim_id == claim.id)
@@ -995,21 +1057,70 @@ class ClaimsService:
             )
             cycle_entry: dict[str, Any] = {"claim_id": str(claim.id), "status": claim.status}
             if submitted and claim.created_at:
-                cycle_entry["draft_to_submit_days"] = int(
-                    (submitted - claim.created_at).total_seconds() / 86400
-                )
+                days = int((submitted - claim.created_at).total_seconds() / 86400)
+                cycle_entry["draft_to_submit_days"] = days
+                draft_to_submit.append(days)
             if first_response and submitted:
-                cycle_entry["response_days"] = int(
-                    (first_response - submitted).total_seconds() / 86400
-                )
+                days = int((first_response - submitted).total_seconds() / 86400)
+                cycle_entry["response_days"] = days
+                response_days.append(days)
             if settled and submitted:
-                cycle_entry["total_days"] = int((settled - submitted).total_seconds() / 86400)
+                days = int((settled - submitted).total_seconds() / 86400)
+                cycle_entry["total_days"] = days
+                total_days.append(days)
+            if submitted and claim.change_event_id:
+                deadline = self._notice_deadline(wid, claim.change_event_id)
+                if deadline:
+                    deadline_dt = datetime.combine(deadline, time.min, tzinfo=UTC)
+                    tl_days = int((submitted - deadline_dt).total_seconds() / 86400)
+                    notice_timeliness.append(
+                        {
+                            "claim_id": str(claim.id),
+                            "notice_deadline": deadline.isoformat(),
+                            "submitted_at": submitted.isoformat(),
+                            "timeliness_days": tl_days,
+                            "on_time": tl_days <= 0,
+                        }
+                    )
+                    cycle_entry["notice_timeliness_days"] = tl_days
+                    cycle_entry["notice_on_time"] = tl_days <= 0
             cycle_times.append(cycle_entry)
+        on_time_count = sum(1 for n in notice_timeliness if n["on_time"])
+        late_count = len(notice_timeliness) - on_time_count
         return {
             "opportunity_id": str(oid),
             "status_counts": status_counts,
             "cycle_times": cycle_times,
+            "averages": {
+                "draft_to_submit_days": _avg(draft_to_submit),
+                "response_days": _avg(response_days),
+                "total_days": _avg(total_days),
+            },
+            "notice_timeliness": {
+                "on_time": on_time_count,
+                "late": late_count,
+                "total": len(notice_timeliness),
+                "on_time_rate_percent": _rate(on_time_count, len(notice_timeliness)),
+                "details": notice_timeliness,
+            },
+            "recovered_total_minor": recovered_total,
+            "claimed_total_minor": claimed_total,
         }
+
+    def _notice_deadline(self, workspace_id, event_id) -> date | None:
+        if self._change_factory is None:
+            return None
+        change = self._change_factory(self.s)
+        if not hasattr(change, "notice_deadline_for_event"):
+            return None
+        try:
+            payload = change.notice_deadline_for_event(workspace_id, event_id)
+            deadline = payload.get("notice_deadline")
+            if deadline:
+                return date.fromisoformat(str(deadline))
+        except Exception:
+            pass
+        return None
 
     # ---- helpers -----------------------------------------------------------
 
@@ -1057,6 +1168,7 @@ class ClaimsService:
             "change_event_id": str(row.change_event_id) if row.change_event_id else None,
             "baseline_id": str(row.baseline_id) if row.baseline_id else None,
             "claim_type": row.claim_type,
+            "claimant_party": row.claimant_party,
             "status": row.status,
             "title": row.title,
             "description": row.description,

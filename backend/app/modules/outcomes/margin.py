@@ -20,6 +20,7 @@ class MarginProtectedSnapshot:
     declined_exposure_avoided_minor: int = 0
     boq_defects_corrected: int = 0
     materialized_impact_minor: int = 0
+    claim_recoveries_minor: int = 0
     total_margin_protected_minor: int = 0
     opportunities_counted: int = 0
     breakdown: dict[str, int] = field(default_factory=dict)
@@ -31,6 +32,7 @@ class MarginProtectedSnapshot:
             "declined_exposure_avoided_minor": self.declined_exposure_avoided_minor,
             "boq_defects_corrected": self.boq_defects_corrected,
             "materialized_impact_minor": self.materialized_impact_minor,
+            "claim_recoveries_minor": self.claim_recoveries_minor,
             "total_margin_protected_minor": self.total_margin_protected_minor,
             "opportunities_counted": self.opportunities_counted,
             "breakdown": dict(self.breakdown),
@@ -42,6 +44,7 @@ def compute_margin_protected(
     *,
     outcomes: list | None = None,
     materializations: list | None = None,
+    claim_recoveries: list | None = None,
     currency: str = "INR",
 ) -> MarginProtectedSnapshot:
     """Sum verified margin protected components for a workspace snapshot.
@@ -53,6 +56,7 @@ def compute_margin_protected(
     """
     outcomes = outcomes or []
     materializations = materializations or []
+    claim_recoveries = claim_recoveries or []
     declined_opps = {
         str(o.opportunity_id)
         for o in outcomes
@@ -102,13 +106,24 @@ def compute_margin_protected(
             continue
         materialized += impact
 
-    total = risk_allowances + declined_avoided + materialized
+    recovered = 0
+    for row in claim_recoveries:
+        amount = getattr(row, "recovered_amount_minor", None)
+        row_currency = (getattr(row, "currency", None) or "").upper()
+        if amount is None or not isinstance(amount, int) or amount < 0:
+            continue
+        if row_currency and row_currency != currency.upper():
+            continue
+        recovered += amount
+
+    total = risk_allowances + declined_avoided + materialized + recovered
     return MarginProtectedSnapshot(
         currency=currency.upper(),
         risk_allowances_minor=risk_allowances,
         declined_exposure_avoided_minor=declined_avoided,
         boq_defects_corrected=boq_corrected,
         materialized_impact_minor=materialized,
+        claim_recoveries_minor=recovered,
         total_margin_protected_minor=total,
         opportunities_counted=len(opp_ids),
         breakdown={
@@ -119,5 +134,6 @@ def compute_margin_protected(
             "materialized_findings": len(
                 [m for m in materializations if getattr(m, "materialized", False)]
             ),
+            "claim_recoveries": len(claim_recoveries),
         },
     )

@@ -24,6 +24,7 @@ class AttachBody(BaseModel):
     description: str | None = None
     captured_at: datetime | None = None
     document_id: str | None = None
+    metadata: dict | None = None
 
 
 def _service(request: Request, session: Session) -> EvidenceService:
@@ -59,6 +60,7 @@ def attach_record(
             description=body.description,
             captured_at=body.captured_at,
             document_id=body.document_id,
+            metadata=body.metadata,
             created_by=principal.user_id,
         )
     except EvidenceError as exc:

@@ -10,7 +10,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.modules.outcomes.margin import compute_margin_protected
-from app.modules.outcomes.models import OcBidOutcome, OcRiskMaterialization
+from app.modules.outcomes.models import (
+    OcBidOutcome,
+    OcClaimRecovery,
+    OcRiskMaterialization,
+)
 
 VALID_RESULTS = frozenset({"submitted", "won", "lost", "declined", "disqualified"})
 
@@ -80,6 +84,52 @@ class OutcomesService:
                     "workspace_id": str(ws),
                     "opportunity_id": str(opp),
                     "result": result,
+                },
+            )
+        return row
+
+    def record_claim_outcome(
+        self,
+        workspace_id,
+        opportunity_id,
+        *,
+        claim_id,
+        recovered_amount_minor: int,
+        currency: str = "INR",
+        recorded_by=None,
+    ) -> OcClaimRecovery:
+        ws = uuid.UUID(str(workspace_id))
+        opp = uuid.UUID(str(opportunity_id))
+        cid = uuid.UUID(str(claim_id))
+        row = self.s.scalar(
+            select(OcClaimRecovery).where(
+                OcClaimRecovery.workspace_id == ws,
+                OcClaimRecovery.claim_id == cid,
+            )
+        )
+        if row is None:
+            row = OcClaimRecovery(
+                workspace_id=ws,
+                opportunity_id=opp,
+                claim_id=cid,
+            )
+            self.s.add(row)
+        if recovered_amount_minor < 0:
+            raise OutcomesError("bad_amount")
+        row.recovered_amount_minor = recovered_amount_minor
+        row.currency = currency
+        row.recorded_by = uuid.UUID(str(recorded_by)) if recorded_by else None
+        self.s.commit()
+        self.s.refresh(row)
+        if self._publish:
+            self._publish(
+                "outcome.claim_recovered",
+                {
+                    "workspace_id": str(ws),
+                    "opportunity_id": str(opp),
+                    "claim_id": str(cid),
+                    "recovered_amount_minor": recovered_amount_minor,
+                    "currency": currency,
                 },
             )
         return row
@@ -189,10 +239,16 @@ class OutcomesService:
                 select(OcRiskMaterialization).where(OcRiskMaterialization.workspace_id == ws)
             )
         )
+        recoveries = list(
+            self.s.scalars(
+                select(OcClaimRecovery).where(OcClaimRecovery.workspace_id == ws)
+            )
+        )
         return compute_margin_protected(
             findings,
             outcomes=outcomes,
             materializations=materializations,
+            claim_recoveries=recoveries,
             currency=currency,
         ).summary()
 

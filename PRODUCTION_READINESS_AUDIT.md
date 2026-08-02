@@ -110,13 +110,19 @@ Test artifacts: screen recording at `/home/ubuntu/screencasts/tendershield-golde
 | Review / gate | `review` | `/opportunities/[id]` | `test_review.py` | Ready |
 | Change notices / events | `change` | `/opportunities/[id]` | `test_change*.py` | Ready |
 | Claims / recoveries | `claims` | (none) | `test_claims.py` | Backend ready, no dedicated UI |
-| Control tower / exposure | `controltower` | `/analytics` | `test_controltower.py` | Ready |
+| Analytics dashboard | `analytics` | `/analytics` | `test_analytics.py`? | Ready (no LLM key → empty state) |
+| AI-generated plan dashboard | `analytics` + `assistant` | `/plan`, `/assistant` panel | `test_analytics.py`? | Backend ready; `/plan` not in nav, depends on OpenRouter key |
+| Control tower / exposure | `controltower` | (none) | `test_controltower.py` | Backend ready, no UI route |
 | Subcontract flowdown | `subcontract` | (none) | `test_subcontract.py`? | Not surfaced in UI |
 | Billing / subscriptions | `billing` | `/billing`, `/plan` | `test_billing.py` | Ready |
 | Public API / e-signature | `public_api` | (none) | `test_public_api.py`? | **Not production-ready (RLS/auth)** |
 | Integrations (OCDS/MS Project/P6) | `integrations` | (none) | `test_integrations.py`? | Backend present, UI not visible |
 | Assistant | `assistant` | `/assistant` | `test_assistant.py` | Ready |
 | Admin | `auth` admin routes | `/admin/*` | `test_auth_module.py` | Ready |
+| Review/Export gate | `review` + `export` | n/a | `test_review.py`, `test_export.py`? | Backend wired; express lane bypasses gate with watermark |
+| Pricing gate | `pricing` | n/a | `test_pricing.py`? | Backend wired |
+| Baseline freeze gate | `baseline` | n/a | `test_baseline.py`? | Backend wired |
+| Drafting gate | `drafting` | n/a | `test_drafting.py`? | Backend wired |
 
 ### 3.2 Product blockers
 
@@ -124,6 +130,16 @@ Test artifacts: screen recording at `/home/ubuntu/screencasts/tendershield-golde
 2. **Eval smoke quality gaps.** The M1/M4 smoke passes, but the `Deadline / tender-value match vs portal` metric is 25% vs a 95% bar, and a severity rule fails because `project_duration_months` is not supplied by the classifier.
 3. **Team invitation and member-add endpoints return 500 in the browser.** `POST /api/auth/invitations` and `POST /api/auth/workspaces/{id}/members` both fail during the E2E team workflow; `/team` shows a global fetch-failure banner.
 4. **Out-of-box onboarding is broken by the default `.env.local`.** The sign-up form requires a mobile verification code, but `TS_AUTH_MOBILE_VERIFICATION_ENABLED` is commented out by default.
+
+### 3.3 AI-generated dashboards and gates assessment
+
+| Capability | What exists | What's missing / risk |
+|---|---|---|
+| `/analytics` page | Reads `risk_summary`, `deadline_dashboard`, `boq_defect_summary` and renders count cards/distributions. | No trend/time-series; empty until findings/deadlines/BOQ runs exist. |
+| AI plan dashboard (`/plan` + assistant panel) | `POST /api/analytics/plan` uses `PlanDashboardAgent` to generate KPI/table/chart/mermaid sections; snapshots save/load/export. | Not linked in main nav; requires OpenRouter key; generated content is not domain-validated. |
+| Control tower / exposure | Backend endpoints `/api/controltower/exposure`, `/dashboard`, `/portfolio`, `/response-times`, `/clause-trends`, `/executive-summary`, `/payment-schedule`, `/economics`, `/customer-outcomes` all exist and are tested. | No frontend route consumes them in the current build. |
+| 5 workflow gates (review → export/pricing/baseline/drafting) | `review/service.py:gate` is the single source of truth; `export`, `pricing`, `baseline`, and `drafting` (`bid_decision`) all call it before producing artifacts. | Express export intentionally bypasses the gate with a watermark; gates block any artifact when there are zero findings or pending clarifications, which may be too restrictive for early-stage opportunities. |
+| 3 release gates (domain-accuracy, OCR-reliability, payments-integrity) | Domain accuracy is measured by `eval_ci_smoke.py` and per-pattern acceptance; OCR reliability is exercised on sample tenders; payments-integrity is enforced by server-side amount checks and webhook idempotency. | None have been run against a real-world pilot corpus or production payment provider, so they remain theoretical until validated with real data. |
 
 ---
 

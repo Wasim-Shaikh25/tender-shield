@@ -783,6 +783,10 @@ export const api = {
     req<{ document_id: string; supersedes: string | null; is_addendum: boolean; addendum_reason?: string; addendum_changes: Record<string, unknown>[]; duplicate_of?: string; ocr_status: string }>(`/ingestion/opportunities/${opportunityId}/documents/${documentId}/addendum`, {}, token),
   getDocument: (token: string, documentId: string) =>
     req<{ id: string; opportunity_id: string; filename: string; kind: string; ocr_status: string; language?: string | null; translation_summary?: string | null; sha256: string; supersedes: string | null; meta: Record<string, unknown>; created_at?: string | null }>(`/ingestion/documents/${documentId}`, {}, token),
+  getGlossary: (token: string, opportunityId: string) =>
+    req<{ terms: { id: string; document_id: string; term: string; definition: string; source_quote?: string | null; source_clause_ref?: string | null }[] }>(`/ingestion/opportunities/${opportunityId}/glossary`, {}, token),
+  getDocumentGlossary: (token: string, opportunityId: string, documentId: string) =>
+    req<{ terms: { id: string; document_id: string; term: string; definition: string; source_quote?: string | null; source_clause_ref?: string | null }[] }>(`/ingestion/opportunities/${opportunityId}/documents/${documentId}/glossary`, {}, token),
 };
 
 export type PlanSnapshot = {

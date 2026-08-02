@@ -85,6 +85,10 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   stores `meta.language`. For non-English text, an optional English summary/translation
   is produced via OpenRouter and stored in `meta.translation_summary` without
   replacing the original chunks; `GET /api/ingestion/documents/{id}` exposes both.
+- **TS-316** — defined-term glossary and linking: `segment_defined_terms` extracts
+  capitalised `X means Y` definitions; `process_text` persists them in the new
+  `DefinedTerm` table (workspace/opportunity/document scoped). Glossary exposed via
+  `GET /api/ingestion/opportunities/{id}/glossary` and per-document glossary endpoint.
 - Added `docs/REMAINING_GAPS_ROADMAP.md` with one row for every `Partial` / `Missing`
   capability from `FEATURE_COVERAGE.md`.
 - Created **Phase 22** in `tasks/backlog.md` with 33 concrete tasks (TS-301–TS-333)

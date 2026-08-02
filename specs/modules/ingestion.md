@@ -109,6 +109,11 @@ document is re-registered or re-uploaded.
   language is not English and an OpenRouter key is configured, a short English
   summary/translation is produced and stored in `meta.translation_summary`; the original
   text and chunks are never replaced.
+- **B17 (defined-term glossary and linking, TS-316):** `process_text` extracts
+  capitalised `X means Y` style definitions and persists them as `DefinedTerm` rows,
+  scoped to workspace + opportunity + document. `GET /opportunities/{id}/glossary`
+  and `GET /opportunities/{id}/documents/{doc_id}/glossary` expose the glossary with
+  verbatim source quotes and clause references.
 
 ## Acceptance criteria
 
@@ -130,6 +135,7 @@ document is re-registered or re-uploaded.
 - A15 (TS-312): `.zip` uploads extract all supported files inside, prefix each with `[file:<name>]`, and return the most degraded `ocr_status` across members. Nested `.zip` files are skipped.
 - A16 (TS-314): Registering a document whose filename contains addendum/version keywords links it to the most recent matching base doc and stores a clause-level diff; duplicate `sha256` documents are flagged `duplicate`.
 - A17 (TS-315): Hindi (Devanagari) text is detected as `hi` and English text as `en`; when an OpenRouter key is present, non-English documents receive an English `translation_summary` without replacing the original chunks.
+- A18 (TS-316): A document containing "Contractor means..." extracts a `DefinedTerm` with the term, definition, and source quote; the glossary endpoint returns terms scoped to the opportunity.
 
 ## Out of scope
 

@@ -97,3 +97,23 @@ class Clause(Base, WorkspaceScopedMixin):
     page_from: Mapped[int | None] = mapped_column(Integer, nullable=True)
     page_to: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cross_refs: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+
+
+class DefinedTerm(Base, WorkspaceScopedMixin):
+    """A term defined in a tender pack, with a link back to the source clause."""
+
+    _tablename_ = "defined_terms"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    opportunity_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("opportunities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    term: Mapped[str] = mapped_column(String, nullable=False)
+    definition: Mapped[str] = mapped_column(String, nullable=False)
+    source_quote: Mapped[str | None] = mapped_column(String, nullable=True)
+    source_clause_ref: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

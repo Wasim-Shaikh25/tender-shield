@@ -13,7 +13,7 @@ import re
 import uuid
 from collections.abc import Callable
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.modules.ingestion.classify import classify_text, missing_documents
@@ -24,8 +24,8 @@ from app.modules.ingestion.doc_text import (
     persist_chunks,
     translate_summary,
 )
-from app.modules.ingestion.models import Clause, Deadline, Document, Opportunity
-from app.modules.ingestion.segment import segment_clauses
+from app.modules.ingestion.models import Clause, Deadline, DefinedTerm, Document, Opportunity
+from app.modules.ingestion.segment import segment_clauses, segment_defined_terms
 
 _FALLBACK_ANCHORS = {
     "nit": [r"NOTICE\s+INVITING\s+TENDER", r"\bNIT\s*No"],
@@ -165,11 +165,12 @@ class IngestionService:
         return doc
 
     def process_text(self, doc: Document, text: str, ocr_status: str = "done") -> None:
-        """Segment clauses, extract deadlines, persist chunks, and update metadata."""
+        """Segment clauses, extract deadlines, persist chunks, glossary, and update metadata."""
         doc.kind = classify_text(text, self._anchors()) or doc.kind
         doc.ocr_status = ocr_status
         self._segment(doc, text)
         self._extract_deadlines(doc, text)
+        self._extract_defined_terms(doc, text)
         persist_chunks(self.s, doc.workspace_id, doc.opportunity_id, doc.id, text)
         doc.meta = {**(doc.meta or {}), "language": detect_language(text)}
         if doc.meta.get("language") != "en":
@@ -341,6 +342,44 @@ class IngestionService:
                 )
                 changes.append({"clause_ref": ref, "status": "modified", "diff_lines": diff[:20]})
         return changes
+
+    def _extract_defined_terms(self, doc: Document, text: str) -> int:
+        """Extract 'X means Y' definitions and persist them as an opportunity glossary."""
+        self.s.execute(
+            delete(DefinedTerm).where(
+                DefinedTerm.document_id == doc.id,
+                DefinedTerm.workspace_id == doc.workspace_id,
+            )
+        )
+        count = 0
+        for seg in segment_defined_terms(text):
+            self.s.add(
+                DefinedTerm(
+                    workspace_id=doc.workspace_id,
+                    opportunity_id=doc.opportunity_id,
+                    document_id=doc.id,
+                    term=seg.term,
+                    definition=seg.definition,
+                    source_quote=seg.source_quote,
+                    source_clause_ref=seg.source_clause_ref,
+                )
+            )
+            count += 1
+        self.s.commit()
+        if count:
+            self._publish("defined_terms.extracted", {"document_id": str(doc.id), "count": count})
+        return count
+
+    def list_defined_terms(
+        self, workspace_id, opportunity_id, document_id=None
+    ) -> list[DefinedTerm]:
+        stmt = select(DefinedTerm).where(
+            DefinedTerm.workspace_id == uuid.UUID(str(workspace_id)),
+            DefinedTerm.opportunity_id == uuid.UUID(str(opportunity_id)),
+        )
+        if document_id is not None:
+            stmt = stmt.where(DefinedTerm.document_id == uuid.UUID(str(document_id)))
+        return list(self.s.scalars(stmt.order_by(DefinedTerm.term)))
 
     def get_document(self, workspace_id, document_id) -> Document | None:
         return self.s.scalar(

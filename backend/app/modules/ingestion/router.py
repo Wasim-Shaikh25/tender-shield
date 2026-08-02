@@ -390,6 +390,61 @@ def get_document(
     }
 
 
+@router.get("/opportunities/{opportunity_id}/glossary")
+def list_glossary(
+    opportunity_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    terms = _service(request, session).list_defined_terms(
+        principal.workspace_id, opportunity_id
+    )
+    return {
+        "terms": [
+            {
+                "id": str(t.id),
+                "document_id": str(t.document_id),
+                "term": t.term,
+                "definition": t.definition,
+                "source_quote": t.source_quote,
+                "source_clause_ref": t.source_clause_ref,
+            }
+            for t in terms
+        ]
+    }
+
+
+@router.get("/opportunities/{opportunity_id}/documents/{document_id}/glossary")
+def list_document_glossary(
+    opportunity_id: str,
+    document_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    svc = _service(request, session)
+    doc = svc.get_document(principal.workspace_id, document_id)
+    if not doc or str(doc.opportunity_id) != opportunity_id:
+        raise HTTPException(404, "not_found")
+    terms = svc.list_defined_terms(
+        principal.workspace_id, opportunity_id, document_id=document_id
+    )
+    return {
+        "terms": [
+            {
+                "id": str(t.id),
+                "document_id": str(t.document_id),
+                "term": t.term,
+                "definition": t.definition,
+                "source_quote": t.source_quote,
+                "source_clause_ref": t.source_clause_ref,
+            }
+            for t in terms
+        ]
+    }
+
+
 def _to_uuid(value: str):
     import uuid
 

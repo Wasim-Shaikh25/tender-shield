@@ -31,7 +31,7 @@ class User(Base):
     __tablename__ = "users"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
-    phone: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    phone: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     org_name: Mapped[str] = mapped_column(String, nullable=False)
     dob: Mapped[date | None] = mapped_column(Date, nullable=True)

@@ -1,8 +1,9 @@
 import uuid
 from datetime import date
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -102,7 +103,7 @@ def _validate_password_field(v: str) -> str:
 
 class SignupBody(BaseModel):
     email: str
-    phone: str = Field(min_length=1)
+    phone: str | None = None
     password: str = Field(min_length=8)
     confirm_password: str = Field(min_length=8)
     org_name: str = Field(min_length=1)
@@ -116,8 +117,25 @@ class SignupBody(BaseModel):
 
 
 class LoginBody(BaseModel):
-    email: str
-    password: str
+    identifier: str | None = None
+    identifier_type: str = "auto"
+    method: str = "password"
+    email: str | None = None  # legacy alias for identifier
+    password: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _map_legacy_login(cls, values: Any) -> Any:
+        if isinstance(values, dict) and values.get("email") and not values.get("identifier"):
+            values["identifier"] = values["email"]
+        return values
+
+    @field_validator("method")
+    @classmethod
+    def _validate_method(cls, v: str) -> str:
+        if v not in ("password", "otp"):
+            raise ValueError("method must be 'password' or 'otp'")
+        return v
 
 
 class RefreshBody(BaseModel):
@@ -251,9 +269,14 @@ class TokenResponse(BaseModel):
 
 
 class LoginResponse(BaseModel):
-    mfa_required: bool = True
-    mfa_token: str
+    mfa_required: bool | None = None
+    mfa_token: str | None = None
     mfa_code: str | None = None
+    access_token: str | None = None
+    refresh_token: str | None = None
+    role: str | None = None
+    workspace_id: str | None = None
+    is_superadmin: bool | None = None
 
 
 class SignupResponse(BaseModel):
@@ -310,7 +333,7 @@ class AcceptInvitationResponse(BaseModel):
 
 class AccountSettingsResponse(BaseModel):
     email: str
-    phone: str
+    phone: str | None
     org_name: str
     city: str
     dob: str | None = None
@@ -324,7 +347,7 @@ class MeResponse(BaseModel):
     role: str
     is_superadmin: bool = False
     email: str
-    phone: str
+    phone: str | None
     org_name: str
     city: str
     dob: str | None = None
@@ -356,7 +379,7 @@ class AdminWorkspaceResponse(BaseModel):
 class AdminUserDetailResponse(BaseModel):
     user_id: str
     email: str
-    phone: str
+    phone: str | None
     org_name: str
     city: str
     email_verified: bool
@@ -428,6 +451,11 @@ _STATUS = {
     "email_not_configured": 503,
     "account_locked": 429,
     "account_suspended": 403,
+    "phone_required": 400,
+    "bad_login_method": 400,
+    "otp_disabled": 403,
+    "email_otp_disabled": 403,
+    "sms_otp_disabled": 403,
     "password_too_short": 400,
     "password_missing_uppercase": 400,
     "password_missing_lowercase": 400,
@@ -444,7 +472,12 @@ def _handle(fn):
         raise HTTPException(_STATUS.get(exc.code, 400), exc.code) from exc
 
 
-@router.post("/signup", dependencies=_SIGNUP_LIMIT, response_model=SignupResponse)
+@router.post(
+    "/signup",
+    dependencies=_SIGNUP_LIMIT,
+    response_model=SignupResponse,
+    response_model_exclude_none=True,
+)
 def signup(body: SignupBody, request: Request, session: Session = Depends(get_session)):
     return _handle(
         lambda: _service(request, session).signup(
@@ -459,15 +492,29 @@ def signup(body: SignupBody, request: Request, session: Session = Depends(get_se
     )
 
 
-@router.post("/login", dependencies=_LOGIN_LIMIT, response_model=LoginResponse)
+@router.post(
+    "/login",
+    dependencies=_LOGIN_LIMIT,
+    response_model=LoginResponse,
+    response_model_exclude_none=True,
+)
 def login(
     body: LoginBody,
     response: Response,
     request: Request,
     session: Session = Depends(get_session),
 ):
+    identifier = body.identifier or body.email or ""
     return _call_and_issue(
-        request, response, session, lambda svc: svc.login(body.email, body.password)
+        request,
+        response,
+        session,
+        lambda svc: svc.login(
+            identifier=identifier,
+            password=body.password,
+            method=body.method,
+            identifier_type=body.identifier_type,
+        ),
     )
 
 
@@ -610,11 +657,16 @@ def update_settings(
             user.dob = date.fromisoformat(body.dob)
         if body.phone:
             phone = body.phone.strip()
-            if phone != user.phone and session.scalar(select(User).where(User.phone == phone)):
+            existing = session.scalar(select(User).where(User.phone == phone))
+            if phone != (user.phone or "") and existing:
                 raise AuthError("phone_taken")
             user.phone = phone
-            user.mobile_verified = False
-            _service(request, session).create_mobile_verification(user.id, phone=user.phone)
+            svc = _service(request, session)
+            if svc._mobile_verification_enabled():
+                user.mobile_verified = False
+                svc.create_mobile_verification(user.id, phone=user.phone)
+            else:
+                user.mobile_verified = True
         session.commit()
         audit_log.log(
             request,

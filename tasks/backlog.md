@@ -525,6 +525,15 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 
 ---
 
+## Auth configuration and verification methods (TS-297)
+
+Requirement source: user request for configurable mobile verification, OTP toggles,
+login by email/mobile with password or OTP, and Brevo email sender.
+
+|| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|---|
+|| TS-297 | Configurable auth: optional mobile verification, OTP on/off toggles, email/mobile + password/OTP login, Brevo email adapter | user request; Doc §5 | `specs/modules/auth.md` (update) | done |
+
 ## Tooling
 
 | ID | Title | Req ref | Spec | Status |

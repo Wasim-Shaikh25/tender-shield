@@ -6,6 +6,31 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — auth configuration and login methods (TS-297)
+
+- **TS-297 configurable auth** — `backend/app/modules/auth/service.py` and `router.py`
+  now support:
+  - `TS_AUTH_MOBILE_VERIFICATION_ENABLED` (default `false`) makes phone optional and
+    disables mobile verification at sign-up/login.
+  - `TS_AUTH_LOGIN_OTP_ENABLED` (default `true`) is the single toggle to disable all
+    OTP verification; password login then issues tokens immediately.
+  - `TS_AUTH_EMAIL_OTP_ENABLED` and `TS_AUTH_SMS_OTP_ENABLED` gate passwordless OTP login
+    by channel.
+  - `/api/auth/login` accepts `identifier` + `method` (`password`/`otp`) and
+    `identifier_type` (`auto`/`email`/`mobile`); legacy `email`/`password` still works.
+    The four combinations are now supported: email+password, email+OTP, mobile+password,
+    mobile+OTP.
+- **Brevo email sender** — `backend/app/modules/notifications/adapters.py` adds
+  `BrevoSender` (`TS_BREVO_API_KEY`) for verification and OTP emails; sender priority is
+  SES → Brevo → Resend → MSG91 → console fallback.
+- **Migration** — `migrations/versions/2dcc5f291455_make_users_phone_nullable_and_add_auth_.py`
+  makes `users.phone` nullable (SQLite batch-safe).
+- **Tests** — `backend/tests/test_auth_toggles.py` covers email-only sign-up,
+  mobile-required toggle, the four login method combinations, OTP-disabled tokens, and
+  Brevo sender selection.
+- **Auth spec updated** — `specs/modules/auth.md` documents the new toggles and login
+  contract; `tasks/backlog.md` marks `TS-297` done.
+
 ### Done — remaining doable carry-overs
 
 - **TS-035 Resend email adapter** — added `ResendSender` behind the `notifications.sender`

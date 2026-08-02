@@ -32,13 +32,17 @@ def authenticate(request: Request, session: Session) -> Principal:
     # caller's workspace (Doc §3.2, §5). FastAPI caches get_session per request,
     # so the endpoint's own queries reuse this same bound session.
     bind_workspace_context(session, claims["workspace"], user_id=claims["sub"])
+    settings = request.app.state.ctx.settings
+    mobile_verified = claims.get("mobile_verified", False)
+    if settings and not settings.auth_mobile_verification_enabled:
+        mobile_verified = True
     return Principal(
         user_id=claims["sub"],
         workspace_id=claims["workspace"],
         role=claims["role"],
         is_superadmin=claims.get("is_superadmin", False),
         email_verified=claims.get("email_verified", False),
-        mobile_verified=claims.get("mobile_verified", False),
+        mobile_verified=mobile_verified,
     )
 
 

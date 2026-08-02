@@ -1,10 +1,11 @@
 # Auth — Spec
 
-**Status:** implemented (TS-163): account is the top-level identity; workspace
-is created explicitly after login; platform-only registration/login; email + mobile verification;
-OTP required on every login. Social login (Google/Apple) removed.
-**Requirement refs:** Doc §5, §3.2, §16; user request (account-first, OTP login)
-**Task refs:** TS-011, TS-012, TS-035, TS-036, TS-074..TS-078, TS-079, TS-106, TS-163, TS-171, TS-239, TS-267
+**Status:** implemented (TS-163, TS-297): account is the top-level identity; workspace
+is created explicitly after login; platform-only registration/login; email is always required,
+mobile verification is toggleable; login supports email/mobile with password or OTP; OTP can be
+disabled globally via config. Social login (Google/Apple) removed.
+**Requirement refs:** Doc §5, §3.2, §16; user request (account-first, OTP login, configurable auth)
+**Task refs:** TS-011, TS-012, TS-035, TS-036, TS-074..TS-078, TS-079, TS-106, TS-163, TS-171, TS-239, TS-267, TS-297
 
 ## Purpose
 
@@ -22,11 +23,11 @@ application-owner endpoints under `/api/auth/admin/*`.
 - **Events emitted:** `auth.user_registered`, `auth.workspace_created`,
   `auth.refresh_reuse_detected`.
 - **API routes:**
-  - `/api/auth/signup` (account-only; requires org_name, phone, city, dob, password, confirm_password)
+  - `/api/auth/signup` (account-only; requires org_name, city, password, confirm_password; phone and dob optional)
   - `/api/auth/verify-email` (POST token)
   - `/api/auth/verify-mobile` (POST token)
   - `/api/auth/resend-verification` (account context)
-  - `/api/auth/login`, `/api/auth/mfa/challenge`, `/api/auth/refresh`, `/api/auth/logout`, `/api/auth/me`
+  - `/api/auth/login` accepts `identifier` + `method` (`password` or `otp`) and `identifier_type` (`auto`, `email`, `mobile`); legacy `email`/`password` still supported
   - `/api/auth/forgot-password`, `/api/auth/reset-password`
   - `/api/auth/settings` (GET/PUT profile), `/api/auth/settings/password` (POST change password)
   - `/api/auth/export` (POST) — GDPR/DPDP data portability export
@@ -54,7 +55,7 @@ application-owner endpoints under `/api/auth/admin/*`.
 
 ## Data owned
 
-`users` (`email`, `phone` unique, `password_hash`, `org_name`, `dob`, `city`,
+`users` (`email`, `phone` unique nullable, `password_hash`, `org_name`, `dob`, `city`,
 `email_verified`, `mobile_verified`, `is_superadmin`, `suspended_at`, `suspended_by`,
 `mfa_method`, `mfa_phone`),
 `mobile_verifications`, `workspaces`, `workspace_members`, `projects`, `project_members`,
@@ -78,14 +79,19 @@ application-owner endpoints under `/api/auth/admin/*`.
   sentinel UUID and blocks workspace-scoped reads/writes until the user selects/creates a workspace.
 - **B6:** rate limits — 5 failed logins/15 min → account lockout; OTP 3 sends/10 min,
   5 verify attempts; OTP hash-stored, 5-min TTL.
-- **B8:** Login always returns an OTP challenge. `AuthService` generates a 6-digit
-  OTP, stores its hash on the user row with a 5-minute TTL, and sends it through the
-  `notifications.sender` adapter. The client posts `/mfa/challenge` with the
-  `mfa_token` and the 6-digit code to receive tokens. In dev/tests the code is
-  returned in the response body. TOTP enrollment remains optional for account
-  recovery but the per-login OTP is mandatory.
-- **B9:** sign-up creates only a `User`; it does **not** create a workspace. The user
-  must be verified (email + mobile) before any workspace-scoped action.
+- **B8:** `/login` accepts an `identifier` (email or mobile number), a `method`
+  (`password` or `otp`), and an optional `identifier_type` (`auto`/`email`/`mobile`).
+  `auto` detects email by the presence of `@`. Four combinations are supported:
+  email+password, email+OTP, mobile+password, mobile+OTP. Password login issues an
+  OTP challenge unless `TS_AUTH_LOGIN_OTP_ENABLED=false`; when OTP is disabled,
+  successful password verification returns tokens immediately. OTP login sends a
+  one-time code to the identifier's channel and is verified via `/mfa/challenge`.
+  In dev/tests the OTP code is returned in the response body. TOTP enrollment remains
+  optional for account recovery.
+- **B9:** sign-up creates only a `User`; it does **not** create a workspace. Email
+  verification is always required. Mobile verification is required only when
+  `TS_AUTH_MOBILE_VERIFICATION_ENABLED=true`; when disabled the `phone` field is
+  optional and `mobile_verified` is set to `True` so it cannot block login.
 - **B10:** super-admins bypass workspace checks on `/api/auth/admin/*`; their access
   token carries `is_superadmin=true` and a placeholder `workspace` claim.
 - **B11:** forgot-password accepts an email and creates a single-use 15-minute reset token;
@@ -99,8 +105,9 @@ application-owner endpoints under `/api/auth/admin/*`.
 - **B14 — Workspace switcher:** `GET /api/auth/workspaces` lists the user's workspace
   memberships. `POST /api/auth/workspaces/{id}/switch` returns tokens bound to the
   chosen workspace (and the same workspace ID in the new cookie).
-- **B15 — Registration fields:** email, phone (unique), password, confirm password,
-  org/company name, date of birth (optional), city.
+- **B15 — Registration fields:** email, password, confirm password, org/company
+  name, city; phone and date of birth are optional. Phone is unique when supplied.
+  Mobile verification is controlled by `TS_AUTH_MOBILE_VERIFICATION_ENABLED`.
 - **B16 — Account lockout:** 5 failed login attempts within 15 minutes lock the account
   for 15 minutes.
 - **B17 — Invitation tokens:** invitation tokens are generated with `secrets.token_urlsafe`
@@ -145,6 +152,18 @@ application-owner endpoints under `/api/auth/admin/*`.
   `auth_approval_limits`: `min_role` and optional `max_amount_minor` (paise). Published as
   `auth.approval_matrix`. Missing row for an action → allow (graceful degradation).
   `baseline` consumes this for `watchlist_edit` and `notice_contacts_edit`.
+- **B30 — Configurable mobile verification (TS-297).** `TS_AUTH_MOBILE_VERIFICATION_ENABLED`
+  defaults to `false`. When `false`, sign-up does not require a phone number, does not create
+  a mobile verification, and treats `mobile_verified` as satisfied. When `true`, a phone
+  number is required and must be verified before login.
+- **B31 — Configurable OTP and login methods (TS-297).** `TS_AUTH_LOGIN_OTP_ENABLED` defaults
+  to `true`. When `true`, password login returns an OTP challenge; `method=otp` login is
+  allowed. `TS_AUTH_EMAIL_OTP_ENABLED` and `TS_AUTH_SMS_OTP_ENABLED` gate passwordless OTP
+  login by channel. When `TS_AUTH_LOGIN_OTP_ENABLED=false`, only password login is allowed
+  and tokens are issued immediately after password verification.
+- **B32 — Brevo email sender (TS-297).** The notifications adapter registry supports Brevo
+  (`TS_BREVO_API_KEY`) for transactional email, including verification and OTP delivery.
+  Sender priority is SES → Brevo → Resend → MSG91 → console fallback.
 
 ## Acceptance criteria
 
@@ -158,8 +177,9 @@ application-owner endpoints under `/api/auth/admin/*`.
   reset updates the password and invalidates the token.
 - A7: `/mfa/challenge` response sets an `httpOnly` `refresh_token` cookie and the JSON body does not.
 - A8: `/auth/refresh` uses the cookie, issues a new access token, and rotates the cookie.
-- A9: every login returns `mfa_required` with a valid `mfa_token`; the correct per-login OTP
-  returns tokens. TOTP enrollment still works for recovery.
+- A9: login returns `mfa_required` with a valid `mfa_token` when OTP is enabled; the correct
+  per-login OTP returns tokens. When OTP is disabled, password login returns tokens directly.
+  TOTP enrollment still works for recovery.
 - A10: `/auth/workspaces` lists all user memberships; switching workspace issues tokens for it.
 - A11: weak/short passwords missing uppercase, lowercase, digit, or special characters are
   rejected at signup and reset.
@@ -187,9 +207,11 @@ application-owner endpoints under `/api/auth/admin/*`.
   the first code is verified.
 - A24: `/api/auth/settings` returns and updates `org_name`, `phone`, `dob`, `city`.
 - A25: `/api/auth/settings/password` requires current password and rejects reused/weak passwords.
-- A26: sign-up sends separate email and mobile verification OTPs; both must be verified before
-  login returns a usable access token.
-- A27: login always issues an account-level `mfa_token` (no workspace selected). After MFA,
+- A26: sign-up always sends an email verification OTP; a mobile verification OTP is only sent
+  when `TS_AUTH_MOBILE_VERIFICATION_ENABLED=true`. Both required verifications must be completed
+  before login returns a usable access token.
+- A27: login issues an account-level `mfa_token` when OTP is enabled; when OTP is disabled,
+  it returns tokens directly. After MFA,
   `/api/auth/refresh` and `/api/auth/workspaces/{id}/switch` preserve or return a workspace-bound
   token; a user with no workspaces gets an account-level access token and can call
   `/api/auth/workspaces` and `/api/auth/workspaces` create.
@@ -212,6 +234,13 @@ application-owner endpoints under `/api/auth/admin/*`.
   logs an `admin.workspace_plan_changed` audit event.
 - A35 (TS-239): estimator below configured `watchlist_edit` minimum role receives
   `approval_denied` from baseline mutations.
+- A36 (TS-297): sign-up with `phone` omitted succeeds when mobile verification is disabled.
+- A37 (TS-297): login accepts `identifier` + `method` and supports the four combinations:
+  email+password, email+OTP, mobile+password, mobile+OTP.
+- A38 (TS-297): `TS_AUTH_LOGIN_OTP_ENABLED=false` disables all OTP flows and password login
+  returns tokens immediately.
+- A39 (TS-297): `TS_BREVO_API_KEY` selects the Brevo email sender for verification and OTP
+  emails when configured.
 
 ## Out of scope
 

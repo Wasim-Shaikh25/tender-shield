@@ -252,6 +252,29 @@ class OutcomesService:
             currency=currency,
         ).summary()
 
+    def bid_outcomes_for_workspace(self, workspace_id) -> list[dict]:
+        ws = uuid.UUID(str(workspace_id))
+        rows = list(
+            self.s.scalars(select(OcBidOutcome).where(OcBidOutcome.workspace_id == ws))
+        )
+        return [_outcome_dict(r) for r in rows]
+
+    def risk_materializations_for_workspace(self, workspace_id) -> list[dict]:
+        ws = uuid.UUID(str(workspace_id))
+        rows = list(
+            self.s.scalars(
+                select(OcRiskMaterialization).where(OcRiskMaterialization.workspace_id == ws)
+            )
+        )
+        return [_materialization_dict(r) for r in rows]
+
+    def claim_recoveries_for_workspace(self, workspace_id) -> list[dict]:
+        ws = uuid.UUID(str(workspace_id))
+        rows = list(
+            self.s.scalars(select(OcClaimRecovery).where(OcClaimRecovery.workspace_id == ws))
+        )
+        return [_claim_recovery_dict(r) for r in rows]
+
 
 def _outcome_dict(row: OcBidOutcome) -> dict[str, Any]:
     return {
@@ -276,6 +299,18 @@ def _materialization_dict(row: OcRiskMaterialization) -> dict[str, Any]:
         "impact_amount_minor": row.impact_amount_minor,
         "currency": row.currency,
         "narrative": row.narrative,
+        "recorded_by": str(row.recorded_by) if row.recorded_by else None,
+        "recorded_at": row.recorded_at.isoformat() if row.recorded_at else None,
+    }
+
+
+def _claim_recovery_dict(row: OcClaimRecovery) -> dict[str, Any]:
+    return {
+        "id": str(row.id),
+        "opportunity_id": str(row.opportunity_id),
+        "claim_id": str(row.claim_id),
+        "recovered_amount_minor": row.recovered_amount_minor,
+        "currency": row.currency,
         "recorded_by": str(row.recorded_by) if row.recorded_by else None,
         "recorded_at": row.recorded_at.isoformat() if row.recorded_at else None,
     }

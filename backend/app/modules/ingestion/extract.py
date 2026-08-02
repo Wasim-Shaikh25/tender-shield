@@ -1,8 +1,8 @@
 """Text extraction from uploaded files (Doc §6.1). Digital PDFs via pypdf,
-spreadsheets via openpyxl, CSV/text directly. Page markers ([pN]) are emitted
-so downstream deadline/clause extraction can cite pages. Scanned/image PDFs are
-routed to an injected OCR provider (app/modules/ingestion/ocr.py); with none,
-they are flagged `needs_ocr` and degrade honestly (Doc §12.4)."""
+spreadsheets via openpyxl, DOCX via python-docx, CSV/text directly. Page/paragraph
+markers ([pN]) are emitted so downstream deadline/clause extraction can cite pages.
+Scanned/image PDFs are routed to an injected OCR provider (app/modules/ingestion/ocr.py);
+with none, they are flagged `needs_ocr` and degrade honestly (Doc §12.4)."""
 
 from __future__ import annotations
 
@@ -20,6 +20,8 @@ def extract_text(filename: str, data: bytes) -> str:
         return _xlsx(data)
     if name.endswith(".csv"):
         return _csv(data)
+    if name.endswith(".docx"):
+        return _docx(data)
     if name.endswith((".txt", ".md")):
         return data.decode("utf-8", errors="replace")
     return data.decode("utf-8", errors="replace")
@@ -38,8 +40,9 @@ def _pdf_pages(data: bytes) -> list[str]:
 
 def extract_upload(filename: str, data: bytes, ocr=None) -> tuple[str, str]:
     """Extraction for uploads. Returns (text, ocr_status) where ocr_status is
-    one of: done | ocr_applied | needs_ocr. PDFs with no digital text layer are
-    OCR'd when a provider is given, else flagged needs_ocr."""
+    one of: done | ocr_applied | needs_ocr. DOCX, XLSX, CSV and plain text are
+    extracted directly. PDFs with no digital text layer are OCR'd when a provider
+    is given, else flagged needs_ocr."""
     name = filename.lower()
     if not name.endswith(".pdf"):
         return extract_text(filename, data), "done"
@@ -92,6 +95,35 @@ def _csv(data: bytes) -> str:
         if line.strip():
             lines.append(f"[p{row_idx}]")
             lines.append(line)
+    return "\n".join(lines)
+
+
+def _docx(data: bytes) -> str:
+    from docx import Document
+
+    doc = Document(io.BytesIO(data))
+    lines: list[str] = []
+    para_idx = 0
+    for block in doc.element.body:
+        tag = block.tag.split("}")[-1] if "}" in block.tag else block.tag
+        if tag == "p":
+            para = doc.paragraphs[para_idx]
+            text = para.text.strip()
+            para_idx += 1
+            if text:
+                lines.append(f"[p{para_idx}]")
+                lines.append(text)
+        elif tag == "tbl":
+            # Render table rows as tab-separated cells with a shared paragraph marker.
+            table_text: list[str] = []
+            for row in block.findall(".//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}tr"):
+                cells = [cell.text.strip() for cell in row.findall(".//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}tc")]
+                if any(cells):
+                    table_text.append("\t".join(cells))
+            if table_text:
+                para_idx += 1
+                lines.append(f"[p{para_idx}]")
+                lines.extend(table_text)
     return "\n".join(lines)
 
 

@@ -59,6 +59,9 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   dashboard health, executive summary, response times, payment schedule with event
   recording, forecast, plus workspace-level portfolio, clause trends, economics,
   and customer outcomes. Frontend build and lint pass.
+- **TS-310** — DOCX text extraction in `backend/app/modules/ingestion/extract.py`
+  using `python-docx`; paragraphs and tables are emitted with `[pN]` markers.
+  Backend tests pass; frontend build passes.
 - Added `docs/REMAINING_GAPS_ROADMAP.md` with one row for every `Partial` / `Missing`
   capability from `FEATURE_COVERAGE.md`.
 - Created **Phase 22** in `tasks/backlog.md` with 33 concrete tasks (TS-301–TS-333)

@@ -96,18 +96,32 @@ class AuthService:
             logger.exception("audit log failed for action %r", action)
 
     # ---- registration -----------------------------------------------------
+    def _mobile_verification_enabled(self) -> bool:
+        return bool(self.settings and self.settings.auth_mobile_verification_enabled)
+
+    def _login_otp_enabled(self) -> bool:
+        return bool(self.settings and self.settings.auth_login_otp_enabled)
+
+    def _email_otp_enabled(self) -> bool:
+        return bool(self.settings and self.settings.auth_email_otp_enabled)
+
+    def _sms_otp_enabled(self) -> bool:
+        return bool(self.settings and self.settings.auth_sms_otp_enabled)
+
     def signup(
         self,
         email: str,
-        phone: str,
         password: str,
         confirm_password: str,
         org_name: str,
         city: str,
+        phone: str | None = None,
         dob: date | None = None,
     ) -> dict:
         email = email.strip().lower()
-        phone = phone.strip()
+        phone = (phone or "").strip() or None
+        if self._mobile_verification_enabled() and not phone:
+            raise AuthError("phone_required")
         if password != confirm_password:
             raise AuthError("password_mismatch")
         try:
@@ -116,7 +130,7 @@ class AuthService:
             raise AuthError(str(exc)) from exc
         if self.s.scalar(select(User).where(User.email == email)):
             raise AuthError("email_taken")
-        if self.s.scalar(select(User).where(User.phone == phone)):
+        if phone and self.s.scalar(select(User).where(User.phone == phone)):
             raise AuthError("phone_taken")
         user = User(
             email=email,
@@ -125,17 +139,20 @@ class AuthService:
             org_name=org_name.strip(),
             city=city.strip(),
             dob=dob,
+            mobile_verified=not self._mobile_verification_enabled(),
         )
         self.s.add(user)
         self.s.flush()
         email_token = self.create_email_verification(user.id, email=email)
-        mobile_token = self.create_mobile_verification(user.id, phone=phone)
+        mobile_token = None
+        if self._mobile_verification_enabled() and phone:
+            mobile_token = self.create_mobile_verification(user.id, phone=phone)
         self.s.commit()
         result = {
             "user_id": str(user.id),
             "status": "verification_required",
             "email_verified": False,
-            "mobile_verified": False,
+            "mobile_verified": user.mobile_verified,
         }
         # In production the tokens are sent by email/SMS; in dev/tests they are returned so
         # verification flows can be exercised without a real mailer.
@@ -149,13 +166,31 @@ class AuthService:
     def _require_verified_for_login(self, user: User) -> None:
         if not user.email_verified:
             raise AuthError("email_not_verified")
-        if not user.mobile_verified:
+        if self._mobile_verification_enabled() and not user.mobile_verified:
             raise AuthError("mobile_not_verified")
 
+    def _resolve_identifier_type(self, identifier: str, identifier_type: str) -> str:
+        if identifier_type in ("email", "mobile"):
+            return identifier_type
+        return "email" if "@" in identifier else "mobile"
+
+    def _lookup_user_by_identifier(self, identifier: str, identifier_type: str) -> User | None:
+        identifier = identifier.strip().lower()
+        if identifier_type == "email":
+            return self.s.scalar(select(User).where(User.email == identifier))
+        return self.s.scalar(select(User).where(User.phone == identifier))
+
     # ---- login ------------------------------------------------------------
-    def login(self, email: str, password: str) -> dict:
-        email = email.strip().lower()
-        user = self.s.scalar(select(User).where(User.email == email))
+    def login(
+        self,
+        identifier: str,
+        password: str,
+        *,
+        method: str = "password",
+        identifier_type: str = "auto",
+    ) -> dict:
+        itype = self._resolve_identifier_type(identifier, identifier_type)
+        user = self._lookup_user_by_identifier(identifier, itype)
 
         now = datetime.now(UTC)
         if user and user.locked_until and user.locked_until > now:
@@ -163,36 +198,60 @@ class AuthService:
         if user and user.suspended_at:
             raise AuthError("account_suspended")
 
-        if (
-            not user
-            or not user.password_hash
-            or not sec.verify_password(password, user.password_hash)
-        ):
-            if user:
-                user.failed_login_attempts += 1
-                if user.failed_login_attempts >= 5:
-                    user.locked_until = now + timedelta(minutes=15)
-                    user.failed_login_attempts = 0
-                self.s.commit()
-            raise AuthError("invalid_credentials")
+        if method not in ("password", "otp"):
+            raise AuthError("bad_login_method")
+
+        if method == "password":
+            if (
+                not user
+                or not user.password_hash
+                or not sec.verify_password(password, user.password_hash)
+            ):
+                if user:
+                    user.failed_login_attempts += 1
+                    if user.failed_login_attempts >= 5:
+                        user.locked_until = now + timedelta(minutes=15)
+                        user.failed_login_attempts = 0
+                    self.s.commit()
+                raise AuthError("invalid_credentials")
+        else:  # otp
+            if not self._login_otp_enabled():
+                raise AuthError("otp_disabled")
+            if itype == "email" and not self._email_otp_enabled():
+                raise AuthError("email_otp_disabled")
+            if itype == "mobile" and not self._sms_otp_enabled():
+                raise AuthError("sms_otp_disabled")
+            if not user:
+                raise AuthError("invalid_credentials")
 
         # success: clear any lockout/failed-attempt counters
-        user.failed_login_attempts = 0
-        user.locked_until = None
+        if user:
+            user.failed_login_attempts = 0
+            user.locked_until = None
 
         # An account must be verified before it can log in and access workspaces.
-        if not user.email_verified:
+        if not user or not user.email_verified:
             raise AuthError("email_not_verified")
-        if not user.mobile_verified:
+        if self._mobile_verification_enabled() and (not user or not user.mobile_verified):
             raise AuthError("mobile_not_verified")
 
-        # Login is account-level. The user selects/creates a workspace after MFA.
-        # Every login requires an OTP challenge.
+        # If OTP is globally disabled, password login issues tokens directly.
+        if method == "password" and not self._login_otp_enabled():
+            return self._issue_tokens(
+                user.id,
+                self._NO_WORKSPACE,
+                "owner",
+                is_superadmin=user.is_superadmin,
+                new_family=True,
+            )
+
+        # Per-login OTP challenge (password path) or passwordless OTP login.
+        channel = self._mfa_channel(user) if method == "password" else itype
         code = mfa.new_otp_code()
         user.mfa_otp_code = code
-        user.mfa_otp_expires_at = datetime.now(UTC) + timedelta(seconds=mfa.CODE_TTL_SECONDS)
+        user.mfa_otp_expires_at = now + timedelta(seconds=mfa.CODE_TTL_SECONDS)
         self.s.commit()
-        self._mfa_send_code(user, code, "login code")
+        self._mfa_send_code(user, code, "login code", channel=channel)
         result = {
             "mfa_required": True,
             "mfa_token": sec.mint_mfa_token(
@@ -211,6 +270,9 @@ class AuthService:
         if not self.settings or not self.settings.is_prod():
             result["mfa_code"] = code
         return result
+
+    def _mfa_channel(self, user: User) -> str:
+        return user.mfa_method or "email"
 
     # ---- refresh rotation + reuse detection -------------------------------
     def refresh(self, raw_token: str) -> dict:
@@ -830,11 +892,13 @@ class AuthService:
         return {"workspace_id": str(invitation.workspace_id), "role": invitation.role}
 
     # ---- MFA ---------------------------------------------------------------
-    def _mfa_send_code(self, user: User, code: str, purpose: str = "MFA code") -> None:
+    def _mfa_send_code(
+        self, user: User, code: str, purpose: str = "MFA code", channel: str | None = None
+    ) -> None:
         """Send an email or SMS one-time code if a sender is configured."""
         if not self._sender:
             return
-        channel = user.mfa_method or "email"
+        channel = channel or user.mfa_method or "email"
         if channel == "email":
             self._sender.send(
                 SimpleNamespace(

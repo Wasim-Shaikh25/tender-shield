@@ -56,14 +56,22 @@ class Settings(BaseSettings):
     stripe_publishable_key: str = ""
     stripe_webhook_secret: SecretStr | None = None
 
-    # Notifications (Doc §11.6/§11.7). SES/Resend/MSG91 are gated by credentials.
+    # Notifications (Doc §11.6/§11.7). SES/Resend/Brevo/MSG91 are gated by credentials.
     email_from: str = ""
     ses_region: str = ""
     ses_access_key_id: SecretStr | None = None
     ses_secret_access_key: SecretStr | None = None
     resend_api_key: SecretStr | None = None
+    brevo_api_key: SecretStr | None = None
     msg91_auth_key: SecretStr | None = None
     msg91_sender_id: str = ""
+
+    # Auth toggles (TS-297). Defaults keep current dev/test behaviour but let prod
+    # switch off mobile verification / OTP without a deploy.
+    auth_mobile_verification_enabled: bool = False
+    auth_login_otp_enabled: bool = True
+    auth_email_otp_enabled: bool = True
+    auth_sms_otp_enabled: bool = False
 
     # LLM via OpenRouter (OpenAI-compatible API). No key → assistant free-form
     # answers and the risk LLM classifier are disabled, deterministic paths still run.

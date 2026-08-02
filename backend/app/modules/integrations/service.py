@@ -12,7 +12,9 @@ from sqlalchemy.orm import Session
 
 from app.modules.integrations.adapters import ADAPTER_REGISTRY, BaseAdapter, ScheduleAdapter
 from app.modules.integrations.connectors import CONNECTOR_REGISTRY
+from app.modules.integrations.connectors.dynamic import DynamicRestConnector
 from app.modules.integrations.models import (
+    DynamicConnectorConfig,
     IntegrationCostLine,
     IntegrationDocument,
     IntegrationEvent,
@@ -596,3 +598,149 @@ class IntegrationsService:
             {"source_id": source_id, "event_count": len(payload.get("events", []))},
         )
         return {"status": "received", "source_id": source_id}
+
+    # ---- dynamic REST connector (TS-334) ----------------------------------
+
+    def _mask_auth(self, config: DynamicConnectorConfig) -> dict[str, Any]:
+        auth = dict(config.auth_config or {})
+        for key in ("token", "password", "api_key"):
+            if key in auth:
+                auth[key] = "***"
+        return auth
+
+    def _config_dict(self, row: DynamicConnectorConfig, *, mask: bool = True) -> dict[str, Any]:
+        return {
+            "id": str(row.id),
+            "name": row.name,
+            "base_url": row.base_url,
+            "auth_type": row.auth_type,
+            "auth_config": self._mask_auth(row) if mask else (row.auth_config or {}),
+            "headers": row.headers or {},
+            "pagination": row.pagination or {},
+            "mappings": row.mappings or {},
+            "enabled": row.enabled,
+            "last_tested_at": row.last_tested_at.isoformat() if row.last_tested_at else None,
+            "last_test_status": row.last_test_status,
+            "workspace_id": str(row.workspace_id),
+            "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+        }
+
+    def _get_dynamic_config(self, workspace_id, config_id: str) -> DynamicConnectorConfig:
+        row = self.s.scalar(
+            select(DynamicConnectorConfig).where(
+                DynamicConnectorConfig.id == uuid.UUID(str(config_id)),
+                DynamicConnectorConfig.workspace_id == uuid.UUID(str(workspace_id)),
+            )
+        )
+        if row is None:
+            raise IntegrationsError("dynamic_config_not_found")
+        return row
+
+    def list_dynamic_connectors(self, workspace_id) -> list[dict[str, Any]]:
+        rows = self.s.scalars(
+            select(DynamicConnectorConfig).where(
+                DynamicConnectorConfig.workspace_id == uuid.UUID(str(workspace_id))
+            ).order_by(DynamicConnectorConfig.name)
+        ).all()
+        return [self._config_dict(r) for r in rows]
+
+    def get_dynamic_connector(self, workspace_id, config_id: str) -> dict[str, Any]:
+        return self._config_dict(self._get_dynamic_config(workspace_id, config_id))
+
+    def create_dynamic_connector(
+        self, workspace_id, user_id, fields: dict[str, Any]
+    ) -> dict[str, Any]:
+        row = DynamicConnectorConfig(
+            workspace_id=uuid.UUID(str(workspace_id)),
+            created_by=uuid.UUID(str(user_id)),
+            name=fields.get("name", "Untitled"),
+            base_url=fields.get("base_url", ""),
+            auth_type=fields.get("auth_type", "none"),
+            auth_config=fields.get("auth_config") or {},
+            headers=fields.get("headers") or {},
+            pagination=fields.get("pagination") or {},
+            mappings=fields.get("mappings") or {},
+            enabled=fields.get("enabled", True),
+        )
+        self.s.add(row)
+        self.s.commit()
+        return self._config_dict(row)
+
+    def update_dynamic_connector(
+        self, workspace_id, config_id: str, fields: dict[str, Any]
+    ) -> dict[str, Any]:
+        row = self._get_dynamic_config(workspace_id, config_id)
+        for key in (
+            "name",
+            "base_url",
+            "auth_type",
+            "auth_config",
+            "headers",
+            "pagination",
+            "mappings",
+            "enabled",
+        ):
+            if key in fields:
+                setattr(row, key, fields[key])
+        self.s.commit()
+        return self._config_dict(row)
+
+    def delete_dynamic_connector(self, workspace_id, config_id: str) -> dict[str, Any]:
+        row = self._get_dynamic_config(workspace_id, config_id)
+        self.s.delete(row)
+        self.s.commit()
+        return {"deleted": True}
+
+    def test_dynamic_connector(
+        self, workspace_id, config_id: str
+    ) -> dict[str, Any]:
+        row = self._get_dynamic_config(workspace_id, config_id)
+        connector = DynamicRestConnector()
+        start = datetime.now(UTC)
+        try:
+            with connector._client(row) as client:  # noqa: SLF001
+                resp = client.get("/")
+                resp.raise_for_status()
+                body = resp.text[:500]
+                status = "ok"
+                http_status = resp.status_code
+        except Exception as exc:
+            status = "error"
+            body = str(exc)[:500]
+            http_status = getattr(getattr(exc, "response", None), "status_code", None)
+        elapsed_ms = int((datetime.now(UTC) - start).total_seconds() * 1000)
+        row.last_tested_at = datetime.now(UTC)
+        row.last_test_status = status
+        self.s.commit()
+        return {
+            "status": status,
+            "http_status": http_status,
+            "latency_ms": elapsed_ms,
+            "preview": body,
+            "config_id": config_id,
+        }
+
+    def poll_dynamic_connector(
+        self, workspace_id, config_id: str, user_id
+    ) -> dict[str, Any]:
+        row = self._get_dynamic_config(workspace_id, config_id)
+        # Find or create an IntegrationSource bound to this dynamic config.
+        source = self.s.scalar(
+            select(IntegrationSource).where(
+                IntegrationSource.workspace_id == uuid.UUID(str(workspace_id)),
+                IntegrationSource.adapter_kind == "dynamic",
+                IntegrationSource.name == f"dynamic:{row.id}",
+            )
+        )
+        if source is None:
+            source = IntegrationSource(
+                workspace_id=uuid.UUID(str(workspace_id)),
+                created_by=uuid.UUID(str(user_id)),
+                adapter_kind="dynamic",
+                name=f"dynamic:{row.id}",
+                config={"dynamic_connector_id": str(row.id)},
+                status="configured",
+            )
+            self.s.add(source)
+            self.s.commit()
+        return self.poll_source(workspace_id, str(source.id), user_id)

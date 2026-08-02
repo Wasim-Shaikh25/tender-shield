@@ -43,6 +43,30 @@ class IntegrationSource(Base, WorkspaceScopedMixin):
     )
 
 
+class DynamicConnectorConfig(Base, WorkspaceScopedMixin):
+    _tablename_ = "dynamic_connector_configs"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    base_url: Mapped[str] = mapped_column(String, nullable=False)
+    auth_type: Mapped[str] = mapped_column(String, nullable=False, default="none")
+    auth_config: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    headers: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    pagination: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    mappings: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    enabled: Mapped[bool] = mapped_column(default=True, nullable=False)
+    last_tested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_test_status: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_by: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
 class IntegrationSyncJob(Base, WorkspaceScopedMixin):
     _tablename_ = "integration_sync_jobs"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)

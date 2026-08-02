@@ -578,3 +578,4 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-331 | Custom branded report templates | Research Doc §4.I export to customer templates; FEATURE_COVERAGE.md §I | backend/app/modules/export/models.py + settings UI | done |
 | TS-332 | Data residency, encryption at rest and retention controls | Research Doc §11.2 security baseline; FEATURE_COVERAGE.md §I | backend/app/modules/governance + settings UI | done |
 | TS-333 | Live CDE/ERP connector sync (OAuth + polling/webhooks) | Research Doc §4.I; FEATURE_COVERAGE.md §I | backend/app/modules/integrations/connectors/ + API | done |
+| TS-334 | Generic dynamic REST connector (no-code) for ERP/Oracle/sandbox systems — store connector spec in DB, DynamicRestConnector fetches from UI, test endpoint pings sandbox URL without persisting | User request (post-Phase 22) | backend/app/modules/integrations/dynamic.py + frontend/settings/integrations | done |

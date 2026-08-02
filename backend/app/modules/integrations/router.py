@@ -19,6 +19,7 @@ _ERROR_STATUS = {
     "connector_not_configured": 503,
     "invalid_state": 400,
     "source_not_found": 404,
+    "dynamic_config_not_found": 404,
     "no_such_opportunity": 404,
     "ingestion_unavailable": 503,
     "change_unavailable": 503,
@@ -293,5 +294,108 @@ def receive_webhook(
 ):
     try:
         return _service(request, session).handle_webhook(source_id, payload)
+    except IntegrationsError as exc:
+        _raise(exc)
+
+
+# ---- dynamic REST connector (TS-334) ------------------------------------
+
+
+@router.get("/dynamic-connectors")
+def list_dynamic_connectors(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    return {
+        "connectors": _service(request, session).list_dynamic_connectors(
+            principal.workspace_id
+        )
+    }
+
+
+@router.post("/dynamic-connectors")
+def create_dynamic_connector(
+    request: Request,
+    payload: dict,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    try:
+        return _service(request, session).create_dynamic_connector(
+            principal.workspace_id, principal.user_id, payload
+        )
+    except IntegrationsError as exc:
+        _raise(exc)
+
+
+@router.get("/dynamic-connectors/{config_id}")
+def get_dynamic_connector(
+    config_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    try:
+        return _service(request, session).get_dynamic_connector(principal.workspace_id, config_id)
+    except IntegrationsError as exc:
+        _raise(exc)
+
+
+@router.put("/dynamic-connectors/{config_id}")
+def update_dynamic_connector(
+    config_id: str,
+    request: Request,
+    payload: dict,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    try:
+        return _service(request, session).update_dynamic_connector(
+            principal.workspace_id, config_id, payload
+        )
+    except IntegrationsError as exc:
+        _raise(exc)
+
+
+@router.delete("/dynamic-connectors/{config_id}")
+def delete_dynamic_connector(
+    config_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    try:
+        return _service(request, session).delete_dynamic_connector(
+            principal.workspace_id, config_id
+        )
+    except IntegrationsError as exc:
+        _raise(exc)
+
+
+@router.post("/dynamic-connectors/{config_id}/test")
+def test_dynamic_connector(
+    config_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    try:
+        return _service(request, session).test_dynamic_connector(principal.workspace_id, config_id)
+    except IntegrationsError as exc:
+        _raise(exc)
+
+
+@router.post("/dynamic-connectors/{config_id}/poll")
+def poll_dynamic_connector(
+    config_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    try:
+        return _service(request, session).poll_dynamic_connector(
+            principal.workspace_id, config_id, principal.user_id
+        )
     except IntegrationsError as exc:
         _raise(exc)

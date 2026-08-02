@@ -8,6 +8,7 @@ and degrade honestly (Doc §12.4)."""
 from __future__ import annotations
 
 import io
+import zipfile
 
 _MIN_PAGE_CHARS = 10  # a page with less digital text than this is "empty"
 
@@ -23,6 +24,8 @@ def extract_text(filename: str, data: bytes) -> str:
         return _csv(data)
     if name.endswith(".docx"):
         return _docx(data)
+    if name.endswith(".zip"):
+        return _zip(data, ocr=None)[0]
     if name.endswith((".png", ".jpg", ".jpeg", ".tiff", ".tif")):
         return ""
     if name.endswith((".txt", ".md")):
@@ -43,7 +46,7 @@ def _pdf_pages(data: bytes) -> list[str]:
 
 def extract_upload(filename: str, data: bytes, ocr=None) -> tuple[str, str]:
     """Extraction for uploads. Returns (text, ocr_status) where ocr_status is
-    one of: done | ocr_applied | needs_ocr. DOCX, XLSX, CSV and plain text are
+    one of: done | ocr_applied | needs_ocr. DOCX, XLSX, CSV, ZIP and plain text are
     extracted directly. Standalone images and PDFs with no digital text layer are
     OCR'd when a provider is given, else flagged needs_ocr."""
     name = filename.lower()
@@ -51,6 +54,9 @@ def extract_upload(filename: str, data: bytes, ocr=None) -> tuple[str, str]:
         if ocr is not None and getattr(ocr, "name", "null") != "null" and hasattr(ocr, "ocr_image"):
             return _join_pages([ocr.ocr_image(data)]), "ocr_applied"
         return "", "needs_ocr"
+    if name.endswith(".zip"):
+        text, status = _zip(data, ocr=ocr)
+        return text, status
     if not name.endswith(".pdf"):
         return extract_text(filename, data), "done"
 
@@ -132,6 +138,44 @@ def _docx(data: bytes) -> str:
                 lines.append(f"[p{para_idx}]")
                 lines.extend(table_text)
     return "\n".join(lines)
+
+
+def _zip(data: bytes, ocr=None) -> tuple[str, str]:
+    """Extract all recognized files inside a ZIP archive. Each file is prefixed with
+    `[file:<name>]` and its contained text is emitted as produced by `extract_upload`.
+    Returns (combined_text, ocr_status) where status is the most degraded of all
+    members: needs_ocr > ocr_applied > done."""
+    statuses: set[str] = set()
+    parts: list[str] = []
+    with zipfile.ZipFile(io.BytesIO(data)) as zf:
+        for info in zf.infolist():
+            if info.is_dir():
+                continue
+            name = info.filename
+            lower = name.lower()
+            if lower.endswith(".zip"):
+                continue  # no nested zip extraction to avoid recursion/explosion
+            if not any(
+                lower.endswith(ext)
+                for ext in (
+                    ".pdf", ".docx", ".xlsx", ".xlsm", ".csv", ".txt", ".md",
+                    ".png", ".jpg", ".jpeg", ".tiff", ".tif",
+                )
+            ):
+                continue
+            file_data = zf.read(info.filename)
+            if not file_data:
+                continue
+            text, status = extract_upload(name, file_data, ocr=ocr)
+            if text:
+                parts.append(f"[file:{name}]\n{text}")
+            statuses.add(status)
+    status = "done"
+    if "ocr_applied" in statuses:
+        status = "ocr_applied"
+    if "needs_ocr" in statuses:
+        status = "needs_ocr"
+    return "\n\n".join(parts), status
 
 
 def xlsx_to_rows(data: bytes) -> list[list[str]] | None:

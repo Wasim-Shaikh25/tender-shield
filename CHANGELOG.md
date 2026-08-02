@@ -68,6 +68,9 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   routes images to an OCR provider; `RapidOcrProvider` gains `ocr_image` and
   normalizes image uploads to PNG before recognition. Without OCR the upload is
   flagged `needs_ocr`. Backend tests pass.
+- **TS-312** — ZIP bulk package upload: `extract_upload` recognizes `.zip`, extracts
+  all supported nested files with `[file:<name>]` markers, skips nested `.zip`
+  files, and surfaces the most degraded OCR status across members. Backend tests pass.
 - Added `docs/REMAINING_GAPS_ROADMAP.md` with one row for every `Partial` / `Missing`
   capability from `FEATURE_COVERAGE.md`.
 - Created **Phase 22** in `tasks/backlog.md` with 33 concrete tasks (TS-301–TS-333)

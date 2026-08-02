@@ -115,6 +115,7 @@ document is re-registered or re-uploaded.
 - A12: tus `OPTIONS` returns `204` with `Tus-Resumable`; `POST` returns `201` and `Location`; invalid upload IDs return `400`.
 - A13 (TS-310): `.docx` uploads are extracted with `python-docx`, paragraphs are joined with `[pN]` markers per paragraph, and `extract_upload` returns `ocr_status=done`.
 - A14 (TS-311): Standalone `.png`/`.jpg`/`.tiff` uploads are routed to an OCR provider; without one `extract_upload` returns `ocr_status=needs_ocr`. OCR results are emitted as a single `[p1]` block.
+- A15 (TS-312): `.zip` uploads extract all supported files inside, prefix each with `[file:<name>]`, and return the most degraded `ocr_status` across members. Nested `.zip` files are skipped.
 
 ## Out of scope
 

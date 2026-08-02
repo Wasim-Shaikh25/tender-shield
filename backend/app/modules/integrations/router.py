@@ -15,6 +15,9 @@ router = APIRouter()
 
 _ERROR_STATUS = {
     "unknown_adapter": 400,
+    "unknown_connector": 400,
+    "connector_not_configured": 503,
+    "invalid_state": 400,
     "source_not_found": 404,
     "no_such_opportunity": 404,
     "ingestion_unavailable": 503,
@@ -49,6 +52,7 @@ def _service(request: Request, session: Session) -> IntegrationsService:
         ingestion_factory=reg.get("ingestion.service_factory"),
         change_factory=reg.get("change.service_factory"),
         publish=request.app.state.ctx.events.publish,
+        live_connector_polling_enabled=request.app.state.ctx.settings.live_connector_polling_enabled,
     )
 
 
@@ -218,5 +222,76 @@ async def upload_schedule(
             opportunity_id,
             {"format": format, "content": content},
         )
+    except IntegrationsError as exc:
+        _raise(exc)
+
+
+@router.get("/connectors")
+def list_connectors(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    return {"connectors": _service(request, session).list_connectors()}
+
+
+class OAuthStartBody(BaseModel):
+    redirect_uri: str = Field(min_length=1)
+
+
+@router.post("/sources/{source_id}/oauth")
+def start_oauth(
+    source_id: str,
+    body: OAuthStartBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    try:
+        return _service(request, session).oauth_start(
+            principal.workspace_id, source_id, body.redirect_uri
+        )
+    except IntegrationsError as exc:
+        _raise(exc)
+
+
+@router.get("/connectors/{connector_kind}/callback")
+def oauth_callback(
+    connector_kind: str,
+    code: str,
+    state: str,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    try:
+        return _service(request, session).oauth_callback(connector_kind, code, state)
+    except IntegrationsError as exc:
+        _raise(exc)
+
+
+@router.post("/sources/{source_id}/poll")
+def poll_source(
+    source_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    try:
+        return _service(request, session).poll_source(
+            principal.workspace_id, source_id, principal.user_id
+        )
+    except IntegrationsError as exc:
+        _raise(exc)
+
+
+@router.post("/sources/{source_id}/webhook")
+def receive_webhook(
+    source_id: str,
+    payload: dict,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    try:
+        return _service(request, session).handle_webhook(source_id, payload)
     except IntegrationsError as exc:
         _raise(exc)

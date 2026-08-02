@@ -23,6 +23,8 @@ export default function SettingsPage() {
   const [templates, setTemplates] = useState<ReportTemplate[]>([]);
   const [templateForm, setTemplateForm] = useState<Partial<ReportTemplate>>({ name: "", report_title: "", footer_text: "", watermark_text: "", primary_color: "", logo_url: "" });
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
+  const [governance, setGovernance] = useState({ data_region: "", retention_days: "", archive_after_days: "", legal_hold: false, encryption_at_rest: "none" });
+  const [retentionCandidates, setRetentionCandidates] = useState<{ id: string; filename: string; kind: string; opportunity_id: string; created_at: string }[]>([]);
 
   useEffect(() => {
     if (!session) return;
@@ -43,6 +45,20 @@ export default function SettingsPage() {
     api.listReportTemplates(session.token)
       .then((r) => setTemplates(r.templates))
       .catch(() => setTemplates([]));
+    if (session.workspaceId) {
+      api.getDataGovernance(session.token, session.workspaceId)
+        .then((r) => setGovernance({
+          data_region: r.data_region || "",
+          retention_days: r.retention_days != null ? String(r.retention_days) : "",
+          archive_after_days: r.archive_after_days != null ? String(r.archive_after_days) : "",
+          legal_hold: r.legal_hold || false,
+          encryption_at_rest: r.encryption_at_rest || "none",
+        }))
+        .catch(() => {});
+      api.listRetentionCandidates(session.token, session.workspaceId)
+        .then((r) => setRetentionCandidates(r.candidates))
+        .catch(() => setRetentionCandidates([]));
+    }
   }, [session]);
 
   if (!session) {
@@ -268,6 +284,30 @@ export default function SettingsPage() {
     }
   };
 
+  const saveGovernance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session?.workspaceId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const body: Record<string, unknown> = {
+        data_region: governance.data_region,
+        legal_hold: governance.legal_hold,
+        encryption_at_rest: governance.encryption_at_rest,
+      };
+      if (governance.retention_days !== "") body.retention_days = Number(governance.retention_days);
+      if (governance.archive_after_days !== "") body.archive_after_days = Number(governance.archive_after_days);
+      await api.updateDataGovernance(session.token, session.workspaceId, body);
+      setMessage("Data governance settings saved.");
+      const c = await api.listRetentionCandidates(session.token, session.workspaceId);
+      setRetentionCandidates(c.candidates);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save governance settings");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-ink">Account & Security</h1>
@@ -436,6 +476,38 @@ export default function SettingsPage() {
               </li>
             ))}
           </ul>
+        )}
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-6">
+        <h2 className="mb-4 text-lg font-semibold text-ink">Data governance</h2>
+        <form onSubmit={saveGovernance} className="mb-4 grid gap-3 sm:grid-cols-2">
+          <input placeholder="Data region (e.g. IN, EU, US)" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={governance.data_region} onChange={(e) => setGovernance({ ...governance, data_region: e.target.value })} />
+          <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={governance.encryption_at_rest} onChange={(e) => setGovernance({ ...governance, encryption_at_rest: e.target.value })}>
+            <option value="none">No encryption at rest (default)</option>
+            <option value="sse-s3">SSE-S3</option>
+            <option value="aws:kms">AWS KMS</option>
+          </select>
+          <input type="number" min={1} placeholder="Retention days" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={governance.retention_days} onChange={(e) => setGovernance({ ...governance, retention_days: e.target.value })} />
+          <input type="number" min={1} placeholder="Archive after days" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={governance.archive_after_days} onChange={(e) => setGovernance({ ...governance, archive_after_days: e.target.value })} />
+          <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2">
+            <input type="checkbox" checked={governance.legal_hold} onChange={(e) => setGovernance({ ...governance, legal_hold: e.target.checked })} />
+            Legal hold (blocks retention actions)
+          </label>
+          <button type="submit" disabled={loading} className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-50 sm:col-span-2">Save data governance</button>
+        </form>
+        {retentionCandidates.length > 0 && (
+          <div className="mt-4">
+            <h3 className="text-sm font-semibold text-slate-700">Retention candidates ({retentionCandidates.length})</h3>
+            <ul className="mt-2 space-y-2">
+              {retentionCandidates.map((d) => (
+                <li key={d.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
+                  <span>{d.filename} <span className="text-slate-500">({d.kind})</span></span>
+                  <span className="text-slate-500">{new Date(d.created_at).toLocaleDateString()}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </section>
 

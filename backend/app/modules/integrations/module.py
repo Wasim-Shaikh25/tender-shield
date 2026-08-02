@@ -12,6 +12,7 @@ def setup(ctx: AppContext) -> None:
             ingestion_factory=reg.get("ingestion.service_factory"),
             change_factory=reg.get("change.service_factory"),
             publish=ctx.events.publish,
+            live_connector_polling_enabled=ctx.settings.live_connector_polling_enabled,
         )
 
     reg.provide("integrations.service_factory", factory)

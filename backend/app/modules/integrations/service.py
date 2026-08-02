@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.modules.integrations.adapters import ADAPTER_REGISTRY, BaseAdapter, ScheduleAdapter
+from app.modules.integrations.connectors import CONNECTOR_REGISTRY
 from app.modules.integrations.models import (
     IntegrationCostLine,
     IntegrationDocument,
@@ -35,11 +36,13 @@ class IntegrationsService:
         ingestion_factory: Callable[[Session], object] | None = None,
         change_factory: Callable[[Session], object] | None = None,
         publish: Callable[[str, dict], Any] | None = None,
+        live_connector_polling_enabled: bool = False,
     ) -> None:
         self.s = session
         self._ingestion_factory = ingestion_factory
         self._change_factory = change_factory
         self._publish = publish or (lambda event, payload: None)
+        self._live_connector_polling_enabled = live_connector_polling_enabled
 
     def _ingestion(self):
         if self._ingestion_factory is None:
@@ -477,3 +480,119 @@ class IntegrationsService:
             "linked_change_event_ids": row.linked_change_event_ids,
             "snapshot_at": row.snapshot_at.isoformat() if row.snapshot_at else None,
         }
+
+    # ---- live CDE/ERP connectors (TS-333) ---------------------------------
+
+    def list_connectors(self) -> list[dict]:
+        return [
+            {"kind": kind, "name": cls.name, "auth_required": cls.auth_required}
+            for kind, cls in sorted(CONNECTOR_REGISTRY.items())
+        ]
+
+    def _connector_for_source(self, source: IntegrationSource):
+        connector_cls = CONNECTOR_REGISTRY.get(source.adapter_kind)
+        if connector_cls is None:
+            return None
+        return connector_cls()
+
+    def oauth_start(self, workspace_id, source_id: str, redirect_uri: str) -> dict:
+        source = self._get_source(workspace_id, source_id)
+        connector = self._connector_for_source(source)
+        if connector is None:
+            raise IntegrationsError("unknown_connector")
+        state = f"{source_id}:{uuid.uuid4().hex}"
+        config = dict(source.config or {})
+        config["oauth_state"] = state
+        source.config = config
+        self.s.commit()
+        url = connector.authorization_url(source, redirect_uri, state)
+        if url is None:
+            raise IntegrationsError("connector_not_configured")
+        return {"authorization_url": url, "state": state}
+
+    def oauth_callback(self, kind: str, code: str, state: str) -> dict:
+        try:
+            source_id, _ = state.split(":", 1)
+        except ValueError:
+            raise IntegrationsError("invalid_state") from None
+        source = self.s.scalar(
+            select(IntegrationSource).where(IntegrationSource.id == uuid.UUID(str(source_id)))
+        )
+        if source is None or source.adapter_kind != kind:
+            raise IntegrationsError("source_not_found")
+        config = dict(source.config or {})
+        if config.get("oauth_state") != state:
+            raise IntegrationsError("invalid_state")
+        connector = self._connector_for_source(source)
+        if connector is None:
+            raise IntegrationsError("unknown_connector")
+        token = connector.exchange_code(source, code, "")
+        config.update(token)
+        config.pop("oauth_state", None)
+        source.config = config
+        source.status = "authorized"
+        self.s.commit()
+        self._publish(
+            "integrations.oauth_completed",
+            {"workspace_id": str(source.workspace_id), "source_id": source_id},
+        )
+        return {"status": "authorized", "source_id": source_id}
+
+    def poll_source(
+        self, workspace_id, source_id: str, user_id
+    ) -> dict:
+        source = self._get_source(workspace_id, source_id)
+        connector = self._connector_for_source(source)
+        if connector is None:
+            raise IntegrationsError("unknown_connector")
+        if not self._live_connector_polling_enabled:
+            return {
+                "status": "disabled",
+                "note": "Live connector polling is disabled by TS_LIVE_CONNECTOR_POLLING_ENABLED.",
+            }
+        job = IntegrationSyncJob(
+            workspace_id=uuid.UUID(str(workspace_id)),
+            source_id=source.id,
+            status="running",
+            created_by=uuid.UUID(str(user_id)),
+        )
+        self.s.add(job)
+        self.s.commit()
+        try:
+            result = connector.fetch(source)
+            imported = self._persist(workspace_id, source, result, user_id)
+            job.status = "completed"
+            job.records_imported = (
+                imported["documents"]
+                + imported["events"]
+                + imported["cost_lines"]
+                + imported["activities"]
+            )
+            job.completed_at = datetime.now(UTC)
+            source.last_synced_at = datetime.now(UTC)
+            source.status = "active"
+            self.s.commit()
+        except Exception as exc:
+            job.status = "failed"
+            job.error_message = str(exc)
+            job.completed_at = datetime.now(UTC)
+            self.s.commit()
+            raise IntegrationsError("import_failed") from exc
+        return self._job_dict(job, result)
+
+    def handle_webhook(self, source_id: str, payload: dict) -> dict:
+        source = self.s.scalar(
+            select(IntegrationSource).where(
+                IntegrationSource.id == uuid.UUID(str(source_id))
+            )
+        )
+        if source is None:
+            raise IntegrationsError("source_not_found")
+        connector = self._connector_for_source(source)
+        if connector is None:
+            raise IntegrationsError("unknown_connector")
+        self._publish(
+            "integrations.webhook_received",
+            {"source_id": source_id, "event_count": len(payload.get("events", []))},
+        )
+        return {"status": "received", "source_id": source_id}

@@ -576,5 +576,5 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-329 | Portfolio clause trends, recurring omission patterns and loss-reason analytics | Research Doc §4.H; FEATURE_COVERAGE.md §H | backend/app/modules/controltower/service.py + frontend/controltower | done |
 | TS-330 | Document-class ACL | Research Doc §4.I role-based access by document class; FEATURE_COVERAGE.md §I | backend/app/modules/auth/acl.py + settings UI | done |
 | TS-331 | Custom branded report templates | Research Doc §4.I export to customer templates; FEATURE_COVERAGE.md §I | backend/app/modules/export/models.py + settings UI | done |
-| TS-332 | Data residency, encryption at rest and retention controls | Research Doc §11.2 security baseline; FEATURE_COVERAGE.md §I | backend/app/core/config.py + storage | todo |
-| TS-333 | Live CDE/ERP connector sync (OAuth + polling/webhooks) | Research Doc §4.I; FEATURE_COVERAGE.md §I | backend/app/modules/integrations/connectors/ | todo |
+| TS-332 | Data residency, encryption at rest and retention controls | Research Doc §11.2 security baseline; FEATURE_COVERAGE.md §I | backend/app/modules/governance + settings UI | done |
+| TS-333 | Live CDE/ERP connector sync (OAuth + polling/webhooks) | Research Doc §4.I; FEATURE_COVERAGE.md §I | backend/app/modules/integrations/connectors/ + API | done |

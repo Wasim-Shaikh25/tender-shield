@@ -148,6 +148,7 @@ class S3Storage:
         import boto3
         import botocore.config
 
+        self.settings = settings
         self.bucket = settings.s3_bucket
         self.key_prefix = settings.storage_dir.strip("/") if settings.storage_dir else ""
         session = boto3.Session(
@@ -177,12 +178,19 @@ class S3Storage:
 
     async def write(self, key: str, data: bytes, content_type: str) -> str:
         full = self._full_key(key)
+        extra = {}
+        sse = self.settings.s3_server_side_encryption
+        if sse:
+            extra["ServerSideEncryption"] = sse
+        if sse == "aws:kms" and self.settings.s3_kms_key_id:
+            extra["SSEKMSKeyId"] = self.settings.s3_kms_key_id
         await asyncio.to_thread(
             self.client.put_object,
             Bucket=self.bucket,
             Key=full,
             Body=data,
             ContentType=content_type,
+            **extra,
         )
         return full
 

@@ -56,11 +56,12 @@ class Settings(BaseSettings):
     stripe_publishable_key: str = ""
     stripe_webhook_secret: SecretStr | None = None
 
-    # Notifications (Doc §11.6/§11.7). SES/MSG91 are gated by credentials.
+    # Notifications (Doc §11.6/§11.7). SES/Resend/MSG91 are gated by credentials.
     email_from: str = ""
     ses_region: str = ""
     ses_access_key_id: SecretStr | None = None
     ses_secret_access_key: SecretStr | None = None
+    resend_api_key: SecretStr | None = None
     msg91_auth_key: SecretStr | None = None
     msg91_sender_id: str = ""
 

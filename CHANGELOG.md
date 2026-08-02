@@ -6,6 +6,14 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — remaining doable carry-overs
+
+- **TS-035 Resend email adapter** — added `ResendSender` behind the `notifications.sender`
+  protocol, configured by `TS_RESEND_API_KEY`, with console fallback when credentials are
+  absent. SES/Resend/MSG91 are now all pluggable.
+- **Roadmap tracker sync** — `tasks/roadmap_tracker.md` now reflects Phases 16–21 as
+  code-complete (real-world exit gates remain tracked separately).
+
 ### Done — carry-overs (TS-163, TS-296)
 
 - **TS-163 account-centric auth re-architecture** — removed Google/Apple OIDC modules

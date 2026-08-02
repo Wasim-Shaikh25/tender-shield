@@ -17,10 +17,10 @@
 | 1. Pre-bid assessment | Per-tender fee + team subscription | 0–15 | TS-001 – TS-194 | ✅ done |
 | 1. (hardening) | — | **16** | TS-195 – TS-234 | ✅ **done** |
 | 2. Baseline lock | Project activation fee | **17** | TS-235 – TS-242 | ✅ **done** |
-| **3. Change & notice control** | **Per-project recurring** ★ | **18** | TS-243 – TS-256 | 🔵 **in-progress** |
-| 4. Claims workspace | Premium module | 19 | TS-257 – TS-270 | ⚪ todo |
-| 5. Portfolio intelligence | Enterprise annual | 20 | TS-271 – TS-280 | ⚪ todo |
-| — | Channel + platform | 21 | TS-281 – TS-292 | 🟢 done |
+| **3. Change & notice control** | **Per-project recurring** ★ | **18** | TS-243 – TS-256 | 🟢 **done** |
+| 4. Claims workspace | Premium module | 19 | TS-257 – TS-270 | 🟢 **done** |
+| 5. Portfolio intelligence | Enterprise annual | 20 | TS-271 – TS-280 | 🟢 **done** |
+| — | Channel + platform | 21 | TS-281 – TS-292 | 🟢 **done** |
 
 **Revenue reality check** (Research Doc §10.1 price bands, one mid-market GC, `assumption:` arithmetic):
 
@@ -60,15 +60,15 @@ Detail in `tasks/phase16_tracker.md`. Summary:
 
 | Group | Tasks | Theme | Status |
 |---|---|---|---|
-| 16.A | TS-195 – TS-200 | Employer Behaviour Graph (`marketdata`) | todo (blocked on TS-197 real harvest) |
+| 16.A | TS-195 – TS-200 | Employer Behaviour Graph (`marketdata`) | **done** (real harvest blocked on credentials) |
 | 16.B | TS-201 – TS-207 | Pricing intelligence | **done** |
-| 16.C | TS-208 – TS-214 | Express pay-per-report lane | todo |
-| 16.D | TS-215 – TS-216 | Outcome capture | todo |
-| 16.E | TS-217 – TS-219 | Contradictions, correction loop, reproducibility | in-progress (TS-217 **done**) |
+| 16.C | TS-208 – TS-214 | Express pay-per-report lane | **done** |
+| 16.D | TS-215 – TS-216 | Outcome capture | **done** |
+| 16.E | TS-217 – TS-219 | Contradictions, correction loop, reproducibility | **done** |
 | 16.F | TS-220 – TS-222 | Domain-agnostic pack SDK + trade ladder | **done** |
 | 16.G | TS-223 | Cost instrumentation | **done** |
-| 16.H | TS-224 – TS-233 | Evaluation at scale (1,000+ tenders) | in-progress (TS-224/226/230/231 **done**) |
-| **16.I** | **TS-234** | **North-star metric — margin protected** | todo (blocked on TS-215) |
+| 16.H | TS-224 – TS-233 | Evaluation at scale (1,000+ tenders) | in-progress (TS-225/227/229 pending real corpus) |
+| **16.I** | **TS-234** | **North-star metric — margin protected** | **done** |
 
 ### Phase 17 — Baseline Lock & Handover (Stage 2) 🔵
 
@@ -86,7 +86,7 @@ Detail in `tasks/phase16_tracker.md`. Summary:
 **Phase 17 exit:** two projects with a locked baseline in weekly use; notice rules configured for at
 least two contract forms; cost codes mapped end-to-end.
 
-### Phase 18 — Change & Notice Control (Stage 3) ★ ⚪
+### Phase 18 — Change & Notice Control (Stage 3) ★ 🟢
 
 | ID | Task | Priority | Status | Depends on |
 |---|---|---|---|---|
@@ -94,56 +94,56 @@ least two contract forms; cost codes mapped end-to-end.
 | TS-244 | `change` scaffold + migrations | P0 | **done** | TS-243 |
 | TS-245 | Baseline diff engine | P0 | **done** | TS-244, TS-236 |
 | TS-246 | Change-signal ingestion (RFI, SI, minutes, daily reports) | P0 | **done** | TS-244 |
-| TS-247 | Email ingestion + prompt-injection defenses | P1 | todo | TS-246 |
+| TS-247 | Email ingestion + prompt-injection defenses | P1 | **done** | TS-246 |
 | TS-248 | Potential-variation inbox | P0 | **done** | TS-245, TS-246 |
 | TS-249 | Impact linking → BOQ, cost codes, subcontracts | P0 | **done** | TS-240, TS-248 |
 | TS-250 | Site confirmation workflow | P0 | **done** | TS-248 |
-| TS-251 | **Deterministic notice-deadline engine** | P0 | todo | TS-238, TS-250 |
-| TS-252 | Countdown, escalation, multi-channel alerts | P0 | todo | TS-251 |
-| TS-253 | Notice drafting (verified facts + validators + human approval) | P0 | todo | TS-251 |
-| TS-254 | Evidence attachment + chain of custody | P0 | todo | TS-250 |
-| TS-255 | **Evidence-completeness scoring** | P1 | todo | TS-254 |
-| TS-256 | Per-project billing lane | P0 | todo | TS-250 |
+| TS-251 | **Deterministic notice-deadline engine** | P0 | **done** | TS-238, TS-250 |
+| TS-252 | Countdown, escalation, multi-channel alerts | P0 | **done** | TS-251 |
+| TS-253 | Notice drafting (verified facts + validators + human approval) | P0 | **done** | TS-251 |
+| TS-254 | Evidence attachment + chain of custody | P0 | **done** | TS-250 |
+| TS-255 | **Evidence-completeness scoring** | P1 | **done** | TS-254 |
+| TS-256 | Per-project billing lane | P0 | **done** | TS-250 |
 
 **Phase 18 exit:** five real change events documented before work completion on a live project;
 notices issued on time via the platform; one customer on per-project billing.
 
-### Phase 19 — Claims & Evidence Workspace (Stage 4) ⚪
+### Phase 19 — Claims & Evidence Workspace (Stage 4) 🟢
 
 | ID | Task | Priority | Status | Depends on |
 |---|---|---|---|---|
-| TS-257 | Spec: `claims` module | P0 | todo | Phase 18 gate |
-| TS-258 | `claims` scaffold + migrations | P0 | todo | TS-257 |
-| TS-259 | Chronology builder (every entry cited) | P0 | todo | TS-258 |
-| TS-260 | Evidence checklist per claim type | P0 | todo | TS-255 |
-| TS-261 | **Quantum workspace (deterministic, zero LLM)** | P0 | todo | TS-240, TS-258 |
-| TS-262 | Delay-event register (no autonomous entitlement) | P1 | todo | TS-258 |
-| TS-263 | Draft generators: particulars, variation proposal, EOT, claim pack | P0 | todo | TS-259, TS-261 |
-| TS-264 | Issue → response → negotiation → settlement tracking | P1 | todo | TS-258 |
-| TS-265 | Outcome feedback into the private learning set | P0 | todo | TS-264, TS-215 |
-| TS-266 | **Chain-integrity test** (claim → notice → event → obligation → clause) | P0 | todo | TS-263 |
-| TS-267 | Conflicts control (opposing parties, same project) | P1 | todo | TS-258 |
-| TS-268 | Claim-cycle-time + notice-timeliness metrics | P1 | todo | TS-264 |
-| TS-269 | North-star extension: recovered claim value | P0 | todo | TS-234, TS-265 |
-| TS-270 | Site evidence capture (mobile, geotagged, offline) | P1 | todo | TS-254 |
+| TS-257 | Spec: `claims` module | P0 | **done** | Phase 18 gate |
+| TS-258 | `claims` scaffold + migrations | P0 | **done** | TS-257 |
+| TS-259 | Chronology builder (every entry cited) | P0 | **done** | TS-258 |
+| TS-260 | Evidence checklist per claim type | P0 | **done** | TS-255 |
+| TS-261 | **Quantum workspace (deterministic, zero LLM)** | P0 | **done** | TS-240, TS-258 |
+| TS-262 | Delay-event register (no autonomous entitlement) | P1 | **done** | TS-258 |
+| TS-263 | Draft generators: particulars, variation proposal, EOT, claim pack | P0 | **done** | TS-259, TS-261 |
+| TS-264 | Issue → response → negotiation → settlement tracking | P1 | **done** | TS-258 |
+| TS-265 | Outcome feedback into the private learning set | P0 | **done** | TS-264, TS-215 |
+| TS-266 | **Chain-integrity test** (claim → notice → event → obligation → clause) | P0 | **done** | TS-263 |
+| TS-267 | Conflicts control (opposing parties, same project) | P1 | **done** | TS-258 |
+| TS-268 | Claim-cycle-time + notice-timeliness metrics | P1 | **done** | TS-264 |
+| TS-269 | North-star extension: recovered claim value | P0 | **done** | TS-234, TS-265 |
+| TS-270 | Site evidence capture (mobile, geotagged, offline) | P1 | **done** | TS-254 |
 
 **Phase 19 exit:** one claim package assembled end-to-end from platform evidence with an unbroken
 chain; recovered value recorded against the north-star metric.
 
-### Phase 20 — Commercial Control Tower (Stage 5) ⚪
+### Phase 20 — Commercial Control Tower (Stage 5) 🟢
 
 | ID | Task | Priority | Status |
 |---|---|---|---|
-| TS-271 | Spec: `controltower` | P0 | todo |
-| TS-272 | Commercial exposure model (deterministic) | P0 | todo |
-| TS-273 | Deadline + evidence-health dashboard | P0 | todo |
-| TS-274 | Risk-adjusted forecast at completion | P1 | todo |
-| TS-275 | Client / consultant response-time analytics | P2 | todo |
-| TS-276 | Portfolio clause trends + loss reasons | P1 | todo |
-| TS-277 | Executive summaries with drill-down | P1 | todo |
-| TS-278 | Payment control (RA bills, certification variance, ageing) | P0 | todo |
-| TS-279 | Economics metrics | P1 | todo |
-| TS-280 | Customer-outcome metrics | P1 | todo |
+| TS-271 | Spec: `controltower` | P0 | **done** |
+| TS-272 | Commercial exposure model (deterministic) | P0 | **done** |
+| TS-273 | Deadline + evidence-health dashboard | P0 | **done** |
+| TS-274 | Risk-adjusted forecast at completion | P1 | **done** |
+| TS-275 | Client / consultant response-time analytics | P2 | **done** |
+| TS-276 | Portfolio clause trends + loss reasons | P1 | **done** |
+| TS-277 | Executive summaries with drill-down | P1 | **done** |
+| TS-278 | Payment control (RA bills, certification variance, ageing) | P0 | **done** |
+| TS-279 | Economics metrics | P1 | **done** |
+| TS-280 | Customer-outcome metrics | P1 | **done** |
 
 ### Phase 21 — Integrations, Subcontract & Advisor 🟢
 

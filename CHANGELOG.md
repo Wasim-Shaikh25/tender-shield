@@ -75,6 +75,11 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   upload validation; `ScheduleAdapter` parses IFC-SPF `IfcTask` entities;
   `POST /api/integrations/schedule/opportunities/{id}/upload` accepts multipart
   schedule files and validates workspace ownership. Frontend API client updated.
+- **TS-314** — addendum/duplicate detection in `IngestionService`: duplicate SHA
+  documents are flagged `duplicate` and skipped; addendum/revision filenames are
+  linked to the matching base document via `supersedes` and a clause-level diff is
+  stored in `meta.addendum_changes`; `GET /api/ingestion/opportunities/{id}/documents/{doc_id}/addendum`
+  exposes the result.
 - Added `docs/REMAINING_GAPS_ROADMAP.md` with one row for every `Partial` / `Missing`
   capability from `FEATURE_COVERAGE.md`.
 - Created **Phase 22** in `tasks/backlog.md` with 33 concrete tasks (TS-301–TS-333)

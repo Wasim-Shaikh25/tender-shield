@@ -342,6 +342,29 @@ def get_document_text(
     return _service(request, session).get_doc_text(principal.workspace_id, document_id, page=page)
 
 
+@router.get("/opportunities/{opportunity_id}/documents/{document_id}/addendum")
+def get_addendum(
+    opportunity_id: str,
+    document_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    svc = _service(request, session)
+    doc = svc.get_document(principal.workspace_id, document_id)
+    if not doc or str(doc.opportunity_id) != opportunity_id:
+        raise HTTPException(404, "not_found")
+    return {
+        "document_id": str(doc.id),
+        "supersedes": str(doc.supersedes) if doc.supersedes else None,
+        "is_addendum": bool(doc.meta.get("addendum")),
+        "addendum_reason": doc.meta.get("addendum_reason"),
+        "addendum_changes": doc.meta.get("addendum_changes", []),
+        "duplicate_of": doc.meta.get("duplicate_of"),
+        "ocr_status": doc.ocr_status,
+    }
+
+
 def _to_uuid(value: str):
     import uuid
 

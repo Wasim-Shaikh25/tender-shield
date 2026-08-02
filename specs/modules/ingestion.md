@@ -97,6 +97,12 @@ document is re-registered or re-uploaded.
   returns 404.
 - **B14 (sample text limits):** `POST /opportunities/{id}/documents` rejects a
   `sample_text` longer than 1,000,000 characters.
+- **B15 (addendum/duplicate detection, TS-314):** on registration, documents with a
+  duplicate `sha256` in the same opportunity are flagged `duplicate` and skip
+  re-processing. Filenames containing addendum/revision/version markers are linked to
+  the most recent matching base document via `supersedes` and a clause-level diff is
+  stored in `meta.addendum_changes`. `GET /opportunities/{id}/documents/{doc_id}/addendum`
+  exposes the diff and link.
 
 ## Acceptance criteria
 
@@ -116,6 +122,7 @@ document is re-registered or re-uploaded.
 - A13 (TS-310): `.docx` uploads are extracted with `python-docx`, paragraphs are joined with `[pN]` markers per paragraph, and `extract_upload` returns `ocr_status=done`.
 - A14 (TS-311): Standalone `.png`/`.jpg`/`.tiff` uploads are routed to an OCR provider; without one `extract_upload` returns `ocr_status=needs_ocr`. OCR results are emitted as a single `[p1]` block.
 - A15 (TS-312): `.zip` uploads extract all supported files inside, prefix each with `[file:<name>]`, and return the most degraded `ocr_status` across members. Nested `.zip` files are skipped.
+- A16 (TS-314): Registering a document whose filename contains addendum/version keywords links it to the most recent matching base doc and stores a clause-level diff; duplicate `sha256` documents are flagged `duplicate`.
 
 ## Out of scope
 

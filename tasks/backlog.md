@@ -558,7 +558,7 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-311 | Image (PNG/JPG/TIFF) upload and standalone OCR | Research Doc §4.A OCR; FEATURE_COVERAGE.md §A | backend/app/modules/ingestion/ocr.py | done |
 | TS-312 | ZIP bulk package upload | Research Doc §4.A bulk upload; FEATURE_COVERAGE.md §A | backend/app/modules/ingestion/router.py | done |
 | TS-313 | Exported model schedule ingestion (CSV/IFC) | Research Doc §4.A exported model schedules; FEATURE_COVERAGE.md §A | backend/app/modules/integrations/adapters.py ScheduleAdapter + new ingestion route | done |
-| TS-314 | Automatic addendum comparison and duplicate detection | Research Doc §4.A version detection, addendum comparison; FEATURE_COVERAGE.md §A | backend/app/modules/ingestion/service.py | todo |
+| TS-314 | Automatic addendum comparison and duplicate detection | Research Doc §4.A version detection, addendum comparison; FEATURE_COVERAGE.md §A | backend/app/modules/ingestion/service.py | done |
 | TS-315 | Language detection and multilingual extraction assistance | Research Doc §8.1 localization; FEATURE_COVERAGE.md §A | backend/app/modules/ingestion/doc_text.py | todo |
 | TS-316 | Defined-term glossary and linking | Research Doc §4.A defined-term linking; FEATURE_COVERAGE.md §A | backend/app/modules/ingestion/segment.py + new glossary model | todo |
 | TS-317 | Clause deviation scoring against playbook/standard | Research Doc §4.B clause deviation comparison; FEATURE_COVERAGE.md §B | backend/app/modules/comparison/ or new risk/deviation.py | todo |

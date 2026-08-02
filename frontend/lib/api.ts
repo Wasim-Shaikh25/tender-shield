@@ -778,6 +778,9 @@ export const api = {
     milestone_billing_minor?: Record<string, number>;
   }) =>
     req<CashflowResult>(`/pricing/opportunities/${opportunityId}/cashflow`, { method: "POST", body: JSON.stringify(body) }, token),
+  // Addendum / duplicate detection
+  getAddendum: (token: string, opportunityId: string, documentId: string) =>
+    req<{ document_id: string; supersedes: string | null; is_addendum: boolean; addendum_reason?: string; addendum_changes: Record<string, unknown>[]; duplicate_of?: string; ocr_status: string }>(`/ingestion/opportunities/${opportunityId}/documents/${documentId}/addendum`, {}, token),
 };
 
 export type PlanSnapshot = {

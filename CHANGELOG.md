@@ -183,13 +183,27 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 ### Done — backend test coverage backfill (TS-335)
 
 - Added `backend/tests/test_integrations.py` for `dynamic-connectors` CRUD,
-  test/poll endpoints, and adapter/source creation; found and fixed
+  test/poll endpoints, and adapter/source creation; fixed
   `DynamicRestConnector._config_for` UUID/string binding bug against SQLAlchemy `Uuid`.
 - Added `backend/tests/test_public_api.py` for API-key create/list/revoke and
   `Apikey` authentication; guarded `SET LOCAL app.api_key_hash` to PostgreSQL only.
 - Added `backend/tests/test_subcontract.py` for subcontract CRUD, clauses,
   scope items, payment events, scope gaps, notice calendar, and payment exposure;
   fixed `scope_gaps` to honor the `covered` flag.
+- Added `backend/tests/test_ingestion_phase22.py` for DOCX/ZIP/image upload,
+  language detection, glossary, and addendum/duplicate detection.
+- Added `backend/tests/test_drawings.py` for drawing register, title-block extraction,
+  superseded comparison, symbol assist, heatmap, BOQ link, and IFC quantity import;
+  fixed title-block regex cross-line capture.
+- Added `backend/tests/test_change_phase22.py` for signal polling and delay analysis.
+- Added `backend/tests/test_governance_acl_templates.py` for document-class ACL
+  enforcement, governance settings, retention candidates, and report templates.
+- Added `backend/tests/test_phase22_remaining.py` for clause deviation scoring,
+  BOQ/schedule cross-check, historical scope patterns, rate benchmark, build-up,
+  and sensitivity.
+- Fixed `governance/service.py retention_candidates` callback signature.
+- Fixed `ingestion/service.py` addendum self-supersession and `ingestion/doc_text.py`
+  multi-chunk page text retrieval.
 - Removed the non-existent `json_payload` adapter default from the integration-source
   UI; the default adapter is now `erp`.
 

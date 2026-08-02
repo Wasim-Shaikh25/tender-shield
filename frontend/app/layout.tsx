@@ -26,6 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <nav className="flex items-center gap-5 text-sm text-slate-600">
                 <Link href="/opportunities" className="hover:text-ink">Opportunities</Link>
                 <Link href="/analytics" className="hover:text-ink">Analytics</Link>
+                <Link href="/controltower" className="hover:text-ink">Control Tower</Link>
                 <Link href="/plan" className="hover:text-ink">Plan</Link>
                 <Link href="/assistant" className="hover:text-ink">AI Assistant</Link>
                 <Link href="/standards" className="hover:text-ink">Standards</Link>

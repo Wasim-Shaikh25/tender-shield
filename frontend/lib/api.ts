@@ -674,6 +674,29 @@ export const api = {
     req<{ status: string; missing_link?: string }>(`/claims/${claimId}/chain-integrity`, {}, token),
   getClaimMetrics: (token: string, opportunityId: string) =>
     req<Record<string, unknown>>(`/claims/opportunities/${opportunityId}/claim-metrics`, {}, token),
+  // Control tower dashboards (Phase 20)
+  getExposure: (token: string, opportunityId: string, params?: { cost_of_capital_pa?: number; currency?: string }) =>
+    req<Record<string, unknown>>(`/controltower/exposure?${new URLSearchParams({ opportunity_id: opportunityId, ...(params ? { cost_of_capital_pa: String(params.cost_of_capital_pa ?? 0.12), currency: params.currency ?? "INR" } : {}) })}`, {}, token),
+  getControlDashboard: (token: string, opportunityId: string, currency = "INR") =>
+    req<Record<string, unknown>>(`/controltower/dashboard?opportunity_id=${encodeURIComponent(opportunityId)}&currency=${currency}`, {}, token),
+  getPortfolio: (token: string, params?: { cost_of_capital_pa?: number; currency?: string }) =>
+    req<Record<string, unknown>>(`/controltower/portfolio?${new URLSearchParams({ cost_of_capital_pa: String(params?.cost_of_capital_pa ?? 0.12), currency: params?.currency ?? "INR" })}`, {}, token),
+  postForecast: (token: string, body: { opportunity_id: string; projected_final_cost_minor: number; contingency_percent?: number; cost_of_capital_pa?: number; currency?: string }) =>
+    req<Record<string, unknown>>(`/controltower/forecast`, { method: "POST", body: JSON.stringify(body) }, token),
+  getResponseTimes: (token: string, opportunityId: string) =>
+    req<Record<string, unknown>>(`/controltower/response-times?opportunity_id=${encodeURIComponent(opportunityId)}`, {}, token),
+  getClauseTrends: (token: string) =>
+    req<Record<string, unknown>>(`/controltower/clause-trends`, {}, token),
+  getExecutiveSummary: (token: string, opportunityId: string, params?: { cost_of_capital_pa?: number; currency?: string }) =>
+    req<Record<string, unknown>>(`/controltower/executive-summary?${new URLSearchParams({ opportunity_id: opportunityId, cost_of_capital_pa: String(params?.cost_of_capital_pa ?? 0.12), currency: params?.currency ?? "INR" })}`, {}, token),
+  getPaymentSchedule: (token: string, opportunityId: string) =>
+    req<Record<string, unknown>>(`/controltower/payment-schedule?opportunity_id=${encodeURIComponent(opportunityId)}`, {}, token),
+  recordPaymentEvent: (token: string, body: { opportunity_id: string; kind: string; due_date: string; amount_minor: number; certified_amount_minor?: number; currency?: string; status?: string; released_at?: string; description?: string }) =>
+    req<Record<string, unknown>>(`/controltower/payment-schedule`, { method: "POST", body: JSON.stringify(body) }, token),
+  getEconomics: (token: string, params?: { cost_of_sales_minor?: number; customer_acquisition_cost_minor?: number; currency?: string }) =>
+    req<Record<string, unknown>>(`/controltower/economics?${new URLSearchParams({ currency: params?.currency ?? "INR" })}`, {}, token),
+  getCustomerOutcomes: (token: string, params?: { hours_per_review_saved?: number; currency?: string }) =>
+    req<Record<string, unknown>>(`/controltower/customer-outcomes?${new URLSearchParams({ hours_per_review_saved: String(params?.hours_per_review_saved ?? 2), currency: params?.currency ?? "INR" })}`, {}, token),
 };
 
 export type PlanSnapshot = {

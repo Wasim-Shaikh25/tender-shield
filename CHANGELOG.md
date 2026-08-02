@@ -55,6 +55,10 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - **TS-302** — claims workspace UI on the opportunity detail page: create claims,
   view chronology, checklist, quantum with line items, responses, negotiations,
   settlement, and drafts. Frontend build and lint pass.
+- **TS-303** — Control Tower dashboard at `/controltower` with nav link: exposure,
+  dashboard health, executive summary, response times, payment schedule with event
+  recording, forecast, plus workspace-level portfolio, clause trends, economics,
+  and customer outcomes. Frontend build and lint pass.
 - Added `docs/REMAINING_GAPS_ROADMAP.md` with one row for every `Partial` / `Missing`
   capability from `FEATURE_COVERAGE.md`.
 - Created **Phase 22** in `tasks/backlog.md` with 33 concrete tasks (TS-301–TS-333)

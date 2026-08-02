@@ -101,8 +101,9 @@ class Settings(BaseSettings):
     change_inbox_domain: str = "inbox.tendershield.local"
 
     # Product flag: when True, paying workspaces may see unvalidated rule-patterns
-    # with a clear disclaimer. False hides unvalidated patterns from paid plans.
-    beta_unvalidated: bool = False
+    # with a clear disclaimer. Defaults to True during pre-QS launch so the product
+    # does not return zero findings; flip to False once rule-packs are QS-validated.
+    beta_unvalidated: bool = True
 
     # Per-review cost instrumentation (TS-223). Prices are deployment-specific, so
     # there is no built-in table: an unpriced model still has its tokens counted and

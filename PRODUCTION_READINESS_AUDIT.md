@@ -1,8 +1,8 @@
-# TenderShield — Production Readiness Audit (Round 9 / Phase 22)
+# TenderShield — Production Readiness Audit (Round 10 / Phase 22)
 
 **Repository:** `Wasim-Shaikh25/tender-shield`  
-**Commit audited:** `90a10b0aa373178ace52b151dcbf162de4f386e3` (`main`)  
-**Previous audit:** Round 8 report (`18d1e45`) is preserved in git history  
+**Commit audited:** `e9123953350c5cb926af1e2f996df43698b18e55` (`main`)  
+**Previous audit:** Round 9 report (`90a10b0`) is preserved in git history  
 **Audit date:** 2026-08-02  
 **Auditor roles:** Principal Software Engineer, Application Security Engineer, QA/Test Engineer, DevOps/SRE, Database Architect, Product Manager, UX/A11y Specialist, Performance Engineer.
 
@@ -12,11 +12,16 @@
 
 ### 1.1 Recommendation
 
-**GO for a controlled internal or single-customer pilot. NOT GO for public / paid production launch until core rulepack patterns are QS-validated (TS-P02) and documented real-world testing closes the remaining unverified concerns.**
+**GO for a controlled internal or single-customer pilot. NOT GO for public / paid production launch until core rulepack patterns are QS-validated (TS-P02) and the backend test suite is hermetic with respect to `.env.local` (TS-ENV-01).**
 
-The Phase 22 gap-closure work (PRs #111–#113) materially advanced the product surface: the Next.js build now emits 28 routes, Control Tower, Plan, Advisor, Settings → Integrations / API keys, and the opportunity-detail Changes / Claims / Pricing / Drawings / Subcontracts tabs are wired. Backend lint, type checks, unit tests, Postgres RLS tests, frontend build, `npm audit`, `pip-audit`, accessibility (axe-core WCAG 2.1 AA), task-tracker validation, and eval M1/M4 smoke all pass locally.
+The Round 9 audit gaps (TS-336–TS-341) remain closed in `e912395` and the Phase 22 test backfill (TS-342) is merged. Re-running the full validation matrix on a clean environment shows backend lint, type checks, unit tests (649 passed, 5 skipped), Postgres RLS tests (non-superuser), core Postgres smoke tests, frontend build (28 routes), a11y (26 routes), `npm audit`, `pip-audit`, Alembic up/down, and the eval smoke (M1/M4 + deadline/tender-value match 100%) all pass. The only new discovery is a test-environment hermeticity issue: `test_auth_toggles.py` fails when `.env.local` is sourced because the file now sets `TS_AUTH_MOBILE_VERIFICATION_ENABLED=true` while three toggle tests assume the default `false`. This is a CI/dev-experience defect, not a production security or workflow blocker.
 
-All Round 9 audit gaps are now closed: dynamic connector SSRF controls (TS-336), integration webhook signature verification (TS-337), document-class ACL enforcement on read/export/change paths (TS-338), public API `notice_id` / `change_event_id` validation (TS-339), governance retention/archive job execution (TS-340), and eval deadline/tender-value match ≥95% (TS-341). The remaining blockers before a public/paid launch are QS-validated rulepacks (TS-P02) and real-world pilot validation of OCR, UI workflows, concurrency, and disaster recovery.
+For an **internal / single-customer pilot**, the rulepack content can be accepted with documented `beta_unvalidated=true` disclaimers.
+
+For a **public or paid production launch** the remaining blockers are:
+1. QS-validate core rulepacks (or formally accept `beta_unvalidated=true` with documented disclaimers).
+2. Make the backend test suite hermetic regardless of `.env.local` values.
+3. Complete real-world pilot validation of OCR, UI workflows, concurrency, and disaster recovery.
 
 ### 1.2 Verification summary
 
@@ -24,16 +29,17 @@ All Round 9 audit gaps are now closed: dynamic connector SSRF controls (TS-336),
 |---|---|---|
 | Backend lint | `cd backend && .venv/bin/ruff check . --target-version py311` | Pass (321 files) |
 | Backend type check | `cd backend && .venv/bin/mypy app` | Pass |
-| Backend unit tests (SQLite) | `cd backend && .venv/bin/pytest -q` | **580 passed, 4 skipped** |
+| Backend unit tests (SQLite, .env.local sourced) | `cd backend && set -a && source ../.env.local && set +a && .venv/bin/pytest -q` | **646 passed, 5 skipped, 3 failed** (see TS-ENV-01) |
+| Backend unit tests (SQLite, clean env) | `cd backend && env -u TS_AUTH_MOBILE_VERIFICATION_ENABLED .venv/bin/pytest -q` | **649 passed, 5 skipped** |
 | Postgres RLS tests | `TS_DATABASE_URL=postgresql+psycopg://app:app@localhost:5432/app_db pytest tests/test_rls_postgres.py -q` | **5 passed** (non-superuser role) |
-| Postgres core smoke | `TS_DATABASE_URL=postgresql+psycopg://app:app@localhost:5432/app_db pytest tests/test_auth_module.py tests/test_ingestion.py tests/test_boq.py tests/test_billing.py -q` | **54 passed** |
+| Postgres core smoke | `TS_DATABASE_URL=postgresql+psycopg://app:app@localhost:5432/app_db pytest tests/test_auth_module.py tests/test_ingestion.py tests/test_boq.py tests/test_billing.py -q` | **49 passed** |
 | Frontend lint | `cd frontend && npm run lint` | Pass |
 | Frontend type check | `cd frontend && npm run typecheck` | Pass |
 | Frontend production build | `cd frontend && npm run build` | Pass (28 routes generated) |
 | Frontend a11y (WCAG 2.1 AA) | `cd frontend && npm run a11y` | Pass (26 routes audited) |
 | Frontend npm audit | `npm audit --audit-level=high` | 0 vulnerabilities |
 | Backend pip-audit | `cd backend && .venv/bin/pip-audit` | No known vulnerabilities |
-| Alembic up/down | `alembic upgrade head && alembic downgrade base` (SQLite) | Pass |
+| Alembic up/down | `cd backend && .venv/bin/alembic upgrade head && .venv/bin/alembic downgrade base` (SQLite) | Pass |
 | Eval smoke (M1 + M4) | `python scripts/eval_ci_smoke.py --limit 20` | M1/M4 100%; deadline/tender-value match 100% vs 95% bar |
 | Task tracker | `python scripts/task_tracker.py --validate` | Clean; 4 tasks blocked only on live credentials |
 
@@ -43,11 +49,11 @@ All Round 9 audit gaps are now closed: dynamic connector SSRF controls (TS-336),
 |---|---|---|---|
 | **Critical** | 0 | 0 | — |
 | **High** | 0 | 0 | — |
-| **Medium** | 0 | 0 | — |
+| **Medium** | 1 | 0 | TS-ENV-01 (test hermeticity with `.env.local`) |
 | **Low** | 3 | 0 | TS-P02 (rulepack unvalidated — mitigated), TS-R03 (missing classifier facts — mitigated), TS-UI-03 (baseline console noise) |
-| **Total** | **3** | **0** | |
+| **Total** | **4** | **0** | |
 
-*Note: TS-P02 and TS-R03 are retained/mitigated from Round 8; TS-EV-01 is now closed (TS-341); all Round 9 security/auth/data-integrity/eval-accuracy gaps are closed.*
+*Note: TS-P02 and TS-R03 are retained/mitigated from Round 8; TS-EV-01 is now closed (TS-341); all Round 9 security/auth/data-integrity/eval-accuracy gaps remain closed; TS-ENV-01 is new in Round 10.*
 
 ---
 
@@ -66,13 +72,12 @@ TenderShield is a contractor commercial-intelligence platform. The launch wedge 
 
 ### 2.3 Scope of this round
 
-Round 9 audited the Phase 22 changes merged in PRs #111–#113:
+Round 10 re-audited `main` at `e912395`, which adds the Phase 22 test backfill (TS-342) and merge-resolution changes on top of the Round 9 gap-closure work:
 
-1. Frontend surfaces for Changes, Claims, Control Tower, Subcontracts, Pricing, Drawings, Settings → Integrations, Settings → API keys, and Advisor.
-2. Generic dynamic REST connector and live CDE/ERP connector scaffolding.
-3. Governance / data residency / retention controls.
-4. Document-class ACL backend.
-5. Re-verification of Round 8 security/auth/RLS fixes plus the new code.
+1. Re-verify all Round 9 closures (TS-336–TS-341) against the new merge commit.
+2. Evaluate the Phase 22 backend test backfill (`test_integrations.py`, `test_public_api.py`, `test_governance_retention.py`, `test_document_acl.py`, `test_subcontract.py`, `test_drawings.py`, `test_change_phase22.py`, `test_ingestion_phase22.py`, `test_phase22_remaining.py`, `test_evalmetadata.py`).
+3. Run the complete validation matrix on both a clean environment and with `.env.local` sourced.
+4. Confirm that `scripts/eval_ci_smoke.py` still meets the ≥95% deadline/tender-value match bar.
 
 ### 2.4 Files, routes and modules reviewed
 
@@ -86,18 +91,19 @@ Round 9 audited the Phase 22 changes merged in PRs #111–#113:
 
 * `ruff check . --target-version py311` — pass
 * `mypy app` — pass
-* `pytest -q` — 580 passed, 4 skipped
+* `pytest -q` — 649 passed, 5 skipped (clean env); 646 passed, 5 skipped, 3 failed (with `.env.local` sourced)
 * `pip-audit` — no known vulnerabilities
 * `npm run lint && npm run typecheck && npm run build && npm run a11y` — pass
 * `npm audit --audit-level=high` — 0 vulnerabilities
 * `alembic upgrade head && alembic downgrade base` — pass
 * `pytest tests/test_rls_postgres.py -q` against a non-superuser Postgres role — pass
 * `pytest tests/test_auth_module.py tests/test_ingestion.py tests/test_boq.py tests/test_billing.py` against Postgres — pass
-* `python scripts/eval_ci_smoke.py --limit 5` — M1/M4 pass; deadline match 25%
+* `python scripts/eval_ci_smoke.py --limit 20` — M1/M4 100%; deadline/tender-value match 100%
 * `python scripts/task_tracker.py --validate` — clean
 
 ### 2.6 Scope limitations and exclusions
 
+* **Test environment coupling:** `test_auth_toggles.py` is sensitive to `TS_AUTH_MOBILE_VERIFICATION_ENABLED` in `.env.local`. This is documented as TS-ENV-01 and does not affect production runtime behavior.
 * **Live payment provider webhooks** (Razorpay/Stripe) and **real email/SMS OTP** were not exercised because they require live credentials; the adapters and signature verification code were reviewed and unit tests pass.
 * **Real scanned-table OCR** (RapidOCR ONNX model download) was not run in this sandbox.
 * **Full browser golden-path smoke** (sign-up → upload → BOQ → review → export) was not re-recorded in this round; Round 8 evidence and the passing frontend build + a11y provide UI-level confidence.
@@ -513,6 +519,60 @@ No follow-up deletion/archival code was found.
 
 ---
 
+### TS-ENV-01 — Backend unit tests are not hermetic with respect to `.env.local`
+
+* **Status:** Open.
+* **Classification:** Confirmed Defect.
+* **Severity:** Medium.
+* **Category:** Test reliability / developer experience.
+* **Disposition:** Open — Required Before Release (for CI reliability).
+* **Release impact:** A CI job or developer that sources `.env.local` before running `pytest` will see 3 failures in `test_auth_toggles.py`. This makes the test suite non-deterministic and can block local development or CI gates.
+* **Affected roles:** Developers, CI.
+* **Affected files / endpoints:**
+  * `backend/tests/test_auth_toggles.py`
+  * `.env.local` (sets `TS_AUTH_MOBILE_VERIFICATION_ENABLED=true`)
+  * `backend/app/core/config.py` (`Settings` / `BaseSettings`)
+* **Evidence:**
+  With `.env.local` sourced:
+  ```
+  FAILED tests/test_auth_toggles.py::test_signup_without_phone_succeeds_when_mobile_disabled
+  FAILED tests/test_auth_toggles.py::test_login_four_methods
+  FAILED tests/test_auth_toggles.py::test_login_otp_disabled_returns_tokens_immediately
+  ```
+  All three failures disappear when `TS_AUTH_MOBILE_VERIFICATION_ENABLED` is unset:
+  ```
+  env -u TS_AUTH_MOBILE_VERIFICATION_ENABLED pytest tests/test_auth_toggles.py -q
+  ```
+  passes 5/5.
+* **Root cause:** `test_auth_toggles.py` constructs `Settings(...)` without explicitly overriding `auth_mobile_verification_enabled`, so the `.env.local` value leaks into the test environment. The test helper `_client(**settings_overrides)` also fails to override the setting for tests that assume mobile verification is disabled.
+* **Impact:** Non-reproducible test results, false CI failures, and reduced confidence in the pre-commit/CI gate.
+* **Likelihood:** High for any dev using `./scripts/run.sh` or `source .env.local` before testing; low if CI explicitly unsets variables.
+* **Recommended solution:**
+  1. Make `test_auth_toggles.py` explicitly pass `auth_mobile_verification_enabled=False` (or `True` as needed) in `_client()` overrides and in the default `_client()` fixture.
+  2. Alternatively, run the backend test suite in a clean environment in CI (e.g., `env -i PATH=... TS_DATABASE_URL=... pytest`) so `.env.local` cannot leak.
+  3. Consider a `conftest.py` fixture that resets environment variables before `Settings` is constructed, or use a test-only `Settings` subclass that disables env-file loading.
+* **Code example:**
+  ```python
+  # In backend/tests/test_auth_toggles.py
+  def _client(**settings_overrides):
+      return TestClient(
+          create_app(
+              Settings(
+                  enabled_modules="health,auth",
+                  database_url="sqlite:///:memory:",
+                  auth_mobile_verification_enabled=False,
+                  **settings_overrides,
+              )
+          )
+      )
+  ```
+* **Regression risks:** Very low; only test code changes.
+* **Tests to add:** None required beyond fixing the existing tests; add a CI job that runs `pytest` after `source .env.local` to prevent recurrence.
+* **Verification steps:** `source .env.local && pytest tests/test_auth_toggles.py -q` must pass.
+* **Similar locations to inspect:** Search `backend/tests/` for other `Settings(` constructions that do not explicitly override environment-sensitive toggles.
+
+---
+
 ## 5. Remediation Plan
 
 ### 5.1 Immediate release blockers (before any pilot)
@@ -527,6 +587,7 @@ For an **internal / single-customer pilot**, the rulepack work can be accepted w
 
 | ID | Work | Tests required | Verification |
 |---|---|---|---|
+| TS-ENV-01 | Make backend tests hermetic to `.env.local` | `pytest` with `.env.local` sourced | All backend tests pass |
 | TS-P02 | QS-validate core rulepacks or document `beta_unvalidated` acceptance | Rulepack review + sample testing | Rulepack confidence check |
 | — | Real-world pilot validation (OCR, UI workflows, concurrency, disaster recovery) | Manual end-to-end smoke tests | Pilot runbook + sign-off |
 
@@ -563,10 +624,11 @@ For an **internal / single-customer pilot**, the rulepack work can be accepted w
 
 | Gate | Status |
 |---|---|
-| Unit tests pass | Pass |
+| Unit tests pass | Partial — Pass in clean env; Fail with `.env.local` sourced (TS-ENV-01) |
 | Lint / type check pass | Pass |
 | Frontend build + a11y pass | Pass |
 | Postgres RLS tests pass (non-superuser) | Pass |
+| Postgres core smoke pass | Pass |
 | Alembic up/down pass | Pass |
 | Critical security blockers fixed | Pass |
 | Billing amount manipulation fixed | Pass |
@@ -579,6 +641,7 @@ For an **internal / single-customer pilot**, the rulepack work can be accepted w
 | Governance retention executed | Pass (TS-GOV-01 closed) |
 | Eval deadline / tender-value match | Pass (TS-EV-01 closed) |
 | Out-of-box sign-up works with `.env.local` | Pass |
+| Backend tests hermetic to `.env.local` | Fail (TS-ENV-01) |
 | Postgres multi-tenant core tests pass | Pass |
 | Observability + runbooks reviewed | Partial (runbooks exist; not exercised) |
 
@@ -596,11 +659,12 @@ For an **internal / single-customer pilot**, the rulepack work can be accepted w
 
 **GO for controlled pilot — NOT GO for public/paid launch.**
 
-The codebase is structurally sound and the Round 8 and Round 9 security/auth/data-integrity release blockers are closed. The validation matrix is green except for rulepack validation (TS-P02) and some unverified operational concerns. It is safe to proceed with a **controlled internal or single-customer pilot** provided users are informed that rulepack findings are `confidence: unvalidated` and carry a beta disclaimer.
+The codebase is structurally sound and the Round 8/9 security/auth/data-integrity release blockers remain closed. The validation matrix is green on a clean environment, the deadline/tender-value eval match now reaches 100% (TS-341 closed), and the Phase 22 test backfill is in place. It is safe to proceed with a **controlled internal or single-customer pilot** provided users are informed that rulepack findings are `confidence: unvalidated` and carry a beta disclaimer.
 
 It is **NOT GO for a public or paid production launch** until:
 
-1. Core rulepack patterns are QS-validated (or `beta_unvalidated` is acceptable and documented), and
-2. The eval deadline/tender-value match reaches the 95% bar (TS-EV-01).
+1. Core rulepack patterns are QS-validated (or `beta_unvalidated` is acceptable and documented).
+2. The backend test suite is hermetic to `.env.local` (TS-ENV-01) so CI and local dev have deterministic results.
+3. The unverified operational concerns (real-world OCR, UI workflow smoke, load/concurrency, disaster recovery) are addressed with real-world testing.
 
-Once those items close and the unverified concerns are addressed with real-world testing, the recommendation can move to **GO for public/paid launch**.
+Once those items close, the recommendation can move to **GO for public/paid launch**.

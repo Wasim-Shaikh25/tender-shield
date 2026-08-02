@@ -98,6 +98,17 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Fixed `dynamic.py` and `public_api/service.py` import/dialect guards during
   the merge.
 
+### Done — Round 10 production-readiness re-audit (TS-343)
+
+- **TS-343** — Refreshed `PRODUCTION_READINESS_AUDIT.md` for `main` commit
+  `e912395`; re-ran lint, type checks, unit tests (649 passed, 5 skipped with
+  clean env), Postgres RLS (non-superuser) and core smoke tests, frontend build
+  (28 routes), a11y (26 routes), `npm audit`, `pip-audit`, Alembic up/down, and
+  `eval_ci_smoke.py` (M1/M4 and deadline/tender-value match 100%). Added
+  **TS-ENV-01** documenting that `test_auth_toggles.py` fails when `.env.local`
+  is sourced because `TS_AUTH_MOBILE_VERIFICATION_ENABLED=true` conflicts with
+  tests that assume the default `false`.
+
 ### Next
 
 - Continue Round 10 / remaining work per `tasks/backlog.md` and

@@ -5,6 +5,7 @@ from app.evalmetadata.m2 import (
     FieldComparison,
     M2Result,
     extract_metadata_from_text,
+    project_duration_months_from_record,
     score_m2,
 )
 
@@ -13,5 +14,6 @@ __all__ = [
     "FieldComparison",
     "M2Result",
     "extract_metadata_from_text",
+    "project_duration_months_from_record",
     "score_m2",
 ]

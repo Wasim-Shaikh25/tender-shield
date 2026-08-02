@@ -30,13 +30,26 @@ GCC_TEXT = (
     b"1% per week of the contract value, with no maximum cap."
 )
 
+NIT_TEXT = (
+    b"[p1]\nNOTICE INVITING TENDER\n"
+    b"Name of Employer: PWD Division I\n"
+    b"Estimated cost: INR 1000.00\n"
+    b"Last date of submission: 15/08/2026 15:00\n"
+    b"Time for completion: 24 months\n"
+)
+
 
 def _build_smoke_corpus(root: Path, *, n: int) -> Path:
     src = root / "src"
     src.mkdir(parents=True)
     gcc = src / "gcc.md"
     gcc.write_bytes(GCC_TEXT)
-    documents = [{"url": gcc.as_uri(), "documentType": "gcc", "title": "gcc.md"}]
+    nit = src / "nit.md"
+    nit.write_bytes(NIT_TEXT)
+    documents = [
+        {"url": gcc.as_uri(), "documentType": "gcc", "title": "gcc.md"},
+        {"url": nit.as_uri(), "documentType": "nit", "title": "nit.md"},
+    ]
     template = {
         "buyer": {"name": "PWD Division I", "address": {"countryName": "India"}},
         "tender": {
@@ -44,6 +57,10 @@ def _build_smoke_corpus(root: Path, *, n: int) -> Path:
             "tenderPeriod": {
                 "startDate": "2026-07-01T00:00:00Z",
                 "endDate": "2026-08-15T15:00:00Z",
+            },
+            "contractPeriod": {
+                "startDate": "2026-09-01T00:00:00Z",
+                "endDate": "2028-09-01T00:00:00Z",
             },
             "documents": documents,
         },

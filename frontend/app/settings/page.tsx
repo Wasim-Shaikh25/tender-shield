@@ -578,6 +578,9 @@ export default function SettingsPage() {
             Delete account
           </button>
         </div>
+        <div className="mt-4">
+          <a href="/settings/integrations" className="text-sm text-indigo-600 hover:underline">Manage integrations &rarr;</a>
+        </div>
       </section>
     </div>
   );

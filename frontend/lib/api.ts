@@ -30,6 +30,7 @@ export type User = {
 export type Opportunity = { id: string; title: string; status: string; submission_due?: string | null };
 export type MissingDocs = { present: string[]; missing: string[]; expected: string[] };
 export type ReportTemplate = { id: string; name: string; is_default: boolean; report_title?: string | null; primary_color?: string | null; accent_color?: string | null; logo_url?: string | null; watermark_text?: string | null; footer_text?: string | null };
+export type DynamicConnectorConfig = { id?: string; name: string; base_url: string; auth_type: "none" | "bearer" | "basic" | "api_key"; auth_config?: Record<string, string>; headers?: Record<string, string>; pagination?: Record<string, unknown>; mappings?: Record<string, { items?: string; fields?: Record<string, string> }>; enabled?: boolean; last_tested_at?: string | null; last_test_status?: string | null };
 export type Clause = { id: string; clause_ref: string | null; heading: string | null; page_from: number | null };
 export type Deadline = {
   id: string;
@@ -482,6 +483,20 @@ export const api = {
     req<Record<string, unknown>>(`/governance/workspaces/${workspaceId}/data-governance`, { method: "PUT", body: JSON.stringify(body) }, token),
   listRetentionCandidates: (token: string, workspaceId: string) =>
     req<{ candidates: { id: string; filename: string; kind: string; opportunity_id: string; created_at: string }[] }>(`/governance/workspaces/${workspaceId}/data-governance/retention-candidates`, {}, token),
+  listDynamicConnectors: (token: string) =>
+    req<{ connectors: DynamicConnectorConfig[] }>("/integrations/dynamic-connectors", {}, token),
+  getDynamicConnector: (token: string, id: string) =>
+    req<DynamicConnectorConfig>(`/integrations/dynamic-connectors/${id}`, {}, token),
+  createDynamicConnector: (token: string, body: Partial<DynamicConnectorConfig>) =>
+    req<DynamicConnectorConfig>("/integrations/dynamic-connectors", { method: "POST", body: JSON.stringify(body) }, token),
+  updateDynamicConnector: (token: string, id: string, body: Partial<DynamicConnectorConfig>) =>
+    req<DynamicConnectorConfig>(`/integrations/dynamic-connectors/${id}`, { method: "PUT", body: JSON.stringify(body) }, token),
+  deleteDynamicConnector: (token: string, id: string) =>
+    req<{ deleted: boolean }>(`/integrations/dynamic-connectors/${id}`, { method: "DELETE" }, token),
+  testDynamicConnector: (token: string, id: string) =>
+    req<{ status: string; http_status: number | null; latency_ms: number; preview: string }>(`/integrations/dynamic-connectors/${id}/test`, { method: "POST" }, token),
+  pollDynamicConnector: (token: string, id: string) =>
+    req<Record<string, unknown>>(`/integrations/dynamic-connectors/${id}/poll`, { method: "POST" }, token),
   listInvitations: (token: string) =>
     req<InvitationResponse[]>("/auth/invitations", {}, token),
   createInvitation: (token: string, body: { email: string; role: string; project_id?: string }) =>

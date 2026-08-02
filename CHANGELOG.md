@@ -152,6 +152,19 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   selected template to DOCX/XLSX/PDF/hanover reports (title, footer, watermark);
   settings UI supports create/edit/default/delete.
 
+### Done — generic dynamic REST connector (TS-334)
+
+- New `dynamic_connector_configs` table (RLS, workspace-scoped) stores base URL,
+  auth type/config, headers, pagination rules, and field mappings.
+- `DynamicRestConnector` registered as `dynamic` in `CONNECTOR_REGISTRY` reads the
+  spec at runtime, handles bearer/basic/API-key auth, offset/cursor pagination, and
+  JSONPath-like mappings.
+- `GET/POST/PUT/DELETE /api/integrations/dynamic-connectors` plus
+  `POST /dynamic-connectors/{id}/test` (sandbox ping, no data persisted) and
+  `POST /dynamic-connectors/{id}/poll` (fetch + import via existing `_persist`).
+- `/settings/integrations` UI for non-technical users to create, edit, test, poll,
+  and delete dynamic connectors with live JSON preview and auth-config masking.
+
 ### Done — final Phase 22 batch TS-332/TS-333
 
 - **TS-332** — workspace data governance: new `governance` module and

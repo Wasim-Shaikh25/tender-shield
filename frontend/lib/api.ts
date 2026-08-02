@@ -750,6 +750,16 @@ export const api = {
     req<Record<string, unknown>>(`/controltower/economics?${new URLSearchParams({ currency: params?.currency ?? "INR" })}`, {}, token),
   getCustomerOutcomes: (token: string, params?: { hours_per_review_saved?: number; currency?: string }) =>
     req<Record<string, unknown>>(`/controltower/customer-outcomes?${new URLSearchParams({ hours_per_review_saved: String(params?.hours_per_review_saved ?? 2), currency: params?.currency ?? "INR" })}`, {}, token),
+  // Schedule / model schedule ingestion
+  importScheduleFile: (token: string, opportunityId: string, file: File, format = "csv") => {
+    const body = new FormData();
+    body.append("file", file);
+    return req<{ activities_imported: number }>(`/integrations/schedule/opportunities/${opportunityId}/upload?format=${encodeURIComponent(format)}`, { method: "POST", body }, token);
+  },
+  listScheduleActivities: (token: string, opportunityId: string) =>
+    req<{ activities: Record<string, unknown>[] }>(`/integrations/schedule/opportunities/${opportunityId}/activities`, {}, token),
+  snapshotSchedule: (token: string, opportunityId: string) =>
+    req<{ snapshot_at: string; activities: number }>(`/integrations/schedule/opportunities/${opportunityId}/snapshot`, { method: "POST" }, token),
   // Pricing intelligence (Phase 1)
   getLoadings: (token: string, opportunityId: string, params?: { contract_value_minor?: number; currency?: string; facts?: string }) =>
     req<{ loadings: PricingLoading[] }>(`/pricing/opportunities/${opportunityId}/loading?${new URLSearchParams({ ...(params?.contract_value_minor ? { contract_value_minor: String(params.contract_value_minor) } : {}), currency: params?.currency ?? "INR", ...(params?.facts ? { facts: params.facts } : {}) })}`, {}, token),
@@ -936,4 +946,16 @@ export type Artifact = {
     preamble?: string;
     items: Array<Record<string, unknown>>;
   };
+};
+
+export type ScheduleActivity = {
+  id: string;
+  source_native_id: string;
+  name: string;
+  start_date?: string | null;
+  finish_date?: string | null;
+  duration_days?: number | null;
+  predecessors?: Record<string, unknown> | null;
+  linked_change_event_ids?: Record<string, unknown> | null;
+  snapshot_at?: string | null;
 };

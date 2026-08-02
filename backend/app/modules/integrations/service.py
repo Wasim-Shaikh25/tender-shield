@@ -360,6 +360,10 @@ class IntegrationsService:
         payload: dict,
         source_id: str | None = None,
     ) -> dict:
+        if opportunity_id:
+            opp = self._ingestion().get_opportunity(workspace_id, opportunity_id)
+            if opp is None:
+                raise IntegrationsError("no_such_opportunity")
         adapter = ScheduleAdapter()
         result = adapter.normalize(
             payload,

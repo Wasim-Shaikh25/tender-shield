@@ -105,12 +105,15 @@ All tables are workspace-scoped with RLS.
 
 - **B14 — Supported formats.** `p6_xer` (limited: parse the `TASK` table from a
   XER text file), `ms_project_xml` (parse `Task` nodes), `csv` (columns
-  `activity_id`, `name`, `start`, `finish`, `duration_days`).
+  `activity_id`, `name`, `start`, `finish`, `duration_days`), and `ifc` (limited:
+  extract `IfcTask` lines from IFC-SPF text without external libraries).
 - **B15 — Activity links.** Imported activities store `opportunity_id`,
   `source_native_id`, `name`, `start_date`, `finish_date`, `duration_days`,
   `predecessors` JSON, and `linked_change_event_ids` (set manually after import).
 - **B16 — Contemporaneous programme snapshots.** `POST /schedule/snapshot`
   records a point-in-time copy of activities for a source.
+- **B17 — File upload route.** `POST /schedule/opportunities/{id}/upload` accepts
+  a multipart CSV/IFC/MS Project XML/XER file and ingests it as schedule activities.
 
 ## Acceptance criteria
 
@@ -120,7 +123,8 @@ All tables are workspace-scoped with RLS.
 - A4 (TS-284): Autodesk import creates issues/submittals as documents or events.
 - A5 (TS-285): Aconex import creates documents and change events.
 - A6 (TS-286): ERP import creates cost lines from CSV/JSON.
-- A7 (TS-287): Schedule import creates activities from XER/XML/CSV.
+- A7 (TS-287): Schedule import creates activities from XER/XML/CSV/IFC.
+- A7b (TS-313): `POST /schedule/opportunities/{id}/upload` accepts multipart files and validates the opportunity belongs to the workspace.
 - A8: All tables are workspace-scoped and have RLS migrations.
 - A9: Missing soft dependencies (`ingestion`, `change`) degrade with explicit
   `unavailable` flags.

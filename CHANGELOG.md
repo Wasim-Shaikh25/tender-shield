@@ -71,6 +71,10 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - **TS-312** — ZIP bulk package upload: `extract_upload` recognizes `.zip`, extracts
   all supported nested files with `[file:<name>]` markers, skips nested `.zip`
   files, and surfaces the most degraded OCR status across members. Backend tests pass.
+- **TS-313** — exported model schedule ingestion (CSV/IFC): `.ifc` files allowed in
+  upload validation; `ScheduleAdapter` parses IFC-SPF `IfcTask` entities;
+  `POST /api/integrations/schedule/opportunities/{id}/upload` accepts multipart
+  schedule files and validates workspace ownership. Frontend API client updated.
 - Added `docs/REMAINING_GAPS_ROADMAP.md` with one row for every `Partial` / `Missing`
   capability from `FEATURE_COVERAGE.md`.
 - Created **Phase 22** in `tasks/backlog.md` with 33 concrete tasks (TS-301–TS-333)

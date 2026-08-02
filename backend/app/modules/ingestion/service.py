@@ -393,6 +393,10 @@ class IngestionService:
             )
         )
 
+    def get_document_kind(self, workspace_id, document_id) -> str | None:
+        doc = self.get_document(workspace_id, document_id)
+        return doc.kind if doc else None
+
     def list_clauses(
         self, workspace_id, opportunity_id, *, limit: int | None = None
     ) -> list[Clause]:

@@ -26,6 +26,7 @@ def setup(ctx: AppContext) -> None:
             publish=ctx.events.publish,
             poll_enabled=ctx.settings.change_signal_polling_enabled,
             schedule_activities_fn=reg.get("integrations.schedule_activities_for_opportunity"),
+            document_class_permitted_fn=reg.get("auth.document_class_permitted"),
         )
 
     reg.provide("change.service_factory", factory)

@@ -76,6 +76,7 @@ class ChangeService:
         publish: Callable[[str, dict], int] | None = None,
         poll_enabled: bool = False,
         schedule_activities_fn: Callable[..., list[dict]] | None = None,
+        document_class_permitted_fn: Callable[..., bool] | None = None,
     ):
         self.s = session
         self._baseline_factory = baseline_factory
@@ -93,6 +94,7 @@ class ChangeService:
         self._publish = publish
         self._poll_enabled = poll_enabled
         self._schedule_activities_fn = schedule_activities_fn
+        self._document_class_permitted_fn = document_class_permitted_fn
 
     def _baseline(self):
         if self._baseline_factory is None:
@@ -274,6 +276,16 @@ class ChangeService:
         )
         return self._event_dict(event, include_sources=True)
 
+    def _check_document_class_acl(self, workspace_id, document_id, role: str | None) -> None:
+        if self._document_class_permitted_fn is None or role is None or not document_id:
+            return
+        ing = self._ingestion()
+        kind = ing.get_document_kind(workspace_id, document_id)
+        if kind is None:
+            raise ChangeError("not_found")
+        if not self._document_class_permitted_fn(self.s, workspace_id, role, kind):
+            raise ChangeError("document_class_forbidden")
+
     def run_baseline_diff(
         self,
         workspace_id,
@@ -282,6 +294,7 @@ class ChangeService:
         document_id: str | None = None,
         text: str | None = None,
         created_by=None,
+        actor_role: str | None = None,
     ) -> dict:
         if self._segment_clauses_fn is None or self._diff_clauses_fn is None:
             raise ChangeError("diff_unavailable")
@@ -293,6 +306,7 @@ class ChangeService:
         if text is None:
             if not document_id:
                 raise ChangeError("bad_request")
+            self._check_document_class_acl(workspace_id, document_id, actor_role)
             text = self._document_text(workspace_id, document_id)
             if not text.strip():
                 raise ChangeError("not_found")

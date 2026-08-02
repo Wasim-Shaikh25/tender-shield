@@ -24,12 +24,18 @@ def normalize_clause(clause: dict) -> dict:
     }
 
 
+def _value(seg, key: str, default=None):
+    if isinstance(seg, dict):
+        return seg.get(key, default)
+    return getattr(seg, key, default)
+
+
 def clauses_from_segments(segments) -> list[dict]:
     return [
         {
-            "clause_ref": getattr(seg, "clause_ref", None) or seg.get("clause_ref"),
-            "text": getattr(seg, "text", None) or seg.get("text", ""),
-            "page_from": getattr(seg, "page_from", None) or seg.get("page_from"),
+            "clause_ref": _value(seg, "clause_ref"),
+            "text": _value(seg, "text", ""),
+            "page_from": _value(seg, "page_from"),
         }
         for seg in segments
     ]

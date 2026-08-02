@@ -6,6 +6,60 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — Round 9 audit gap closure (TS-335/TS-336/TS-337)
+
+- **TS-335** — Round 9 production-readiness gap-closure requirements doc
+  (`docs/GAP_CLOSURE_REQUIREMENTS.md`) and spec (`specs/903-round9-gap-closure.md`)
+  derived from `PRODUCTION_READINESS_AUDIT.md`.
+- **TS-336** — SSRF protection for dynamic REST connectors: `validate_url` blocks
+  non-HTTP(S) schemes, loopback/link-local/private/reserved IP ranges, embedded
+  credentials, and unsafe DNS resolutions; enforced on
+  `POST/PUT /api/integrations/dynamic-connectors`, `/test`, and `/poll`; new
+  `backend/tests/test_integrations.py` covers accepted/rejected URLs and route-level
+  `400 invalid_url` mapping.
+- **TS-337** — Integration source webhooks now require a per-source
+  `webhook_secret` and an `X-Integration-Signature` HMAC-SHA256 hex digest of the
+  raw body; `BaseConnector.verify_webhook` provides a constant-time default and
+  can be overridden per provider; missing/invalid signatures return `401 webhook_unauthorized`.
+
+### Done — Round 9 audit gap closure (TS-338)
+
+- **TS-338** — Document-class ACL now enforced on read/export/change paths:
+  - New `app.core.deps.require_document_class(document_class)` and
+    `require_document_access(document_id_param)` dependencies.
+  - New `ingestion.get_document_kind` registry capability and
+    `IngestionService.get_document_kind` helper.
+  - Ingestion read routes (`GET /documents/{id}`, `/documents/{id}/text`,
+    `/opportunities/{id}/documents/{id}/addendum`, `/glossary`) block lower-role
+    users when a document-class ACL rule exists.
+  - `ExportService.export` and `ChangeService.run_baseline_diff` check every
+    document class against `auth.document_class_permitted` and return
+    `403 document_class_forbidden` when the principal's role is below `min_role`.
+  - `ExportService` and `ChangeService` module factories receive
+    `document_class_permitted_fn`.
+  - Fix `change/baseline_diff.py` `clauses_from_segments` to handle `ClauseSeg`
+    dataclass objects safely.
+  - New `backend/tests/test_document_acl.py` covers ingestion read, export, and
+    baseline-diff ACL enforcement.
+
+### Done — Round 9 audit gap closure (TS-339)
+
+- **TS-339** — `public_api/service.py` now validates `notice_id` and
+  `change_event_id` in `request_signature` against workspace/opportunity-scoped
+  `ChangeEvent` rows via `change.service_factory`; invalid or cross-workspace IDs
+  return `404 no_such_notice` / `404 no_such_change_event`.
+- `public_api/router.py` uses `public_api.service_factory` when present and passes
+  `ingestion_factory`/`change_factory` as fallback.
+- `PublicApiService.authenticate` and `signature_callback` only run `SET LOCAL`
+  GUC statements on PostgreSQL, fixing SQLite test execution.
+- New `backend/tests/test_public_api.py` covers valid, missing, invalid, and
+  cross-workspace notice/change-event references.
+
+### Next
+
+- Round 9 audit gap closure continues: **TS-340** (governance retention/archive
+  execution), **TS-341** (eval deadline and tender-value match ≥95%).
+
 ### Done — Round 8 release-blocker fixes (TS-299)
 
 - **Auth team invitation/member-add 500s** — `add_workspace_member` now returns the

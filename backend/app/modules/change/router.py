@@ -34,6 +34,7 @@ _ERROR_STATUS = {
     "no_verified_facts": 400,
     "approval_denied": 403,
     "role_below_minimum": 403,
+    "document_class_forbidden": 403,
     "amount_above_limit": 403,
     "evidence_unavailable": 503,
     "billing_required": 402,
@@ -137,6 +138,7 @@ def _service(request: Request, session: Session) -> ChangeService:
         publish=request.app.state.ctx.events.publish,
         poll_enabled=request.app.state.ctx.settings.change_signal_polling_enabled,
         schedule_activities_fn=reg.get("integrations.schedule_activities_for_opportunity"),
+        document_class_permitted_fn=reg.get("auth.document_class_permitted"),
     )
 
 
@@ -234,6 +236,7 @@ def run_baseline_diff(
             document_id=body.document_id,
             text=body.text,
             created_by=principal.user_id,
+            actor_role=principal.role,
         )
     except ChangeError as exc:
         _raise(exc)

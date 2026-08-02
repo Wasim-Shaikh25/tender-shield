@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_session, require
+from app.core.deps import get_session, require, require_document_access
 from app.core.pagination import PaginationParams, paginated_list_response
 from app.core.storage import (
     DEFAULT_MAX_UPLOAD_SIZE,
@@ -21,6 +21,8 @@ from app.modules.ingestion import tus
 from app.modules.ingestion.extract import extract_upload
 from app.modules.ingestion.service import IngestionService
 from app.modules.ingestion.tasks import process_document
+
+_require_document_access = require_document_access()
 
 router = APIRouter()
 router.include_router(tus.router)
@@ -229,6 +231,7 @@ async def document_stream(
     document_id: str,
     task_id: str,
     request: Request,
+    _acl: Any = Depends(_require_document_access),
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
@@ -352,6 +355,7 @@ def get_document_text(
     request: Request = None,
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
+    _acl: Any = Depends(_require_document_access),
 ):
     return _service(request, session).get_doc_text(principal.workspace_id, document_id, page=page)
 
@@ -363,6 +367,7 @@ def get_addendum(
     request: Request,
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
+    _acl: Any = Depends(_require_document_access),
 ):
     svc = _service(request, session)
     doc = svc.get_document(principal.workspace_id, document_id)
@@ -385,6 +390,7 @@ def get_document(
     request: Request,
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
+    _acl: Any = Depends(_require_document_access),
 ):
     doc = _service(request, session).get_document(principal.workspace_id, document_id)
     if not doc:
@@ -436,6 +442,7 @@ def list_document_glossary(
     request: Request,
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
+    _acl: Any = Depends(_require_document_access),
 ):
     svc = _service(request, session)
     doc = svc.get_document(principal.workspace_id, document_id)

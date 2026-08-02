@@ -50,3 +50,54 @@ def require_superadmin(principal: Any = Depends(current_principal)) -> Any:
     if not getattr(principal, "is_superadmin", False):
         raise HTTPException(403, "superadmin_required")
     return principal
+
+
+def require_document_class(document_class: str):
+    """Return a dependency that enforces document-class ACL for a known class.
+
+    Permissive when no ACL rule exists for the workspace/class. Raises
+    403 document_class_forbidden when the principal's role is below min_role.
+    """
+
+    def guard(
+        request: Request,
+        principal: Any = Depends(current_principal),
+        session: Session = Depends(get_session),
+    ) -> Any:
+        permitted_fn = request.app.state.ctx.registry.get("auth.document_class_permitted")
+        if permitted_fn is None:
+            raise HTTPException(503, "auth_unavailable")
+        if not permitted_fn(session, principal.workspace_id, principal.role, document_class):
+            raise HTTPException(403, "document_class_forbidden")
+        return principal
+
+    return guard
+
+
+def require_document_access(document_id_param: str = "document_id"):
+    """Return a dependency that enforces document-class ACL for a path document.
+
+    Resolves the document's kind via the `ingestion.get_document_kind` capability
+    and then checks auth.document_class_permitted. Missing document raises 404.
+    """
+
+    def guard(
+        request: Request,
+        principal: Any = Depends(current_principal),
+        session: Session = Depends(get_session),
+    ) -> Any:
+        document_id = request.path_params.get(document_id_param)
+        if not document_id:
+            return principal
+        get_kind = request.app.state.ctx.registry.get("ingestion.get_document_kind")
+        permitted_fn = request.app.state.ctx.registry.get("auth.document_class_permitted")
+        if get_kind is None or permitted_fn is None:
+            return principal
+        kind = get_kind(session, principal.workspace_id, document_id)
+        if kind is None:
+            raise HTTPException(404, "not_found")
+        if not permitted_fn(session, principal.workspace_id, principal.role, kind):
+            raise HTTPException(403, "document_class_forbidden")
+        return principal
+
+    return guard

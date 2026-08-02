@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -12,7 +13,11 @@ from sqlalchemy.orm import Session
 
 from app.modules.integrations.adapters import ADAPTER_REGISTRY, BaseAdapter, ScheduleAdapter
 from app.modules.integrations.connectors import CONNECTOR_REGISTRY
-from app.modules.integrations.connectors.dynamic import DynamicRestConnector
+from app.modules.integrations.connectors.dynamic import (
+    DynamicConnectorError,
+    DynamicRestConnector,
+    validate_url,
+)
 from app.modules.integrations.models import (
     DynamicConnectorConfig,
     IntegrationCostLine,
@@ -588,7 +593,12 @@ class IntegrationsService:
             raise IntegrationsError("import_failed") from exc
         return self._job_dict(job, result)
 
-    def handle_webhook(self, source_id: str, payload: dict) -> dict:
+    def handle_webhook(
+        self,
+        source_id: str,
+        raw_body: bytes,
+        signature: str | None,
+    ) -> dict:
         source = self.s.scalar(
             select(IntegrationSource).where(
                 IntegrationSource.id == uuid.UUID(str(source_id))
@@ -599,6 +609,14 @@ class IntegrationsService:
         connector = self._connector_for_source(source)
         if connector is None:
             raise IntegrationsError("unknown_connector")
+        config = source.config or {}
+        secret = config.get("webhook_secret")
+        if not connector.verify_webhook(source, raw_body, signature, secret):
+            raise IntegrationsError("webhook_unauthorized")
+        try:
+            payload = json.loads(raw_body) if raw_body else {}
+        except json.JSONDecodeError as exc:
+            raise IntegrationsError("invalid_webhook_payload") from exc
         self._publish(
             "integrations.webhook_received",
             {"source_id": source_id, "event_count": len(payload.get("events", []))},
@@ -653,9 +671,25 @@ class IntegrationsService:
     def get_dynamic_connector(self, workspace_id, config_id: str) -> dict[str, Any]:
         return self._config_dict(self._get_dynamic_config(workspace_id, config_id))
 
+    def _validate_dynamic_fields(self, fields: dict[str, Any]) -> None:
+        """Validate dynamic connector fields before persistence.
+
+        Raises IntegrationsError(invalid_url) when the configured base_url is
+        not safe for server-side requests. Missing base_url is left to the
+        test/poll flow so partial updates are not blocked.
+        """
+        base_url = fields.get("base_url")
+        if base_url is None:
+            return
+        try:
+            validate_url(base_url)
+        except DynamicConnectorError as exc:
+            raise IntegrationsError("invalid_url") from exc
+
     def create_dynamic_connector(
         self, workspace_id, user_id, fields: dict[str, Any]
     ) -> dict[str, Any]:
+        self._validate_dynamic_fields(fields)
         row = DynamicConnectorConfig(
             workspace_id=uuid.UUID(str(workspace_id)),
             created_by=uuid.UUID(str(user_id)),
@@ -675,6 +709,7 @@ class IntegrationsService:
     def update_dynamic_connector(
         self, workspace_id, config_id: str, fields: dict[str, Any]
     ) -> dict[str, Any]:
+        self._validate_dynamic_fields(fields)
         row = self._get_dynamic_config(workspace_id, config_id)
         for key in (
             "name",

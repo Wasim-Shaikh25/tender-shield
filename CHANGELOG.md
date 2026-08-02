@@ -6,6 +6,29 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-08-02 (Phase 21: TS-281–TS-292)
+
+- **TS-281 integration adapter framework** — `backend/app/modules/integrations/` with
+  `BaseAdapter` registry, workspace-scoped `IntegrationSource`/`IntegrationSyncJob` and
+  normalized import result shape (`documents`, `events`, `cost_lines`, `activities`).
+- **TS-282–TS-287 upload/export-first source adapters** — SharePoint/OneDrive, Procore,
+  Autodesk Construction Cloud, Oracle Aconex, ERP (Tally/SAP/Dynamics), and schedule
+  (CSV/MS Project XML/P6 XER) adapters return deterministic normalized data without live APIs.
+- **TS-288–TS-289 subcontract control** — `subcontract` module with flow-down clause comparison
+  against the main contract baseline, scope-gap checks, back-to-back notice calendar buffers,
+  and pay-when-paid payment exposure/ageing.
+- **TS-290–TS-291 Advisor Edition** — `advisor` module with multi-client workspace links,
+  review queues, per-client usage summaries, and white-label report templates.
+- **TS-292 public API + e-signature** — `public_api` module with workspace-scoped API keys
+  (`Authorization: ApiKey <token>`) and e-signature request/callback endpoints using a stub
+  provider abstraction.
+- **Registry additions** — `integrations.service_factory`, `integrations.adapters_for_workspace`,
+  `integrations.import_from_source`, `subcontract.notice_calendar`, `subcontract.payment_exposure`,
+  `advisor.service_factory`, `public_api.service_factory`.
+- **Migrations** — `dc67e941fd8f_add_integration_tables_manual`,
+  `3fe9087a4fe0_add_subcontract_tables`, `6984d8c7fad3_add_advisor_tables`,
+  `6cce3c3fb917_add_public_api_tables`, all with workspace RLS.
+
 ### Done — 2026-08-02 (Phase 20 completion: TS-274–TS-280)
 
 - **TS-274 risk-adjusted forecast** — `POST /api/controltower/forecast` computes

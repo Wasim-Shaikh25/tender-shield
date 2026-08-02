@@ -20,7 +20,7 @@
 | **3. Change & notice control** | **Per-project recurring** ★ | **18** | TS-243 – TS-256 | 🔵 **in-progress** |
 | 4. Claims workspace | Premium module | 19 | TS-257 – TS-270 | ⚪ todo |
 | 5. Portfolio intelligence | Enterprise annual | 20 | TS-271 – TS-280 | ⚪ todo |
-| — | Channel + platform | 21 | TS-281 – TS-292 | ⚪ todo |
+| — | Channel + platform | 21 | TS-281 – TS-292 | 🟢 done |
 
 **Revenue reality check** (Research Doc §10.1 price bands, one mid-market GC, `assumption:` arithmetic):
 
@@ -145,22 +145,22 @@ chain; recovered value recorded against the north-star metric.
 | TS-279 | Economics metrics | P1 | todo |
 | TS-280 | Customer-outcome metrics | P1 | todo |
 
-### Phase 21 — Integrations, Subcontract & Advisor ⚪
+### Phase 21 — Integrations, Subcontract & Advisor 🟢
 
 | ID | Task | Priority | Status |
 |---|---|---|---|
-| TS-281 | Spec: integration adapter framework | P0 | todo |
-| TS-282 | SharePoint / OneDrive | P1 | todo |
-| TS-283 | Procore | P1 | todo |
-| TS-284 | Autodesk Construction Cloud | P2 | todo |
-| TS-285 | Oracle Aconex | P2 | todo |
-| TS-286 | ERP (Tally / SAP / Dynamics) | P1 | todo |
-| TS-287 | Schedule import (P6 / MS Project) | P2 | todo |
-| TS-288 | **Subcontract flow-down comparison + scope gaps** | P0 | todo |
-| TS-289 | **Back-to-back notice calendar + pay-when-paid flags** | P0 | todo |
-| TS-290 | Advisor Edition (multi-client, review queues, usage billing) | P1 | todo |
-| TS-291 | White-label branded reports | P2 | todo |
-| TS-292 | Public API + e-signature for notice issue | P2 | todo |
+| TS-281 | Spec: integration adapter framework | P0 | done |
+| TS-282 | SharePoint / OneDrive | P1 | done |
+| TS-283 | Procore | P1 | done |
+| TS-284 | Autodesk Construction Cloud | P2 | done |
+| TS-285 | Oracle Aconex | P2 | done |
+| TS-286 | ERP (Tally / SAP / Dynamics) | P1 | done |
+| TS-287 | Schedule import (P6 / MS Project) | P2 | done |
+| TS-288 | **Subcontract flow-down comparison + scope gaps** | P0 | done |
+| TS-289 | **Back-to-back notice calendar + pay-when-paid flags** | P0 | done |
+| TS-290 | Advisor Edition (multi-client, review queues, usage billing) | P1 | done |
+| TS-291 | White-label branded reports | P2 | done |
+| TS-292 | Public API + e-signature for notice issue | P2 | done |
 
 ---
 

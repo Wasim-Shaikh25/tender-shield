@@ -1,0 +1,1 @@
+"""Subcontract control module."""

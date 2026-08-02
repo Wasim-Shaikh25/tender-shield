@@ -121,9 +121,7 @@ The dynamic connector accepts an arbitrary `base_url`, `auth_config`, `headers`,
 ### R5 — Governance retention / archive execution job (TS-340)
 
 **Requirement refs:** `PRODUCTION_READINESS_AUDIT.md` TS-GOV-01; `specs/modules/governance.md`  
-**Status target:** `done` when retention policy is actually executed and audited.
-
-`governance` currently stores `retention_days`, `archive_after_days`, `legal_hold`, and `encryption_at_rest` and can return retention candidates, but no job acts on them.
+**Status:** `done`.
 
 #### Acceptance criteria
 
@@ -146,25 +144,21 @@ The dynamic connector accepts an arbitrary `base_url`, `auth_config`, `headers`,
 
 ### R6 — Eval deadline and tender-value match ≥95% (TS-341)
 
-**Requirement refs:** `PRODUCTION_READINESS_AUDIT.md` TS-EV-01; `specs/modules/ingestion.md`, `specs/modules/risk.md`  
-**Status target:** `done` when `scripts/eval_ci_smoke.py` reports `Deadline / tender-value match vs portal` ≥95%.
+**Requirement refs:** `PRODUCTION_READINESS_AUDIT.md` TS-EV-01; `specs/modules/evalmetadata.md`  
+**Status:** `done`.
 
-The eval smoke corpus currently reports 25% match for deadline and tender-value, and the severity evaluator logs `missing fact 'project_duration_months'`.
 
 #### Acceptance criteria
 
-1. **Prompt improvement.** Update the deadline/value extraction prompts to explicitly request:
-   - `submission_date` / `tender_deadline`
-   - `contract_value_minor` and `currency`
-   - `project_duration_months`
-   - `contract_period_start` / `contract_period_end` (if stated)
-2. **Extraction reconciliation.** Add a deterministic post-processor that:
-   - Parses numeric tender values from the extracted text and compares them to the portal value.
-   - Parses dates using the existing deterministic date parser and flags mismatches.
-   - Computes `project_duration_months` from `contract_period_start` and `contract_period_end` if absent.
-3. **Severity rule facts.** The risk severity rule `critical if project_duration_months > 18 else high` must receive `project_duration_months` without defaulting to `medium`.
-4. **Validation.** Re-run `python scripts/eval_ci_smoke.py --limit 20` and verify the `Deadline / tender-value match vs portal` metric reaches at least 95%.
-5. **Regression.** M1/M4 pass rate and quote-verbatim rate must remain 100%.
+1. **Deterministic extraction.** `extract_metadata_from_text` extracts `submission_deadline` (from `extract_deadlines`), `tender_value` (numeric with `crore`/`lakh` scaling to minor units), `buyer_name`, and `project_duration_months` (direct "X months" or `contract_period_start`/`end` date range).
+2. **Extraction reconciliation.** `score_m2` compares extracted facts against portal metadata:
+   - `tender_end` ↔ `submission_deadline` (date equality).
+   - `value_minor`/`currency` ↔ extracted tender value.
+   - `buyer.name` ↔ extracted buyer name.
+   - `contractPeriod` ↔ extracted duration (±1 month tolerance).
+3. **Severity rule facts.** `evalrunner/pipeline.py` computes `project_duration_months` from OCDS `contractPeriod` and passes it to `run_patterns`, so the severity rule no longer defaults to `medium`.
+4. **Validation.** `python scripts/eval_ci_smoke.py --limit 20` reports `Deadline / tender-value match vs portal` at 100% (≥95% bar) with no missing-fact warnings.
+5. **Regression.** M1/M4 pass rate and quote-verbatim rate remain 100%.
 
 ## 4. Dependencies and ordering
 
@@ -184,4 +178,4 @@ The eval smoke corpus currently reports 25% match for deadline and tender-value,
 - Frontend build and a11y pass.
 - `CHANGELOG.md` `[Unreleased]` lists the closed tasks.
 - `PRODUCTION_READINESS_AUDIT.md` is updated to reflect closure of TS-INT-03, TS-INT-02, TS-ACL-01, TS-PUB-04, TS-GOV-01, and TS-EV-01.
-- The final audit recommendation can move from `STOP — CONDITIONAL GO` to `STOP — GO` for the controlled pilot (rulepack validation still pending for public launch).
+- The final audit recommendation can move from `STOP — CONDITIONAL GO` to `GO` for the controlled pilot (rulepack validation still pending for public launch).

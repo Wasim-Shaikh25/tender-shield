@@ -12,14 +12,32 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from dateutil.relativedelta import relativedelta
+
 from app.evalcorpus.models import parse_datetime, to_minor_units
 from app.modules.ingestion.deadlines import extract_deadlines, parse_date
 
 _TRIAGE = ("extraction_miss", "extraction_wrong", "portal_wrong")
 
 _VALUE_RE = re.compile(
-    r"(?:estimated\s+cost|tender\s+value|contract\s+value|amount)[:\s]+"
-    r"(?:rs\.?|inr|₹)?\s*([\d,]+(?:\.\d+)?)\s*(crore|lakh|cr|lac)?",
+    r"(?:estimated\s+cost|tender\s+value|contract\s+value|amount)[\s:：]+"
+    r"(?:rs\.?|inr|₹)?\s*([\d,]+(?:\.\d+)?)\s*(?:rupees?)?\s*(crore|lakh|cr|lac)?",
+    re.IGNORECASE,
+)
+
+# Duration expressed directly, e.g. "Time for completion: 18 months".
+_DURATION_MONTHS_RE = re.compile(
+    r"(?:time\s+for\s+completion|contract\s+period|duration|period\s+of\s+completion)"
+    r"[\s:：]+"
+    r"(\d+(?:\.\d+)?)\s*(?:months?|mos?|m)\b",
+    re.IGNORECASE,
+)
+
+# Date range, e.g. "Contract period: 01/07/2026 to 15/08/2026".
+_DURATION_RANGE_RE = re.compile(
+    r"(?:contract\s+period|period\s+of\s+completion|completion\s+period)"
+    r"[\s:：]+"
+    r"(\d{1,2}[/-]\d{1,2}[/-]\d{4})\s*(?:to|[-–])\s*(\d{1,2}[/-]\d{1,2}[/-]\d{4})",
     re.IGNORECASE,
 )
 
@@ -31,6 +49,7 @@ class ExtractedMetadata:
     currency: str = ""
     tender_ref: str = ""
     buyer_name: str = ""
+    project_duration_months: float | None = None
 
 
 @dataclass
@@ -89,6 +108,32 @@ def _scale_amount(amount: float, unit: str | None) -> int | None:
     return to_minor_units(amount * multiplier, "INR")
 
 
+def _month_delta(start: datetime, end: datetime) -> float:
+    """Approximate month difference, returning a float so 18 months + 1 day > 18."""
+    delta = relativedelta(end, start)
+    return delta.years * 12 + delta.months + delta.days / 31.0
+
+
+def _extract_duration_months(text: str) -> float | None:
+    # Direct "X months" statement.
+    m = _DURATION_MONTHS_RE.search(text)
+    if m:
+        try:
+            return float(m.group(1))
+        except ValueError:
+            pass
+
+    # Date range.
+    m = _DURATION_RANGE_RE.search(text)
+    if m:
+        start = parse_date(m.group(1))
+        end = parse_date(m.group(2))
+        if start is not None and end is not None and end > start:
+            return _month_delta(start, end)
+
+    return None
+
+
 def extract_metadata_from_text(text: str, *, ocid: str = "") -> ExtractedMetadata:
     """Deterministic metadata extraction from concatenated document text."""
     submission = None
@@ -116,12 +161,15 @@ def extract_metadata_from_text(text: str, *, ocid: str = "") -> ExtractedMetadat
             buyer_name = line.split(":", 1)[-1].strip()[:200]
             break
 
+    project_duration_months = _extract_duration_months(text)
+
     return ExtractedMetadata(
         submission_deadline=submission,
         value_minor=value_minor,
         currency=currency,
         tender_ref=ocid,
         buyer_name=buyer_name,
+        project_duration_months=project_duration_months,
     )
 
 
@@ -154,6 +202,42 @@ def _deadline_match(portal_end: str | None, extracted: datetime | None) -> Field
         "submission_deadline",
         portal_parsed.isoformat(),
         extracted.isoformat(),
+        match,
+        "" if match else "extraction_wrong",
+    )
+
+
+def project_duration_months_from_record(corpus_record: dict) -> float | None:
+    """Best-effort project duration in months from explicit or period fields."""
+    raw = corpus_record.get("project_duration_months")
+    if raw is not None:
+        try:
+            return float(raw)
+        except (TypeError, ValueError):
+            pass
+    start = _parse_portal_datetime(corpus_record.get("contract_period_start"))
+    end = _parse_portal_datetime(corpus_record.get("contract_period_end"))
+    if start is not None and end is not None and end > start:
+        return _month_delta(start, end)
+    return None
+
+
+def _duration_match(portal_months: float | None, extracted: float | None) -> FieldComparison | None:
+    if portal_months is None:
+        return None
+    if extracted is None:
+        return FieldComparison(
+            "project_duration_months",
+            str(portal_months),
+            "",
+            False,
+            "extraction_miss",
+        )
+    match = abs(portal_months - extracted) <= 1.0
+    return FieldComparison(
+        "project_duration_months",
+        str(portal_months),
+        str(extracted),
         match,
         "" if match else "extraction_wrong",
     )
@@ -244,6 +328,16 @@ def score_m2(corpus_record: dict, extracted: ExtractedMetadata) -> M2Result:
             else:
                 triage_counts["extraction_wrong"] += 1
         result.comparisons.append(cmp)
+
+    portal_duration = project_duration_months_from_record(corpus_record)
+    cmp = _duration_match(portal_duration, extracted.project_duration_months)
+    if cmp is not None:
+        result.comparisons.append(cmp)
+        result.graded_fields += 1
+        if cmp.match:
+            result.matches += 1
+        elif cmp.triage:
+            triage_counts[cmp.triage] += 1
 
     result.triage_counts = {k: v for k, v in triage_counts.items() if v > 0}
     return result

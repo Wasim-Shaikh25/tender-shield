@@ -37,7 +37,11 @@ from app.core.config import Settings
 from app.core.costmeter import review_cost_scope
 from app.evalcorpus.store import CorpusStore
 from app.evalinvariants import DocPage, PipelineBundle, run_m1
-from app.evalmetadata import extract_metadata_from_text, score_m2
+from app.evalmetadata import (
+    extract_metadata_from_text,
+    project_duration_months_from_record,
+    score_m2,
+)
 from app.evalmetamorphic import run_m4
 from app.modules.boq.engine import normalize, run_checks
 from app.modules.ingestion.doc_text import extract_pages
@@ -147,6 +151,7 @@ def _pipeline_pass(
     pack,
     classifier,
     ocr,
+    opp_facts: dict[str, Any] | None = None,
 ) -> tuple[list[DocPage], list[dict], list[dict], str, str]:
     """Extract pages/clauses/findings from a document list. Returns combined text."""
     pages: list[DocPage] = []
@@ -192,13 +197,19 @@ def _pipeline_pass(
                 findings.extend(boq_findings)
                 boq_status = "checked"
 
+    combined_text = "\n".join(text_parts)
+    metadata = extract_metadata_from_text(combined_text, ocid="")
+    risk_facts = dict(opp_facts or {})
+    if metadata.project_duration_months is not None and "project_duration_months" not in risk_facts:
+        risk_facts["project_duration_months"] = metadata.project_duration_months
+
     try:
-        risk_findings = run_patterns(list(pack.patterns.values()), clauses, classifier, {})
+        risk_findings = run_patterns(list(pack.patterns.values()), clauses, classifier, risk_facts)
     except Exception as exc:
         reason = "timeout" if "timeout" in type(exc).__name__.lower() else "llm_error"
         raise ClassifiedError(reason, str(exc)) from exc
     findings.extend(f.model_dump() for f in risk_findings)
-    return pages, findings, clauses, "\n".join(text_parts), boq_status
+    return pages, findings, clauses, combined_text, boq_status
 
 
 def run_tender(
@@ -236,8 +247,12 @@ def run_tender(
             opportunity_id=ocid, rulepack_version=pack.meta.version
         ) as cost_scope:
             docs = _ordered_documents(record)
+            opp_facts: dict[str, Any] = {}
+            portal_duration = project_duration_months_from_record(record)
+            if portal_duration is not None:
+                opp_facts["project_duration_months"] = portal_duration
             pages, findings, _clauses, combined_text, boq_status = _pipeline_pass(
-                docs, store, pack=pack, classifier=classifier, ocr=ocr
+                docs, store, pack=pack, classifier=classifier, ocr=ocr, opp_facts=opp_facts
             )
             result.documents_processed = len(docs)
             result.pages_extracted = len(pages)
@@ -279,6 +294,7 @@ def run_tender(
                         pack=pack,
                         classifier=classifier,
                         ocr=ocr,
+                        opp_facts=opp_facts,
                     )
                     variants["shuffled"] = shuffled_findings
                 _, redundant_findings, _, _, _ = _pipeline_pass(
@@ -287,6 +303,7 @@ def run_tender(
                     pack=pack,
                     classifier=classifier,
                     ocr=ocr,
+                    opp_facts=opp_facts,
                 )
                 variants["redundant"] = redundant_findings
                 result.m4_summary = run_m4(findings, variants).summary()

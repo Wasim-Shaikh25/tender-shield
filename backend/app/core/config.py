@@ -154,6 +154,12 @@ class Settings(BaseSettings):
     log_max_bytes: int = 10 * 1024 * 1024
     log_backup_count: int = 5
 
+    # Governance retention job (TS-340). Disabled by default in production until
+    # validated; grace days controls soft-delete -> hard-delete delay.
+    retention_job_enabled: bool = False
+    retention_job_interval_hours: int = 24
+    retention_grace_days: int = 30
+
     @field_validator("s3_secret_access_key", "sentry_dsn")
     @classmethod
     def _blank_secret_is_none(cls, v: SecretStr | None) -> SecretStr | None:

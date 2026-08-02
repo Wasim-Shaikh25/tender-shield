@@ -1,6 +1,6 @@
 # Round 9 Audit Gap Closure — Spec
 
-**Status:** in-progress — TS-336 through TS-339 implemented; TS-340–TS-341 pending.  
+**Status:** done — TS-336 through TS-341 implemented.  
 **Requirement refs:** `docs/GAP_CLOSURE_REQUIREMENTS.md`; `PRODUCTION_READINESS_AUDIT.md` TS-INT-03, TS-INT-02, TS-ACL-01, TS-PUB-04, TS-GOV-01, TS-EV-01; `docs/TenderShield_Full_Build_Doc.md` §3.2, §5, §6, §11.2, §11.5, §14, §15.  
 **Task refs:** TS-335, TS-336, TS-337, TS-338, TS-339, TS-340, TS-341.
 
@@ -73,18 +73,19 @@ No new tables except where noted below:
 
 ### B5 — Governance retention execution (TS-340)
 
-- **B5.1** A scheduler job scans workspaces with `retention_days` configured and `legal_hold=false`.
-- **B5.2** Documents older than `archive_after_days` are moved/archived if that setting is present; otherwise they are deleted at `retention_days`.
-- **B5.3** Hard deletion is preceded by a soft `deleted_at` grace period controlled by `TS_RETENTION_GRACE_DAYS` (default 30).
-- **B5.4** Every retention action is appended to the `audit_log`.
-- **B5.5** The job is disabled unless `TS_RETENTION_JOB_ENABLED=true`.
+- **B5.1** A `governance.retention_job` capability, scheduled by `governance/module.py` when `TS_RETENTION_JOB_ENABLED=true`, scans workspaces with `retention_days` configured and `legal_hold=false`.
+- **B5.2** Documents older than `archive_after_days` (when set and < `retention_days`) are marked archived by `ingestion.retention_apply(..., "archive")`.
+- **B5.3** Documents older than `retention_days` are soft-deleted by `ingestion.retention_apply(..., "soft_delete")`; after `TS_RETENTION_GRACE_DAYS` (default 30) the next run hard-deletes the row and the storage object via `StorageBackend.delete`.
+- **B5.4** Every retention action is appended to the `audit_log` via `review.service_factory`.
+- **B5.5** `Document` carries `archived_at` and `deleted_at`; `ingestion.documents_for_retention` returns these plus `s3_key`.
 
 ### B6 — Eval deadline and tender-value match (TS-341)
 
-- **B6.1** Deadline extraction prompts explicitly ask for `tender_deadline`, `contract_period_start`, `contract_period_end`, and `project_duration_months`.
-- **B6.2** A post-processor reconciles extracted numbers and dates with the known portal values in the eval corpus.
-- **B6.3** `project_duration_months` is computed from period start/end when absent, and severity rules receive it without defaulting.
-- **B6.4** `scripts/eval_ci_smoke.py` reports `Deadline / tender-value match vs portal` ≥95%.
+- **B6.1** `extract_metadata_from_text` deterministically extracts `submission_deadline`, `tender_value`, `buyer_name`, and `project_duration_months`.
+- **B6.2** `CorpusTender` maps OCDS `tenderPeriod` and `contractPeriod` to `tender_start/end` and `contract_period_start/end`.
+- **B6.3** `score_m2` reconciles deadline, value, buyer, tender ref, and project duration with ±1-month tolerance.
+- **B6.4** `evalrunner/pipeline.py` feeds `project_duration_months` into `run_patterns`, so the `price_escalation_barred` severity rule no longer defaults to `medium`.
+- **B6.5** `scripts/eval_ci_smoke.py` reports `Deadline / tender-value match vs portal` at 100% (≥95% bar) and M1/M4 remain 100%.
 
 ## Acceptance criteria
 

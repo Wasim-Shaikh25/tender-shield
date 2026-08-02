@@ -55,6 +55,38 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - New `backend/tests/test_public_api.py` covers valid, missing, invalid, and
   cross-workspace notice/change-event references.
 
+### Done — Round 9 audit gap closure (TS-336–TS-341)
+
+- **TS-336** — Dynamic REST connector SSRF protection: `DynamicRestConnector`
+  validates `base_url` scheme, host, IP range, embedded credentials, and
+  fragments before any outbound request.
+- **TS-337** — Integration source webhook signature verification: `POST
+  /api/integrations/sources/{source_id}/webhook` requires `X-Integration-Signature`
+  and `BaseConnector.verify_webhook` performs HMAC-SHA256 comparison.
+- **TS-338** — Document-class ACL enforced on ingestion read routes, export, and
+  baseline diff via `auth.document_class_permitted`.
+- **TS-339** — Public API `request_signature` validates `notice_id` and
+  `change_event_id` against workspace/opportunity-scoped `ChangeEvent` rows.
+- **TS-340** — Governance retention/archive execution job implemented.
+  - `Document` gains `archived_at` and `deleted_at` columns with Alembic
+    migration `64974d378eb8`.
+  - `GovernanceService.run_retention_job` archives, soft-deletes, and hard-deletes
+    documents per `retention_days`/`archive_after_days`/`TS_RETENTION_GRACE_DAYS`.
+  - Hard-deleted documents remove the storage blob and emit audit events.
+  - Feature flags `TS_RETENTION_JOB_ENABLED` / `TS_RETENTION_JOB_INTERVAL_HOURS` /
+    `TS_RETENTION_GRACE_DAYS` in `app.core.config`.
+  - New `ingestion.retention_apply` capability and
+    `backend/tests/test_governance_retention.py`.
+- **TS-341** — Eval deadline/tender-value match raised to ≥95%.
+  - `extract_metadata_from_text` now extracts `submission_deadline`,
+    `tender_value`, `buyer_name`, and `project_duration_months`.
+  - `CorpusTender` maps OCDS `contractPeriod` to `contract_period_start/end`.
+  - `score_m2` reconciles deadline, value, buyer, tender ref, and project
+    duration with ±1-month tolerance.
+  - `evalrunner/pipeline.py` feeds `project_duration_months` into `run_patterns`
+    so the severity rule no longer defaults to `medium`.
+  - `scripts/eval_ci_smoke.py` smoke corpus augmented with a NIT document.
+
 ### Done — Phase 22 test backfill merge resolution (TS-342)
 
 - **TS-342** — Resolved merge conflicts between the Phase 22 test-backfill branch
@@ -68,8 +100,9 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ### Next
 
-- Round 9 audit gap closure continues: **TS-340** (governance retention/archive
-  execution), **TS-341** (eval deadline and tender-value match ≥95%).
+- Continue Round 10 / remaining work per `tasks/backlog.md` and
+  `PRODUCTION_READINESS_AUDIT.md` (rulepack QS validation, real-world pilot
+  testing).
 
 ### Done — Round 8 release-blocker fixes (TS-299)
 

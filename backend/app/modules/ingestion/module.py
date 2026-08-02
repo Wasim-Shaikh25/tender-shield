@@ -59,6 +59,15 @@ def setup(ctx: AppContext) -> None:
             publish=ctx.events.publish,
         ).get_document_kind(workspace_id, document_id),
     )
+    # Document lifecycle actions used by the governance retention job (TS-340).
+    reg.provide(
+        "ingestion.retention_apply",
+        lambda session, workspace_id, document_id, action: IngestionService(
+            session,
+            loader_provider=lambda: reg.get("rulepacks.loader"),
+            publish=ctx.events.publish,
+        ).retention_apply(workspace_id, document_id, action),
+    )
 
     scheduler = reg.get("core.scheduler")
     if scheduler is not None:

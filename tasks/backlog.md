@@ -587,7 +587,7 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-335 | Round 9 gap-closure requirements doc + spec | `docs/GAP_CLOSURE_REQUIREMENTS.md`; `PRODUCTION_READINESS_AUDIT.md` | `specs/903-round9-gap-closure.md` | done |
 | TS-336 | Dynamic REST connector SSRF protection | `PRODUCTION_READINESS_AUDIT.md` TS-INT-03; `specs/modules/integrations.md` | `backend/app/modules/integrations/connectors/dynamic.py` | done |
 | TS-337 | Integration source webhook signature verification | `PRODUCTION_READINESS_AUDIT.md` TS-INT-02; `specs/modules/integrations.md` | `backend/app/modules/integrations/router.py`, `service.py`, `connectors/base.py` | done |
-| TS-338 | Document-class ACL enforcement on read/export/change/claims/drafting paths | `PRODUCTION_READINESS_AUDIT.md` TS-ACL-01; `specs/modules/auth.md` | `backend/app/modules/auth/acl.py` + router deps | todo |
+| TS-338 | Document-class ACL enforcement on read/export/change/claims/drafting paths | `PRODUCTION_READINESS_AUDIT.md` TS-ACL-01; `specs/modules/auth.md` | `backend/app/modules/auth/acl.py` + router deps | done |
 | TS-339 | Public API `request_signature` `notice_id` / `change_event_id` workspace validation | `PRODUCTION_READINESS_AUDIT.md` TS-PUB-04; `specs/modules/public_api.md` | `backend/app/modules/public_api/service.py` | todo |
 | TS-340 | Governance retention / archive execution job | `PRODUCTION_READINESS_AUDIT.md` TS-GOV-01; `specs/modules/governance.md` | `backend/app/modules/governance/` + scheduler | todo |
 | TS-341 | Eval deadline and tender-value match ≥95% | `PRODUCTION_READINESS_AUDIT.md` TS-EV-01; `specs/modules/ingestion.md` | `backend/app/modules/ingestion/deadlines.py`, extraction prompts, eval smoke | todo |

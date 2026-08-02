@@ -17,6 +17,7 @@ def setup(ctx: AppContext) -> None:
             pack_version=reg.get("rulepacks.loader").get_pack("in-works").version_tag
             if reg.get("rulepacks.loader")
             else "in-works",
+            document_class_permitted_fn=reg.get("auth.document_class_permitted"),
         ),
     )
 

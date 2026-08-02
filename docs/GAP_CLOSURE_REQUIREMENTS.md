@@ -33,7 +33,7 @@ Out of scope for this batch:
 ### R1 — Dynamic REST connector SSRF protection (TS-336)
 
 **Requirement refs:** `PRODUCTION_READINESS_AUDIT.md` TS-INT-03; `specs/modules/integrations.md`  
-**Status target:** `done` when SSRF controls are merged and tested.
+**Status:** `done`.
 
 The dynamic connector accepts an arbitrary `base_url`, `auth_config`, `headers`, and `pagination` from a workspace admin and makes outbound HTTP requests from the backend. The system must reject any `base_url` that could be used to access internal infrastructure, cloud metadata services, or non-HTTP protocols.
 
@@ -56,7 +56,7 @@ The dynamic connector accepts an arbitrary `base_url`, `auth_config`, `headers`,
 ### R2 — Integration source webhook signature verification (TS-337)
 
 **Requirement refs:** `PRODUCTION_READINESS_AUDIT.md` TS-INT-02; `specs/modules/integrations.md`  
-**Status target:** `done` when live webhooks require a per-source secret and signature.
+**Status:** `done`.
 
 `POST /api/integrations/sources/{source_id}/webhook` is currently unauthenticated and only publishes a domain event. Before the endpoint is used for live Procore, Aconex, Autodesk, SharePoint, or ERP webhooks, it must authenticate the caller.
 
@@ -76,7 +76,7 @@ The dynamic connector accepts an arbitrary `base_url`, `auth_config`, `headers`,
 ### R3 — Document-class ACL enforcement on read/export/change/claims/drafting (TS-338)
 
 **Requirement refs:** `PRODUCTION_READINESS_AUDIT.md` TS-ACL-01; `specs/modules/auth.md`, `specs/modules/ingestion.md`  
-**Status target:** `done` when ACL is enforced on all document read/export/mutation paths.
+**Status:** `done`.
 
 `backend/app/modules/auth/acl.py` implements document-class rules (`auth.document_class_permitted`), but the check is currently only called on ingestion upload. If an admin sets a rule such as `document_class=boq min_role=estimator`, a `viewer` can still view or export those documents.
 

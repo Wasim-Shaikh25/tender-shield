@@ -1,6 +1,6 @@
 # Round 9 Audit Gap Closure — Spec
 
-**Status:** draft  
+**Status:** in-progress — TS-336, TS-337, and TS-338 implemented; TS-339–TS-341 pending.  
 **Requirement refs:** `docs/GAP_CLOSURE_REQUIREMENTS.md`; `PRODUCTION_READINESS_AUDIT.md` TS-INT-03, TS-INT-02, TS-ACL-01, TS-PUB-04, TS-GOV-01, TS-EV-01; `docs/TenderShield_Full_Build_Doc.md` §3.2, §5, §6, §11.2, §11.5, §14, §15.  
 **Task refs:** TS-335, TS-336, TS-337, TS-338, TS-339, TS-340, TS-341.
 
@@ -17,9 +17,10 @@ No new top-level modules. Existing interfaces are extended/hardened:
   - `BaseConnector.verify_webhook(source, raw_body, signature, secret)` hook.
   - `POST /api/integrations/sources/{source_id}/webhook` requires `X-Integration-Signature`.
   - `POST /api/integrations/dynamic-connectors`, `PUT ...`, `POST .../test`, `POST .../poll` validate `base_url`.
-- **Auth** (`app/modules/auth/*`):
-  - New registry capability `auth.require_document_class` or `auth.document_class_permitted` used as a dependency.
-  - `AuthAcl.permitted` remains the source of truth; enforcement is expanded to read/export routes.
+- **Auth / Core deps** (`app/core/deps.py`, `app/modules/auth/*`):
+  - `require_document_class(document_class: str)` returns a FastAPI dependency that raises `403 document_class_forbidden`.
+  - `require_document_access(document_id_param: str)` resolves a path document's `kind` via `ingestion.get_document_kind` and enforces the ACL.
+  - `AuthAcl.permitted` remains the source of truth; enforcement is expanded to read/export/change paths.
 - **Public API** (`app/modules/public_api/*`):
   - `request_signature` validates `notice_id` and `change_event_id` through soft-dep registry capabilities.
 - **Governance** (`app/modules/governance/*`):
@@ -57,9 +58,10 @@ No new tables except where noted below:
 ### B3 — Document-class ACL enforcement (TS-338)
 
 - **B3.1** `AuthAcl.permitted` remains unchanged and returns `True` for `owner`/`superadmin` and when no rule exists.
-- **B3.2** A new dependency `require_document_class(doc_class: str)` is published in the auth module registry.
-- **B3.3** Export, change, claims, and drafting routes that serve document-derived content use the dependency.
-- **B3.4** Ingestion upload routes are refactored to use the same dependency, preserving existing behavior.
+- **B3.2** `app.core.deps.require_document_class(doc_class: str)` and `require_document_access(document_id_param: str)` are added as reusable dependencies.
+- **B3.3** Ingestion read routes (`GET /documents/{id}`, `/documents/{id}/text`, `/opportunities/{id}/documents/{id}/addendum`, `/glossary`) use `require_document_access()`.
+- **B3.4** `ExportService.export` and `ChangeService.run_baseline_diff` call `auth.document_class_permitted` for every document class referenced and raise `document_class_forbidden` when denied.
+- **B3.5** Service factories for `export` and `change` wire `document_class_permitted_fn` from the registry.
 
 ### B4 — Public API signature request validation (TS-339)
 
@@ -88,7 +90,7 @@ No new tables except where noted below:
 - A1 (TS-336): `POST /api/integrations/dynamic-connectors` rejects `http://127.0.0.1/`, `http://169.254.169.254/`, `file:///etc/passwd`, and `http://user:pass@example.com/`.
 - A2 (TS-336): `POST .../test` and `POST .../poll` re-validate the stored `base_url` before any outbound request.
 - A3 (TS-337): A webhook POST with a valid HMAC-SHA256 signature is accepted; an invalid or missing signature is rejected with `401`.
-- A4 (TS-338): A `viewer` with a `boq -> estimator` ACL rule receives `403 document_class_forbidden` on a BOQ export route.
+- A4 (TS-338): An `estimator` with a `boq -> admin` ACL rule receives `403 document_class_forbidden` on BOQ ingestion read routes, export, and baseline diff; `owner` and `admin` succeed; removing the rule allows access.
 - A5 (TS-339): `request_signature` with a `notice_id` from another workspace returns `404 no_such_notice`.
 - A6 (TS-340): A document older than `retention_days` with `legal_hold=false` is soft-deleted and an `audit_log` row is created.
 - A7 (TS-341): `eval_ci_smoke.py` reports deadline/value match ≥95% while M1/M4 remain at 100%.

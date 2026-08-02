@@ -22,10 +22,29 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   raw body; `BaseConnector.verify_webhook` provides a constant-time default and
   can be overridden per provider; missing/invalid signatures return `401 webhook_unauthorized`.
 
+### Done — Round 9 audit gap closure (TS-338)
+
+- **TS-338** — Document-class ACL now enforced on read/export/change paths:
+  - New `app.core.deps.require_document_class(document_class)` and
+    `require_document_access(document_id_param)` dependencies.
+  - New `ingestion.get_document_kind` registry capability and
+    `IngestionService.get_document_kind` helper.
+  - Ingestion read routes (`GET /documents/{id}`, `/documents/{id}/text`,
+    `/opportunities/{id}/documents/{id}/addendum`, `/glossary`) block lower-role
+    users when a document-class ACL rule exists.
+  - `ExportService.export` and `ChangeService.run_baseline_diff` check every
+    document class against `auth.document_class_permitted` and return
+    `403 document_class_forbidden` when the principal's role is below `min_role`.
+  - `ExportService` and `ChangeService` module factories receive
+    `document_class_permitted_fn`.
+  - Fix `change/baseline_diff.py` `clauses_from_segments` to handle `ClauseSeg`
+    dataclass objects safely.
+  - New `backend/tests/test_document_acl.py` covers ingestion read, export, and
+    baseline-diff ACL enforcement.
+
 ### Next
 
-- Round 9 audit gap closure continues: **TS-338** (document-class ACL enforcement
-  on read/export/change paths), **TS-339** (public API `notice_id`/`change_event_id`
+- Round 9 audit gap closure continues: **TS-339** (public API `notice_id`/`change_event_id`
   validation), **TS-340** (governance retention/archive execution), **TS-341**
   (eval deadline and tender-value match ≥95%).
 

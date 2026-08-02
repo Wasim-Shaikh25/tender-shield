@@ -50,6 +50,15 @@ def setup(ctx: AppContext) -> None:
             publish=ctx.events.publish,
         ).documents_for_retention(workspace_id, retention_days),
     )
+    # Document-kind lookup for ACL guards in other modules/routes (TS-338).
+    reg.provide(
+        "ingestion.get_document_kind",
+        lambda session, workspace_id, document_id: IngestionService(
+            session,
+            loader_provider=lambda: reg.get("rulepacks.loader"),
+            publish=ctx.events.publish,
+        ).get_document_kind(workspace_id, document_id),
+    )
 
     scheduler = reg.get("core.scheduler")
     if scheduler is not None:

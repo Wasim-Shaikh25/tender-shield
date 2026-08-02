@@ -37,6 +37,7 @@ For a **public or paid production launch** the remaining blockers are:
 | Frontend type check | `cd frontend && npm run typecheck` | Pass |
 | Frontend production build | `cd frontend && npm run build` | Pass (28 routes generated) |
 | Frontend a11y (WCAG 2.1 AA) | `cd frontend && npm run a11y` | Pass (26 routes audited) |
+| Browser golden-path smoke | `./scripts/run.sh local` + Chrome sign-up → verify → workspace → opportunity → upload → risk → BOQ | Pass (10 deterministic BOQ findings; TS-F01/TS-A06 not reproduced) |
 | Frontend npm audit | `npm audit --audit-level=high` | 0 vulnerabilities |
 | Backend pip-audit | `cd backend && .venv/bin/pip-audit` | No known vulnerabilities |
 | Alembic up/down | `cd backend && .venv/bin/alembic upgrade head && .venv/bin/alembic downgrade base` (SQLite) | Pass |
@@ -106,7 +107,7 @@ Round 10 re-audited `main` at `e912395`, which adds the Phase 22 test backfill (
 * **Test environment coupling:** `test_auth_toggles.py` is sensitive to `TS_AUTH_MOBILE_VERIFICATION_ENABLED` in `.env.local`. This is documented as TS-ENV-01 and does not affect production runtime behavior.
 * **Live payment provider webhooks** (Razorpay/Stripe) and **real email/SMS OTP** were not exercised because they require live credentials; the adapters and signature verification code were reviewed and unit tests pass.
 * **Real scanned-table OCR** (RapidOCR ONNX model download) was not run in this sandbox.
-* **Full browser golden-path smoke** (sign-up → upload → BOQ → review → export) was not re-recorded in this round; Round 8 evidence and the passing frontend build + a11y provide UI-level confidence.
+* **Browser golden-path smoke** (sign-up → mobile/email verify → login/MFA → workspace → opportunity → upload → risk → BOQ) was run with `TS_AUTH_MOBILE_VERIFICATION_ENABLED=true` and no OpenRouter key; the flow completed and produced the expected 10 deterministic BOQ findings. TS-F01 and TS-A06 did not block the happy path.
 * **Penetration testing / load testing / disaster-recovery drills** were not performed.
 * **Advisor multi-client workflows** and live connector OAuth handshakes require staging credentials not available.
 
@@ -627,6 +628,7 @@ For an **internal / single-customer pilot**, the rulepack work can be accepted w
 | Unit tests pass | Partial — Pass in clean env; Fail with `.env.local` sourced (TS-ENV-01) |
 | Lint / type check pass | Pass |
 | Frontend build + a11y pass | Pass |
+| Browser golden-path smoke pass | Pass |
 | Postgres RLS tests pass (non-superuser) | Pass |
 | Postgres core smoke pass | Pass |
 | Alembic up/down pass | Pass |
@@ -648,7 +650,7 @@ For an **internal / single-customer pilot**, the rulepack work can be accepted w
 ### 6.3 Unverified concerns
 
 1. Real-world OCR reliability on scanned BOQs (RapidOCR model download not exercised).
-2. End-to-end browser smoke on the new Phase 22 UI tabs (Changes/Claims/Pricing/Drawings/Subcontracts).
+2. End-to-end browser smoke on the new Phase 22 UI tabs (Changes/Claims/Pricing/Drawings/Subcontracts) beyond the core pre-bid golden path.
 3. Load and concurrency behavior with many concurrent BOQ runs.
 4. Real-world pilot corpus accuracy against gold answers.
 5. Disaster-recovery restore of Postgres + object storage.

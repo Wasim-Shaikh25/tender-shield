@@ -1,6 +1,6 @@
 # `pricing-intel` — Risk-to-Price, Rate Benchmarking & Cashflow — Spec
 
-**Status:** implemented (MVP — two known schema gaps below)
+**Status:** implemented (TS-296 closed — `Finding.facts` and `Opportunity.contract_value_minor` now source pricing loadings)
 **Requirement refs:** `docs/TenderShield_Market_Strategy_2026.md` §C.2, §C.3, §C.4, §B.2 (moat class 2)
 **Task refs:** TS-201 – TS-207
 
@@ -12,21 +12,15 @@
   routes (`/api/pricing/...`) exactly; `pricing_intel` would not.
 - **`GET /rate-benchmark` is `POST` instead.** It carries a BOQ CSV body; a GET request body is
   unreliable across HTTP clients and proxies, and `boq/router.py`'s own `run_boq` already makes the
-  same call for the same reason. `GET /loading` matches the spec as written, with query parameters
-  (see the two gaps below for why).
+  same call for the same reason. `GET /loading` matches the spec as written; query parameters are
+  optional overrides, and the endpoint defaults to the persisted opportunity contract value and
+  finding facts.
 - **`app/modules/boq/service.py`'s `BoqEngine` gained one method, `normalize_dataframe`** — the
   normalization half of `check_dataframe` split out so `pricing` can consume normalized BOQ rows via
   the already-published `boq.engine` capability, without a new registry entry and without importing
   `app.modules.boq` directly (`CLAUDE.md` §2).
-- **Two known schema gaps, found while implementing, not silently worked around:**
-  1. Neither `Finding` nor `Opportunity` persists the structured facts (`payment_days`,
-     `project_duration_months`, ...) or the contract value a loading needs — `Finding.explanation`
-     carries only `evidence_quote`/`industry_reason`, and `Opportunity` has no value field. The
-     loading engine therefore takes `facts_by_finding` and `contract_value_minor` as **explicit
-     caller-supplied inputs** (query params on `GET /loading` today) rather than sourcing them from
-     somewhere that doesn't exist. Filed as **TS-296**, matching how TS-294/295 were filed for the
-     equivalent `evalinvariants` gaps.
-  2. `rulepacks/in-works/rates/` ships **empty by design** — see its README. A Schedule-of-Rates is
+- **Known limitation, not silently worked around:**
+  1. `rulepacks/in-works/rates/` ships **empty by design** — see its README. A Schedule-of-Rates is
      authoritative regulatory data; fabricating even a plausible-looking rate would violate the
      product's own "numbers never invented" invariant. The loader and `benchmark()` both treat an
      empty/missing schedule as "everything unmatched," never an error.

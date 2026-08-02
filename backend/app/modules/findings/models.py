@@ -33,6 +33,7 @@ class FindingRow(Base, WorkspaceScopedMixin):
     amount_exposure: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     currency: Mapped[str | None] = mapped_column(String, nullable=True)
     document_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True, index=True)
+    facts: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # review state (Doc §11.4) — driven by the review module later (TS-021).
     review_status: Mapped[str] = mapped_column(String, nullable=False, default="proposed")
     review_note: Mapped[str | None] = mapped_column(String, nullable=True)

@@ -408,7 +408,7 @@ Tracker: `tasks/phase16_tracker.md`.
 |---|---|---|---|---|
 | TS-294 | Add `Finding.document_id` (migration + risk/boq/qualification/standards writers) so quote/citation checks resolve to one document instead of any document sharing a page number | TS-226 finding; `specs/eval-at-scale.md` §1 | `specs/modules/findings.md` (update) | done |
 | TS-295 | Add `Finding.currency` (ISO 4217) alongside `amount_exposure` so `check_currency_integrity` can assert an explicit currency, not just an int; required before Phase 16 multi-jurisdiction findings (Strategy §E.2) can be trusted cross-currency | TS-226 finding; Strategy §E.2 | `specs/modules/findings.md` (update) | done |
-| TS-296 | Add `Finding.facts` (structured extraction facts, not just quote/detail) and `Opportunity.contract_value_minor` so `pricing.loading` can source real facts instead of caller-supplied query params | TS-203 finding; `specs/modules/pricing-intel.md` | `specs/modules/findings.md` (update), `specs/data-model.md` (update) | todo |
+| TS-296 | Add `Finding.facts` (structured extraction facts, not just quote/detail) and `Opportunity.contract_value_minor` so `pricing.loading` can source real facts instead of caller-supplied query params | TS-203 finding; `specs/modules/pricing-intel.md` | `specs/modules/findings.md` (update), `specs/data-model.md` (update) | done |
 
 ## Phase 17 — Stage 2: Baseline Lock & Handover completion
 

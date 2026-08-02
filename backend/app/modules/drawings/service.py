@@ -30,25 +30,26 @@ class DrawingsError(Exception):
 # Title-block fields we try to pull from the first pages of text.
 _TITLE_BLOCK_PATTERNS = {
     "drawing_number": re.compile(
-        r"(?:drawing|drg|drawing\s*no)[.\s]*[:\-]?\s*([A-Z0-9\-/]{3,50})",
+        r"(?:drawing\s*no|drg|drawing)[.\s]*[:\-]?\s*"
+        r"([A-Z0-9\-/]{3,50})(?=[^A-Za-z0-9\-/]|$)",
         re.IGNORECASE,
     ),
     "title": re.compile(
         r"(?:title|name|description)[.\s]*[:\-]?\s*"
-        r"([A-Z][A-Za-z0-9\s\-/&]{2,120})",
+        r"([A-Z][^\n]{2,120})(?=\n|$)",
         re.IGNORECASE,
     ),
     "revision": re.compile(
-        r"(?:revision|rev)[.\s]*[:\-]?\s*([A-Z0-9]{1,10})",
+        r"(?:revision|rev)[.\s]*[:\-]?\s*([A-Z0-9]{1,10})(?=[^A-Za-z0-9]|$)",
         re.IGNORECASE,
     ),
     "revision_date": re.compile(
         r"(?:date|revision\s*date)[.\s]*[:\-]?\s*"
-        r"(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})",
+        r"(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})(?=\s|$)",
         re.IGNORECASE,
     ),
     "discipline": re.compile(
-        r"(?:discipline|trade)[.\s]*[:\-]?\s*([A-Za-z]{3,30})",
+        r"(?:discipline|trade)[.\s]*[:\-]?\s*([A-Za-z]{3,30})(?=[^A-Za-z]|$)",
         re.IGNORECASE,
     ),
 }

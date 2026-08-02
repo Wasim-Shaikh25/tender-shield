@@ -155,7 +155,9 @@ class IngestionService:
 
         is_addendum, addendum_reason = self._detect_addendum(filename)
         if is_addendum and not doc.supersedes:
-            superseded = self._find_superseded(workspace_id, opportunity_id, kind, filename)
+            superseded = self._find_superseded(
+                workspace_id, opportunity_id, kind, filename, exclude_id=doc.id
+            )
             if superseded is not None:
                 doc.supersedes = superseded.id
                 doc.meta = {
@@ -171,7 +173,7 @@ class IngestionService:
             self.process_text(doc, sample_text, ocr_status=fields.get("ocr_status") or "done")
             if is_addendum and doc.supersedes:
                 changes = self._addendum_changes(doc, doc.supersedes)
-                doc.meta["addendum_changes"] = changes
+                doc.meta = {**doc.meta, "addendum_changes": changes}
                 self.s.commit()
         return doc
 
@@ -302,21 +304,21 @@ class IngestionService:
         )
 
     def _find_superseded(
-        self, workspace_id, opportunity_id, kind: str, filename: str
+        self, workspace_id, opportunity_id, kind: str, filename: str, exclude_id=None
     ) -> Document | None:
         base = self._base_filename(filename)
-        rows = list(
-            self.s.scalars(
-                select(Document)
-                .where(
-                    Document.workspace_id == uuid.UUID(str(workspace_id)),
-                    Document.opportunity_id == uuid.UUID(str(opportunity_id)),
-                    Document.kind == kind,
-                    Document.id != None,  # noqa: E711
-                )
-                .order_by(Document.created_at.desc())
+        stmt = (
+            select(Document)
+            .where(
+                Document.workspace_id == uuid.UUID(str(workspace_id)),
+                Document.opportunity_id == uuid.UUID(str(opportunity_id)),
+                Document.kind == kind,
             )
+            .order_by(Document.created_at.desc())
         )
+        if exclude_id is not None:
+            stmt = stmt.where(Document.id != uuid.UUID(str(exclude_id)))
+        rows = list(self.s.scalars(stmt))
         for row in rows:
             if row.supersedes is None and base and base in self._base_filename(row.filename):
                 return row

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { api, type IntegrationSource } from "@/lib/api";
 
 const emptySource = {
-  adapter_kind: "json_payload",
+  adapter_kind: "erp",
   name: "",
   opportunity_id: "",
   config: "{}",
@@ -12,7 +12,6 @@ const emptySource = {
 };
 
 const ADAPTER_HELP: Record<string, string> = {
-  json_payload: '{"text":"paste CSV/JSON payload here"}',
   sharepoint_onedrive: '{"documents":[{"filename":"x.pdf","content":"..."}],"events":[]}',
   erp: '{"rows":[{"costCode":"A","description":"Earthwork","committedCost":1000000,"currency":"INR"}]}',
   schedule: '{"format":"csv","content":"Activity,Start,Finish\\nA,2026-08-01,2026-08-10"}',

@@ -579,6 +579,7 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-332 | Data residency, encryption at rest and retention controls | Research Doc §11.2 security baseline; FEATURE_COVERAGE.md §I | backend/app/modules/governance + settings UI | done |
 | TS-333 | Live CDE/ERP connector sync (OAuth + polling/webhooks) | Research Doc §4.I; FEATURE_COVERAGE.md §I | backend/app/modules/integrations/connectors/ + API | done |
 | TS-334 | Generic dynamic REST connector (no-code) for ERP/Oracle/sandbox systems — store connector spec in DB, DynamicRestConnector fetches from UI, test endpoint pings sandbox URL without persisting | User request (post-Phase 22) | backend/app/modules/integrations/dynamic.py + frontend/settings/integrations | done |
+| TS-342 | Backfill backend tests for Phase 22 modules and fix connector/RLS/subcontract gaps discovered during testing (merged as separate task) | CLAUDE.md §1; user request | backend/tests/test_integrations.py, test_public_api.py, test_subcontract.py | done |
 
 ## Phase 23 — Round 9 audit gap closure
 

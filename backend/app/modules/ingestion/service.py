@@ -12,6 +12,7 @@ import hashlib
 import re
 import uuid
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -443,3 +444,23 @@ class IngestionService:
         if page is not None:
             return {"page": page, "text": svc.text_for_page(workspace_id, document_id, page)}
         return {"pages": svc.text_for_document(workspace_id, document_id)}
+
+    def documents_for_retention(self, workspace_id, retention_days: int) -> list[dict]:
+        """Return documents older than the retention window for a workspace."""
+        ws = uuid.UUID(str(workspace_id))
+        cutoff = datetime.now(UTC) - timedelta(days=retention_days)
+        rows = self.s.scalars(
+            select(Document)
+            .where(Document.workspace_id == ws, Document.created_at < cutoff)
+            .order_by(Document.created_at)
+        ).all()
+        return [
+            {
+                "id": str(d.id),
+                "filename": d.filename,
+                "kind": d.kind,
+                "opportunity_id": str(d.opportunity_id),
+                "created_at": d.created_at.isoformat() if d.created_at else None,
+            }
+            for d in rows
+        ]

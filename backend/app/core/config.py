@@ -23,6 +23,14 @@ class Settings(BaseSettings):
     s3_endpoint_url: str = ""
     s3_access_key_id: SecretStr | None = None
     s3_secret_access_key: SecretStr | None = None
+    s3_server_side_encryption: str = ""  # e.g. "AES256" or "aws:kms"
+    s3_kms_key_id: str = ""  # required when s3_server_side_encryption is "aws:kms"
+
+    # Data residency default region for new workspaces (TS-332).
+    data_residency_default_region: str = ""
+
+    # Live CDE/ERP connector polling/webhooks (TS-333). Disabled by default.
+    live_connector_polling_enabled: bool = False
 
     # OCR for scanned PDFs (offline RapidOCR). Off by default (loads ONNX models
     # + needs the `ocr` extra); when off, scanned docs are flagged needs_ocr.

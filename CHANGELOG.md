@@ -152,6 +152,19 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   selected template to DOCX/XLSX/PDF/hanover reports (title, footer, watermark);
   settings UI supports create/edit/default/delete.
 
+### Done — final Phase 22 batch TS-332/TS-333
+
+- **TS-332** — workspace data governance: new `governance` module and
+  `workspace_data_governance` table (RLS), `GET/PUT /api/governance/workspaces/{id}/data-governance`
+  and `/retention-candidates`; `S3Storage.write` applies SSE-S3/SSE-KMS settings; settings
+  UI supports data region, retention/archive days, legal hold, and encryption at rest.
+- **TS-333** — live CDE/ERP connectors: new `backend/app/modules/integrations/connectors/`
+  package with `BaseConnector` and stubs for Procore, Autodesk, Aconex, SharePoint/OneDrive,
+  and ERP; `GET /api/integrations/connectors`, `POST /api/integrations/sources/{id}/oauth`,
+  `GET /api/integrations/connectors/{kind}/callback`, `POST /api/integrations/sources/{id}/poll`,
+  and `POST /api/integrations/sources/{id}/webhook`; polling is gated by
+  `TS_LIVE_CONNECTOR_POLLING_ENABLED` and degrades gracefully when credentials are absent.
+
 ### Done — feature coverage audit (TS-300)
 
 - Added `FEATURE_COVERAGE.md` cross-checking every capability in

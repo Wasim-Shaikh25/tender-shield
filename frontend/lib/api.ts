@@ -476,6 +476,12 @@ export const api = {
     req<{ deleted: boolean }>(`/export/templates/${id}`, { method: "DELETE" }, token),
   setDefaultReportTemplate: (token: string, id: string) =>
     req<ReportTemplate>(`/export/templates/${id}/default`, { method: "POST" }, token),
+  getDataGovernance: (token: string, workspaceId: string) =>
+    req<{ data_region: string; retention_days: number | null; archive_after_days: number | null; legal_hold: boolean; encryption_at_rest: string }>(`/governance/workspaces/${workspaceId}/data-governance`, {}, token),
+  updateDataGovernance: (token: string, workspaceId: string, body: Partial<{ data_region: string; retention_days: number; archive_after_days: number; legal_hold: boolean; encryption_at_rest: string }>) =>
+    req<Record<string, unknown>>(`/governance/workspaces/${workspaceId}/data-governance`, { method: "PUT", body: JSON.stringify(body) }, token),
+  listRetentionCandidates: (token: string, workspaceId: string) =>
+    req<{ candidates: { id: string; filename: string; kind: string; opportunity_id: string; created_at: string }[] }>(`/governance/workspaces/${workspaceId}/data-governance/retention-candidates`, {}, token),
   listInvitations: (token: string) =>
     req<InvitationResponse[]>("/auth/invitations", {}, token),
   createInvitation: (token: string, body: { email: string; role: string; project_id?: string }) =>

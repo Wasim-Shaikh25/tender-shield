@@ -42,6 +42,14 @@ def setup(ctx: AppContext) -> None:
         "ingestion.doc_text",
         lambda session: DocTextService(session),
     )
+    reg.provide(
+        "ingestion.documents_for_retention",
+        lambda session, workspace_id, retention_days: IngestionService(
+            session,
+            loader_provider=lambda: reg.get("rulepacks.loader"),
+            publish=ctx.events.publish,
+        ).documents_for_retention(workspace_id, retention_days),
+    )
 
     scheduler = reg.get("core.scheduler")
     if scheduler is not None:

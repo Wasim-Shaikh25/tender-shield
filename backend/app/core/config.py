@@ -72,18 +72,6 @@ class Settings(BaseSettings):
     openrouter_site_url: str = ""
     openrouter_app_name: str = "TenderShield"
 
-    # Sign in with Apple (Doc §5). PEM private key may contain escaped newlines.
-    apple_team_id: str = ""
-    apple_services_id: str = ""
-    apple_key_id: str = ""
-    apple_private_key: SecretStr | None = None
-    apple_redirect_uri: str = ""
-
-    # Google OIDC (Doc §5). Client ID is enough for pure ID-token verification.
-    google_client_id: str = ""
-    google_client_secret: SecretStr | None = None
-    google_redirect_uri: str = ""
-
     # Rate limiting / async task broker. Redis is required for distributed rate
     # limiting in multi-instance deployments; falls back to in-memory when empty.
     redis_url: str | None = None
@@ -140,7 +128,7 @@ class Settings(BaseSettings):
     log_max_bytes: int = 10 * 1024 * 1024
     log_backup_count: int = 5
 
-    @field_validator("s3_secret_access_key", "apple_private_key", "sentry_dsn")
+    @field_validator("s3_secret_access_key", "sentry_dsn")
     @classmethod
     def _blank_secret_is_none(cls, v: SecretStr | None) -> SecretStr | None:
         if v is None:

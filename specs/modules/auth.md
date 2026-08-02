@@ -1,6 +1,6 @@
 # Auth — Spec
 
-**Status:** re-architecture in progress (TS-163): account is the top-level identity; workspace
+**Status:** implemented (TS-163): account is the top-level identity; workspace
 is created explicitly after login; platform-only registration/login; email + mobile verification;
 OTP required on every login. Social login (Google/Apple) removed.
 **Requirement refs:** Doc §5, §3.2, §16; user request (account-first, OTP login)

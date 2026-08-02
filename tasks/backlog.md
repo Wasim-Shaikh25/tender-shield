@@ -592,3 +592,9 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-339 | Public API `request_signature` `notice_id` / `change_event_id` workspace validation | `PRODUCTION_READINESS_AUDIT.md` TS-PUB-04; `specs/modules/public_api.md` | `backend/app/modules/public_api/service.py` | done |
 | TS-340 | Governance retention / archive execution job | `PRODUCTION_READINESS_AUDIT.md` TS-GOV-01; `specs/modules/governance.md` | `backend/app/modules/governance/` + scheduler | done |
 | TS-341 | Eval deadline and tender-value match ≥95% | `PRODUCTION_READINESS_AUDIT.md` TS-EV-01; `specs/modules/evalmetadata.md` | `backend/app/evalmetadata/m2.py`, `evalrunner/pipeline.py`, `scripts/eval_ci_smoke.py` | done |
+
+## Phase 24 — Round 10 production-readiness re-audit
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-343 | Round 10 production-readiness re-audit: refresh `PRODUCTION_READINESS_AUDIT.md` for `e912395`, re-run validation matrix, and document `.env.local` test hermeticity (TS-ENV-01) | `PRODUCTION_READINESS_AUDIT.md`; user request | `PRODUCTION_READINESS_AUDIT.md` | done |

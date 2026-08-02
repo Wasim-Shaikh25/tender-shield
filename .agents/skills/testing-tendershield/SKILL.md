@@ -209,6 +209,15 @@ To demonstrate the `tendershield.access` logger from the UI:
 - Workspace creation has no UI; create a second workspace via
   `POST /api/auth/workspaces` (owner token required) to exercise the header
   switcher.
+- **Dev-box coordinate mapping:** On a high-resolution display, the screen
+  automation layer's 1024x768 coordinate space may not map to visible UI
+  elements. If native `left_click` on a form/button misses repeatedly,
+  fallback to `document.querySelector('form button').click()` via the browser
+  console. For React-controlled `<textarea>` inputs (e.g. the BOQ CSV box),
+  direct `.value` assignment may not update React state; use
+  `document.execCommand('selectAll')` followed by
+  `document.execCommand('insertText', false, csv)` so the controlled component
+  fires `onChange` and enables the submit button.
 
 ## Regression shell probe
 

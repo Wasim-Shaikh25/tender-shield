@@ -129,19 +129,17 @@ class ExportService:
                     ReportTemplate.workspace_id == ws,
                 )
             )
-            return self._template_row_to_dict(row) if row else None
+            return self._template_row_to_dict(row) if row is not None else None
         row = self.s.scalar(
             select(ReportTemplate).where(
                 ReportTemplate.workspace_id == ws,
                 ReportTemplate.is_default.is_(True),
             )
         )
-        return self._template_row_to_dict(row) if row else None
+        return self._template_row_to_dict(row) if row is not None else None
 
     @staticmethod
-    def _template_row_to_dict(row: ReportTemplate | None) -> dict | None:
-        if row is None:
-            return None
+    def _template_row_to_dict(row: ReportTemplate) -> dict:
         return {
             "id": str(row.id),
             "name": row.name,

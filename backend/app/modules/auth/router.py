@@ -1339,3 +1339,42 @@ def admin_audit_log(
         }
         for r in rows
     ]
+
+
+class DocumentClassAclBody(BaseModel):
+    document_class: str = Field(min_length=1)
+    min_role: str = Field(default="viewer")
+
+
+@router.get("/document-classes")
+def list_document_class_acls(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    acl = request.app.state.ctx.registry.get("auth.document_class_rules")
+    if acl is None:
+        return {"rules": []}
+    return {"rules": acl(session).list_rules(principal.workspace_id)}
+
+
+@router.post("/document-classes")
+def set_document_class_acl(
+    body: DocumentClassAclBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    acl = request.app.state.ctx.registry.require("auth.document_class_rules")
+    return acl(session).set_rule(principal.workspace_id, body.document_class, body.min_role)
+
+
+@router.delete("/document-classes/{document_class}")
+def delete_document_class_acl(
+    document_class: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    acl = request.app.state.ctx.registry.require("auth.document_class_rules")
+    return acl(session).delete_rule(principal.workspace_id, document_class)

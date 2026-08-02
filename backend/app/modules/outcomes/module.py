@@ -46,6 +46,12 @@ def setup(ctx: AppContext) -> None:
             workspace_id
         ),
     )
+    reg.provide(
+        "outcomes.recurring_omissions",
+        lambda session, workspace_id, current_opportunity_id=None: factory(
+            session
+        ).historical_scope_patterns(workspace_id, current_opportunity_id),
+    )
 
 
 module = ModuleSpec(

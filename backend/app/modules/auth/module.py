@@ -2,6 +2,7 @@ import logging
 
 from app.core.module import AppContext, ModuleSpec
 from app.modules.auth import security as sec
+from app.modules.auth.acl import AuthAcl
 from app.modules.auth.approval import ApprovalMatrix
 from app.modules.auth.claim import claim_express_workspace
 from app.modules.auth.deps import authenticate, check_role
@@ -38,6 +39,15 @@ def setup(ctx: AppContext) -> None:
     ctx.registry.provide("auth.check_role", check_role)
     ctx.registry.provide("auth.workspace_factory", lambda session: WorkspaceAdmin(session))
     ctx.registry.provide("auth.approval_matrix", lambda session: ApprovalMatrix(session))
+    ctx.registry.provide(
+        "auth.document_class_permitted",
+        lambda session, workspace_id, role, document_class: AuthAcl(session).permitted(
+            workspace_id, role, document_class
+        ),
+    )
+    ctx.registry.provide(
+        "auth.document_class_rules", lambda session: AuthAcl(session)
+    )
     ctx.registry.provide("auth.create_ephemeral_workspace", create_ephemeral_workspace)
     ctx.registry.provide("auth.claim_express_workspace", claim_express_workspace)
 

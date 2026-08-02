@@ -29,6 +29,7 @@ export type User = {
 };
 export type Opportunity = { id: string; title: string; status: string; submission_due?: string | null };
 export type MissingDocs = { present: string[]; missing: string[]; expected: string[] };
+export type ReportTemplate = { id: string; name: string; is_default: boolean; report_title?: string | null; primary_color?: string | null; accent_color?: string | null; logo_url?: string | null; watermark_text?: string | null; footer_text?: string | null };
 export type Clause = { id: string; clause_ref: string | null; heading: string | null; page_from: number | null };
 export type Deadline = {
   id: string;
@@ -459,6 +460,22 @@ export const api = {
     req<ChangeRoleResponse>(`/auth/workspaces/${workspace_id}/members/${user_id}`, { method: "PUT", body: JSON.stringify({ role }) }, token),
   removeWorkspaceMember: (token: string, workspace_id: string, user_id: string) =>
     req<OkResponse>(`/auth/workspaces/${workspace_id}/members/${user_id}`, { method: "DELETE" }, token),
+  listDocumentClassAcls: (token: string) =>
+    req<{ rules: { id: string; document_class: string; min_role: string }[] }>("/auth/document-classes", {}, token),
+  setDocumentClassAcl: (token: string, body: { document_class: string; min_role: string }) =>
+    req<{ id: string; document_class: string; min_role: string }>("/auth/document-classes", { method: "POST", body: JSON.stringify(body) }, token),
+  deleteDocumentClassAcl: (token: string, documentClass: string) =>
+    req<{ deleted: boolean }>(`/auth/document-classes/${encodeURIComponent(documentClass)}`, { method: "DELETE" }, token),
+  listReportTemplates: (token: string) =>
+    req<{ templates: ReportTemplate[] }>("/export/templates", {}, token),
+  createReportTemplate: (token: string, body: Partial<ReportTemplate>) =>
+    req<ReportTemplate>("/export/templates", { method: "POST", body: JSON.stringify(body) }, token),
+  updateReportTemplate: (token: string, id: string, body: Partial<ReportTemplate>) =>
+    req<ReportTemplate>(`/export/templates/${id}`, { method: "PUT", body: JSON.stringify(body) }, token),
+  deleteReportTemplate: (token: string, id: string) =>
+    req<{ deleted: boolean }>(`/export/templates/${id}`, { method: "DELETE" }, token),
+  setDefaultReportTemplate: (token: string, id: string) =>
+    req<ReportTemplate>(`/export/templates/${id}/default`, { method: "POST" }, token),
   listInvitations: (token: string) =>
     req<InvitationResponse[]>("/auth/invitations", {}, token),
   createInvitation: (token: string, body: { email: string; role: string; project_id?: string }) =>
@@ -828,6 +845,8 @@ export const api = {
     req<Record<string, unknown>>(`/controltower/response-times?opportunity_id=${encodeURIComponent(opportunityId)}`, {}, token),
   getClauseTrends: (token: string) =>
     req<Record<string, unknown>>(`/controltower/clause-trends`, {}, token),
+  getRecurringOmissions: (token: string, opportunityId?: string) =>
+    req<Record<string, unknown>>(`/controltower/recurring-omissions?${opportunityId ? new URLSearchParams({ opportunity_id: opportunityId }) : ""}`, {}, token),
   getExecutiveSummary: (token: string, opportunityId: string, params?: { cost_of_capital_pa?: number; currency?: string }) =>
     req<Record<string, unknown>>(`/controltower/executive-summary?${new URLSearchParams({ opportunity_id: opportunityId, cost_of_capital_pa: String(params?.cost_of_capital_pa ?? 0.12), currency: params?.currency ?? "INR" })}`, {}, token),
   getPaymentSchedule: (token: string, opportunityId: string) =>

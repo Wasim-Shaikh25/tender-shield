@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { api, type AccountSettings } from "@/lib/api";
+import { api, type AccountSettings, type ReportTemplate } from "@/lib/api";
 import { useSession } from "@/components/session";
 
 export default function SettingsPage() {
@@ -16,6 +16,13 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [aclRules, setAclRules] = useState<{ id: string; document_class: string; min_role: string }[]>([]);
+  const [aclForm, setAclForm] = useState({ document_class: "tender", min_role: "viewer" });
+  const DOCUMENT_CLASSES = ["tender", "contract", "drawing", "boq", "schedule", "specification", "claim", "evidence", "general"];
+  const ROLES = ["viewer", "reviewer", "estimator", "admin", "owner"];
+  const [templates, setTemplates] = useState<ReportTemplate[]>([]);
+  const [templateForm, setTemplateForm] = useState<Partial<ReportTemplate>>({ name: "", report_title: "", footer_text: "", watermark_text: "", primary_color: "", logo_url: "" });
+  const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session) return;
@@ -30,6 +37,12 @@ export default function SettingsPage() {
         });
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load settings"));
+    api.listDocumentClassAcls(session.token)
+      .then((r) => setAclRules(r.rules))
+      .catch(() => setAclRules([]));
+    api.listReportTemplates(session.token)
+      .then((r) => setTemplates(r.templates))
+      .catch(() => setTemplates([]));
   }, [session]);
 
   if (!session) {
@@ -155,6 +168,106 @@ export default function SettingsPage() {
     }
   };
 
+  const saveAcl = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await api.setDocumentClassAcl(session.token, aclForm);
+      const r = await api.listDocumentClassAcls(session.token);
+      setAclRules(r.rules);
+      setMessage("Document class ACL updated.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update ACL");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const removeAcl = async (documentClass: string) => {
+    if (!session) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await api.deleteDocumentClassAcl(session.token, documentClass);
+      const r = await api.listDocumentClassAcls(session.token);
+      setAclRules(r.rules);
+      setMessage("ACL removed.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to remove ACL");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session) return;
+    setLoading(true);
+    setError(null);
+    try {
+      if (editingTemplate) {
+        await api.updateReportTemplate(session.token, editingTemplate, templateForm);
+      } else {
+        await api.createReportTemplate(session.token, templateForm);
+      }
+      const r = await api.listReportTemplates(session.token);
+      setTemplates(r.templates);
+      setTemplateForm({ name: "", report_title: "", footer_text: "", watermark_text: "", primary_color: "", logo_url: "" });
+      setEditingTemplate(null);
+      setMessage("Report template saved.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save template");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const editTemplate = (t: ReportTemplate) => {
+    setEditingTemplate(t.id);
+    setTemplateForm({
+      name: t.name,
+      report_title: t.report_title ?? "",
+      footer_text: t.footer_text ?? "",
+      watermark_text: t.watermark_text ?? "",
+      primary_color: t.primary_color ?? "",
+      logo_url: t.logo_url ?? "",
+    });
+  };
+
+  const deleteTemplate = async (id: string) => {
+    if (!session) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await api.deleteReportTemplate(session.token, id);
+      const r = await api.listReportTemplates(session.token);
+      setTemplates(r.templates);
+      setMessage("Template deleted.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete template");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const setDefaultTemplate = async (id: string) => {
+    if (!session) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await api.setDefaultReportTemplate(session.token, id);
+      const r = await api.listReportTemplates(session.token);
+      setTemplates(r.templates);
+      setMessage("Default template updated.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update default");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-ink">Account & Security</h1>
@@ -270,6 +383,59 @@ export default function SettingsPage() {
               Verify new email
             </button>
           </form>
+        )}
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-6">
+        <h2 className="mb-4 text-lg font-semibold text-ink">Document class access</h2>
+        <p className="mb-4 text-sm text-slate-600">Set the minimum role required to upload or view each document class. No rule means everyone in the workspace has access.</p>
+        <form onSubmit={saveAcl} className="mb-4 grid gap-3 sm:grid-cols-4">
+          <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={aclForm.document_class} onChange={(e) => setAclForm({ ...aclForm, document_class: e.target.value })}>
+            {DOCUMENT_CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={aclForm.min_role} onChange={(e) => setAclForm({ ...aclForm, min_role: e.target.value })}>
+            {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <button type="submit" disabled={loading} className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-50 sm:col-span-2">Save rule</button>
+        </form>
+        {aclRules.length > 0 && (
+          <ul className="space-y-2">
+            {aclRules.map((r) => (
+              <li key={r.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
+                <span className="capitalize">{r.document_class}</span>
+                <span className="text-slate-600">min role: {r.min_role}</span>
+                <button onClick={() => removeAcl(r.document_class)} disabled={loading} className="text-sm text-red-600 hover:underline disabled:opacity-50">Remove</button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-6">
+        <h2 className="mb-4 text-lg font-semibold text-ink">Report templates</h2>
+        <p className="mb-4 text-sm text-slate-600">Customise the title, footer and watermark for exported reports. The default template is applied automatically.</p>
+        <form onSubmit={saveTemplate} className="mb-4 grid gap-3 sm:grid-cols-2">
+          <input placeholder="Template name" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={templateForm.name || ""} onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })} required />
+          <input placeholder="Report title (e.g. Bid Review Pack)" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={templateForm.report_title || ""} onChange={(e) => setTemplateForm({ ...templateForm, report_title: e.target.value })} />
+          <input placeholder="Footer text" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={templateForm.footer_text || ""} onChange={(e) => setTemplateForm({ ...templateForm, footer_text: e.target.value })} />
+          <input placeholder="Watermark text" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={templateForm.watermark_text || ""} onChange={(e) => setTemplateForm({ ...templateForm, watermark_text: e.target.value })} />
+          <input placeholder="Primary colour (hex)" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={templateForm.primary_color || ""} onChange={(e) => setTemplateForm({ ...templateForm, primary_color: e.target.value })} />
+          <input placeholder="Logo URL" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={templateForm.logo_url || ""} onChange={(e) => setTemplateForm({ ...templateForm, logo_url: e.target.value })} />
+          <button type="submit" disabled={loading} className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-50 sm:col-span-2">{editingTemplate ? "Update template" : "Create template"}</button>
+        </form>
+        {templates.length > 0 && (
+          <ul className="space-y-2">
+            {templates.map((t) => (
+              <li key={t.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
+                <span>{t.name} {t.is_default && <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">default</span>}</span>
+                <div className="flex gap-3">
+                  <button onClick={() => editTemplate(t)} disabled={loading} className="text-indigo-600 hover:underline disabled:opacity-50">Edit</button>
+                  {!t.is_default && <button onClick={() => setDefaultTemplate(t.id)} disabled={loading} className="text-indigo-600 hover:underline disabled:opacity-50">Set default</button>}
+                  <button onClick={() => deleteTemplate(t.id)} disabled={loading} className="text-red-600 hover:underline disabled:opacity-50">Delete</button>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 

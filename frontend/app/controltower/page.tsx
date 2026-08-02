@@ -50,6 +50,7 @@ export default function ControlTowerPage() {
 
   const [portfolio, setPortfolio] = useState<Record<string, unknown> | null>(null);
   const [clauseTrends, setClauseTrends] = useState<Record<string, unknown> | null>(null);
+  const [recurringOmissions, setRecurringOmissions] = useState<Record<string, unknown> | null>(null);
   const [economics, setEconomics] = useState<Record<string, unknown> | null>(null);
   const [outcomes, setOutcomes] = useState<Record<string, unknown> | null>(null);
 
@@ -65,6 +66,7 @@ export default function ControlTowerPage() {
     }).catch(() => {});
     api.getPortfolio(session.token).then(setPortfolio).catch(() => {});
     api.getClauseTrends(session.token).then(setClauseTrends).catch(() => {});
+    api.getRecurringOmissions(session.token).then(setRecurringOmissions).catch(() => {});
     api.getEconomics(session.token).then(setEconomics).catch(() => {});
     api.getCustomerOutcomes(session.token).then(setOutcomes).catch(() => {});
   }, [session]);
@@ -79,6 +81,7 @@ export default function ControlTowerPage() {
       api.getExecutiveSummary(session.token, selected).then(setExecutive).catch(() => setExecutive(null)),
       api.getResponseTimes(session.token, selected).then(setResponseTimes).catch(() => setResponseTimes(null)),
       api.getPaymentSchedule(session.token, selected).then(setPaymentSchedule).catch(() => setPaymentSchedule(null)),
+      api.getRecurringOmissions(session.token, selected).then(setRecurringOmissions).catch(() => setRecurringOmissions(null)),
     ]).finally(() => setLoading(false));
   }, [session, selected]);
 
@@ -366,6 +369,35 @@ export default function ControlTowerPage() {
               ))}
             </ul>
           ) : <p className="text-sm text-slate-500">No trend data.</p>}
+          {((clauseTrends.loss_reasons as unknown[]) || []).length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-sm font-semibold text-slate-700">Loss reasons</h3>
+              <ul className="mt-2 space-y-2">
+                {(clauseTrends.loss_reasons as Record<string, unknown>[]).map((r, i) => (
+                  <li key={i} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 text-sm">
+                    <span>{r.reason as string}</span>
+                    <span className="text-slate-500">{r.count as number} · {rupees(r.exposure_minor as number)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      )}
+
+      {recurringOmissions && !isUnavailable(recurringOmissions) && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold text-ink">Recurring omissions</h2>
+          {((recurringOmissions.patterns as unknown[]) || []).length > 0 ? (
+            <ul className="space-y-2">
+              {(recurringOmissions.patterns as Record<string, unknown>[]).map((p, i) => (
+                <li key={i} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 text-sm">
+                  <span className="capitalize">{p.label as string} {p.severity ? <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{p.severity as string}</span> : null}</span>
+                  <span className="text-slate-500">historical count {p.historical_count as number}</span>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="text-sm text-slate-500">No recurring omissions found.</p>}
         </section>
       )}
 

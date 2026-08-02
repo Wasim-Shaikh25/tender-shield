@@ -416,6 +416,24 @@ class ControlTowerService:
             }
         return claims.response_analytics_for_opportunity(ws, oid)
 
+    def recurring_omissions_for_workspace(
+        self, workspace_id, current_opportunity_id=None
+    ) -> dict:
+        ws = uuid.UUID(str(workspace_id))
+        if self._outcomes_factory is None:
+            return {"workspace_id": str(ws), "patterns": [], "unavailable": True}
+        outcomes = self._outcomes_factory(self.s)
+        patterns = outcomes.historical_scope_patterns(
+            ws, current_opportunity_id=current_opportunity_id
+        )
+        return {
+            "workspace_id": str(ws),
+            "current_opportunity_id": (
+                str(current_opportunity_id) if current_opportunity_id else None
+            ),
+            "patterns": patterns,
+        }
+
     def clause_trends_for_workspace(self, workspace_id) -> dict:
         ws = uuid.UUID(str(workspace_id))
         if self._findings_factory is None:

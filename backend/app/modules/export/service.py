@@ -5,8 +5,12 @@ findings, drafting, ingestion, rulepacks purely via registry capabilities."""
 from __future__ import annotations
 
 import hashlib
+import uuid
 from datetime import date
 
+from sqlalchemy import select
+
+from app.modules.export.models import ReportTemplate
 from app.modules.export.render import (
     UNREVIEWED_VARIANT,
     render_docx,
@@ -116,6 +120,40 @@ class ExportService:
                 meta["reviewed_by_email"] = user["email"]
         return meta
 
+    def _template(self, workspace_id, template_id: str | None = None) -> dict | None:
+        ws = uuid.UUID(str(workspace_id))
+        if template_id:
+            row = self.s.scalar(
+                select(ReportTemplate).where(
+                    ReportTemplate.id == uuid.UUID(str(template_id)),
+                    ReportTemplate.workspace_id == ws,
+                )
+            )
+            return self._template_row_to_dict(row) if row else None
+        row = self.s.scalar(
+            select(ReportTemplate).where(
+                ReportTemplate.workspace_id == ws,
+                ReportTemplate.is_default.is_(True),
+            )
+        )
+        return self._template_row_to_dict(row) if row else None
+
+    @staticmethod
+    def _template_row_to_dict(row: ReportTemplate | None) -> dict | None:
+        if row is None:
+            return None
+        return {
+            "id": str(row.id),
+            "name": row.name,
+            "is_default": row.is_default,
+            "primary_color": row.primary_color,
+            "accent_color": row.accent_color,
+            "logo_url": row.logo_url,
+            "watermark_text": row.watermark_text,
+            "footer_text": row.footer_text,
+            "report_title": row.report_title,
+        }
+
     def _render(
         self,
         fmt: str,
@@ -125,6 +163,7 @@ class ExportService:
         meta: dict,
         *,
         unreviewed: bool = False,
+        template: dict | None = None,
     ) -> bytes:
         findings = self._findings(workspace_id, opportunity_id)
         artifacts = (
@@ -133,12 +172,14 @@ class ExportService:
             else self._artifacts(workspace_id, opportunity_id)
         )
         if fmt == "xlsx":
-            return render_xlsx(title, findings, meta)
+            return render_xlsx(title, findings, meta, template)
         if fmt == "pdf":
-            return render_pdf(title, artifacts, findings, meta)
-        return render_docx(title, artifacts, findings, meta)
+            return render_pdf(title, artifacts, findings, meta, template)
+        return render_docx(title, artifacts, findings, meta, template)
 
-    def export(self, workspace_id, opportunity_id, fmt: str) -> tuple[str, str, bytes]:
+    def export(
+        self, workspace_id, opportunity_id, fmt: str, template_id: str | None = None
+    ) -> tuple[str, str, bytes]:
         if fmt not in FORMATS:
             raise ExportError("bad_format")
         if not self._gate_ok(workspace_id, opportunity_id):
@@ -150,17 +191,22 @@ class ExportService:
             "pack": self._pack_version,
         }
         meta.update(self._reviewer_meta(workspace_id, opportunity_id))
+        template = self._template(workspace_id, template_id)
 
         media_type, ext = FORMATS[fmt]
-        draft = self._render(fmt, title, workspace_id, opportunity_id, meta)
+        draft = self._render(
+            fmt, title, workspace_id, opportunity_id, meta, template=template
+        )
         meta["integrity_hash"] = hashlib.sha256(draft).hexdigest()
-        data = self._render(fmt, title, workspace_id, opportunity_id, meta)
+        data = self._render(
+            fmt, title, workspace_id, opportunity_id, meta, template=template
+        )
 
         filename = f"bid-review-pack-{opportunity_id}.{ext}"
         return filename, media_type, data
 
     def export_unreviewed(
-        self, workspace_id, opportunity_id, fmt: str
+        self, workspace_id, opportunity_id, fmt: str, template_id: str | None = None
     ) -> tuple[str, str, bytes]:
         """Express lane export — bypasses review gate, watermarks every format."""
         if fmt not in FORMATS:
@@ -172,14 +218,15 @@ class ExportService:
             "pack": self._pack_version,
             "variant": UNREVIEWED_VARIANT,
         }
+        template = self._template(workspace_id, template_id)
 
         media_type, ext = FORMATS[fmt]
         draft = self._render(
-            fmt, title, workspace_id, opportunity_id, meta, unreviewed=True
+            fmt, title, workspace_id, opportunity_id, meta, unreviewed=True, template=template
         )
         meta["integrity_hash"] = hashlib.sha256(draft).hexdigest()
         data = self._render(
-            fmt, title, workspace_id, opportunity_id, meta, unreviewed=True
+            fmt, title, workspace_id, opportunity_id, meta, unreviewed=True, template=template
         )
 
         if not verify_unreviewed_watermark(fmt, data):
@@ -189,7 +236,14 @@ class ExportService:
         return filename, media_type, data
 
     def export_handover(
-        self, opportunity_id: str, fmt: str, handover: dict, *, view: str = "full"
+        self,
+        workspace_id,
+        opportunity_id: str,
+        fmt: str,
+        handover: dict,
+        *,
+        view: str = "full",
+        template_id: str | None = None,
     ) -> tuple[str, str, bytes]:
         if fmt not in HANDOVER_FORMATS:
             raise ExportError("bad_format")
@@ -200,12 +254,90 @@ class ExportService:
             "integrity_hash": handover.get("sealed_hash", ""),
             "view": view,
         }
-        data = render_handover_pack(title, handover, fmt, meta)
+        template = self._template(workspace_id, template_id)
+        data = render_handover_pack(title, handover, fmt, meta, template)
         # Re-render so the hash in the stamp is over the final bytes.
         meta["integrity_hash"] = hashlib.sha256(data).hexdigest()
-        data = render_handover_pack(title, handover, fmt, meta)
+        data = render_handover_pack(title, handover, fmt, meta, template)
 
         media_type, ext = HANDOVER_FORMATS[fmt]
         suffix = f"-{view}" if view and view != "full" else ""
         filename = f"handover-pack-{opportunity_id}{suffix}.{ext}"
         return filename, media_type, data
+
+    # ---- branded report templates (TS-331) --------------------------------
+    def list_templates(self, workspace_id) -> list[dict]:
+        ws = uuid.UUID(str(workspace_id))
+        rows = self.s.scalars(
+            select(ReportTemplate).where(ReportTemplate.workspace_id == ws)
+        ).all()
+        return [self._template_row_to_dict(r) for r in rows]
+
+    def get_template(self, workspace_id, template_id: str) -> dict | None:
+        return self._template(workspace_id, template_id)
+
+    def create_template(
+        self, workspace_id, fields: dict
+    ) -> dict:
+        ws = uuid.UUID(str(workspace_id))
+        if fields.get("is_default"):
+            self.s.query(ReportTemplate).filter(
+                ReportTemplate.workspace_id == ws
+            ).update({"is_default": False})
+        row = ReportTemplate(workspace_id=ws, **fields)
+        self.s.add(row)
+        self.s.commit()
+        return self._template_row_to_dict(row)
+
+    def update_template(
+        self, workspace_id, template_id: str, fields: dict
+    ) -> dict | None:
+        ws = uuid.UUID(str(workspace_id))
+        row = self.s.scalar(
+            select(ReportTemplate).where(
+                ReportTemplate.id == uuid.UUID(str(template_id)),
+                ReportTemplate.workspace_id == ws,
+            )
+        )
+        if row is None:
+            return None
+        if fields.get("is_default"):
+            self.s.query(ReportTemplate).filter(
+                ReportTemplate.workspace_id == ws
+            ).update({"is_default": False})
+        for key, value in fields.items():
+            setattr(row, key, value)
+        self.s.commit()
+        return self._template_row_to_dict(row)
+
+    def delete_template(self, workspace_id, template_id: str) -> bool:
+        ws = uuid.UUID(str(workspace_id))
+        row = self.s.scalar(
+            select(ReportTemplate).where(
+                ReportTemplate.id == uuid.UUID(str(template_id)),
+                ReportTemplate.workspace_id == ws,
+            )
+        )
+        if row is None:
+            return False
+        self.s.delete(row)
+        self.s.commit()
+        return True
+
+    def set_default_template(self, workspace_id, template_id: str) -> dict | None:
+        ws = uuid.UUID(str(workspace_id))
+        target = uuid.UUID(str(template_id))
+        self.s.query(ReportTemplate).filter(
+            ReportTemplate.workspace_id == ws
+        ).update({"is_default": False})
+        row = self.s.scalar(
+            select(ReportTemplate).where(
+                ReportTemplate.id == target,
+                ReportTemplate.workspace_id == ws,
+            )
+        )
+        if row is None:
+            return None
+        row.is_default = True
+        self.s.commit()
+        return self._template_row_to_dict(row)

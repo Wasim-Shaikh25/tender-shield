@@ -157,6 +157,18 @@ def get_clause_trends(
     return _service(request, session).clause_trends_for_workspace(principal.workspace_id)
 
 
+@router.get("/recurring-omissions")
+def get_recurring_omissions(
+    request: Request,
+    opportunity_id: str | None = None,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    return _service(request, session).recurring_omissions_for_workspace(
+        principal.workspace_id, current_opportunity_id=opportunity_id
+    )
+
+
 @router.get("/executive-summary")
 def get_executive_summary(
     opportunity_id: str,

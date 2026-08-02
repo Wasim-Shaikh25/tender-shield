@@ -85,6 +85,9 @@ class IngestionService:
             return _FALLBACK_EXPECTED
         return loader.get_pack(self._pack_id).expected_documents or _FALLBACK_EXPECTED
 
+    def classify_document_kind(self, text: str) -> str:
+        return classify_text(text, self._anchors()) or "other"
+
     # ---- opportunities ----------------------------------------------------
     def create_opportunity(self, workspace_id, title: str, **fields) -> Opportunity:
         opp = Opportunity(workspace_id=uuid.UUID(str(workspace_id)), title=title, **fields)

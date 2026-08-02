@@ -922,5 +922,5 @@ class BaselineService:
             raise BaselineError("export_unavailable")
         pack = self.handover(workspace_id, opportunity_id, view=view)
         return self._export_factory(self.s).export_handover(
-            str(opportunity_id), fmt, pack, view=view or pack.get("view", "full")
+            workspace_id, str(opportunity_id), fmt, pack, view=view or pack.get("view", "full")
         )

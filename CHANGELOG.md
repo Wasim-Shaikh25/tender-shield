@@ -137,8 +137,20 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Created **Phase 22** in `tasks/backlog.md` with 33 concrete tasks (TS-301–TS-333)
   covering frontend surfaces, ingestion, risk/BOQ, drawing intelligence, change/claims,
   control tower, governance, and live connectors.
-- Each task includes requirement reference, acceptance criteria, priority (P0–P3),
-  and dependency notes.
+
+### Done — gap closure batch TS-329/TS-330/TS-331
+
+- **TS-329** — control tower recurring omission patterns and loss-reason analytics:
+  `recurring_omissions_for_workspace` reuses `outcomes.historical_scope_patterns`;
+  `GET /api/controltower/recurring-omissions` and loss-reason rendering in the
+  `/controltower` UI surface historical patterns and loss reasons.
+- **TS-330** — document-class ACL: new `DocumentClassAcl` model, registry capability
+  `auth.document_class_permitted`, `GET/POST/DELETE /api/auth/document-classes` for
+  admins, enforcement on document upload/register, and a settings UI to manage rules.
+- **TS-331** — custom branded report templates: new `ReportTemplate` model and
+  `/api/export/templates` CRUD endpoints; `export.service` applies the default or
+  selected template to DOCX/XLSX/PDF/hanover reports (title, footer, watermark);
+  settings UI supports create/edit/default/delete.
 
 ### Done — feature coverage audit (TS-300)
 

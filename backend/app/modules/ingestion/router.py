@@ -117,6 +117,12 @@ def register_document(
     svc = _service(request, session)
     if not svc.get_opportunity(principal.workspace_id, opportunity_id):
         raise HTTPException(404, "not_found")
+    document_class = svc.classify_document_kind(body.sample_text) if body.sample_text else "other"
+    permitted_fn = request.app.state.ctx.registry.get("auth.document_class_permitted")
+    if permitted_fn is not None and not permitted_fn(
+        session, principal.workspace_id, principal.role, document_class
+    ):
+        raise HTTPException(403, "document_class_forbidden")
     doc = svc.register_document(
         principal.workspace_id,
         opportunity_id,
@@ -190,6 +196,14 @@ async def upload_document(
     # `extract_upload` may parse PDF/CSV/XLSX and run OCR; keep it out of the
     # async event loop by running in the default executor.
     text, ocr_status = await asyncio.to_thread(extract_upload, file.filename, data, ocr)
+
+    document_class = svc.classify_document_kind(text) if text else "other"
+    permitted_fn = request.app.state.ctx.registry.get("auth.document_class_permitted")
+    if permitted_fn is not None and not permitted_fn(
+        session, principal.workspace_id, principal.role, document_class
+    ):
+        raise HTTPException(403, "document_class_forbidden")
+
     doc = svc.register_document(
         principal.workspace_id,
         opportunity_id,

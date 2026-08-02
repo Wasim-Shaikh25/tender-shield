@@ -114,6 +114,7 @@ document is re-registered or re-uploaded.
 - A11: CSV and XLSX extraction output contains `[pN]` row markers.
 - A12: tus `OPTIONS` returns `204` with `Tus-Resumable`; `POST` returns `201` and `Location`; invalid upload IDs return `400`.
 - A13 (TS-310): `.docx` uploads are extracted with `python-docx`, paragraphs are joined with `[pN]` markers per paragraph, and `extract_upload` returns `ocr_status=done`.
+- A14 (TS-311): Standalone `.png`/`.jpg`/`.tiff` uploads are routed to an OCR provider; without one `extract_upload` returns `ocr_status=needs_ocr`. OCR results are emitted as a single `[p1]` block.
 
 ## Out of scope
 

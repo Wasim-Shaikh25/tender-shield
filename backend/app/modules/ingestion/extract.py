@@ -1,8 +1,9 @@
 """Text extraction from uploaded files (Doc §6.1). Digital PDFs via pypdf,
-spreadsheets via openpyxl, DOCX via python-docx, CSV/text directly. Page/paragraph
+spreadsheets via openpyxl, DOCX via python-docx, CSV/text directly. Standalone
+images (PNG/JPG/TIFF) are routed to an injected OCR provider. Page/paragraph
 markers ([pN]) are emitted so downstream deadline/clause extraction can cite pages.
-Scanned/image PDFs are routed to an injected OCR provider (app/modules/ingestion/ocr.py);
-with none, they are flagged `needs_ocr` and degrade honestly (Doc §12.4)."""
+Scanned/image PDFs and images are flagged `needs_ocr` when no provider is configured
+and degrade honestly (Doc §12.4)."""
 
 from __future__ import annotations
 
@@ -22,6 +23,8 @@ def extract_text(filename: str, data: bytes) -> str:
         return _csv(data)
     if name.endswith(".docx"):
         return _docx(data)
+    if name.endswith((".png", ".jpg", ".jpeg", ".tiff", ".tif")):
+        return ""
     if name.endswith((".txt", ".md")):
         return data.decode("utf-8", errors="replace")
     return data.decode("utf-8", errors="replace")
@@ -41,9 +44,13 @@ def _pdf_pages(data: bytes) -> list[str]:
 def extract_upload(filename: str, data: bytes, ocr=None) -> tuple[str, str]:
     """Extraction for uploads. Returns (text, ocr_status) where ocr_status is
     one of: done | ocr_applied | needs_ocr. DOCX, XLSX, CSV and plain text are
-    extracted directly. PDFs with no digital text layer are OCR'd when a provider
-    is given, else flagged needs_ocr."""
+    extracted directly. Standalone images and PDFs with no digital text layer are
+    OCR'd when a provider is given, else flagged needs_ocr."""
     name = filename.lower()
+    if name.endswith((".png", ".jpg", ".jpeg", ".tiff", ".tif")):
+        if ocr is not None and getattr(ocr, "name", "null") != "null" and hasattr(ocr, "ocr_image"):
+            return _join_pages([ocr.ocr_image(data)]), "ocr_applied"
+        return "", "needs_ocr"
     if not name.endswith(".pdf"):
         return extract_text(filename, data), "done"
 

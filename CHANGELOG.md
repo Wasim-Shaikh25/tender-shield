@@ -62,6 +62,10 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - **TS-310** — DOCX text extraction in `backend/app/modules/ingestion/extract.py`
   using `python-docx`; paragraphs and tables are emitted with `[pN]` markers.
   Backend tests pass; frontend build passes.
+- **TS-311** — standalone image (PNG/JPG/TIFF) upload and OCR: `extract_upload`
+  routes images to an OCR provider; `RapidOcrProvider` gains `ocr_image` and
+  normalizes image uploads to PNG before recognition. Without OCR the upload is
+  flagged `needs_ocr`. Backend tests pass.
 - Added `docs/REMAINING_GAPS_ROADMAP.md` with one row for every `Partial` / `Missing`
   capability from `FEATURE_COVERAGE.md`.
 - Created **Phase 22** in `tasks/backlog.md` with 33 concrete tasks (TS-301–TS-333)

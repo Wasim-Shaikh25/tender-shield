@@ -76,6 +76,20 @@ class PublicApiService:
             )
         )
 
+    def revoke_key(self, workspace_id, key_id) -> bool:
+        row = self.s.scalar(
+            select(PublicApiKey).where(
+                PublicApiKey.id == uuid.UUID(str(key_id)),
+                PublicApiKey.workspace_id == uuid.UUID(str(workspace_id)),
+                PublicApiKey.revoked_at.is_(None),
+            )
+        )
+        if row is None:
+            raise PublicApiError("not_found")
+        row.revoked_at = datetime.now(UTC)
+        self.s.commit()
+        return True
+
     def authenticate(self, token: str | None) -> dict | None:
         if not token:
             return None

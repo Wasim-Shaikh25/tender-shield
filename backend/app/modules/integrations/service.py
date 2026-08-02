@@ -67,7 +67,7 @@ class IntegrationsService:
         config: dict | None = None,
         rate_limit: int | None = None,
     ) -> IntegrationSource:
-        if adapter_kind not in ADAPTER_REGISTRY:
+        if adapter_kind not in ADAPTER_REGISTRY and adapter_kind not in CONNECTOR_REGISTRY:
             raise IntegrationsError("unknown_adapter")
         if opportunity_id:
             opp = self._ingestion().get_opportunity(workspace_id, opportunity_id)
@@ -489,6 +489,12 @@ class IntegrationsService:
         return [
             {"kind": kind, "name": cls.name, "auth_required": cls.auth_required}
             for kind, cls in sorted(CONNECTOR_REGISTRY.items())
+        ]
+
+    def list_adapters(self) -> list[dict]:
+        return [
+            {"kind": cls.name, "supported_mimetypes": list(cls.supported_mimetypes)}
+            for cls in sorted(ADAPTER_REGISTRY.values(), key=lambda c: c.name)
         ]
 
     def _connector_for_source(self, source: IntegrationSource):

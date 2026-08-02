@@ -88,6 +88,12 @@ def setup(ctx: AppContext) -> None:
             workspace_id, opportunity_id
         ),
     )
+    reg.provide(
+        "claims.response_analytics_for_opportunity",
+        lambda session, workspace_id, opportunity_id: factory(
+            session
+        ).response_analytics_for_opportunity(workspace_id, opportunity_id),
+    )
 
 
 module = ModuleSpec(

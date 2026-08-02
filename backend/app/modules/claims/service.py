@@ -163,6 +163,22 @@ def _rate(numerator: int, denominator: int) -> int:
     return int(round(100 * numerator / denominator))
 
 
+def _percentile(values: list[int], pct: float) -> int:
+    if not values:
+        return 0
+    s = sorted(values)
+    k = (len(s) - 1) * pct / 100.0
+    f = int(k)
+    c = min(f + 1, len(s) - 1)
+    if f == c:
+        return s[f]
+    return int(s[f] + (k - f) * (s[c] - s[f]))
+
+
+def _median(values: list[int]) -> int:
+    return _percentile(values, 50.0)
+
+
 class ClaimsService:
     def __init__(
         self,
@@ -1117,6 +1133,81 @@ class ClaimsService:
             },
             "recovered_total_minor": recovered_total,
             "claimed_total_minor": claimed_total,
+        }
+
+    def response_analytics_for_opportunity(self, workspace_id, opportunity_id) -> dict:
+        wid = _to_uuid(workspace_id)
+        oid = _to_uuid(opportunity_id)
+        claims = list(
+            self.s.scalars(
+                select(Claim).where(Claim.workspace_id == wid, Claim.opportunity_id == oid)
+            )
+        )
+        claim_ids = [c.id for c in claims]
+        by_responder: dict[str, dict[str, Any]] = {}
+        all_response_days: list[int] = []
+        negotiation_gaps: list[int] = []
+
+        responses = list(
+            self.s.scalars(
+                select(ClaimResponse).where(ClaimResponse.claim_id.in_(claim_ids))
+            )
+        )
+        for resp in responses:
+            claim = next((c for c in claims if c.id == resp.claim_id), None)
+            if claim is None or claim.submitted_at is None or resp.received_at is None:
+                continue
+            days = (resp.received_at - claim.submitted_at.date()).days
+            if days < 0:
+                days = 0
+            all_response_days.append(days)
+            entry = by_responder.setdefault(
+                resp.responder,
+                {"responder": resp.responder, "count": 0, "days": []},
+            )
+            entry["count"] += 1
+            entry["days"].append(days)
+
+        negotiations = list(
+            self.s.scalars(
+                select(ClaimNegotiation).where(ClaimNegotiation.claim_id.in_(claim_ids))
+            )
+        )
+        by_claim_negs: dict[uuid.UUID, list[ClaimNegotiation]] = {}
+        for n in negotiations:
+            by_claim_negs.setdefault(n.claim_id, []).append(n)
+        for negs in by_claim_negs.values():
+            negs.sort(key=lambda x: x.round)
+            for i in range(1, len(negs)):
+                gap = int((negs[i].recorded_at - negs[i - 1].recorded_at).total_seconds() / 86400)
+                if gap >= 0:
+                    negotiation_gaps.append(gap)
+
+        responder_stats = []
+        for r, data in by_responder.items():
+            days = data["days"]
+            responder_stats.append(
+                {
+                    "responder": r,
+                    "count": data["count"],
+                    "min_days": min(days) if days else 0,
+                    "max_days": max(days) if days else 0,
+                    "avg_days": _avg(days),
+                    "median_days": _median(days),
+                    "p90_days": _percentile(days, 90.0),
+                }
+            )
+
+        return {
+            "opportunity_id": str(oid),
+            "response_stats": responder_stats,
+            "overall": {
+                "count": len(all_response_days),
+                "avg_days": _avg(all_response_days),
+                "median_days": _median(all_response_days),
+                "p90_days": _percentile(all_response_days, 90.0),
+            },
+            "negotiation_cadence_days": _avg(negotiation_gaps),
         }
 
     def _notice_deadline(self, workspace_id, event_id) -> date | None:

@@ -30,6 +30,22 @@ def setup(ctx: AppContext) -> None:
             workspace_id, currency=currency
         ),
     )
+    reg.provide(
+        "outcomes.bid_outcomes_for_workspace",
+        lambda session, workspace_id: factory(session).bid_outcomes_for_workspace(workspace_id),
+    )
+    reg.provide(
+        "outcomes.risk_materializations_for_workspace",
+        lambda session, workspace_id: factory(session).risk_materializations_for_workspace(
+            workspace_id
+        ),
+    )
+    reg.provide(
+        "outcomes.claim_recoveries_for_workspace",
+        lambda session, workspace_id: factory(session).claim_recoveries_for_workspace(
+            workspace_id
+        ),
+    )
 
 
 module = ModuleSpec(

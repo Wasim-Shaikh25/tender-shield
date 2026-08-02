@@ -18,6 +18,7 @@ from app.modules.billing.models import (
     Invoice,
     PaymentLog,
     PlanHistory,
+    ProjectSubscription,
     UsageEvent,
     WebhookEvent,
 )
@@ -193,6 +194,24 @@ class BillingService:
         if commit:
             self.s.commit()
         return inv
+
+    def invoices_for_workspace(self, workspace_id) -> list[Invoice]:
+        return list(
+            self.s.scalars(
+                select(Invoice)
+                .where(Invoice.workspace_id == uuid.UUID(str(workspace_id)))
+                .order_by(Invoice.created_at.desc())
+            )
+        )
+
+    def project_subscriptions_for_workspace(self, workspace_id) -> list[ProjectSubscription]:
+        return list(
+            self.s.scalars(
+                select(ProjectSubscription)
+                .where(ProjectSubscription.workspace_id == uuid.UUID(str(workspace_id)))
+                .order_by(ProjectSubscription.created_at.desc())
+            )
+        )
 
     # ---- validation helpers -----------------------------------------------
     def _valid_amount(

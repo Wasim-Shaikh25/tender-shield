@@ -475,10 +475,10 @@ before work completion."*
 | TS-264 | Issue → response → negotiation → settlement tracking with outcome capture | Research Doc §4.G, §5.3(21) | `specs/modules/claims.md` | done |
 | TS-265 | Outcome feedback into the private learning set: approved / negotiated / rejected / withdrawn / disputed | Research Doc §5.3(22) | `specs/modules/outcomes.md` (update) | done |
 | TS-266 | Chain-integrity test: every claim traces to a notice → event → baseline obligation → tender clause; a broken link fails the build | Research Doc §14; Roadmap §5 | `specs/modules/claims.md` | done |
-| TS-267 | Conflicts control: block serving opposing parties on the same project | Research Doc §11.1 | `specs/modules/auth.md` (update) | todo |
-| TS-268 | Claim-cycle-time and notice-timeliness workflow metrics | Research Doc §12.2 | `specs/modules/analytics.md` (update) | todo |
-| TS-269 | North-star extension: recovered claim value linked to TenderShield evidence feeds "margin protected" | Research Doc §12.1 | `specs/modules/outcomes.md` (update) | todo |
-| TS-270 | Site evidence capture: mobile geotagged photos, labour/plant/daywork records, offline sync, evidence-quality prompts | Research Doc §13 Site evidence | `specs/modules/evidence.md` (update) | todo |
+| TS-267 | Conflicts control: block serving opposing parties on the same project | Research Doc §11.1 | `specs/modules/auth.md` (update) | done |
+| TS-268 | Claim-cycle-time and notice-timeliness workflow metrics | Research Doc §12.2 | `specs/modules/analytics.md` (update) | done |
+| TS-269 | North-star extension: recovered claim value linked to TenderShield evidence feeds "margin protected" | Research Doc §12.1 | `specs/modules/outcomes.md` (update) | done |
+| TS-270 | Site evidence capture: mobile geotagged photos, labour/plant/daywork records, offline sync, evidence-quality prompts | Research Doc §13 Site evidence | `specs/modules/evidence.md` (update) | done |
 
 ---
 

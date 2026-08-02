@@ -2,7 +2,7 @@
 
 **Status:** implemented — chain of custody, event attachment, completeness scoring
 **Requirement refs:** Research Doc §2.1, §4.G, §6.3; Build Doc §6.5
-**Task refs:** TS-254, TS-255
+**Task refs:** TS-254, TS-255, TS-270
 
 ## Purpose
 
@@ -50,12 +50,13 @@ module is enabled.
 | `workspace_id` | UUID | RLS |
 | `opportunity_id` | UUID | indexed; logical ref |
 | `change_event_id` | UUID | indexed; logical ref to change event (no FK) |
-| `record_type` | string | `site_instruction` \| `photograph` \| `measurement` \| `daily_report` \| `meeting_minutes` \| `correspondence` \| `drawing_revision` \| `other` |
+| `record_type` | string | `site_instruction` \| `photograph` \| `geotagged_photo` \| `measurement` \| `daily_report` \| `meeting_minutes` \| `correspondence` \| `drawing_revision` \| `labour` \| `plant` \| `material` \| `daywork` \| `other` |
 | `title` | string | short label |
 | `description` | text nullable | operator notes |
 | `captured_at` | timestamptz | when the record was created in the field |
 | `document_id` | UUID nullable | optional ingestion document ref |
 | `custody_chain` | JSON | append-only `[{user_id, action, at, note?}]` |
+| `record_metadata` | JSON | geolocation, offline-sync hints, quality prompts |
 | `created_by` | UUID | |
 | `created_at` | timestamptz | |
 
@@ -67,7 +68,8 @@ module is enabled.
 - **B3 — Completeness (deterministic).** Required record types derive from event `reason` via a
   fixed map (never LLM). Score = `len(present ∩ required) / len(required)` as a 0–100 integer.
 - **B4 — Missing list.** Returns human-readable missing type labels for UI checklists.
-- **B5 — Org isolation.** All queries filter by `workspace_id`.
+- **B5 — Site evidence (TS-270).** `geotagged_photo` carries geolocation in `record_metadata`. `labour`, `plant`, `material`, and `daywork` record types are accepted and count toward claim-checklist items.
+- **B6 — Org isolation.** All queries filter by `workspace_id`.
 
 ## Acceptance criteria
 
@@ -75,10 +77,11 @@ module is enabled.
 - A2 (TS-254): `GET /records/{id}` returns full custody chain.
 - A3 (TS-255): Completeness for `drawing_revision` lists missing types when only photograph present.
 - A4 (TS-255): Score is 100 when all required types are present.
+- A5 (TS-270): `geotagged_photo`, `labour`, `plant`, `material`, and `daywork` records are accepted and returned with `metadata`.
 
 ## Out of scope
 
-- Mobile geotagged capture (TS-270, Phase 21).
+- Native mobile apps and offline-first sync client (Phase 21).
 - Claims valuation workspace (Phase 19).
 - File blob storage beyond `document_id` reference to ingestion.
 

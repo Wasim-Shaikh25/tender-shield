@@ -6,6 +6,28 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-08-01 (Phase 19 remaining: TS-267–TS-270)
+
+- **TS-267 conflicts control** — per-claim `claimant_party` (`contractor`/`employer`/`engineer`/`other`);
+  `GET /api/claims/claims/{id}/conflicts` detects opposing parties on the same opportunity.
+- **TS-268 claim cycle-time + notice-timeliness metrics** — `GET /api/claims/opportunities/{id}/claim-metrics`
+  returns status counts, per-claim cycle times, averages, and notice on-time rate using
+  `change.notice_deadline_for_event`; exposed at `GET /api/analytics/claim-metrics`.
+- **TS-269 north-star recovered value** — `outcomes.record_claim_outcome` captures settled
+  `recovered_amount_minor` in new `oc_claim_recoveries` table; `margin_protected` adds claim
+  recoveries to the total.
+- **TS-270 site evidence capture hooks** — evidence `record_metadata` JSON holds geolocation/quality
+  prompts; new `record_type` values `geotagged_photo`, `labour`, `plant`, `material`, `daywork`
+  accepted and count toward claim checklist items.
+- **Migrations** — `b2cc5dbfbbd6_phase19_claims_remaining` adds `claimant_party`, `record_metadata`,
+  and `oc_claim_recoveries` with RLS.
+- **Tests** — extended `test_claims.py` with conflict detection, cycle metrics, margin-protected
+  recovered value, and site evidence record types (12 passed; full suite 564 passed).
+
+### Next
+
+- Phase 20 (TS-271–TS-280): Commercial Control Tower & Portfolio Intelligence.
+
 ### Done — 2026-08-01 (Phase 19 claims workspace: TS-258–TS-266)
 
 - **TS-258 claims module scaffold** — workspace-scoped SQLAlchemy models with RLS;

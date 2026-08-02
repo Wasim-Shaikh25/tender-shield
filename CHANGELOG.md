@@ -6,18 +6,37 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
-### Done — 2026-08-01 (TS-247: email inbox adapter)
+### Done — 2026-08-01 (Phase 19 claims workspace: TS-258–TS-266)
 
-- **TS-247 email ingestion** — per-opportunity forward address (`POST/GET
-  /api/change/opportunities/{id}/inbox/email`); HMAC webhook
-  `POST /api/change/webhooks/inbound-email`; append-only `change_inbound_emails`;
-  reuses signal classification with sanitized untrusted body.
+- **TS-258 claims module scaffold** — workspace-scoped SQLAlchemy models with RLS;
+  Alembic migration `00023291b095_add_claims_tables`; FastAPI router `/api/claims`.
+- **TS-259 chronology builder** — every claim event/evidence/response/negotiation/settlement
+  entry carries `source_id`, `source_quote`, `source_page`, `document_id` and is sorted by
+  `occurred_at`.
+- **TS-260 evidence checklist per claim type** — required items for `variation`/`delay`
+  (`instruction`, `baseline`, `revised_scope`, `labour`, `plant`, `material`, `schedule`,
+  `photos`, `quantum`, `delay`, `correspondence`, `approvals`) with present/missing flags and
+  manual override support.
+- **TS-261 quantum workspace** — deterministic `quantity × rate_minor` measured-work total plus
+  optional `daywork_days × daywork_rate_minor`; totals in minor units, no LLM arithmetic.
+- **TS-262 delay-event register** — records `event_date`, `delay_days`, `programme_activity` and
+  source provenance; never computes entitlement.
+- **TS-263 draft generators** — `particulars`, `eot`, `variation_proposal` and `full_pack`
+  drafts assembled from verified chronology/quantum/checklist facts; human approval gate.
+- **TS-264 negotiation lifecycle** — `POST .../responses`, `POST .../negotiations` and
+  `POST .../settlement` with append-only timeline and status transitions.
+- **TS-265 outcome feedback** — settlement records `outcome` + `recovered_amount_minor` and
+  publishes `claim.settlement_recorded` for the private learning set.
+- **TS-266 chain-integrity test** — `GET .../chain-integrity` verifies
+  claim → notice → confirmed change event → baseline obligation; `POST .../submit` rejects
+  broken chains (`409 chain_broken`).
 
-Tests: 552 passed / 5 skipped.
+Tests: 560 passed / 5 skipped.
 
 ### Next
 
-- Phase 19 claims workspace (TS-257+).
+- Phase 19 remaining work (TS-267–TS-270): conflicts control, claim-cycle-time metrics,
+  north-star recovered-value feed, site/mobile evidence capture hooks.
 
 ### Done — 2026-08-01 (TS-254–TS-256: evidence + project billing)
 

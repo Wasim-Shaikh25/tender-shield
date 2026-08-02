@@ -121,9 +121,7 @@ The dynamic connector accepts an arbitrary `base_url`, `auth_config`, `headers`,
 ### R5 — Governance retention / archive execution job (TS-340)
 
 **Requirement refs:** `PRODUCTION_READINESS_AUDIT.md` TS-GOV-01; `specs/modules/governance.md`  
-**Status target:** `done` when retention policy is actually executed and audited.
-
-`governance` currently stores `retention_days`, `archive_after_days`, `legal_hold`, and `encryption_at_rest` and can return retention candidates, but no job acts on them.
+**Status:** `done`.
 
 #### Acceptance criteria
 

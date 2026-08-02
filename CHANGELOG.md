@@ -55,10 +55,30 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - New `backend/tests/test_public_api.py` covers valid, missing, invalid, and
   cross-workspace notice/change-event references.
 
+### Done — Round 9 audit gap closure (TS-340)
+
+- **TS-340** — Governance retention/archive execution job implemented.
+  - `Document` gains `archived_at` and `deleted_at` columns with Alembic
+    migration `64974d378eb8`.
+  - `GovernanceService.run_retention_job` scans workspaces with `retention_days`,
+    archives documents older than `archive_after_days` (when < retention_days),
+    soft-deletes documents older than `retention_days`, and hard-deletes them
+    after `TS_RETENTION_GRACE_DAYS` (default 30).
+  - Hard-deleted documents remove the underlying storage object via the configured
+    `StorageBackend` and emit `governance.document_*` audit events via the review
+    module.
+  - Feature flag `TS_RETENTION_JOB_ENABLED` and interval
+    `TS_RETENTION_JOB_INTERVAL_HOURS` added to `app.core.config`.
+  - New `ingestion.retention_apply` registry capability supports `archive`,
+    `soft_delete`, and `hard_delete` actions; `documents_for_retention` now
+    includes `archived_at`, `deleted_at`, and `s3_key`.
+  - New `backend/tests/test_governance_retention.py` covers disabled flag,
+    archive, soft-delete → hard-delete, and legal-hold skip.
+
 ### Next
 
-- Round 9 audit gap closure continues: **TS-340** (governance retention/archive
-  execution), **TS-341** (eval deadline and tender-value match ≥95%).
+- Round 9 audit gap closure continues: **TS-341** (eval deadline and tender-value
+  match ≥95%).
 
 ### Done — Round 8 release-blocker fixes (TS-299)
 

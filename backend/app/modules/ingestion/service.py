@@ -28,6 +28,13 @@ from app.modules.ingestion.doc_text import (
 from app.modules.ingestion.models import Clause, Deadline, DefinedTerm, Document, Opportunity
 from app.modules.ingestion.segment import segment_clauses, segment_defined_terms
 
+
+class IngestionError(Exception):
+    def __init__(self, code: str):
+        super().__init__(code)
+        self.code = code
+
+
 _FALLBACK_ANCHORS = {
     "nit": [r"NOTICE\s+INVITING\s+TENDER", r"\bNIT\s*No"],
     "gcc": [r"GENERAL\s+CONDITIONS\s+OF\s+CONTRACT"],
@@ -397,6 +404,30 @@ class IngestionService:
         doc = self.get_document(workspace_id, document_id)
         return doc.kind if doc else None
 
+    def retention_apply(self, workspace_id, document_id, action: str) -> dict:
+        """Archive, soft-delete, or hard-delete a workspace-scoped document.
+
+        Returns a dict with ``s3_key`` and ``deleted`` so the caller can remove
+        the underlying storage object and record an audit event.
+        """
+        doc = self.get_document(workspace_id, document_id)
+        if doc is None:
+            raise IngestionError("not_found")
+        s3_key = doc.s3_key or ""
+        now = datetime.now(UTC)
+        if action == "archive":
+            doc.archived_at = now
+        elif action == "soft_delete":
+            doc.deleted_at = now
+        elif action == "hard_delete":
+            self.s.delete(doc)
+            self.s.commit()
+            return {"s3_key": s3_key, "deleted": True}
+        else:
+            raise IngestionError("invalid_action")
+        self.s.commit()
+        return {"s3_key": s3_key, "deleted": False}
+
     def list_clauses(
         self, workspace_id, opportunity_id, *, limit: int | None = None
     ) -> list[Clause]:
@@ -465,6 +496,9 @@ class IngestionService:
                 "kind": d.kind,
                 "opportunity_id": str(d.opportunity_id),
                 "created_at": d.created_at.isoformat() if d.created_at else None,
+                "archived_at": d.archived_at.isoformat() if d.archived_at else None,
+                "deleted_at": d.deleted_at.isoformat() if d.deleted_at else None,
+                "s3_key": d.s3_key,
             }
             for d in rows
         ]

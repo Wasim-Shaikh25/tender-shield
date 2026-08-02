@@ -358,6 +358,31 @@ Append-only raw inbound messages (`message_id` unique per workspace).
 - A17 (TS-247): Inbound webhook with bad signature returns 400; valid email creates email
   `candidate` with `message_id` dedup.
 
+## Frontend UI (TS-301)
+
+### Public pages
+
+- `/opportunities/{id}` gains a **Changes** tab.
+- The tab renders the potential-variation inbox and confirmation workflow.
+
+### Acceptance criteria
+
+- F1: Tab lists `GET /api/change/opportunities/{id}/inbox` events with `status`,
+  `title`, `reason`, `confidence_band`, `trigger_date`, and `notice_deadline`.
+- F2: Each event exposes outcome buttons: `changed`, `not_changed`, `clarification_only`,
+  `contractor_risk`, `client_risk`, `unknown`.
+- F3: Recording a confirmation calls `POST /api/change/events/{id}/confirmations` and
+  refreshes the list.
+- F4: Confirmed events show a **Notice deadline** button that fetches
+  `GET /api/change/events/{id}/notice-deadline` and displays `notice_deadline`,
+  `deadline_days`, and `required_content`.
+- F5: Confirmed events show a **Draft notice** button that calls
+  `POST /api/change/events/{id}/notice-draft` and returns an `artifact_id`.
+- F6: Users can triage an event via `PUT /api/change/events/{id}/triage` (`triaged` or
+  `rejected`).
+- F7: Manual event creation is reachable from the tab and calls
+  `POST /api/change/opportunities/{id}/events` with at least one `source_quote`.
+
 ## Cross-module specs (Phase 18)
 
 | Task | Primary spec | Notes |

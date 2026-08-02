@@ -54,6 +54,68 @@ export type Finding = {
   disclaimer?: string | null;
 };
 
+export type ChangeSource = {
+  id?: string;
+  source_kind: string;
+  document_id?: string | null;
+  source_page?: number | null;
+  source_quote?: string | null;
+  external_ref?: string | null;
+  text_preview?: string | null;
+  received_at?: string | null;
+};
+
+export type ChangeConfirmation = {
+  id: string;
+  outcome: string;
+  confirmed_by: string;
+  confirmed_at: string;
+  note?: string | null;
+  evidence_ids?: string[];
+};
+
+export type ChangeEvent = {
+  id: string;
+  opportunity_id: string;
+  baseline_id?: string | null;
+  status: "candidate" | "triaged" | "confirmed" | "rejected" | "closed";
+  title: string;
+  reason: string;
+  affected_scope?: string | null;
+  confidence_band: string;
+  notice_type?: string | null;
+  trigger_date?: string | null;
+  notice_deadline?: string | null;
+  notice_deadline_detail?: Record<string, unknown>;
+  impact_links?: Record<string, unknown>;
+  created_by?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  sources?: ChangeSource[];
+  latest_confirmation?: ChangeConfirmation | null;
+  evidence_completeness?: Record<string, unknown> | null;
+};
+
+export type ChangeInbox = { events: ChangeEvent[] };
+
+export type NoticeDeadline = {
+  notice_type?: string;
+  deadline_days?: number;
+  deadline_basis?: string;
+  trigger_date?: string;
+  notice_deadline?: string;
+  deadline_unknown?: boolean;
+  required_content?: string[];
+  correspondence?: Record<string, unknown>;
+};
+
+export type NoticeDraft = {
+  artifact_id: string;
+  kind: string;
+  version: number;
+  status: string;
+};
+
 export type PlanSection = {
   type: "kpi" | "table" | "chart" | "mermaid" | "text";
   title: string;
@@ -398,6 +460,34 @@ export const api = {
     if (!res.ok) throw new Error("Export failed");
     return res.blob();
   },
+  // Change / variation control (Phase 18)
+  listChangeInbox: (token: string, opportunityId: string) =>
+    req<ChangeInbox>(`/change/opportunities/${opportunityId}/inbox`, {}, token),
+  listChangeEvents: (token: string, opportunityId: string) =>
+    req<{ events: ChangeEvent[] }>(`/change/opportunities/${opportunityId}/events`, {}, token),
+  getChangeEvent: (token: string, eventId: string) =>
+    req<ChangeEvent>(`/change/events/${eventId}`, {}, token),
+  createChangeEvent: (token: string, opportunityId: string, body: {
+    title: string;
+    reason?: string;
+    affected_scope?: string;
+    confidence_band?: string;
+    notice_type?: string;
+    trigger_date?: string;
+    sources: { source_kind?: string; source_quote: string; source_page?: number | null; document_id?: string | null; external_ref?: string | null }[];
+  }) =>
+    req<ChangeEvent>(`/change/opportunities/${opportunityId}/events`, { method: "POST", body: JSON.stringify(body) }, token),
+  confirmChangeEvent: (token: string, eventId: string, outcome: string, note?: string, evidence_ids?: string[]) =>
+    req<ChangeConfirmation>(`/change/events/${eventId}/confirmations`, {
+      method: "POST",
+      body: JSON.stringify({ outcome, note, evidence_ids }),
+    }, token),
+  triageChangeEvent: (token: string, eventId: string, decision: string) =>
+    req<ChangeEvent>(`/change/events/${eventId}/triage`, { method: "PUT", body: JSON.stringify({ decision }) }, token),
+  getNoticeDeadline: (token: string, eventId: string) =>
+    req<NoticeDeadline>(`/change/events/${eventId}/notice-deadline`, {}, token),
+  requestNoticeDraft: (token: string, eventId: string) =>
+    req<NoticeDraft>(`/change/events/${eventId}/notice-draft`, { method: "POST" }, token),
 };
 
 export type PlanSnapshot = {

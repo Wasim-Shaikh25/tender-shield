@@ -49,6 +49,9 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 - **TS-308** — added a `Plan` nav link to `frontend/app/layout.tsx` so the existing
   `/plan` AI dashboard is discoverable; typecheck and build pass.
+- **TS-301** — change / variation inbox UI on the opportunity detail page: list
+  inbox events, confirm outcomes, triage, view notice deadline, request notice draft,
+  and create manual events with source quotes. Frontend build and lint pass.
 - Added `docs/REMAINING_GAPS_ROADMAP.md` with one row for every `Partial` / `Missing`
   capability from `FEATURE_COVERAGE.md`.
 - Created **Phase 22** in `tasks/backlog.md` with 33 concrete tasks (TS-301–TS-333)

@@ -7,6 +7,7 @@ import {
   type Artifact,
   type Baseline,
   type BaselineCompare,
+  type ChangeEvent,
   type Deadline,
   type Finding,
   type Gate,
@@ -18,12 +19,13 @@ import {
 import { useSession } from "@/components/session";
 import { SeverityBadge, SourceBadge } from "@/components/badges";
 import { artifactLabel, categoryLabel, deadlineLabel, statusLabel } from "@/lib/labels";
+import { ChangesTab } from "./changes-tab";
 
 export default function OpportunityDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { session } = useSession();
   const [tab, setTab] = useState<
-    "overview" | "risks" | "boq" | "artifacts" | "handover" | "audit"
+    "overview" | "risks" | "boq" | "artifacts" | "handover" | "audit" | "changes"
   >("overview");
   const [title, setTitle] = useState("Opportunity");
   const [missing, setMissing] = useState<MissingDocs | null>(null);
@@ -41,6 +43,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
   const [note, setNote] = useState<string | null>(null);
   const [boqCsv, setBoqCsv] = useState("");
   const [auditLog, setAuditLog] = useState<{ id: string; action: string; actor_email: string | null; created_at: string; meta: Record<string, unknown> }[]>([]);
+  const [events, setEvents] = useState<ChangeEvent[]>([]);
 
   const refresh = useCallback(async () => {
     if (!session) return;
@@ -62,6 +65,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
     api.handover(session.token, id).then(setHandoverPack).catch(() => setHandoverPack(null));
     api.compareBaselines(session.token, id).then(setCompareData).catch(() => setCompareData(null));
     api.auditTrail(session.token, id).then((d) => setAuditLog(d.audit)).catch(() => setAuditLog([]));
+    api.listChangeInbox(session.token, id).then((d) => setEvents(d.events)).catch(() => setEvents([]));
   }, [session, id]);
 
   useEffect(() => {
@@ -198,7 +202,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
       {note && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{note}</p>}
 
       <div className="flex gap-1 border-b border-slate-200">
-        {(["overview", "risks", "boq", "artifacts", "handover", "audit"] as const).map((t) => (
+        {(["overview", "risks", "boq", "artifacts", "handover", "audit", "changes"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -460,6 +464,10 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
             </ul>
           )}
         </div>
+      )}
+
+      {tab === "changes" && session && (
+        <ChangesTab token={session.token} opportunityId={id} events={events} onRefresh={refresh} />
       )}
     </div>
   );

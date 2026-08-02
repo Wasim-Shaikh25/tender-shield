@@ -158,7 +158,7 @@ class DocTextService:
                 DocChunk.document_id == uuid.UUID(str(document_id)),
                 DocChunk.workspace_id == uuid.UUID(str(workspace_id)),
             )
-            .order_by(DocChunk.page)
+            .order_by(DocChunk.page, DocChunk.id)
         )
         rows = list(self.s.scalars(stmt))
         result: dict[int, str] = {}
@@ -166,11 +166,11 @@ class DocTextService:
             page_set = set(pages)
             for r in rows:
                 if r.page in page_set:
-                    result[r.page] = r.text
+                    result[r.page] = result.get(r.page, "") + (r.text + "\n")
         else:
             for r in rows:
-                result[r.page] = r.text
-        return result
+                result[r.page] = result.get(r.page, "") + (r.text + "\n")
+        return {p: t.strip() for p, t in result.items()}
 
     def text_for_page(self, workspace_id, document_id, page: int) -> str | None:
         row = self.s.scalar(

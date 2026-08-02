@@ -77,7 +77,7 @@ class GovernanceService:
         retention_days = settings.get("retention_days")
         if not retention_days or self._ingestion_retention is None:
             return []
-        return self._ingestion_retention(workspace_id, retention_days)
+        return self._ingestion_retention(self.s, workspace_id, retention_days)
 
     def _to_dict(self, row: WorkspaceDataGovernance) -> dict:
         return {

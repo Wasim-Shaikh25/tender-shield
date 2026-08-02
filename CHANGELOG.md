@@ -45,6 +45,16 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - **AGENTS.md refresh** — removed the stale `TS-F01` workspace-list warning; the
   response shape is aligned with `SessionProvider`.
 
+### Done — feature coverage audit (TS-300)
+
+- Added `FEATURE_COVERAGE.md` cross-checking every capability in
+  `TenderShield_AI_Architecture_and_Market_Research.pdf` against the codebase,
+  specs, `tasks/backlog.md`, and the passing test suite (`580 passed, 4 skipped`).
+- Verdict: all five product stages (Pre-bid, Baseline, Variations, Claims,
+  Control Tower) are implemented in the backend and covered by tests; main gaps
+  are front-end surfaces for change/claims/control tower/integrations and live
+  third-party connectors.
+
 ### Done — auth configuration and login methods (TS-297)
 
 - **TS-297 configurable auth** — `backend/app/modules/auth/service.py` and `router.py`

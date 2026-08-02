@@ -534,3 +534,9 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
 | TS-299 | Fix Round 8 audit release blockers: public_api RLS/auth, integrations/public_api opportunity validation, auth invitation/member 500s, `.env.local` mobile verification mismatch, backlog tracker cleanup | Round 8 audit; Build Doc §3.2, §5, §6, §11.4 | `PRODUCTION_READINESS_AUDIT.md` §6 | done |
+
+## Feature coverage audit
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-300 | Cross-check every capability in `TenderShield_AI_Architecture_and_Market_Research.pdf` against the codebase, specs, tasks and tests; produce `FEATURE_COVERAGE.md` with implemented/partial/missing verdicts | Research Doc §4, §5, §9 | `FEATURE_COVERAGE.md` | done |

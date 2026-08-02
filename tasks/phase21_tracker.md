@@ -22,9 +22,9 @@ contractor can track subcontract back-to-back notice and pay-when-paid exposure.
 | Sprint | Theme | Tasks | Exit gate | Status |
 |---|---|---|---|---|
 | **0** | **Integration adapter framework** | TS-281–TS-287 | Adapter registry; upload-based imports for SharePoint/OneDrive, Procore, Autodesk, Aconex, ERP, schedule | done |
-| **1** | **Subcontract control** | TS-288, TS-289 | Flow-down clause comparison; back-to-back notice calendar; pay-when-paid flags | in_progress |
-| **2** | **Advisor Edition** | TS-290, TS-291 | Multi-client workspace separation; per-client usage billing; white-label reports | pending |
-| **3** | **Public API + e-signature** | TS-292 | API-key auth; e-signature request/issue endpoints | pending |
+| **1** | **Subcontract control** | TS-288, TS-289 | Flow-down clause comparison; back-to-back notice calendar; pay-when-paid flags | done |
+| **2** | **Advisor Edition** | TS-290, TS-291 | Multi-client workspace separation; per-client usage billing; white-label reports | done |
+| **3** | **Public API + e-signature** | TS-292 | API-key auth; e-signature request/issue endpoints | done |
 
 ## Task table
 
@@ -37,11 +37,11 @@ contractor can track subcontract back-to-back notice and pay-when-paid exposure.
 | TS-285 | Oracle Aconex adapter | `integrations` | P1 | done | Mail / transmittal → documents + change events | TS-281 |
 | TS-286 | ERP adapter (Tally / SAP / Dynamics) | `integrations` | P1 | done | Cost-code CSV/JSON → `integration_cost_lines` | TS-281 |
 | TS-287 | Schedule import: P6 / MS Project | `integrations` | P1 | done | CSV/XML/XER → `integration_schedule_activities` | TS-281 |
-| TS-288 | Subcontract flow-down and scope-gap checks | `subcontract` | P1 | in-progress | Compare subcontract clauses to main contract; flag gaps | TS-281 |
-| TS-289 | Back-to-back notice calendar and pay-when-paid exposure | `subcontract` | P1 | in-progress | Notice deadlines + payment ageing across subcontract chain | TS-288 |
-| TS-290 | Advisor Edition: multi-client workspaces | `advisor` | P1 | todo | Advisor workspace links client workspaces | Phase 20 |
-| TS-291 | White-label branded report templates | `advisor` | P1 | todo | Per-client report theme/template config | TS-290 |
-| TS-292 | Public API + e-signature integration | `public_api` | P1 | todo | API keys, scopes, notice issue / signature webhook | TS-290 |
+| TS-288 | Subcontract flow-down and scope-gap checks | `subcontract` | P1 | done | Compare subcontract clauses to main contract; flag gaps | TS-281 |
+| TS-289 | Back-to-back notice calendar and pay-when-paid exposure | `subcontract` | P1 | done | Notice deadlines + payment ageing across subcontract chain | TS-288 |
+| TS-290 | Advisor Edition: multi-client workspaces | `advisor` | P1 | done | Advisor workspace links client workspaces | Phase 20 |
+| TS-291 | White-label branded report templates | `advisor` | P1 | done | Per-client report theme/template config | TS-290 |
+| TS-292 | Public API + e-signature integration | `public_api` | P1 | done | API keys, scopes, notice issue / signature webhook | TS-290 |
 
 ## Product invariants (Phase 21)
 

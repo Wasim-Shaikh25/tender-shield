@@ -517,11 +517,11 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-285 | Oracle Aconex adapter | Research Doc §4.I | `specs/modules/integrations.md` | done |
 | TS-286 | ERP adapter (cost codes, committed cost, certified value) — Tally / SAP / MS Dynamics shortlist | Research Doc §4.I | `specs/modules/integrations.md` | done |
 | TS-287 | Schedule import: P6 / MS Project; event-to-activity links; contemporaneous programme snapshots | Research Doc §13 Schedule linkage | `specs/modules/integrations.md` | done |
-| TS-288 | **Subcontract control**: flow-down clause comparison against the main contract, subcontract scope-gap checks | Research Doc §13 Subcontract control | `specs/modules/subcontract.md` (new) | todo |
-| TS-289 | Back-to-back notice calendar and **pay-when-paid exposure flags** across the subcontract chain | Research Doc §13 Subcontract control | `specs/modules/subcontract.md` | todo |
-| TS-290 | Advisor Edition: multi-client workspace separation, review queues, per-client usage billing | Research Doc §8.3, §10.1 | `specs/modules/advisor.md` (new) | todo |
-| TS-291 | White-label branded report templates for the advisor channel | Research Doc §8.3 | `specs/modules/export.md` (update) | todo |
-| TS-292 | Public API + e-signature integration for notice issue | Research Doc §4.I | `specs/modules/integrations.md` | todo |
+| TS-288 | **Subcontract control**: flow-down clause comparison against the main contract, subcontract scope-gap checks | Research Doc §13 Subcontract control | `specs/modules/subcontract.md` (new) | done |
+| TS-289 | Back-to-back notice calendar and **pay-when-paid exposure flags** across the subcontract chain | Research Doc §13 Subcontract control | `specs/modules/subcontract.md` | done |
+| TS-290 | Advisor Edition: multi-client workspace separation, review queues, per-client usage billing | Research Doc §8.3, §10.1 | `specs/modules/advisor.md` (new) | done |
+| TS-291 | White-label branded report templates for the advisor channel | Research Doc §8.3 | `specs/modules/advisor.md` | done |
+| TS-292 | Public API + e-signature integration for notice issue | Research Doc §4.I | `specs/modules/public_api.md` (new) | done |
 
 ---
 

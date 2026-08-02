@@ -1,6 +1,6 @@
 # Round 9 Audit Gap Closure — Spec
 
-**Status:** in-progress — TS-336, TS-337, and TS-338 implemented; TS-339–TS-341 pending.  
+**Status:** in-progress — TS-336 through TS-339 implemented; TS-340–TS-341 pending.  
 **Requirement refs:** `docs/GAP_CLOSURE_REQUIREMENTS.md`; `PRODUCTION_READINESS_AUDIT.md` TS-INT-03, TS-INT-02, TS-ACL-01, TS-PUB-04, TS-GOV-01, TS-EV-01; `docs/TenderShield_Full_Build_Doc.md` §3.2, §5, §6, §11.2, §11.5, §14, §15.  
 **Task refs:** TS-335, TS-336, TS-337, TS-338, TS-339, TS-340, TS-341.
 
@@ -65,10 +65,11 @@ No new tables except where noted below:
 
 ### B4 — Public API signature request validation (TS-339)
 
-- **B4.1** `PublicApiService.request_signature` validates `notice_id` (if provided) by querying the workspace/opportunity-scoped notice registry.
-- **B4.2** It validates `change_event_id` (if provided) by calling the `change` module's service factory.
-- **B4.3** Invalid IDs raise `PublicApiError("no_such_notice")` or `PublicApiError("no_such_change_event")`, mapped to `404`.
-- **B4.4** The module does not import `change` or `baseline` directly; it uses registry capabilities.
+- **B4.1** `PublicApiService.request_signature` validates `notice_id` (if provided) as a workspace/opportunity-scoped `ChangeEvent` with a non-null `notice_type`; `change_event_id` is validated as any workspace/opportunity-scoped `ChangeEvent`.
+- **B4.2** Validation uses `change.service_factory` (already a soft dependency) and does not import `change` directly.
+- **B4.3** Invalid or cross-workspace IDs raise `PublicApiError("no_such_notice")` or `PublicApiError("no_such_change_event")`, mapped to `404`.
+- **B4.4** `public_api/router.py` uses `public_api.service_factory` when available, falling back to direct construction with `ingestion_factory` and `change_factory`.
+- **B4.5** `PublicApiService.authenticate` and `signature_callback` skip Postgres-only `SET LOCAL` GUC statements on non-PostgreSQL dialects so tests run on SQLite.
 
 ### B5 — Governance retention execution (TS-340)
 

@@ -42,11 +42,23 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   - New `backend/tests/test_document_acl.py` covers ingestion read, export, and
     baseline-diff ACL enforcement.
 
+### Done — Round 9 audit gap closure (TS-339)
+
+- **TS-339** — `public_api/service.py` now validates `notice_id` and
+  `change_event_id` in `request_signature` against workspace/opportunity-scoped
+  `ChangeEvent` rows via `change.service_factory`; invalid or cross-workspace IDs
+  return `404 no_such_notice` / `404 no_such_change_event`.
+- `public_api/router.py` uses `public_api.service_factory` when present and passes
+  `ingestion_factory`/`change_factory` as fallback.
+- `PublicApiService.authenticate` and `signature_callback` only run `SET LOCAL`
+  GUC statements on PostgreSQL, fixing SQLite test execution.
+- New `backend/tests/test_public_api.py` covers valid, missing, invalid, and
+  cross-workspace notice/change-event references.
+
 ### Next
 
-- Round 9 audit gap closure continues: **TS-339** (public API `notice_id`/`change_event_id`
-  validation), **TS-340** (governance retention/archive execution), **TS-341**
-  (eval deadline and tender-value match ≥95%).
+- Round 9 audit gap closure continues: **TS-340** (governance retention/archive
+  execution), **TS-341** (eval deadline and tender-value match ≥95%).
 
 ### Done — Round 8 release-blocker fixes (TS-299)
 

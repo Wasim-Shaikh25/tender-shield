@@ -1,6 +1,6 @@
 # Public API + E-signature — Spec
 
-**Status:** draft
+**Status:** implemented (TS-339 validation added)
 **Requirement refs:** Research Doc §4.I
 **Task refs:** TS-292
 
@@ -41,8 +41,10 @@ using the interactive auth flow.
 
 - Keys are 32-byte random tokens hashed with SHA-256; only the plaintext is shown
   on creation.
-- Requests carry `notice_id`, `recipient_email`, `provider` (e.g., `docusign_stub`),
-  `status`, and `external_id`.
+- `POST /notices/{notice_id}/request-signature` body carries `opportunity_id`,
+  `recipient_email`, optional `change_event_id`, and `provider` (e.g., `docusign_stub`).
+- `notice_id` and `change_event_id` are validated as workspace/opportunity-scoped
+  `ChangeEvent` rows (a `notice_id` additionally requires a non-null `notice_type`).
 - Webhook callback updates `status` to `signed` / `declined` / `viewed`.
 
 ## Acceptance criteria
@@ -51,6 +53,9 @@ using the interactive auth flow.
 - A2: Signature request creates a `public_signature_requests` row.
 - A3: Webhook callback updates the request status.
 - A4: Migration and RLS present.
+- A5: Invalid `notice_id` or `change_event_id` (including cross-workspace IDs or
+  non-notice events for `notice_id`) returns `404 no_such_notice` /
+  `404 no_such_change_event`.
 
 ## Out of scope
 

@@ -45,6 +45,11 @@ class PublicApiService:
             raise PublicApiError("ingestion_unavailable")
         return self._ingestion_factory(self.s)
 
+    def _change(self):
+        if self._change_factory is None:
+            raise PublicApiError("change_unavailable")
+        return self._change_factory(self.s)
+
     def create_key(
         self,
         workspace_id,
@@ -97,7 +102,8 @@ class PublicApiService:
         # Allow the key lookup to bypass workspace RLS because the workspace is
         # not known until the key is found. The RLS policy on public_api_keys
         # accepts the key hash as an alternative predicate.
-        self.s.execute(text("SET LOCAL app.api_key_hash = :hash"), {"hash": hash_value})
+        if self.s.get_bind().dialect.name == "postgresql":
+            self.s.execute(text("SET LOCAL app.api_key_hash = :hash"), {"hash": hash_value})
         row = self.s.scalar(
             select(PublicApiKey).where(
                 PublicApiKey.key_hash == hash_value,
@@ -114,6 +120,18 @@ class PublicApiService:
             "scopes": row.scopes or [],
         }
 
+    def _event_or(
+        self, workspace_id, event_id: str | None, *, not_found_code: str
+    ) -> dict | None:
+        if not event_id:
+            return None
+        try:
+            return self._change().get_event_core(workspace_id, event_id)
+        except Exception as exc:
+            if getattr(exc, "code", None) == "not_found" or str(exc) == "not_found":
+                raise PublicApiError(not_found_code) from exc
+            raise
+
     def request_signature(
         self,
         workspace_id,
@@ -128,6 +146,24 @@ class PublicApiService:
         opp = self._ingestion().get_opportunity(workspace_id, opportunity_uuid)
         if opp is None:
             raise PublicApiError("no_such_opportunity")
+
+        if notice_id:
+            notice = self._event_or(
+                workspace_id, notice_id, not_found_code="no_such_notice"
+            )
+            if (
+                str(notice.get("opportunity_id")) != str(opportunity_id)
+                or not notice.get("notice_type")
+            ):
+                raise PublicApiError("no_such_notice")
+
+        if change_event_id:
+            event = self._event_or(
+                workspace_id, change_event_id, not_found_code="no_such_change_event"
+            )
+            if str(event.get("opportunity_id")) != str(opportunity_id):
+                raise PublicApiError("no_such_change_event")
+
         external_id = secrets.token_urlsafe(16)
         row = PublicSignatureRequest(
             workspace_id=uuid.UUID(str(workspace_id)),
@@ -157,9 +193,10 @@ class PublicApiService:
         # Allow the callback lookup to use the external_id as a secret key.
         # The RLS policy on public_signature_requests accepts external_id as an
         # alternative predicate.
-        self.s.execute(
-            text("SET LOCAL app.external_id = :external_id"), {"external_id": external_id}
-        )
+        if self.s.get_bind().dialect.name == "postgresql":
+            self.s.execute(
+                text("SET LOCAL app.external_id = :external_id"), {"external_id": external_id}
+            )
         row = self.s.scalar(
             select(PublicSignatureRequest).where(
                 PublicSignatureRequest.external_id == external_id,

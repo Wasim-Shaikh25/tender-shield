@@ -103,7 +103,7 @@ The dynamic connector accepts an arbitrary `base_url`, `auth_config`, `headers`,
 ### R4 — Public API `request_signature` `notice_id` / `change_event_id` validation (TS-339)
 
 **Requirement refs:** `PRODUCTION_READINESS_AUDIT.md` TS-PUB-04; `specs/modules/public_api.md`  
-**Status target:** `done` when cross-workspace references cannot be stored in `PublicSignatureRequest`.
+**Status:** `done`.
 
 `public_api/service.py` validates that the `opportunity_id` belongs to the workspace, but it does not validate `notice_id` or `change_event_id`.
 

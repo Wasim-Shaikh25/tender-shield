@@ -15,6 +15,11 @@ router = APIRouter()
 
 _ERROR_STATUS = {
     "not_found": 404,
+    "no_such_opportunity": 404,
+    "no_such_notice": 404,
+    "no_such_change_event": 404,
+    "ingestion_unavailable": 503,
+    "change_unavailable": 503,
 }
 
 
@@ -38,9 +43,13 @@ class SignatureCallbackBody(BaseModel):
 
 def _service(request: Request, session: Session) -> PublicApiService:
     reg = request.app.state.ctx.registry
+    factory = reg.get("public_api.service_factory")
+    if factory:
+        return factory(session)
     return PublicApiService(
         session,
         change_factory=reg.get("change.service_factory"),
+        ingestion_factory=reg.get("ingestion.service_factory"),
         publish=request.app.state.ctx.events.publish,
     )
 

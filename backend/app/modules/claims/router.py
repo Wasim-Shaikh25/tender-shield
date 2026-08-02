@@ -13,6 +13,7 @@ router = APIRouter()
 
 _ERROR_STATUS = {
     "bad_claim_type": 400,
+    "bad_claimant_party": 400,
     "bad_request": 400,
     "bad_draft_kind": 400,
     "bad_response_kind": 400,
@@ -36,6 +37,7 @@ class CreateClaimBody(BaseModel):
     claim_type: str = Field(min_length=1)
     title: str = Field(min_length=1)
     description: str | None = None
+    claimant_party: str | None = None
     change_event_id: str | None = None
     baseline_id: str | None = None
     claim_amount_minor: int | None = None
@@ -45,6 +47,7 @@ class CreateClaimBody(BaseModel):
 class UpdateClaimBody(BaseModel):
     title: str | None = Field(default=None, min_length=1)
     description: str | None = None
+    claimant_party: str | None = None
     claim_type: str | None = None
     claim_amount_minor: int | None = None
     currency: str | None = None
@@ -162,6 +165,7 @@ def create_claim(
             claim_type=body.claim_type,
             title=body.title,
             description=body.description,
+            claimant_party=body.claimant_party,
             change_event_id=body.change_event_id,
             baseline_id=body.baseline_id,
             claim_amount_minor=body.claim_amount_minor,
@@ -199,6 +203,7 @@ def update_claim(
             claim_id,
             title=body.title,
             description=body.description,
+            claimant_party=body.claimant_party,
             claim_type=body.claim_type,
             claim_amount_minor=body.claim_amount_minor,
             currency=body.currency,

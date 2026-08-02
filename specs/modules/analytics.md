@@ -2,7 +2,7 @@
 
 **Status:** implemented (TS-057, expanded TS-174)  
 **Requirement refs:** Phase 1.5 doc §10, user request (end-to-end scenarios §64)  
-**Task refs:** TS-057, TS-174
+**Task refs:** TS-057, TS-174, TS-268
 
 ## Purpose
 
@@ -22,6 +22,8 @@ performance telemetry.
     (TS-242).
   - `review.baseline_activity_metrics` — weekly active baseline users and projects from
     the append-only audit log (TS-242).
+  - `claims.cycle_metrics` — claim cycle time and notice-timeliness per opportunity
+    (TS-268).
 - **Events:** none.
 - **API routes** (prefix `/api/analytics`):
   - `GET /accuracy` — admin-only accuracy dashboard.
@@ -29,6 +31,8 @@ performance telemetry.
   - `GET /risk-summary` — workspace risk findings grouped by severity and category.
   - `GET /deadline-dashboard` — opportunities expiring in 7/15/30 days and overdue.
   - `GET /boq-defect-summary` — BOQ defects by trade and defect type.
+  - `GET /claim-metrics` — claim cycle time, notice timeliness, and status counts
+    (TS-268; consumed from `claims.cycle_metrics`).
   - `POST /reports/export` — export a filtered report to CSV/XLSX/PDF.
 
 ## Data owned

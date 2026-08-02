@@ -23,6 +23,7 @@ class EvidenceRecord(Base, WorkspaceScopedMixin):
     captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     document_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     custody_chain: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    record_metadata: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     created_by: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

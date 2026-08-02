@@ -35,6 +35,7 @@ class Claim(Base, WorkspaceScopedMixin):
     status: Mapped[str] = mapped_column(String, nullable=False, default="draft")
     title: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str | None] = mapped_column(String, nullable=True)
+    claimant_party: Mapped[str | None] = mapped_column(String, nullable=True)
     claim_amount_minor: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     recovered_amount_minor: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     currency: Mapped[str] = mapped_column(String, nullable=False, default="INR")

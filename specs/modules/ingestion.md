@@ -5,7 +5,7 @@ classification + missing-doc checklist (TS-014), clause segmentation (TS-016),
 and deterministic deadline extraction + deadline wall + confirm chips (TS-015).
 Real multipart upload + text extraction (PDF via pypdf, XLSX via openpyxl, CSV) feeds the pipeline (TS-026); LocalStorage dev backend, S3 in prod. OCR (TS-038): pluggable OcrProvider — RapidOCR (offline, ONNX) reads scanned PDFs when TS_OCR_ENABLED, else docs are flagged needs_ocr (honest degradation, Doc §12.4); pdfplumber extracts BOQ tables from digital PDFs (no cloud). **tus resumable upload (TS-033)** and **Celery async page-streamed processing with SSE (TS-034)** are implemented. Relative-date formula resolution and LLM-assisted extraction for messy scans are follow-ups.
 **Requirement refs:** Doc §3.3, §6.1, §6.2
-**Task refs:** TS-014, TS-015, TS-016, TS-026, TS-033, TS-034
+**Task refs:** TS-014, TS-015, TS-016, TS-026, TS-033, TS-034, TS-296
 
 ## Purpose
 
@@ -51,7 +51,9 @@ Everything downstream (risk, BOQ, drafting) consumes its outputs.
 
 ## Data owned
 
-`opportunities`, `documents`, `clauses`, `deadlines`, `doc_chunks`.
+`opportunities`, `documents`, `clauses`, `deadlines`, `doc_chunks`. `opportunities` also
+stores `contract_value_minor` + `currency` so downstream exposure and pricing modules have an
+explicit revenue base.
 
 `doc_chunks` stores page-level text chunks per document; rows are replaced when a
 document is re-registered or re-uploaded.

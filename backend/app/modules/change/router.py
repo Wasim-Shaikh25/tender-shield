@@ -94,6 +94,7 @@ class EvidenceBody(BaseModel):
     description: str | None = None
     captured_at: datetime | None = None
     document_id: str | None = None
+    metadata: dict | None = None
 
 
 def _service(request: Request, session: Session) -> ChangeService:
@@ -354,6 +355,7 @@ def attach_evidence(
             description=body.description,
             captured_at=body.captured_at,
             document_id=body.document_id,
+            metadata=body.metadata,
             created_by=principal.user_id,
         )
     except ChangeError as exc:

@@ -141,6 +141,7 @@ Core claim record.
 | `change_event_id` | UUID nullable | linked change event (no FK) |
 | `baseline_id` | UUID nullable | sealed baseline used for chain-integrity (no FK) |
 | `claim_type` | string | `variation` \| `extension_of_time` \| `disruption` \| `prolongation` \| `final_account` |
+| `claimant_party` | string nullable | `contractor` \| `employer` \| `engineer` \| `other`; used for conflict detection |
 | `status` | string | `draft` \| `submitted` \| `under_review` \| `negotiated` \| `settled` \| `disputed` \| `withdrawn` |
 | `title` | string | |
 | `description` | text nullable | |
@@ -341,12 +342,12 @@ Delay-event register (TS-262).
 
 ### Conflicts control (B26, TS-267)
 
-- **B26 — Opposing parties.** `GET /claims/{id}/conflicts` checks whether another claim on the same `opportunity_id` was created by a user with a conflicting role/party marker (e.g. `contractor` vs `employer`/`engineer`). If the auth module exposes party metadata, flag `conflict_detected` and list the conflicting claims. Admins review before proceeding.
+- **B26 — Opposing parties.** `GET /claims/{id}/conflicts` checks whether another claim on the same `opportunity_id` carries a conflicting `claimant_party` marker (e.g. `contractor` vs `employer`/`engineer`). `claimant_party` is set per claim (`contractor` | `employer` | `engineer` | `other`) because the auth module does not yet expose party metadata. When a conflict is found, the endpoint returns `conflict_detected: true` and a list of the opposing claims for admin review.
 
 ### Metrics (B27–B28, TS-268, TS-269)
 
-- **B27 — Cycle time.** `claims.cycle_metrics` computes `submitted_at - created_at`, `first_response_at - submitted_at`, and `settled_at - submitted_at` per claim, exposing averages and counts by status.
-- **B28 — Recovered value.** `recovered_amount_minor` flows to `outcomes` to update the `margin_protected` north-star metric, but only when the claim is `settled` or `negotiated`.
+- **B27 — Cycle time & notice timeliness.** `claims.cycle_metrics` computes `submitted_at - created_at`, `first_response_at - submitted_at`, and `settled_at - submitted_at` per claim. It exposes `status_counts`, per-claim `cycle_times`, `averages`, and a `notice_timeliness` block comparing each `submitted_at` to the linked event's `notice_deadline` (on-time / late / on-time-rate).
+- **B28 — Recovered value.** `recovered_amount_minor` flows to `outcomes.record_claim_outcome` on settlement to update the `margin_protected` north-star metric, but only when the claim is `settled` or `negotiated`.
 
 ### Site evidence (B29, TS-270)
 
@@ -409,7 +410,7 @@ Delay-event register (TS-262).
 - **A9 (TS-265):** A settled claim publishes `claim.settled` with the recovered amount.
 - **A10 (TS-266):** Submitting a claim with no linked change event fails chain integrity and returns `chain_broken`.
 - **A11 (TS-267):** Conflict endpoint flags when claims from opposing parties exist on the same opportunity.
-- **A12 (TS-268):** `/claim-metrics` returns cycle-time averages and status counts.
+- **A12 (TS-268):** `/claim-metrics` returns cycle-time averages, status counts, and notice-timeliness on-time rate.
 - **A13 (TS-269):** Settled `recovered_amount_minor` is passed to `outcomes` for the `margin_protected` metric.
 - **A14 (TS-270):** Site evidence record types (`geotagged_photo`, `labour`, `plant`, `daywork`) count toward checklist items.
 

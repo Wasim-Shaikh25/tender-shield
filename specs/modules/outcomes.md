@@ -3,7 +3,7 @@
 **Status:** implemented (TS-215 scaffold; prefill TS-216; margin metric TS-234)
 **Requirement refs:** Build Doc §1.1(9), §11.5; `docs/TenderShield_Market_Strategy_2026.md` §C.6, §C.9;
 `docs/TenderShield_Roadmap_Stage1_to_5.md` §6.1
-**Task refs:** TS-215, TS-216, TS-234
+**Task refs:** TS-215, TS-216, TS-234, TS-269
 
 ## Purpose
 
@@ -22,6 +22,7 @@ This is the cheapest moat increment in the plan — a handful of columns, one fo
 - `outcomes.record` — write a bid outcome
 - `outcomes.for_opportunity` — read outcomes + materialization
 - `outcomes.margin_protected` — workspace north-star metric (TS-234)
+- `outcomes.record_claim_outcome` — write a recovered claim value (TS-269)
 
 **Capabilities consumed (soft)**
 - `findings.store` — to attach materialization to specific findings
@@ -31,6 +32,7 @@ This is the cheapest moat increment in the plan — a handful of columns, one fo
 **Events emitted**
 - `outcome.recorded` — consumed by `analytics` (accuracy) and the correction loop
 - `outcome.risk_materialized` — a flagged risk actually bit
+- `outcome.claim_recovered` — a claim was settled and the recovered amount captured (TS-269)
 
 **API routes**
 - `POST /api/outcomes/opportunities/{id}` — record/update outcome
@@ -44,6 +46,8 @@ This is the cheapest moat increment in the plan — a handful of columns, one fo
   quoted value, L1 value where known, bidder count, decline reason, recorded_by, recorded_at
 - `oc_risk_materialization` — `finding_id`, materialized (bool), impact amount (minor units +
   currency), narrative, recorded_at
+- `oc_claim_recoveries` — `opportunity_id`, `claim_id` (one recovery per claim),
+  `recovered_amount_minor` + currency, recorded_by, recorded_at (TS-269)
 
 All workspace-scoped with RLS, like every other tenant table (`CLAUDE.md` §4).
 
@@ -63,6 +67,7 @@ Deterministic aggregation in `backend/app/modules/outcomes/margin.py`:
 - **Declined exposure avoided** — same exposure on reviewed findings tied to `declined` outcomes
 - **BOQ defects corrected** — count of reviewed `boq_defect` findings (pre-submission corrections)
 - **Materialized impact** — sum of `impact_amount_minor` on materialized risk rows
+- **Claim recoveries** — sum of `recovered_amount_minor` on `oc_claim_recoveries` rows (TS-269)
 
 Unreviewed findings and amounts without explicit currency matching the requested currency are
 excluded — speculative value is never invented.
@@ -102,6 +107,7 @@ k-anonymity thresholds.
 8. No rulepack is mutated automatically by any outcome.
 9. `GET /api/outcomes/metrics/margin-protected` returns a deterministic workspace snapshot and
    excludes unreviewed findings.
+10. Settled claim `recovered_amount_minor` is captured and added to the `margin_protected` total (TS-269).
 
 ## Out of scope
 

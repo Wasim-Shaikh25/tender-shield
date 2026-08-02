@@ -5,11 +5,16 @@ from __future__ import annotations
 _LABELS: dict[str, str] = {
     "site_instruction": "Site instruction",
     "photograph": "Photograph",
+    "geotagged_photo": "Geotagged photo",
     "measurement": "Measurement record",
     "daily_report": "Daily report",
     "meeting_minutes": "Meeting minutes",
     "correspondence": "Correspondence",
     "drawing_revision": "Drawing revision",
+    "labour": "Labour record",
+    "plant": "Plant/equipment record",
+    "material": "Material record",
+    "daywork": "Daywork record",
     "other": "Other record",
 }
 

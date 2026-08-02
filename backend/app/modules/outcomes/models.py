@@ -40,3 +40,16 @@ class OcRiskMaterialization(Base, WorkspaceScopedMixin):
     recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class OcClaimRecovery(Base, WorkspaceScopedMixin):
+    _tablename_ = "oc_claim_recoveries"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    opportunity_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
+    claim_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True, unique=True)
+    recovered_amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    currency: Mapped[str] = mapped_column(String, nullable=False, default="INR")
+    recorded_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

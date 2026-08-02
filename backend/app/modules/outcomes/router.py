@@ -15,6 +15,7 @@ router = APIRouter()
 
 _ERROR_STATUS = {
     "bad_result": 422,
+    "bad_amount": 400,
     "findings_unavailable": 503,
     "finding_not_found": 404,
 }

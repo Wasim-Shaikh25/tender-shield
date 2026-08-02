@@ -1,4 +1,4 @@
-"""Claims module integration tests (TS-258–TS-266)."""
+"""Claims module integration tests (TS-258–TS-270)."""
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,6 +10,7 @@ import app.modules.claims.models  # noqa: F401
 import app.modules.evidence.models  # noqa: F401
 import app.modules.findings.models  # noqa: F401
 import app.modules.ingestion.models  # noqa: F401
+import app.modules.outcomes.models  # noqa: F401
 import app.modules.review.models  # noqa: F401
 from app.core.config import Settings
 from app.core.db import Base
@@ -17,7 +18,7 @@ from app.main import create_app
 from tests.helpers import auth_headers
 
 MODULES = (
-    "health,rulepacks,auth,ingestion,findings,risk,review,baseline,change,evidence,claims"
+    "health,rulepacks,auth,ingestion,findings,risk,review,baseline,change,evidence,claims,outcomes"
 )
 
 
@@ -423,3 +424,167 @@ def test_negotiation_settlement_timeline(client):
     assert len(timeline["responses"]) == 1
     assert len(timeline["negotiations"]) == 1
     assert timeline["settlement"]["outcome"] == "negotiated"
+
+
+def test_conflict_detection_flags_opposing_parties(client):
+    headers = _auth(client)
+    opp_id, event_id, baseline_id = _setup_project(client, headers)
+    contractor = client.post(
+        f"/api/claims/opportunities/{opp_id}/claims",
+        json={
+            "claim_type": "variation",
+            "title": "Contractor claim",
+            "claimant_party": "contractor",
+            "change_event_id": event_id,
+            "baseline_id": baseline_id,
+        },
+        headers=headers,
+    ).json()
+    employer = client.post(
+        f"/api/claims/opportunities/{opp_id}/claims",
+        json={
+            "claim_type": "variation",
+            "title": "Employer counter-claim",
+            "claimant_party": "employer",
+            "change_event_id": event_id,
+            "baseline_id": baseline_id,
+        },
+        headers=headers,
+    ).json()
+    check = client.get(
+        f"/api/claims/claims/{contractor['id']}/conflicts", headers=headers
+    ).json()
+    assert check["conflict_detected"] is True
+    assert any(c["claim_id"] == employer["id"] for c in check["opposing_claims"])
+
+
+def test_cycle_metrics_and_notice_timeliness(client):
+    headers = _auth(client)
+    opp_id, event_id, baseline_id = _setup_project(client, headers)
+
+    # Compute notice deadline so we can verify timeliness math.
+    client.get(
+        f"/api/change/events/{event_id}/notice-deadline", headers=headers
+    ).raise_for_status()
+
+    claim = client.post(
+        f"/api/claims/opportunities/{opp_id}/claims",
+        json={
+            "claim_type": "variation",
+            "title": "Metric claim",
+            "change_event_id": event_id,
+            "baseline_id": baseline_id,
+        },
+        headers=headers,
+    ).json()
+    client.post(
+        f"/api/claims/claims/{claim['id']}/responses",
+        json={
+            "response_kind": "counter_proposal",
+            "received_at": "2026-02-01",
+            "responder": "employer",
+            "due_at": "2026-02-15",
+        },
+        headers=headers,
+    ).raise_for_status()
+    client.post(
+        f"/api/claims/claims/{claim['id']}/submit", headers=headers
+    ).raise_for_status()
+    client.post(
+        f"/api/claims/claims/{claim['id']}/settlement",
+        json={"outcome": "negotiated", "settled_amount_minor": 90000},
+        headers=headers,
+    ).raise_for_status()
+
+    metrics = client.get(
+        f"/api/claims/opportunities/{opp_id}/claim-metrics", headers=headers
+    ).json()
+    assert "status_counts" in metrics
+    assert metrics["status_counts"].get("settled") == 1
+    assert metrics["averages"]["draft_to_submit_days"] >= 0
+    assert "notice_timeliness" in metrics
+    assert metrics["recovered_total_minor"] == 90000
+
+
+def test_margin_protected_includes_recovered_claim_value(client):
+    headers = _auth(client)
+    opp_id, event_id, baseline_id = _setup_project(client, headers)
+    claim = client.post(
+        f"/api/claims/opportunities/{opp_id}/claims",
+        json={
+            "claim_type": "variation",
+            "title": "North star claim",
+            "change_event_id": event_id,
+            "baseline_id": baseline_id,
+        },
+        headers=headers,
+    ).json()
+    client.post(f"/api/claims/claims/{claim['id']}/submit", headers=headers).raise_for_status()
+    client.post(
+        f"/api/claims/claims/{claim['id']}/settlement",
+        json={"outcome": "approved", "settled_amount_minor": 75000},
+        headers=headers,
+    ).raise_for_status()
+
+    margin = client.get(
+        "/api/outcomes/metrics/margin-protected", headers=headers
+    ).json()
+    assert margin["claim_recoveries_minor"] == 75000
+    assert margin["total_margin_protected_minor"] >= 75000
+
+
+def test_site_evidence_record_types_satisfy_checklist(client):
+    headers = _auth(client)
+    opp_id, event_id, baseline_id = _setup_project(client, headers)
+    claim = client.post(
+        f"/api/claims/opportunities/{opp_id}/claims",
+        json={
+            "claim_type": "variation",
+            "title": "Site evidence claim",
+            "change_event_id": event_id,
+            "baseline_id": baseline_id,
+        },
+        headers=headers,
+    ).json()
+
+    client.post(
+        f"/api/change/events/{event_id}/evidence",
+        json={
+            "record_type": "geotagged_photo",
+            "title": "Site photo with GPS",
+            "metadata": {"geolocation": {"lat": 12.97, "lng": 77.59}},
+        },
+        headers=headers,
+    ).raise_for_status()
+    client.post(
+        f"/api/change/events/{event_id}/evidence",
+        json={"record_type": "labour", "title": "Labour record"},
+        headers=headers,
+    ).raise_for_status()
+    client.post(
+        f"/api/change/events/{event_id}/evidence",
+        json={"record_type": "plant", "title": "Plant record"},
+        headers=headers,
+    ).raise_for_status()
+    client.post(
+        f"/api/change/events/{event_id}/evidence",
+        json={"record_type": "material", "title": "Material record"},
+        headers=headers,
+    ).raise_for_status()
+    client.post(
+        f"/api/change/events/{event_id}/evidence",
+        json={"record_type": "daywork", "title": "Daywork record"},
+        headers=headers,
+    ).raise_for_status()
+
+    checklist = {
+        i["item_type"]: i
+        for i in client.get(
+            f"/api/claims/claims/{claim['id']}/checklist", headers=headers
+        ).json()["items"]
+    }
+    assert checklist["photos"]["present"]
+    assert checklist["labour"]["present"]
+    assert checklist["plant"]["present"]
+    assert checklist["material"]["present"]
+    assert checklist["quantum"]["present"]

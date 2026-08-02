@@ -6,7 +6,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Uuid, func
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base, WorkspaceScopedMixin
@@ -22,6 +22,8 @@ class Opportunity(Base, WorkspaceScopedMixin):
     contract_form: Mapped[str | None] = mapped_column(String, nullable=True)
     status: Mapped[str] = mapped_column(String, nullable=False, default="reviewing")
     rulepack_version: Mapped[str | None] = mapped_column(String, nullable=True)
+    contract_value_minor: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    currency: Mapped[str] = mapped_column(String, nullable=False, default="INR")
     submission_due: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     clarification_due: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

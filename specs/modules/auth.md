@@ -4,7 +4,7 @@
 is created explicitly after login; platform-only registration/login; email + mobile verification;
 OTP required on every login. Social login (Google/Apple) removed.
 **Requirement refs:** Doc §5, §3.2, §16; user request (account-first, OTP login)
-**Task refs:** TS-011, TS-012, TS-035, TS-036, TS-074..TS-078, TS-079, TS-106, TS-163, TS-171, TS-239
+**Task refs:** TS-011, TS-012, TS-035, TS-036, TS-074..TS-078, TS-079, TS-106, TS-163, TS-171, TS-239, TS-267
 
 ## Purpose
 
@@ -217,3 +217,10 @@ application-owner endpoints under `/api/auth/admin/*`.
 
 SSO/SAML (Phase 3), real email/SMS 2FA delivery, admin AI assistant / Ops Copilot
 (Doc §17).
+
+## Assumptions
+
+- `assumption:` The auth module does not yet expose per-user or per-project `party` metadata
+  (`contractor`/`employer`/`engineer`). Phase 19 conflict control therefore stores `claimant_party`
+  on the claim itself (TS-267). A future auth extension can centralize party markers and deprecate
+  the claim-level field.

@@ -16,11 +16,16 @@ _RECORD_TYPES = frozenset(
     {
         "site_instruction",
         "photograph",
+        "geotagged_photo",
         "measurement",
         "daily_report",
         "meeting_minutes",
         "correspondence",
         "drawing_revision",
+        "labour",
+        "plant",
+        "material",
+        "daywork",
         "other",
     }
 )
@@ -54,6 +59,7 @@ class EvidenceService:
         description: str | None = None,
         captured_at: datetime | None = None,
         document_id: str | None = None,
+        metadata: dict | None = None,
         created_by,
     ) -> dict:
         if record_type not in _RECORD_TYPES:
@@ -81,6 +87,7 @@ class EvidenceService:
                     "at": when.isoformat(),
                 }
             ],
+            record_metadata=(metadata or {}),
             created_by=creator,
         )
         self.s.add(row)
@@ -151,6 +158,7 @@ class EvidenceService:
             "captured_at": row.captured_at.isoformat() if row.captured_at else None,
             "document_id": str(row.document_id) if row.document_id else None,
             "custody_chain": row.custody_chain or [],
+            "metadata": row.record_metadata or {},
             "created_by": str(row.created_by),
             "created_at": row.created_at.isoformat() if row.created_at else None,
         }

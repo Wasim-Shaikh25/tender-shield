@@ -339,6 +339,21 @@ export type DrawingComparison = {
   created_at: string;
 };
 
+export type DrawingBoqLink = {
+  id: string;
+  drawing_id: string;
+  page?: number | null;
+  region?: string | null;
+  source_quote?: string | null;
+  item_code?: string | null;
+  description: string;
+  unit: string;
+  qty?: number | null;
+  rate_minor?: number | null;
+  currency: string;
+  created_at: string;
+};
+
 export type PlanSection = {
   type: "kpi" | "table" | "chart" | "mermaid" | "text";
   title: string;
@@ -898,6 +913,24 @@ export const api = {
     req<Drawing>(`/drawings/opportunities/${opportunityId}/drawings/${currentId}/supersedes/${previousId}`, { method: "POST" }, token),
   compareDrawings: (token: string, opportunityId: string, currentId: string, previousId: string) =>
     req<DrawingComparison>(`/drawings/opportunities/${opportunityId}/drawings/${currentId}/compare/${previousId}`, { method: "POST" }, token),
+  runSymbolAssist: (token: string, opportunityId: string, drawingId: string) =>
+    req<{ pages: { page: number; symbols: { symbol: string; count: number; confidence: string; verify_manually: boolean }[] }[]; totals: Record<string, number>; note?: string }>(`/drawings/opportunities/${opportunityId}/drawings/${drawingId}/symbol-assist`, { method: "POST" }, token),
+  linkDrawingBoq: (token: string, opportunityId: string, drawingId: string, body: {
+    page?: number;
+    region?: string;
+    source_quote?: string;
+    item_code?: string;
+    description: string;
+    unit: string;
+    qty?: number;
+    rate_minor?: number;
+    currency?: string;
+  }) =>
+    req<DrawingBoqLink>(`/drawings/opportunities/${opportunityId}/drawings/${drawingId}/link-boq`, { method: "POST", body: JSON.stringify(body) }, token),
+  listDrawingBoqLinks: (token: string, opportunityId: string, drawingId: string) =>
+    req<{ links: DrawingBoqLink[] }>(`/drawings/opportunities/${opportunityId}/drawings/${drawingId}/boq-links`, {}, token),
+  getDrawingHeatmap: (token: string, opportunityId: string, drawingId: string) =>
+    req<{ pages: { page: number; confidence: number; cannot_determine: boolean; regions: Record<string, { start_line: number; end_line: number; confidence: number }> }[]; overall_confidence: number; note?: string }>(`/drawings/opportunities/${opportunityId}/drawings/${drawingId}/heatmap`, {}, token),
 };
 
 export type PlanSnapshot = {

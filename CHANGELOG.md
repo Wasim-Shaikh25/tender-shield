@@ -111,6 +111,15 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - **TS-322** — drawing overlay / region-level change detection: `DrawingService.compare`
   splits extracted text by pages and regions, runs diffs, and returns changed pages and
   per-region line counts.
+- **TS-323** — drawing symbol and count assistance: `backend/app/modules/drawings/vision.py`
+  scans extracted text for common construction symbol labels and returns per-page counts
+  as low-confidence suggestions.
+- **TS-324** — drawing-to-BOQ link: new `DrawingBoqLink` model and
+  `POST /api/drawings/opportunities/{id}/drawings/{drawing_id}/link-boq` persist a
+  manual link between a drawing page/region and a BOQ item with source quote.
+- **TS-325** — drawing confidence heatmap: `backend/app/modules/drawings/heatmap.py`
+  returns per-page/per-region confidence from text-extraction signals; Drawings tab
+  renders a simple region overlay.
 - Added `docs/REMAINING_GAPS_ROADMAP.md` with one row for every `Partial` / `Missing`
   capability from `FEATURE_COVERAGE.md`.
 - Created **Phase 22** in `tasks/backlog.md` with 33 concrete tasks (TS-301–TS-333)
@@ -260,8 +269,8 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ### Next
 
-- Phase 22 remaining drawing intelligence (TS-323–TS-325: symbol/count assistance,
-  drawing-to-BOQ link, confidence heatmap) and remaining P2/P3 gaps.
+- Phase 22 remaining gaps (TS-326+): IFC/model quantity import, live change signals,
+  delay analysis, control tower trends, governance, and live connectors.
 
 ### Done — 2026-08-01 (Phase 19 claims workspace: TS-258–TS-266)
 

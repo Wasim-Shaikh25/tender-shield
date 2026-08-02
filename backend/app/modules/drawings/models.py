@@ -38,9 +38,41 @@ class Drawing(Base, WorkspaceScopedMixin):
     )
     extracted_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     title_block: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    symbol_suggestions: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    heatmap: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     status: Mapped[str] = mapped_column(
         String, nullable=False, server_default="current"
     )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
+class DrawingBoqLink(Base, WorkspaceScopedMixin):
+    _tablename_ = "drawing_boq_links"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    opportunity_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("opportunities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    drawing_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("drawings.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    page: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    region: Mapped[str | None] = mapped_column(String, nullable=True)
+    source_quote: Mapped[str | None] = mapped_column(Text, nullable=True)
+    item_code: Mapped[str | None] = mapped_column(String, nullable=True)
+    description: Mapped[str] = mapped_column(String, nullable=False)
+    unit: Mapped[str] = mapped_column(String, nullable=False)
+    qty: Mapped[float | None] = mapped_column(nullable=True)
+    rate_minor: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    currency: Mapped[str] = mapped_column(String, nullable=False, default="INR")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

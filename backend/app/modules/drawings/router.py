@@ -36,6 +36,8 @@ def _row_dict(row) -> dict:
         "supersedes_id": str(row.supersedes_id) if row.supersedes_id else None,
         "page_count": row.page_count,
         "title_block": row.title_block,
+        "symbol_suggestions": row.symbol_suggestions,
+        "heatmap": row.heatmap,
         "status": row.status,
         "created_at": row.created_at.isoformat() if row.created_at else None,
     }
@@ -166,3 +168,117 @@ def compare_drawings(
         "changed_regions": comp.changed_regions,
         "created_at": comp.created_at.isoformat() if comp.created_at else None,
     }
+
+
+@router.post("/opportunities/{opportunity_id}/drawings/{drawing_id}/symbol-assist")
+def symbol_assist(
+    opportunity_id: str,
+    drawing_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    try:
+        result = _service(request, session).symbol_assist(principal.workspace_id, drawing_id)
+    except DrawingsError as exc:
+        raise HTTPException(404, exc.code) from exc
+    return result
+
+
+class LinkBoqBody(BaseModel):
+    page: int | None = None
+    region: str | None = None
+    source_quote: str | None = None
+    item_code: str | None = None
+    description: str
+    unit: str
+    qty: float | None = None
+    rate_minor: int | None = None
+    currency: str = "INR"
+
+
+@router.post("/opportunities/{opportunity_id}/drawings/{drawing_id}/link-boq")
+def link_boq(
+    opportunity_id: str,
+    drawing_id: str,
+    body: LinkBoqBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    try:
+        link = _service(request, session).link_boq(
+            principal.workspace_id,
+            opportunity_id,
+            drawing_id,
+            page=body.page,
+            region=body.region,
+            source_quote=body.source_quote,
+            item_code=body.item_code,
+            description=body.description,
+            unit=body.unit,
+            qty=body.qty,
+            rate_minor=body.rate_minor,
+            currency=body.currency,
+        )
+    except DrawingsError as exc:
+        raise HTTPException(404, exc.code) from exc
+    return {
+        "id": str(link.id),
+        "drawing_id": str(link.drawing_id),
+        "page": link.page,
+        "region": link.region,
+        "source_quote": link.source_quote,
+        "item_code": link.item_code,
+        "description": link.description,
+        "unit": link.unit,
+        "qty": link.qty,
+        "rate_minor": link.rate_minor,
+        "currency": link.currency,
+        "created_at": link.created_at.isoformat() if link.created_at else None,
+    }
+
+
+@router.get("/opportunities/{opportunity_id}/drawings/{drawing_id}/boq-links")
+def list_boq_links(
+    opportunity_id: str,
+    drawing_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    rows = _service(request, session).list_boq_links(principal.workspace_id, opportunity_id)
+    return {
+        "links": [
+            {
+                "id": str(link.id),
+                "drawing_id": str(link.drawing_id),
+                "page": link.page,
+                "region": link.region,
+                "source_quote": link.source_quote,
+                "item_code": link.item_code,
+                "description": link.description,
+                "unit": link.unit,
+                "qty": link.qty,
+                "rate_minor": link.rate_minor,
+                "currency": link.currency,
+                "created_at": link.created_at.isoformat() if link.created_at else None,
+            }
+            for link in rows
+        ]
+    }
+
+
+@router.get("/opportunities/{opportunity_id}/drawings/{drawing_id}/heatmap")
+def get_heatmap(
+    opportunity_id: str,
+    drawing_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    try:
+        result = _service(request, session).heatmap(principal.workspace_id, drawing_id)
+    except DrawingsError as exc:
+        raise HTTPException(404, exc.code) from exc
+    return result

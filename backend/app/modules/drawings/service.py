@@ -1,5 +1,6 @@
-"""DrawingService — register, title-block extraction, revision control and
-region-level text comparison (TS-321, TS-322).
+"""DrawingService — register, title-block extraction, revision control,
+region-level text comparison, symbol assist, BOQ links, and heatmaps
+(TS-321–TS-325).
 
 Soft dependencies on `ingestion` via the registry for text/OCR extraction.
 """
@@ -16,7 +17,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.modules.drawings.models import Drawing, DrawingComparison
+from app.modules.drawings import heatmap, vision
+from app.modules.drawings.models import Drawing, DrawingBoqLink, DrawingComparison
 
 
 class DrawingsError(Exception):
@@ -331,3 +333,73 @@ class DrawingService:
         self.s.commit()
         self.s.refresh(comp)
         return comp
+
+    def symbol_assist(self, workspace_id, drawing_id: str) -> dict:
+        row = self.get(workspace_id, drawing_id)
+        if not row:
+            raise DrawingsError("drawing_not_found")
+        result = vision.symbol_assist(row.extracted_text)
+        row.symbol_suggestions = result
+        self.s.commit()
+        return result
+
+    def link_boq(
+        self,
+        workspace_id,
+        opportunity_id,
+        drawing_id: str,
+        *,
+        page: int | None = None,
+        region: str | None = None,
+        source_quote: str | None = None,
+        item_code: str | None = None,
+        description: str = "",
+        unit: str = "",
+        qty: float | None = None,
+        rate_minor: int | None = None,
+        currency: str = "INR",
+    ) -> DrawingBoqLink:
+        row = self.get(workspace_id, drawing_id)
+        if not row:
+            raise DrawingsError("drawing_not_found")
+        link = DrawingBoqLink(
+            workspace_id=self._ws_uuid(workspace_id),
+            opportunity_id=self._ws_uuid(opportunity_id),
+            drawing_id=row.id,
+            page=page,
+            region=region,
+            source_quote=source_quote,
+            item_code=item_code,
+            description=description,
+            unit=unit,
+            qty=qty,
+            rate_minor=rate_minor,
+            currency=currency,
+        )
+        self.s.add(link)
+        self.s.commit()
+        self.s.refresh(link)
+        return link
+
+    def list_boq_links(self, workspace_id, opportunity_id) -> list[DrawingBoqLink]:
+        return list(
+            self.s.scalars(
+                select(DrawingBoqLink).where(
+                    DrawingBoqLink.workspace_id == self._ws_uuid(workspace_id),
+                    DrawingBoqLink.opportunity_id == self._ws_uuid(opportunity_id),
+                ).order_by(DrawingBoqLink.created_at)
+            )
+        )
+
+    def heatmap(self, workspace_id, drawing_id: str) -> dict:
+        row = self.get(workspace_id, drawing_id)
+        if not row:
+            raise DrawingsError("drawing_not_found")
+        result = heatmap.confidence_heatmap(
+            row.extracted_text,
+            row.title_block or {},
+            row.symbol_suggestions,
+        )
+        row.heatmap = result
+        self.s.commit()
+        return result

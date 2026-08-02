@@ -28,11 +28,19 @@ changes.
   drawing as superseding a previous revision.
 - `POST /opportunities/{id}/drawings/{current_id}/compare/{previous_id}` — run
   page-level and region-level text comparison between two revisions.
+- `POST /opportunities/{id}/drawings/{drawing_id}/symbol-assist` — text-based symbol
+  count suggestions (TS-323).
+- `POST /opportunities/{id}/drawings/{drawing_id}/link-boq` — persist a drawing-to-BOQ
+  link (TS-324).
+- `GET /opportunities/{id}/drawings/{drawing_id}/heatmap` — extraction confidence
+  heatmap per page/region (TS-325).
 
 ## Data owned
 
-- `drawings` — title block, extracted text, revision, supersedes link, status, page count.
+- `drawings` — title block, extracted text, revision, supersedes link, status, page count,
+  symbol suggestions, heatmap.
 - `drawing_comparisons` — changed pages, changed regions, summary.
+- `drawing_boq_links` — linked BOQ item details, source quote, drawing region/page.
 
 ## Behavior
 
@@ -65,11 +73,36 @@ and annotation changes tracked in this phase.
 - A3: `POST /.../supersedes/...` links revisions and flips statuses.
 - A4: `POST /.../compare/...` returns changed page numbers and per-region line counts.
 - A5: List endpoint is ordered by drawing number and revision.
-- A6: All endpoints are workspace-scoped.
+- A6: `POST /.../symbol-assist` returns per-page symbol count suggestions with `confidence: low`.
+- A7: `POST /.../link-boq` persists a drawing-to-BOQ link with item details and source quote.
+- A8: `GET /.../heatmap` returns per-page/per-region confidence with `cannot_determine` states.
+- A9: All endpoints are workspace-scoped.
+
+### 4. Symbol and count assistance (TS-323)
+
+A lightweight, text-based symbol assist pass scans each drawing page's extracted text
+for common construction symbols (electrical, plumbing, civil labels such as `WD`, `WS`,
+`Fan`, `Light`, `Switch`, `MCB`, `RCC`, `PCC`, etc.). Detected tokens are counted per
+page and returned as suggestions with a `low` confidence and a `verify_manually`
+flag. No pixel-level symbol recognition is performed in this phase.
+
+### 5. Drawing-to-BOQ link (TS-324)
+
+A user can create a persisted link between a drawing region/page and a BOQ line. The
+link stores the drawing region/page reference, a manually entered BOQ item code,
+description, unit, quantity, and rate, plus the original source quote. The link is
+workspace/opportunity scoped and surfaced in the drawing register.
+
+### 6. Confidence heatmap (TS-325)
+
+The heatmap is generated from text-extraction quality signals rather than pixel
+overlays: each page and coarse region receives a confidence score based on the
+presence of extracted text, title-block fields, and symbol-assist coverage. The API
+returns a JSON/SVG overlay with per-region confidence and `cannot_determine` states
+for pages with no extractable text.
 
 ## Out of scope
 
 - Pixel/CAD layer overlay and geometric change detection.
-- Symbol recognition and automatic count assistance (TS-323).
-- Drawing-to-BOQ link (TS-324).
-- Confidence heatmap (TS-325).
+- True computer-vision symbol detection from raster images.
+- Bidirectional automatic quantity take-off from drawings.

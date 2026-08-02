@@ -12,7 +12,11 @@ from sqlalchemy.orm import Session
 
 from app.modules.integrations.adapters import ADAPTER_REGISTRY, BaseAdapter, ScheduleAdapter
 from app.modules.integrations.connectors import CONNECTOR_REGISTRY
-from app.modules.integrations.connectors.dynamic import DynamicRestConnector
+from app.modules.integrations.connectors.dynamic import (
+    DynamicConnectorError,
+    DynamicRestConnector,
+    validate_url,
+)
 from app.modules.integrations.models import (
     DynamicConnectorConfig,
     IntegrationCostLine,
@@ -653,9 +657,25 @@ class IntegrationsService:
     def get_dynamic_connector(self, workspace_id, config_id: str) -> dict[str, Any]:
         return self._config_dict(self._get_dynamic_config(workspace_id, config_id))
 
+    def _validate_dynamic_fields(self, fields: dict[str, Any]) -> None:
+        """Validate dynamic connector fields before persistence.
+
+        Raises IntegrationsError(invalid_url) when the configured base_url is
+        not safe for server-side requests. Missing base_url is left to the
+        test/poll flow so partial updates are not blocked.
+        """
+        base_url = fields.get("base_url")
+        if base_url is None:
+            return
+        try:
+            validate_url(base_url)
+        except DynamicConnectorError as exc:
+            raise IntegrationsError("invalid_url") from exc
+
     def create_dynamic_connector(
         self, workspace_id, user_id, fields: dict[str, Any]
     ) -> dict[str, Any]:
+        self._validate_dynamic_fields(fields)
         row = DynamicConnectorConfig(
             workspace_id=uuid.UUID(str(workspace_id)),
             created_by=uuid.UUID(str(user_id)),
@@ -675,6 +695,7 @@ class IntegrationsService:
     def update_dynamic_connector(
         self, workspace_id, config_id: str, fields: dict[str, Any]
     ) -> dict[str, Any]:
+        self._validate_dynamic_fields(fields)
         row = self._get_dynamic_config(workspace_id, config_id)
         for key in (
             "name",

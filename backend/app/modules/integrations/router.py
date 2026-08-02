@@ -24,6 +24,7 @@ _ERROR_STATUS = {
     "ingestion_unavailable": 503,
     "change_unavailable": 503,
     "import_failed": 422,
+    "invalid_url": 400,
 }
 
 

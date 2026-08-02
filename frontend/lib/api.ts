@@ -274,6 +274,71 @@ export type CashflowResult = {
   assumptions: string[];
 };
 
+export type RateBuildupItem = {
+  src_row: number;
+  description: string;
+  unit: string;
+  qty: number;
+  rate_minor: number;
+  amount_minor: number;
+  material_rate_minor: number;
+  labour_rate_minor: number;
+  equipment_rate_minor: number;
+  overhead_rate_minor: number;
+  profit_rate_minor: number;
+  build_total_minor: number;
+};
+
+export type RateBuildupResult = {
+  currency: string;
+  total_amount_minor: number;
+  total_profit_minor: number;
+  items: RateBuildupItem[];
+  assumptions: string[];
+};
+
+export type SensitivityScenario = {
+  name: string;
+  param: string;
+  delta_pct: number;
+  total_amount_minor: number;
+  delta_minor: number;
+  delta_pct_total: number;
+};
+
+export type SensitivityResult = {
+  base_total_minor: number;
+  currency: string;
+  scenarios: SensitivityScenario[];
+};
+
+export type Drawing = {
+  id: string;
+  opportunity_id: string;
+  document_id?: string | null;
+  filename: string;
+  drawing_number?: string | null;
+  title?: string | null;
+  revision?: string | null;
+  revision_date?: string | null;
+  discipline?: string | null;
+  supersedes_id?: string | null;
+  page_count?: number | null;
+  title_block: Record<string, unknown>;
+  status: string;
+  created_at: string;
+};
+
+export type DrawingComparison = {
+  id: string;
+  current_drawing_id: string;
+  previous_drawing_id: string;
+  summary: string;
+  changed_pages: number[];
+  changed_regions: { page: number; region: string; lines_added: number; lines_removed: number }[];
+  created_at: string;
+};
+
 export type PlanSection = {
   type: "kpi" | "table" | "chart" | "mermaid" | "text";
   title: string;
@@ -780,6 +845,22 @@ export const api = {
     milestone_billing_minor?: Record<string, number>;
   }) =>
     req<CashflowResult>(`/pricing/opportunities/${opportunityId}/cashflow`, { method: "POST", body: JSON.stringify(body) }, token),
+  runRateBuildup: (token: string, opportunityId: string, body: {
+    csv: string;
+    currency?: string;
+    material_pct?: number;
+    labour_pct?: number;
+    equipment_pct?: number;
+    overhead_pct?: number;
+    profit_pct?: number;
+  }) =>
+    req<RateBuildupResult>(`/pricing/opportunities/${opportunityId}/rate-buildup`, { method: "POST", body: JSON.stringify(body) }, token),
+  runSensitivity: (token: string, opportunityId: string, body: {
+    csv: string;
+    currency?: string;
+    scenarios?: { name: string; param: string; delta_pct: number }[];
+  }) =>
+    req<SensitivityResult>(`/pricing/opportunities/${opportunityId}/sensitivity`, { method: "POST", body: JSON.stringify(body) }, token),
   // Addendum / duplicate detection
   getAddendum: (token: string, opportunityId: string, documentId: string) =>
     req<{ document_id: string; supersedes: string | null; is_addendum: boolean; addendum_reason?: string; addendum_changes: Record<string, unknown>[]; duplicate_of?: string; ocr_status: string }>(`/ingestion/opportunities/${opportunityId}/documents/${documentId}/addendum`, {}, token),
@@ -794,6 +875,29 @@ export const api = {
     req<Record<string, unknown>>(`/outcomes/opportunities/${opportunityId}${tenderRef ? `?tender_ref=${encodeURIComponent(tenderRef)}` : ""}`, {}, token),
   getScopePatterns: (token: string, opportunityId: string) =>
     req<{ patterns: Record<string, unknown>[] }>(`/outcomes/opportunities/${opportunityId}/scope-patterns`, {}, token),
+  // Drawings (TS-321, TS-322)
+  listDrawings: (token: string, opportunityId: string) =>
+    req<{ drawings: Drawing[] }>(`/drawings/opportunities/${opportunityId}/drawings`, {}, token),
+  createDrawing: (token: string, opportunityId: string, body: {
+    filename: string;
+    document_id?: string;
+    drawing_number?: string;
+    title?: string;
+    revision?: string;
+    revision_date?: string;
+    discipline?: string;
+    supersedes_id?: string;
+  }) =>
+    req<Drawing>(`/drawings/opportunities/${opportunityId}/drawings`, { method: "POST", body: JSON.stringify(body) }, token),
+  uploadDrawingFile: (token: string, opportunityId: string, drawingId: string, file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    return req<Drawing>(`/drawings/opportunities/${opportunityId}/drawings/${drawingId}/upload`, { method: "POST", body }, token);
+  },
+  supersedeDrawing: (token: string, opportunityId: string, currentId: string, previousId: string) =>
+    req<Drawing>(`/drawings/opportunities/${opportunityId}/drawings/${currentId}/supersedes/${previousId}`, { method: "POST" }, token),
+  compareDrawings: (token: string, opportunityId: string, currentId: string, previousId: string) =>
+    req<DrawingComparison>(`/drawings/opportunities/${opportunityId}/drawings/${currentId}/compare/${previousId}`, { method: "POST" }, token),
 };
 
 export type PlanSnapshot = {

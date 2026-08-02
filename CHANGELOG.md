@@ -100,6 +100,17 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - **TS-319** — missing-scope suggestions from historical patterns: `outcomes` service
   exposes `historical_scope_patterns`; BOQ run uses them to raise `SCOPE_GAP`
   `Consider: ...` suggestions for categories missed in prior opportunities.
+- **TS-320** — rate build-up and sensitivity UI: `backend/app/modules/pricing/buildup.py`
+  decomposes BOQ rates into material/labour/equipment/overhead/profit; new
+  `POST /api/pricing/opportunities/{id}/rate-buildup` and `.../sensitivity` endpoints;
+  Pricing tab adds Build-up and Sensitivity sub-tabs.
+- **TS-321** — drawing register and title-block extraction: new
+  `backend/app/modules/drawings/` module with `Drawing` model, title-block regex
+  extraction from PDF/text, revision chain, and `supersedes` controls; API endpoints
+  and a Drawings tab on the opportunity page.
+- **TS-322** — drawing overlay / region-level change detection: `DrawingService.compare`
+  splits extracted text by pages and regions, runs diffs, and returns changed pages and
+  per-region line counts.
 - Added `docs/REMAINING_GAPS_ROADMAP.md` with one row for every `Partial` / `Missing`
   capability from `FEATURE_COVERAGE.md`.
 - Created **Phase 22** in `tasks/backlog.md` with 33 concrete tasks (TS-301–TS-333)
@@ -249,7 +260,8 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ### Next
 
-- Phase 21 (TS-281–TS-292): integration adapters, subcontract control, and Advisor Edition.
+- Phase 22 remaining drawing intelligence (TS-323–TS-325: symbol/count assistance,
+  drawing-to-BOQ link, confidence heatmap) and remaining P2/P3 gaps.
 
 ### Done — 2026-08-01 (Phase 19 claims workspace: TS-258–TS-266)
 

@@ -133,3 +133,67 @@ def cashflow(
     except PricingError as exc:
         raise HTTPException(409, exc.code) from exc
     return result
+
+
+class RateBuildupBody(BaseModel):
+    csv: str = Field(..., max_length=10_000_000)
+    currency: str = "INR"
+    material_pct: float = 0.35
+    labour_pct: float = 0.30
+    equipment_pct: float = 0.15
+    overhead_pct: float = 0.10
+    profit_pct: float = 0.10
+
+
+@router.post("/opportunities/{opportunity_id}/rate-buildup")
+def rate_buildup_route(
+    opportunity_id: str,
+    body: RateBuildupBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    try:
+        return _service(request, session).get_rate_buildup(
+            principal.workspace_id,
+            opportunity_id,
+            body.csv,
+            currency=body.currency,
+            material_pct=body.material_pct,
+            labour_pct=body.labour_pct,
+            equipment_pct=body.equipment_pct,
+            overhead_pct=body.overhead_pct,
+            profit_pct=body.profit_pct,
+        )
+    except PricingError as exc:
+        raise HTTPException(409, exc.code) from exc
+    except ValueError as exc:
+        raise HTTPException(400, f"bad_boq: {exc}") from exc
+
+
+class SensitivityBody(BaseModel):
+    csv: str = Field(..., max_length=10_000_000)
+    currency: str = "INR"
+    scenarios: list[dict] | None = None
+
+
+@router.post("/opportunities/{opportunity_id}/sensitivity")
+def sensitivity_route(
+    opportunity_id: str,
+    body: SensitivityBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    try:
+        return _service(request, session).get_sensitivity(
+            principal.workspace_id,
+            opportunity_id,
+            body.csv,
+            currency=body.currency,
+            scenarios=body.scenarios,
+        )
+    except PricingError as exc:
+        raise HTTPException(409, exc.code) from exc
+    except ValueError as exc:
+        raise HTTPException(400, f"bad_boq: {exc}") from exc

@@ -564,9 +564,9 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-317 | Clause deviation scoring against playbook/standard | Research Doc §4.B clause deviation comparison; FEATURE_COVERAGE.md §B | backend/app/modules/comparison/ or new risk/deviation.py | done |
 | TS-318 | BOQ cross-check against drawing schedules | Research Doc §4.C cross-check BOQ vs drawings; FEATURE_COVERAGE.md §C | backend/app/modules/boq/engine.py | done |
 | TS-319 | Missing-scope suggestions from historical patterns | Research Doc §4.C historical patterns; FEATURE_COVERAGE.md §C | backend/app/modules/boq/engine.py + outcomes/ | done |
-| TS-320 | Rate build-up templates and sensitivity UI | Research Doc §4.C rate build-up/sensitivity; FEATURE_COVERAGE.md §C | frontend/app/opportunities/[id]/pricing/ + backend/pricing | todo |
-| TS-321 | Drawing register, title-block extraction, revision and superseded controls | Research Doc §4.D; FEATURE_COVERAGE.md §D | new backend/app/modules/drawings/ | todo |
-| TS-322 | Drawing overlay and region-level change detection | Research Doc §4.D; FEATURE_COVERAGE.md §D | backend/app/modules/drawings/compare.py | todo |
+| TS-320 | Rate build-up templates and sensitivity UI | Research Doc §4.C rate build-up/sensitivity; FEATURE_COVERAGE.md §C | frontend/app/opportunities/[id]/pricing/ + backend/pricing | done |
+| TS-321 | Drawing register, title-block extraction, revision and superseded controls | Research Doc §4.D; FEATURE_COVERAGE.md §D | new backend/app/modules/drawings/ | done |
+| TS-322 | Drawing overlay and region-level change detection | Research Doc §4.D; FEATURE_COVERAGE.md §D | backend/app/modules/drawings/compare.py | done |
 | TS-323 | Drawing symbol and count assistance | Research Doc §4.D; FEATURE_COVERAGE.md §D | backend/app/modules/drawings/vision.py | todo |
 | TS-324 | Drawing-to-BOQ link | Research Doc §4.D; FEATURE_COVERAGE.md §D | backend/app/modules/drawings/ + boq/ | todo |
 | TS-325 | Drawing confidence heatmap | Research Doc §4.D; FEATURE_COVERAGE.md §D | backend/app/modules/drawings/heatmap.py | todo |

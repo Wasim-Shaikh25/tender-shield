@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api, type CashflowResult, type PricingLoading, type RateBenchmark } from "@/lib/api";
+import { api, type CashflowResult, type PricingLoading, type RateBenchmark, type RateBuildupResult, type SensitivityResult } from "@/lib/api";
 
 function rupees(minor?: number, currency = "INR") {
   if (minor === undefined || minor === null) return "—";
@@ -19,13 +19,15 @@ export function PricingTab({
   boqCsv: string;
   gate: { export_allowed?: boolean; reason?: string } | null;
 }) {
-  const [subTab, setSubTab] = useState<"loadings" | "benchmark" | "cashflow">("loadings");
+  const [subTab, setSubTab] = useState<"loadings" | "benchmark" | "cashflow" | "buildup" | "sensitivity">("loadings");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
   const [loadings, setLoadings] = useState<PricingLoading[]>([]);
   const [benchmark, setBenchmark] = useState<RateBenchmark | null>(null);
   const [cashflow, setCashflow] = useState<CashflowResult | null>(null);
+  const [buildup, setBuildup] = useState<RateBuildupResult | null>(null);
+  const [sensitivity, setSensitivity] = useState<SensitivityResult | null>(null);
 
   const [benchForm, setBenchForm] = useState({ csv: boqCsv, authority: "in-works", year: "2025" });
   const [cfForm, setCfForm] = useState({
@@ -39,10 +41,61 @@ export function PricingTab({
     mobilization_advance_pct: "5",
     mobilization_recovery_months: "3",
   });
+  const [buildupForm, setBuildupForm] = useState({
+    csv: boqCsv,
+    currency: "INR",
+    material_pct: "35",
+    labour_pct: "30",
+    equipment_pct: "15",
+    overhead_pct: "10",
+    profit_pct: "10",
+  });
+  const [sensForm, setSensForm] = useState({ csv: boqCsv, currency: "INR" });
 
   useEffect(() => {
     setBenchForm((f) => ({ ...f, csv: boqCsv }));
+    setBuildupForm((f) => ({ ...f, csv: boqCsv }));
+    setSensForm((f) => ({ ...f, csv: boqCsv }));
   }, [boqCsv]);
+
+  async function runBuildup(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setNote(null);
+    try {
+      const d = await api.runRateBuildup(token, opportunityId, {
+        csv: buildupForm.csv,
+        currency: buildupForm.currency,
+        material_pct: parseFloat(buildupForm.material_pct) / 100,
+        labour_pct: parseFloat(buildupForm.labour_pct) / 100,
+        equipment_pct: parseFloat(buildupForm.equipment_pct) / 100,
+        overhead_pct: parseFloat(buildupForm.overhead_pct) / 100,
+        profit_pct: parseFloat(buildupForm.profit_pct) / 100,
+      });
+      setBuildup(d);
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : "Build-up failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function runSensitivity(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setNote(null);
+    try {
+      const d = await api.runSensitivity(token, opportunityId, {
+        csv: sensForm.csv,
+        currency: sensForm.currency,
+      });
+      setSensitivity(d);
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : "Sensitivity failed");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function fetchLoadings() {
     setBusy(true);
@@ -117,7 +170,7 @@ export function PricingTab({
       )}
 
       <div className="flex gap-1 border-b border-slate-200">
-        {(["loadings", "benchmark", "cashflow"] as const).map((t) => (
+        {(["loadings", "benchmark", "cashflow", "buildup", "sensitivity"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setSubTab(t)}
@@ -302,6 +355,104 @@ export function PricingTab({
                       <td className="px-2 py-1">{rupees(m.incurred_minor, cashflow.currency)}</td>
                       <td className="px-2 py-1">{rupees(m.received_minor, cashflow.currency)}</td>
                       <td className={`px-2 py-1 font-medium ${m.cumulative_net_minor < 0 ? "text-rose-600" : "text-emerald-600"}`}>{rupees(m.cumulative_net_minor, cashflow.currency)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {subTab === "buildup" && (
+        <div className="space-y-4">
+          <form onSubmit={runBuildup} className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="grid gap-3 sm:grid-cols-6">
+              <div className="space-y-1 sm:col-span-2">
+                <label htmlFor="bu-csv" className="text-sm font-medium text-slate-700">BOQ CSV</label>
+                <textarea id="bu-csv" value={buildupForm.csv} onChange={(e) => setBuildupForm({ ...buildupForm, csv: e.target.value })} className="h-24 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="description,unit,qty,rate,..." required />
+              </div>
+              <div className="space-y-1"><label htmlFor="bu-material" className="text-sm font-medium text-slate-700">Material %</label><input id="bu-material" type="number" step="0.1" value={buildupForm.material_pct} onChange={(e) => setBuildupForm({ ...buildupForm, material_pct: e.target.value })} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></div>
+              <div className="space-y-1"><label htmlFor="bu-labour" className="text-sm font-medium text-slate-700">Labour %</label><input id="bu-labour" type="number" step="0.1" value={buildupForm.labour_pct} onChange={(e) => setBuildupForm({ ...buildupForm, labour_pct: e.target.value })} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></div>
+              <div className="space-y-1"><label htmlFor="bu-equipment" className="text-sm font-medium text-slate-700">Equipment %</label><input id="bu-equipment" type="number" step="0.1" value={buildupForm.equipment_pct} onChange={(e) => setBuildupForm({ ...buildupForm, equipment_pct: e.target.value })} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></div>
+              <div className="space-y-1"><label htmlFor="bu-overhead" className="text-sm font-medium text-slate-700">Overhead %</label><input id="bu-overhead" type="number" step="0.1" value={buildupForm.overhead_pct} onChange={(e) => setBuildupForm({ ...buildupForm, overhead_pct: e.target.value })} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></div>
+              <div className="space-y-1"><label htmlFor="bu-profit" className="text-sm font-medium text-slate-700">Profit %</label><input id="bu-profit" type="number" step="0.1" value={buildupForm.profit_pct} onChange={(e) => setBuildupForm({ ...buildupForm, profit_pct: e.target.value })} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></div>
+            </div>
+            <button type="submit" disabled={busy} className="mt-3 rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40">Run build-up</button>
+          </form>
+          {buildup && (
+            <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div><p className="text-xs text-slate-500 uppercase">Total amount</p><p className="text-xl font-semibold">{rupees(buildup.total_amount_minor, buildup.currency)}</p></div>
+                <div><p className="text-xs text-slate-500 uppercase">Total profit</p><p className="text-xl font-semibold">{rupees(buildup.total_profit_minor, buildup.currency)}</p></div>
+                <div><p className="text-xs text-slate-500 uppercase">Items</p><p className="text-xl font-semibold">{buildup.items.length}</p></div>
+              </div>
+              {buildup.assumptions.length > 0 && (
+                <ul className="list-disc pl-5 text-sm text-slate-600">{buildup.assumptions.map((a, i) => <li key={i}>{a}</li>)}</ul>
+              )}
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-left text-slate-700">
+                  <tr>
+                    <th className="px-2 py-1">Description</th>
+                    <th className="px-2 py-1">Unit</th>
+                    <th className="px-2 py-1">Qty</th>
+                    <th className="px-2 py-1">Rate</th>
+                    <th className="px-2 py-1">M/L/E/O/P</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {buildup.items.map((it) => (
+                    <tr key={it.src_row} className="border-b border-slate-100">
+                      <td className="px-2 py-1">{it.description}</td>
+                      <td className="px-2 py-1">{it.unit}</td>
+                      <td className="px-2 py-1">{it.qty}</td>
+                      <td className="px-2 py-1">{rupees(it.rate_minor, buildup.currency)}</td>
+                      <td className="px-2 py-1">{rupees(it.material_rate_minor, buildup.currency)} / {rupees(it.labour_rate_minor, buildup.currency)} / {rupees(it.equipment_rate_minor, buildup.currency)} / {rupees(it.overhead_rate_minor, buildup.currency)} / {rupees(it.profit_rate_minor, buildup.currency)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {subTab === "sensitivity" && (
+        <div className="space-y-4">
+          <form onSubmit={runSensitivity} className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="space-y-1 sm:col-span-3">
+                <label htmlFor="sens-csv" className="text-sm font-medium text-slate-700">BOQ CSV</label>
+                <textarea id="sens-csv" value={sensForm.csv} onChange={(e) => setSensForm({ ...sensForm, csv: e.target.value })} className="h-24 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="description,unit,qty,rate,..." required />
+              </div>
+            </div>
+            <button type="submit" disabled={busy} className="mt-3 rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40">Run sensitivity</button>
+          </form>
+          {sensitivity && (
+            <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div><p className="text-xs text-slate-500 uppercase">Base total</p><p className="text-xl font-semibold">{rupees(sensitivity.base_total_minor, sensitivity.currency)}</p></div>
+              </div>
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-left text-slate-700">
+                  <tr>
+                    <th className="px-2 py-1">Scenario</th>
+                    <th className="px-2 py-1">Param</th>
+                    <th className="px-2 py-1">Delta %</th>
+                    <th className="px-2 py-1">Total</th>
+                    <th className="px-2 py-1">Delta</th>
+                    <th className="px-2 py-1">Delta % total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sensitivity.scenarios.map((s, i) => (
+                    <tr key={i} className="border-b border-slate-100">
+                      <td className="px-2 py-1">{s.name}</td>
+                      <td className="px-2 py-1">{s.param}</td>
+                      <td className="px-2 py-1">{s.delta_pct}%</td>
+                      <td className="px-2 py-1">{rupees(s.total_amount_minor, sensitivity.currency)}</td>
+                      <td className="px-2 py-1">{rupees(s.delta_minor, sensitivity.currency)}</td>
+                      <td className="px-2 py-1">{s.delta_pct_total}%</td>
                     </tr>
                   ))}
                 </tbody>

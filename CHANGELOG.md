@@ -45,6 +45,16 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - **AGENTS.md refresh** — removed the stale `TS-F01` workspace-list warning; the
   response shape is aligned with `SessionProvider`.
 
+### Done — gap closure roadmap (TS-301)
+
+- Added `docs/REMAINING_GAPS_ROADMAP.md` with one row for every `Partial` / `Missing`
+  capability from `FEATURE_COVERAGE.md`.
+- Created **Phase 22** in `tasks/backlog.md` with 33 concrete tasks (TS-301–TS-333)
+  covering frontend surfaces, ingestion, risk/BOQ, drawing intelligence, change/claims,
+  control tower, governance, and live connectors.
+- Each task includes requirement reference, acceptance criteria, priority (P0–P3),
+  and dependency notes.
+
 ### Done — feature coverage audit (TS-300)
 
 - Added `FEATURE_COVERAGE.md` cross-checking every capability in

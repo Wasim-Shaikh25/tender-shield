@@ -89,6 +89,17 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   capitalised `X means Y` definitions; `process_text` persists them in the new
   `DefinedTerm` table (workspace/opportunity/document scoped). Glossary exposed via
   `GET /api/ingestion/opportunities/{id}/glossary` and per-document glossary endpoint.
+- **TS-317** — clause deviation scoring: `ComparisonService.deviation_report` scores
+  each clause against the workspace's commercial standard/playbook. Violations are
+  normalised by the policy threshold; exposed via
+  `GET /api/comparison/opportunities/{id}/deviation`.
+- **TS-318** — BOQ cross-check against drawing/schedule: `boq.engine` matches BOQ
+  line descriptions to imported schedule activities with conservative token overlap;
+  unmatched schedule activities raise `SCOPE_GAP` findings and unmatched BOQ items
+  raise `BOQ_DEFECT` findings during `run_csv`.
+- **TS-319** — missing-scope suggestions from historical patterns: `outcomes` service
+  exposes `historical_scope_patterns`; BOQ run uses them to raise `SCOPE_GAP`
+  `Consider: ...` suggestions for categories missed in prior opportunities.
 - Added `docs/REMAINING_GAPS_ROADMAP.md` with one row for every `Partial` / `Missing`
   capability from `FEATURE_COVERAGE.md`.
 - Created **Phase 22** in `tasks/backlog.md` with 33 concrete tasks (TS-301–TS-333)

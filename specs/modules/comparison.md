@@ -21,6 +21,8 @@ bid readiness — as a single sorted list.
 - **Events:** none.
 - **API routes** (prefix `/api/comparison`):
   - `GET /opportunities` — portfolio comparison for the caller's org.
+  - `GET /opportunities/{opportunity_id}/deviation` — per-clause deviation scoring
+    against the workspace commercial standard/playbook (TS-317).
 
 ## Data owned
 
@@ -47,6 +49,13 @@ through their service factories.
   org filters.
 - **B5 — Graceful degradation.** Missing factories or ungenerated bid decisions
   produce `null`/`0` values, never 500 errors.
+- **B6 — Clause deviation scoring (TS-317).** The service consumes
+  `standards.commercial_service_factory` and `ingestion.service_factory`. For each
+  clause, it checks the workspace's commercial policies (`applies_to` keywords and
+  numeric thresholds) and computes a normalised `deviation_score` when the clause
+  violates a policy. Scores are positive for `gt`/`gte` violations and negative for
+  `lt`/`lte` violations. The response returns per-clause rows plus an
+  `overall_deviation_score`.
 
 ## Response shape
 
@@ -81,6 +90,8 @@ through their service factories.
 - A3: Sort is stable and deterministic across identical data.
 - A4: The endpoint works even when `drafting` is disabled (score/recommendation
   `null`).
+- A5 (TS-317): `GET /api/comparison/opportunities/{id}/deviation` returns per-clause
+  scores and an overall score; clauses that do not violate any policy show a score of `0`.
 
 ## Out of scope
 

@@ -17,9 +17,13 @@ from app.core.contracts.findings import Finding
 from app.core.provenance import ProvenanceStamp, content_hash, document_set_hash, stamp_findings
 from app.modules.boq.engine import (
     SpecTextIndex,
+    cross_check_schedule,
     normalize,
     run_checks,
     scope_gaps,
+)
+from app.modules.boq.engine import (
+    historical_scope_suggestions as _historical_scope_suggestions,
 )
 
 _FALLBACK_UNIT_CANON = {"cum": "m3", "m³": "m3", "sqm": "m2", "rmt": "m", "mt": "t"}
@@ -64,26 +68,62 @@ class BoqEngine:
         pack = self._pack()
         return sorted(pack.trade_checklists) if pack else []
 
+    def cross_check_schedule(self, df: pd.DataFrame, activities: list[dict]) -> list[Finding]:
+        return cross_check_schedule(df, activities)
+
+    def historical_scope_suggestions(
+        self, df: pd.DataFrame, historical_gaps: list[dict]
+    ) -> list[Finding]:
+        return _historical_scope_suggestions(df, historical_gaps)
+
 
 class BoqRunner:
     """Runs the deterministic BOQ engine over an uploaded workbook and persists
     the defects + scope gaps via the findings store (producer='boq'). Consumes
-    ingestion (for the spec text that drives scope-gap triggers) and findings
-    purely via registry capabilities."""
+    ingestion (for the spec text that drives scope-gap triggers), integrations
+    (for the imported programme schedule), and findings purely via registry
+    capabilities."""
 
     PRODUCER = "boq"
 
-    def __init__(self, session, *, engine: BoqEngine, store_factory=None, ingestion_factory=None):
+    def __init__(
+        self,
+        session,
+        *,
+        engine: BoqEngine,
+        store_factory=None,
+        ingestion_factory=None,
+        integrations_factory=None,
+        outcomes_factory=None,
+    ):
         self.s = session
         self._engine = engine
         self._store_factory = store_factory
         self._ingestion_factory = ingestion_factory
+        self._integrations_factory = integrations_factory
+        self._outcomes_factory = outcomes_factory
 
     def _spec_text(self, workspace_id, opportunity_id) -> str:
         if not self._ingestion_factory:
             return ""
         clauses = self._ingestion_factory(self.s).list_clauses(workspace_id, opportunity_id)
         return "\n".join(c.text for c in clauses)
+
+    def _schedule_activities(self, workspace_id, opportunity_id) -> list[dict]:
+        if not self._integrations_factory:
+            return []
+        svc = self._integrations_factory(self.s)
+        if not hasattr(svc, "list_schedule_activities"):
+            return []
+        return svc.list_schedule_activities(workspace_id, opportunity_id)
+
+    def _historical_scope_gaps(self, workspace_id, opportunity_id) -> list[dict]:
+        if not self._outcomes_factory:
+            return []
+        svc = self._outcomes_factory(self.s)
+        if not hasattr(svc, "historical_scope_patterns"):
+            return []
+        return svc.historical_scope_patterns(workspace_id, current_opportunity_id=opportunity_id)
 
     def _document_hash(self, workspace_id, opportunity_id, csv_text: str) -> str:
         digests: list[str] = []
@@ -108,6 +148,12 @@ class BoqRunner:
         spec_text = self._spec_text(workspace_id, opportunity_id)
         for checklist_id in self._engine.available_checklists():
             findings.extend(self._engine.scope_gaps(df, spec_text, checklist_id))
+        activities = self._schedule_activities(workspace_id, opportunity_id)
+        if activities:
+            findings.extend(self._engine.cross_check_schedule(df, activities))
+        historical_gaps = self._historical_scope_gaps(workspace_id, opportunity_id)
+        if historical_gaps:
+            findings.extend(self._engine.historical_scope_suggestions(df, historical_gaps))
         stamp = self._provenance_stamp(workspace_id, opportunity_id, csv_text)
         findings = stamp_findings(findings, stamp)
         if self._store_factory is not None:

@@ -115,6 +115,19 @@ def get_outcome(
     )
 
 
+@router.get("/opportunities/{opportunity_id}/scope-patterns")
+def get_scope_patterns(
+    opportunity_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    patterns = _service(request, session).historical_scope_patterns(
+        principal.workspace_id, current_opportunity_id=opportunity_id
+    )
+    return {"patterns": patterns}
+
+
 @router.post("/findings/{finding_id}/materialized")
 def mark_materialized(
     finding_id: str,

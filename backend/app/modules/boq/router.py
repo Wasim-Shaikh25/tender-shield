@@ -35,6 +35,8 @@ def _runner(request: Request, session: Session) -> BoqRunner:
         engine=engine,
         store_factory=reg.get("findings.store_factory"),
         ingestion_factory=reg.get("ingestion.service_factory"),
+        integrations_factory=reg.get("integrations.service_factory"),
+        outcomes_factory=reg.get("outcomes.service_factory"),
     )
 
 

@@ -6,6 +6,7 @@ of other modules' models.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from datetime import UTC, datetime
 
@@ -20,11 +21,13 @@ class ComparisonService:
         ingestion_factory: Callable[[Session], object] | None = None,
         findings_factory: Callable[[Session], object] | None = None,
         drafting_factory: Callable[[Session], object] | None = None,
+        standards_factory: Callable[[Session], object] | None = None,
     ):
         self.s = session
         self._ingestion_factory = ingestion_factory
         self._findings_factory = findings_factory
         self._drafting_factory = drafting_factory
+        self._standards_factory = standards_factory
 
     def compare(self, workspace_id) -> list[dict]:
         opps = self._opportunities(workspace_id)
@@ -110,6 +113,85 @@ class ComparisonService:
             "recommendation": recommendation,
         }
 
+    def deviation_report(self, workspace_id, opportunity_id: str) -> dict:
+        """Score each clause against the workspace's commercial standard/playbook.
+
+        Returns per-clause deviation scores and an overall opportunity score.
+        A negative `deviation_score` means the clause is below a `lt`/`lte` threshold;
+        positive means it exceeds a `gt`/`gte` threshold. The score is normalised by
+        the policy threshold so clauses on different scales are comparable.
+        """
+        clauses = self._clauses(workspace_id, opportunity_id)
+        standards = self._standards(workspace_id)
+        if not standards:
+            return {"clauses": [], "overall_deviation_score": 0.0, "policies_checked": 0}
+        policies = standards.list_policies(workspace_id)
+        if not policies:
+            return {"clauses": [], "overall_deviation_score": 0.0, "policies_checked": 0}
+
+        clause_rows = []
+        overall = 0.0
+        for clause in clauses:
+            text = " ".join(
+                filter(None, [getattr(clause, "heading", None), getattr(clause, "text", "")])
+            ).lower()
+            matched = 0
+            deviation = 0.0
+            matched_policies = []
+            for policy in policies:
+                keywords = [k.lower() for k in policy.get("applies_to", [])]
+                if keywords and not any(kw in text for kw in keywords):
+                    continue
+                value = _extract_clause_value(clause, policy.get("unit"))
+                if value is None:
+                    continue
+                matched += 1
+                threshold = policy.get("threshold") or 0
+                if _policy_violates(value, policy.get("operator"), threshold):
+                    if threshold:
+                        score = (value - threshold) / threshold
+                    else:
+                        score = value
+                    deviation += score
+                    matched_policies.append(
+                        {
+                            "policy_key": policy["key"],
+                            "policy_label": policy["label"],
+                            "operator": policy["operator"],
+                            "threshold": threshold,
+                            "value": value,
+                            "deviation_score": score,
+                        }
+                    )
+            row = {
+                "clause_ref": getattr(clause, "clause_ref", None),
+                "heading": getattr(clause, "heading", None),
+                "deviation_score": round(deviation, 4),
+                "policies_matched": matched,
+                "violations": matched_policies,
+            }
+            clause_rows.append(row)
+            overall += deviation
+
+        return {
+            "clauses": sorted(clause_rows, key=lambda c: c["deviation_score"], reverse=True),
+            "overall_deviation_score": round(overall, 4),
+            "policies_checked": len(policies),
+        }
+
+    def _clauses(self, workspace_id, opportunity_id: str) -> list:
+        if self._ingestion_factory is None:
+            return []
+        svc = self._ingestion_factory(self.s)
+        if not hasattr(svc, "list_clauses"):
+            return []
+        return svc.list_clauses(workspace_id, opportunity_id)
+
+    def _standards(self, workspace_id):
+        if self._standards_factory is None:
+            return None
+        return self._standards_factory(self.s)
+
     def _submission_due(self, workspace_id, opportunity_id: str):
         if self._ingestion_factory is None:
             return None
@@ -182,3 +264,41 @@ def _rank(rows: list[dict]) -> list[dict]:
         return (rec_rank, score, critical, days_value, row.get("title", ""))
 
     return sorted(rows, key=sort_key)
+
+
+_PERCENT_RE = re.compile(r"(\d+(?:\.\d+)?)\s*%")
+_DAYS_RE = re.compile(r"(\d+(?:\.\d+)?)\s*days?", re.IGNORECASE)
+_AMOUNT_RE = re.compile(r"(?:₹|Rs\.?|INR)\s*([\d,]+(?:\.\d+)?)", re.IGNORECASE)
+
+
+def _extract_clause_value(clause, unit: str | None) -> float | None:
+    text = " ".join(
+        filter(None, [getattr(clause, "heading", None), getattr(clause, "text", "")])
+    )
+    if unit == "percent":
+        m = _PERCENT_RE.search(text)
+    elif unit == "days":
+        m = _DAYS_RE.search(text)
+    elif unit == "amount":
+        m = _AMOUNT_RE.search(text)
+    else:
+        m = re.search(r"(\d+(?:\.\d+)?)", text)
+    if not m:
+        return None
+    raw = m.group(1).replace(",", "")
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
+def _policy_violates(value: float, operator: str | None, threshold: float) -> bool:
+    if operator == "gt":
+        return value > threshold
+    if operator == "gte":
+        return value >= threshold
+    if operator == "lt":
+        return value < threshold
+    if operator == "lte":
+        return value <= threshold
+    return False

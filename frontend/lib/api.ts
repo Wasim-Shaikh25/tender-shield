@@ -489,6 +489,8 @@ export const api = {
     req<{ audit: { id: string; action: string; actor_email: string | null; created_at: string; meta: Record<string, unknown> }[] }>(`/review/opportunities/${id}/audit`, {}, token),
   listComparison: (token: string) =>
     req<{ opportunities: { id: string; title: string; submission_due: string | null; days_to_submission: number | null; risk_counts: Record<string, number>; qualification_gaps: number; boq_defects: number; export_ready: boolean }[] }>("/comparison/opportunities", {}, token),
+  getClauseDeviation: (token: string, opportunityId: string) =>
+    req<{ clauses: { clause_ref: string | null; heading: string | null; deviation_score: number; policies_matched: number; violations: Record<string, unknown>[] }[]; overall_deviation_score: number; policies_checked: number }>(`/comparison/opportunities/${opportunityId}/deviation`, {}, token),
   generateArtifact: (token: string, id: string, kind: string) =>
     req<Artifact>(
       `/drafting/opportunities/${id}/artifacts`,
@@ -787,6 +789,11 @@ export const api = {
     req<{ terms: { id: string; document_id: string; term: string; definition: string; source_quote?: string | null; source_clause_ref?: string | null }[] }>(`/ingestion/opportunities/${opportunityId}/glossary`, {}, token),
   getDocumentGlossary: (token: string, opportunityId: string, documentId: string) =>
     req<{ terms: { id: string; document_id: string; term: string; definition: string; source_quote?: string | null; source_clause_ref?: string | null }[] }>(`/ingestion/opportunities/${opportunityId}/documents/${documentId}/glossary`, {}, token),
+  // Outcomes
+  getOutcome: (token: string, opportunityId: string, tenderRef?: string) =>
+    req<Record<string, unknown>>(`/outcomes/opportunities/${opportunityId}${tenderRef ? `?tender_ref=${encodeURIComponent(tenderRef)}` : ""}`, {}, token),
+  getScopePatterns: (token: string, opportunityId: string) =>
+    req<{ patterns: Record<string, unknown>[] }>(`/outcomes/opportunities/${opportunityId}/scope-patterns`, {}, token),
 };
 
 export type PlanSnapshot = {

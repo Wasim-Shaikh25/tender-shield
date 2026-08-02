@@ -23,6 +23,7 @@ This is the cheapest moat increment in the plan — a handful of columns, one fo
 - `outcomes.for_opportunity` — read outcomes + materialization
 - `outcomes.margin_protected` — workspace north-star metric (TS-234)
 - `outcomes.record_claim_outcome` — write a recovered claim value (TS-269)
+- `outcomes.historical_scope_patterns` — read historical `scope_gap` categories for missing-scope suggestions (TS-319)
 
 **Capabilities consumed (soft)**
 - `findings.store` — to attach materialization to specific findings
@@ -38,6 +39,7 @@ This is the cheapest moat increment in the plan — a handful of columns, one fo
 - `POST /api/outcomes/opportunities/{id}` — record/update outcome
 - `POST /api/outcomes/findings/{id}/materialized` — mark a finding as materialized
 - `GET  /api/outcomes/opportunities/{id}`
+- `GET  /api/outcomes/opportunities/{id}/scope-patterns` — historical scope-gap patterns for missing-scope suggestions (TS-319)
 - `GET  /api/outcomes/metrics/margin-protected` — verified margin protected (TS-234)
 
 ## Data owned
@@ -88,6 +90,13 @@ project overran" and "this clause cost us this much."
 
 **The loop proposes; a human approves.** Rulepacks are never auto-mutated (Build Doc §2.4).
 
+### Historical scope patterns (TS-319)
+`outcomes.historical_scope_patterns` reads past `scope_gap` findings produced by
+`boq` for the workspace, excluding the current opportunity. It groups them by
+category and returns a compact list of patterns used by the BOQ engine to suggest
+missing-scope items. The data stays workspace-scoped and is read from the shared
+`findings` store via `findings.store_factory`.
+
 ### Privacy
 Outcome data is commercially sensitive — it reveals a firm's win rate and pricing. It is
 workspace-scoped, never contributes to the shared `marketdata` graph, and never appears in any
@@ -108,6 +117,9 @@ k-anonymity thresholds.
 9. `GET /api/outcomes/metrics/margin-protected` returns a deterministic workspace snapshot and
    excludes unreviewed findings.
 10. Settled claim `recovered_amount_minor` is captured and added to the `margin_protected` total (TS-269).
+11. `GET /api/outcomes/opportunities/{id}/scope-patterns` returns historical `scope_gap` categories
+    from past opportunities, excluding the current one, and includes a per-category historical count
+    (TS-319).
 
 ## Out of scope
 

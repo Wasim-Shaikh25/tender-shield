@@ -561,9 +561,9 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-314 | Automatic addendum comparison and duplicate detection | Research Doc §4.A version detection, addendum comparison; FEATURE_COVERAGE.md §A | backend/app/modules/ingestion/service.py | done |
 | TS-315 | Language detection and multilingual extraction assistance | Research Doc §8.1 localization; FEATURE_COVERAGE.md §A | backend/app/modules/ingestion/doc_text.py | done |
 | TS-316 | Defined-term glossary and linking | Research Doc §4.A defined-term linking; FEATURE_COVERAGE.md §A | backend/app/modules/ingestion/segment.py + new glossary model | done |
-| TS-317 | Clause deviation scoring against playbook/standard | Research Doc §4.B clause deviation comparison; FEATURE_COVERAGE.md §B | backend/app/modules/comparison/ or new risk/deviation.py | todo |
-| TS-318 | BOQ cross-check against drawing schedules | Research Doc §4.C cross-check BOQ vs drawings; FEATURE_COVERAGE.md §C | backend/app/modules/boq/engine.py | todo |
-| TS-319 | Missing-scope suggestions from historical patterns | Research Doc §4.C historical patterns; FEATURE_COVERAGE.md §C | backend/app/modules/boq/engine.py + outcomes/ | todo |
+| TS-317 | Clause deviation scoring against playbook/standard | Research Doc §4.B clause deviation comparison; FEATURE_COVERAGE.md §B | backend/app/modules/comparison/ or new risk/deviation.py | done |
+| TS-318 | BOQ cross-check against drawing schedules | Research Doc §4.C cross-check BOQ vs drawings; FEATURE_COVERAGE.md §C | backend/app/modules/boq/engine.py | done |
+| TS-319 | Missing-scope suggestions from historical patterns | Research Doc §4.C historical patterns; FEATURE_COVERAGE.md §C | backend/app/modules/boq/engine.py + outcomes/ | done |
 | TS-320 | Rate build-up templates and sensitivity UI | Research Doc §4.C rate build-up/sensitivity; FEATURE_COVERAGE.md §C | frontend/app/opportunities/[id]/pricing/ + backend/pricing | todo |
 | TS-321 | Drawing register, title-block extraction, revision and superseded controls | Research Doc §4.D; FEATURE_COVERAGE.md §D | new backend/app/modules/drawings/ | todo |
 | TS-322 | Drawing overlay and region-level change detection | Research Doc §4.D; FEATURE_COVERAGE.md §D | backend/app/modules/drawings/compare.py | todo |

@@ -203,3 +203,114 @@ def scope_gaps(df: pd.DataFrame, spec: SpecTextIndex, checklist) -> list[Finding
             )
         )
     return findings
+
+
+_STOPWORDS = {"the", "and", "for", "of", "in", "to", "a", "an", "on", "at", "by", "with"}
+
+
+def _token_overlap(activity_name: str, description: str) -> float:
+    """Simple token overlap for matching schedule activities to BOQ descriptions."""
+    name_tokens = {
+        t
+        for t in re.findall(r"[a-z0-9]+", activity_name.lower())
+        if t not in _STOPWORDS and len(t) > 2
+    }
+    desc_tokens = set(re.findall(r"[a-z0-9]+", description.lower()))
+    if not name_tokens:
+        return 0.0
+    return len(name_tokens & desc_tokens) / len(name_tokens)
+
+
+def cross_check_schedule(df: pd.DataFrame, activities: list[dict]) -> list[Finding]:
+    """Cross-check the BOQ against an imported programme/schedule (TS-318).
+
+    Fires a `SCOPE_GAP` finding when a schedule activity has no likely matching
+    BOQ item, and an `info` finding when a BOQ item has no likely schedule match.
+    Matching is conservative token overlap on meaningful words.
+    """
+    if df.empty or not activities:
+        return []
+    findings: list[Finding] = []
+    descriptions = df["description"].astype(str).str.lower().tolist()
+    for idx, act in enumerate(activities):
+        name = act.get("name", "")
+        if not name:
+            continue
+        best = max((_token_overlap(name, desc) for desc in descriptions), default=0.0)
+        if best < 0.5:
+            findings.append(
+                Finding(
+                    kind=FindingKind.SCOPE_GAP,
+                    category="schedule_mismatch",
+                    severity=Severity.MEDIUM,
+                    title=f"Schedule activity '{name}' has no matching BOQ item",
+                    detail=(
+                        f"Programme activity #{idx + 1} '{name}' could not be matched "
+                        f"to any BOQ line. Confirm it is priced or raise a clarification."
+                    ),
+                    source=FindingSource.DETERMINISTIC_CHECK,
+                    affected_trades=[trade]
+                    if (trade := act.get("metadata", {}).get("trade"))
+                    else [],
+                    suggested_action=(
+                        "Add the activity to the BOQ or confirm it is covered"
+                        " under a preliminaries item."
+                    ),
+                )
+            )
+    for row in df.itertuples(index=False):
+        desc = str(row.description).lower()
+        best = max((_token_overlap(act.get("name", ""), desc) for act in activities), default=0.0)
+        if best < 0.5:
+            findings.append(
+                Finding(
+                    kind=FindingKind.BOQ_DEFECT,
+                    category="schedule_mismatch",
+                    severity=Severity.LOW,
+                    title=f"BOQ item '{row.description[:60]}' not found in schedule",
+                    detail=(
+                        "This BOQ line does not appear to have a corresponding programme activity."
+                    ),
+                    source=FindingSource.DETERMINISTIC_CHECK,
+                    source_page=(
+                        int(row.src_row) if getattr(row, "src_row", None) is not None else None
+                    ),
+                    suggested_action=(
+                        "Verify the item is in the programme or is non-scheduled work."
+                    ),
+                )
+            )
+    return findings
+
+
+def historical_scope_suggestions(df: pd.DataFrame, historical_gaps: list[dict]) -> list[Finding]:
+    """Suggest scope items that were historically missed but are not in the
+    current BOQ (TS-319). `historical_gaps` come from past scope-gap findings.
+    """
+    if df.empty or not historical_gaps:
+        return []
+    findings: list[Finding] = []
+    descriptions = df["description"].astype(str).str.lower()
+    for gap in historical_gaps:
+        keywords = [k.lower() for k in gap.get("keywords", []) if k]
+        if not keywords:
+            continue
+        pattern = "|".join(re.escape(k) for k in keywords)
+        if descriptions.str.contains(pattern, regex=True, na=False).any():
+            continue
+        findings.append(
+            Finding(
+                kind=FindingKind.SCOPE_GAP,
+                category=f"historical:{gap['category']}",
+                severity=Severity(gap.get("severity", "low")),
+                title=f"Consider: {gap['label']}",
+                detail=(
+                    f"This item was missed in {gap.get('historical_count', 1)} prior "
+                    f"opportunity(s). Verify whether it should be priced in this BOQ."
+                ),
+                source=FindingSource.DETERMINISTIC_CHECK,
+                affected_trades=[],
+                suggested_action="Check the spec and drawings, and add a BOQ line if required.",
+            )
+        )
+    return findings

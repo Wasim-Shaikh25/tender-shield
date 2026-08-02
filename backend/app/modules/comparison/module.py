@@ -12,6 +12,7 @@ def setup(ctx: AppContext) -> None:
             ingestion_factory=reg.get("ingestion.service_factory"),
             findings_factory=reg.get("findings.store_factory"),
             drafting_factory=reg.get("drafting.service_factory"),
+            standards_factory=reg.get("standards.commercial_service_factory"),
         ),
     )
 
@@ -20,6 +21,6 @@ module = ModuleSpec(
     name="comparison",
     version="0.1.0",
     router=router,
-    soft_deps=("ingestion", "findings", "drafting"),
+    soft_deps=("ingestion", "findings", "drafting", "standards"),
     setup=setup,
 )

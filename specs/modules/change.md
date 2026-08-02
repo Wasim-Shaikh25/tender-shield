@@ -109,12 +109,20 @@ subscription or switching cost.
 - `POST /events/{event_id}/evidence` (estimator) — attach evidence via `evidence` module.
 - Event detail includes `evidence_completeness` when `evidence` is enabled.
 
-#### Implemented (TS-247)
+#### Implemented (TS-247, TS-327)
 
 - `POST /opportunities/{id}/inbox/email` (admin) — register per-project forward address.
 - `GET  /opportunities/{id}/inbox/email` (admin) — retrieve active forward address.
 - `POST /webhooks/inbound-email` — HMAC-verified inbound provider callback; stores raw
   message append-only and emits email signal candidate via B10–B11.
+- `POST /opportunities/{id}/signals/poll` (estimator) — poll configured IMAP/email inbox for new
+  signal messages and ingest them behind `TS_CHANGE_SIGNAL_POLLING_ENABLED`.
+
+#### Implemented (TS-328)
+
+- `POST /opportunities/{id}/delay-analysis` (estimator) — for a `delay_event_id` and `delay_days`,
+  return impacted schedule activities and successor path using imported `integrations.schedule`
+  data. No auto entitlement is computed.
 
 ## Data owned
 
@@ -222,16 +230,24 @@ Append-only raw inbound messages (`message_id` unique per workspace).
 - **B9 — Dedup.** Same `sha256` + `source_kind` + `opportunity_id` within 24h does not create a
   duplicate event; new sources attach to the existing event.
 
-### Signal ingestion (B10–B12, TS-246–TS-247)
+### Signal ingestion (B10–B12, TS-246–TS-247, TS-327)
 
-- **B10 — Source types.** RFIs, site instructions, meeting minutes, daily reports accepted as pasted
-  text or uploaded files via `ingestion` document pipeline.
-- **B11 — Classification.** LLM may **propose** `reason` and `notice_type` labels; final stored
-  values require a matching `source_quote` span in the text. Prompt-injection defenses: treat all
-  ingested correspondence as untrusted (Build Doc §11.3); system prompts forbid executing embedded
-  instructions.
+- **B10 — Source types.** RFIs, site instructions, meeting minutes, daily reports and emails accepted
+  as pasted text, uploaded files, or `POST /signals` payloads.
+- **B11 — Classification.** Deterministic keyword rules produce `reason`, `notice_type`, and
+  confidence; final stored values require a matching `source_quote` span in the text.
 - **B12 — Email adapter (TS-247).** Per-opportunity forward address stores raw messages; parsing
   reuses B10–B11. Inbound webhook validates signature; body stored append-only.
+- **B12a — Live signal polling (TS-327).** `POST /opportunities/{id}/signals/poll` checks configured
+  IMAP/polling adapters for new messages and processes each as an inbound email. Polling is behind
+  `TS_CHANGE_SIGNAL_POLLING_ENABLED` and requires configured `notifications.email_inbox` credentials.
+
+### Delay-event critical-path (B13a, TS-328)
+
+- **B13a — Delay analysis.** `POST /opportunities/{id}/delay-analysis` accepts a change `event_id`
+  and `delay_days`. It reads schedule activities imported via the `integrations.schedule` adapter
+  and returns impacted activities whose start/finish window overlaps the delay window, plus a
+  path of successor tasks based on `predecessors`. No auto entitlement is computed.
 
 ### Impact linking (B13, TS-249)
 

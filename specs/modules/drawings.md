@@ -34,6 +34,9 @@ changes.
   link (TS-324).
 - `GET /opportunities/{id}/drawings/{drawing_id}/heatmap` — extraction confidence
   heatmap per page/region (TS-325).
+- `POST /opportunities/{id}/drawings/{drawing_id}/ifc-quantities` — extract IFC
+  element quantities and classifications as candidate BOQ lines / activities
+  (TS-326).
 
 ## Data owned
 
@@ -76,7 +79,9 @@ and annotation changes tracked in this phase.
 - A6: `POST /.../symbol-assist` returns per-page symbol count suggestions with `confidence: low`.
 - A7: `POST /.../link-boq` persists a drawing-to-BOQ link with item details and source quote.
 - A8: `GET /.../heatmap` returns per-page/per-region confidence with `cannot_determine` states.
-- A9: All endpoints are workspace-scoped.
+- A9: `POST /.../ifc-quantities` returns candidate BOQ lines and activities without
+  creating real project lines.
+- A10: All endpoints are workspace-scoped.
 
 ### 4. Symbol and count assistance (TS-323)
 
@@ -101,8 +106,18 @@ presence of extracted text, title-block fields, and symbol-assist coverage. The 
 returns a JSON/SVG overlay with per-region confidence and `cannot_determine` states
 for pages with no extractable text.
 
+### 7. IFC / model quantity import (TS-326)
+
+`POST /opportunities/{id}/drawings/{drawing_id}/ifc-quantities` accepts an IFC-SPF
+file and extracts candidate element quantities and classifications from
+`IFCPROPERTYSET`, `IFCELEMENTQUANTITY`, `IFCBUILDINGELEMENT` and related entities.
+Results are returned as candidate BOQ lines (`description`, `unit`, `quantity`,
+`classification`) and candidate schedule activities (`name`, `start`, `finish`,
+`duration`). No entitlement is auto-generated.
+
 ## Out of scope
 
 - Pixel/CAD layer overlay and geometric change detection.
 - True computer-vision symbol detection from raster images.
 - Bidirectional automatic quantity take-off from drawings.
+- Live CDE/ERP connector sync (TS-333).

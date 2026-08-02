@@ -570,9 +570,9 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-323 | Drawing symbol and count assistance | Research Doc §4.D; FEATURE_COVERAGE.md §D | backend/app/modules/drawings/vision.py | done |
 | TS-324 | Drawing-to-BOQ link | Research Doc §4.D; FEATURE_COVERAGE.md §D | backend/app/modules/drawings/ + boq/ | done |
 | TS-325 | Drawing confidence heatmap | Research Doc §4.D; FEATURE_COVERAGE.md §D | backend/app/modules/drawings/heatmap.py | done |
-| TS-326 | IFC / model quantity import | Research Doc §4.D; FEATURE_COVERAGE.md §D | backend/app/modules/drawings/ifc.py | todo |
-| TS-327 | Live change signal ingestion from RFIs, emails, meeting minutes, site instructions, daily reports | Research Doc §4.F; FEATURE_COVERAGE.md §F | backend/app/modules/change/signals.py + notifications/email adapters | todo |
-| TS-328 | Delay-event critical-path and programme links | Research Doc §4.G delay-event register; FEATURE_COVERAGE.md §G | backend/app/modules/change/delay_analysis.py | todo |
+| TS-326 | IFC / model quantity import | Research Doc §4.D; FEATURE_COVERAGE.md §D | backend/app/modules/drawings/ifc.py | done |
+| TS-327 | Live change signal ingestion from RFIs, emails, meeting minutes, site instructions, daily reports | Research Doc §4.F; FEATURE_COVERAGE.md §F | backend/app/modules/change/signals.py + notifications/email adapters | done |
+| TS-328 | Delay-event critical-path and programme links | Research Doc §4.G delay-event register; FEATURE_COVERAGE.md §G | backend/app/modules/change/delay_analysis.py | done |
 | TS-329 | Portfolio clause trends, recurring omission patterns and loss-reason analytics | Research Doc §4.H; FEATURE_COVERAGE.md §H | backend/app/modules/controltower/trends.py + frontend | todo |
 | TS-330 | Document-class ACL | Research Doc §4.I role-based access by document class; FEATURE_COVERAGE.md §I | backend/app/modules/auth/acl.py | todo |
 | TS-331 | Custom branded report templates | Research Doc §4.I export to customer templates; FEATURE_COVERAGE.md §I | backend/app/modules/export/templates.py + advisor/white-label | todo |

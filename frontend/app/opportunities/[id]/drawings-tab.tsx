@@ -38,6 +38,12 @@ export function DrawingsTab({
     rate_minor: "",
     currency: "INR",
   });
+  const [ifcResult, setIfcResult] = useState<{
+    boq_candidates: { description: string; classification: string; unit: string; quantity: number; count: number; confidence: string; verify_manually: boolean }[];
+    activity_candidates: { source_native_id: string; name: string; classification: string }[];
+    element_count: number;
+    note?: string;
+  } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -148,6 +154,19 @@ export function DrawingsTab({
     }
   }
 
+  async function importIfc(drawingId: string, file: File) {
+    setBusy(true);
+    setNote(null);
+    try {
+      const r = await api.importIfcQuantities(token, opportunityId, drawingId, file);
+      setIfcResult(r);
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : "IFC import failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function linkBoq(drawingId: string, e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -177,6 +196,7 @@ export function DrawingsTab({
     setSelected(d);
     setSymbolResult(null);
     setHeatmap(null);
+    setIfcResult(null);
     loadBoqLinks(d.id).catch(() => {});
   }
 
@@ -249,6 +269,10 @@ export function DrawingsTab({
             <div className="flex gap-2">
               <button className="rounded-md bg-slate-100 px-3 py-1 text-xs font-medium hover:bg-slate-200" disabled={busy} onClick={() => runSymbolAssist(selected.id)}>Symbol assist</button>
               <button className="rounded-md bg-slate-100 px-3 py-1 text-xs font-medium hover:bg-slate-200" disabled={busy} onClick={() => runHeatmap(selected.id)}>Heatmap</button>
+              <label className="cursor-pointer rounded-md bg-slate-100 px-3 py-1 text-xs font-medium hover:bg-slate-200">
+                IFC import
+                <input type="file" accept=".ifc" className="hidden" onChange={(e) => e.target.files?.[0] && importIfc(selected.id, e.target.files[0])} />
+              </label>
             </div>
           </div>
 
@@ -290,6 +314,30 @@ export function DrawingsTab({
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {ifcResult && (
+            <div>
+              <p className="text-sm font-semibold">IFC quantities</p>
+              <p className="text-xs text-slate-500">{ifcResult.note} Elements: {ifcResult.element_count}</p>
+              {ifcResult.boq_candidates.length > 0 && (
+                <table className="mt-2 w-full text-sm">
+                  <thead className="bg-slate-50 text-left text-slate-700">
+                    <tr><th className="px-2 py-1">Description</th><th className="px-2 py-1">Qty</th><th className="px-2 py-1">Unit</th><th className="px-2 py-1">Count</th></tr>
+                  </thead>
+                  <tbody>
+                    {ifcResult.boq_candidates.map((c, i) => (
+                      <tr key={i} className="border-b border-slate-100">
+                        <td className="px-2 py-1">{c.description}</td>
+                        <td className="px-2 py-1">{c.quantity}</td>
+                        <td className="px-2 py-1">{c.unit}</td>
+                        <td className="px-2 py-1">{c.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           )}
 

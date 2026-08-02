@@ -37,6 +37,8 @@ _ERROR_STATUS = {
     "amount_above_limit": 403,
     "evidence_unavailable": 503,
     "billing_required": 402,
+    "polling_disabled": 403,
+    "no_trigger_date": 400,
 }
 
 
@@ -75,6 +77,22 @@ class SignalBody(BaseModel):
     text: str = Field(min_length=1, max_length=1_000_000)
     title: str | None = None
     external_ref: str | None = None
+
+
+class SignalMessage(BaseModel):
+    signal_kind: str = "email"
+    subject: str | None = None
+    body: str = Field(min_length=1, max_length=1_000_000)
+    external_ref: str | None = None
+
+
+class SignalPollBody(BaseModel):
+    messages: list[SignalMessage] = Field(default_factory=list)
+
+
+class DelayAnalysisBody(BaseModel):
+    event_id: str = Field(min_length=1)
+    delay_days: int = Field(ge=1)
 
 
 class TriageBody(BaseModel):
@@ -117,6 +135,8 @@ def _service(request: Request, session: Session) -> ChangeService:
         project_active_fn=reg.get("billing.is_project_active"),
         inbox_domain=request.app.state.ctx.settings.change_inbox_domain,
         publish=request.app.state.ctx.events.publish,
+        poll_enabled=request.app.state.ctx.settings.change_signal_polling_enabled,
+        schedule_activities_fn=reg.get("integrations.schedule_activities_for_opportunity"),
     )
 
 
@@ -236,6 +256,44 @@ def ingest_signal(
             title=body.title,
             external_ref=body.external_ref,
             created_by=principal.user_id,
+        )
+    except ChangeError as exc:
+        _raise(exc)
+
+
+@router.post("/opportunities/{opportunity_id}/signals/poll")
+def poll_signals(
+    opportunity_id: str,
+    body: SignalPollBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    try:
+        return _service(request, session).poll_signals(
+            principal.workspace_id,
+            opportunity_id,
+            messages=[m.model_dump() for m in body.messages],
+            created_by=principal.user_id,
+        )
+    except ChangeError as exc:
+        _raise(exc)
+
+
+@router.post("/opportunities/{opportunity_id}/delay-analysis")
+def delay_analysis(
+    opportunity_id: str,
+    body: DelayAnalysisBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    try:
+        return _service(request, session).delay_analysis(
+            principal.workspace_id,
+            opportunity_id,
+            event_id=body.event_id,
+            delay_days=body.delay_days,
         )
     except ChangeError as exc:
         _raise(exc)

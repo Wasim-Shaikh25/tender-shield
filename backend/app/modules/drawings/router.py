@@ -282,3 +282,26 @@ def get_heatmap(
     except DrawingsError as exc:
         raise HTTPException(404, exc.code) from exc
     return result
+
+
+@router.post("/opportunities/{opportunity_id}/drawings/{drawing_id}/ifc-quantities")
+async def ifc_quantities(
+    opportunity_id: str,
+    drawing_id: str,
+    request: Request,
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    svc = _service(request, session)
+    existing = svc.get(principal.workspace_id, drawing_id)
+    if not existing:
+        raise HTTPException(404, "drawing_not_found")
+    data = await file.read(50_000_000)
+    if len(data) > 50_000_000:
+        raise HTTPException(413, "upload_too_large")
+    try:
+        result = svc.ifc_quantities(principal.workspace_id, drawing_id, data)
+    except DrawingsError as exc:
+        raise HTTPException(400, exc.code) from exc
+    return result

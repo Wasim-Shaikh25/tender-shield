@@ -61,6 +61,10 @@ export function ChangesTab({
     source_page: "",
     document_id: "",
   });
+  const [signalForm, setSignalForm] = useState({ kind: "email", subject: "", body: "", externalRef: "" });
+  const [pollResult, setPollResult] = useState<{ processed: number; results: { event: ChangeEvent; created: boolean }[] } | null>(null);
+  const [delayForm, setDelayForm] = useState({ eventId: "", delayDays: "7" });
+  const [delayResult, setDelayResult] = useState<{ impacted_count: number; impacted_activities: { source_native_id: string; name: string; start_date: string | null; finish_date: string | null }[] } | null>(null);
 
   async function handleConfirm(eventId: string) {
     const outcome = selectedOutcome[eventId];
@@ -146,6 +150,65 @@ export function ChangesTab({
       onRefresh();
     } catch (err) {
       setNote(err instanceof Error ? err.message : "Failed to create event");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleIngestSignal(e: React.FormEvent) {
+    e.preventDefault();
+    if (!signalForm.body.trim()) return;
+    setBusy(true);
+    setNote(null);
+    try {
+      await api.ingestSignal(token, opportunityId, {
+        signal_kind: signalForm.kind,
+        text: signalForm.body,
+        title: signalForm.subject || undefined,
+        external_ref: signalForm.externalRef || undefined,
+      });
+      setNote("Signal ingested");
+      setSignalForm({ kind: "email", subject: "", body: "", externalRef: "" });
+      onRefresh();
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : "Signal ingest failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handlePollSignals(e: React.FormEvent) {
+    e.preventDefault();
+    if (!signalForm.body.trim()) return;
+    setBusy(true);
+    setNote(null);
+    try {
+      const r = await api.pollSignals(token, opportunityId, [
+        { signal_kind: signalForm.kind, subject: signalForm.subject, body: signalForm.body, external_ref: signalForm.externalRef },
+      ]);
+      setPollResult(r);
+      setNote(`Polled ${r.processed} signal(s)`);
+      onRefresh();
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : "Signal poll failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDelayAnalysis(e: React.FormEvent) {
+    e.preventDefault();
+    if (!delayForm.eventId || !delayForm.delayDays) return;
+    setBusy(true);
+    setNote(null);
+    try {
+      const r = await api.runDelayAnalysis(token, opportunityId, {
+        event_id: delayForm.eventId,
+        delay_days: parseInt(delayForm.delayDays, 10),
+      });
+      setDelayResult(r);
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : "Delay analysis failed");
     } finally {
       setBusy(false);
     }
@@ -283,6 +346,49 @@ export function ChangesTab({
           </button>
         </form>
       )}
+
+      <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
+        <p className="text-sm font-semibold">Live signal ingestion</p>
+        <form onSubmit={handleIngestSignal} className="grid gap-3 sm:grid-cols-5">
+          <select className="rounded-md border border-slate-300 px-2 py-1.5 text-sm" value={signalForm.kind} onChange={(e) => setSignalForm({ ...signalForm, kind: e.target.value })}>
+            <option value="email">email</option>
+            <option value="rfi">rfi</option>
+            <option value="site_instruction">site instruction</option>
+            <option value="meeting_minutes">meeting minutes</option>
+            <option value="daily_report">daily report</option>
+          </select>
+          <input className="rounded-md border border-slate-300 px-2 py-1.5 text-sm" placeholder="Subject" value={signalForm.subject} onChange={(e) => setSignalForm({ ...signalForm, subject: e.target.value })} />
+          <input className="rounded-md border border-slate-300 px-2 py-1.5 text-sm sm:col-span-2" placeholder="Body / quote" value={signalForm.body} onChange={(e) => setSignalForm({ ...signalForm, body: e.target.value })} required />
+          <input className="rounded-md border border-slate-300 px-2 py-1.5 text-sm" placeholder="External ref" value={signalForm.externalRef} onChange={(e) => setSignalForm({ ...signalForm, externalRef: e.target.value })} />
+          <div className="flex gap-2 sm:col-span-5">
+            <button type="submit" disabled={busy} className="rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40">Ingest signal</button>
+            <button type="button" onClick={handlePollSignals} disabled={busy || !signalForm.body.trim()} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40">Poll one signal</button>
+          </div>
+        </form>
+        {pollResult && <p className="text-xs text-slate-600">Processed {pollResult.processed} signal(s). New events created: {pollResult.results.filter((r) => r.created).length}.</p>}
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
+        <p className="text-sm font-semibold">Delay analysis</p>
+        <form onSubmit={handleDelayAnalysis} className="grid gap-3 sm:grid-cols-4">
+          <select className="rounded-md border border-slate-300 px-2 py-1.5 text-sm" value={delayForm.eventId} onChange={(e) => setDelayForm({ ...delayForm, eventId: e.target.value })} required>
+            <option value="">Select event with trigger date</option>
+            {events.filter((e) => e.trigger_date).map((e) => <option key={e.id} value={e.id}>{e.title}</option>)}
+          </select>
+          <input className="rounded-md border border-slate-300 px-2 py-1.5 text-sm" type="number" min={1} value={delayForm.delayDays} onChange={(e) => setDelayForm({ ...delayForm, delayDays: e.target.value })} required />
+          <button type="submit" disabled={busy} className="rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40">Run analysis</button>
+        </form>
+        {delayResult && (
+          <div className="text-sm text-slate-700">
+            <p>Impacted activities: {delayResult.impacted_count}</p>
+            {delayResult.impacted_activities.length > 0 && (
+              <ul className="mt-1 list-disc pl-4 text-xs text-slate-600">
+                {delayResult.impacted_activities.map((a) => <li key={a.source_native_id}>{a.name} {a.start_date ? `(${a.start_date})` : ""}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
 
       {events.length === 0 ? (
         <p className="text-sm text-slate-500">No change events yet. Add a manual event or run a baseline diff.</p>

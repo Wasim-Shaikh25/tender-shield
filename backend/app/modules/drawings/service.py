@@ -17,7 +17,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.modules.drawings import heatmap, vision
+from app.modules.drawings import heatmap, ifc, vision
 from app.modules.drawings.models import Drawing, DrawingBoqLink, DrawingComparison
 
 
@@ -403,3 +403,13 @@ class DrawingService:
         row.heatmap = result
         self.s.commit()
         return result
+
+    def ifc_quantities(self, workspace_id, drawing_id: str, file_data: bytes) -> dict:
+        row = self.get(workspace_id, drawing_id)
+        if not row:
+            raise DrawingsError("drawing_not_found")
+        try:
+            text = file_data.decode("utf-8", errors="ignore")
+        except Exception as exc:
+            raise DrawingsError("ifc_decode_failed") from exc
+        return ifc.extract_ifc_quantities(text)

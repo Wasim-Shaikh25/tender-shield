@@ -25,6 +25,12 @@ def setup(ctx: AppContext) -> None:
             session
         ).import_from_source(workspace_id, source_id, user_id, payload),
     )
+    reg.provide(
+        "integrations.schedule_activities_for_opportunity",
+        lambda session, workspace_id, opportunity_id: factory(
+            session
+        ).list_schedule_activities(workspace_id, opportunity_id),
+    )
 
 
 module = ModuleSpec(

@@ -24,6 +24,8 @@ def setup(ctx: AppContext) -> None:
             project_active_fn=reg.get("billing.is_project_active"),
             inbox_domain=ctx.settings.change_inbox_domain,
             publish=ctx.events.publish,
+            poll_enabled=ctx.settings.change_signal_polling_enabled,
+            schedule_activities_fn=reg.get("integrations.schedule_activities_for_opportunity"),
         )
 
     reg.provide("change.service_factory", factory)

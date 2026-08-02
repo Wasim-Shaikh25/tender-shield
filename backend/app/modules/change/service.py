@@ -74,6 +74,8 @@ class ChangeService:
         project_active_fn: Callable[..., bool] | None = None,
         inbox_domain: str = "inbox.tendershield.local",
         publish: Callable[[str, dict], int] | None = None,
+        poll_enabled: bool = False,
+        schedule_activities_fn: Callable[..., list[dict]] | None = None,
     ):
         self.s = session
         self._baseline_factory = baseline_factory
@@ -89,11 +91,18 @@ class ChangeService:
         self._project_active_fn = project_active_fn
         self._inbox_domain = inbox_domain
         self._publish = publish
+        self._poll_enabled = poll_enabled
+        self._schedule_activities_fn = schedule_activities_fn
 
     def _baseline(self):
         if self._baseline_factory is None:
             raise ChangeError("baseline_unavailable")
         return self._baseline_factory(self.s)
+
+    def _schedule_activities(self, workspace_id, opportunity_id) -> list[dict]:
+        if self._schedule_activities_fn is None:
+            return []
+        return self._schedule_activities_fn(self.s, workspace_id, opportunity_id)
 
     def _ingestion(self):
         if self._ingestion_factory is None:
@@ -365,6 +374,59 @@ class ChangeService:
             "created": was_new,
             "classification": classified,
         }
+
+    def poll_signals(
+        self,
+        workspace_id,
+        opportunity_id,
+        *,
+        messages: list[dict],
+        created_by,
+    ) -> dict:
+        if not self._poll_enabled:
+            raise ChangeError("polling_disabled")
+        self._require_baseline(workspace_id, opportunity_id)
+        results: list[dict] = []
+        for msg in messages or []:
+            signal_kind = msg.get("signal_kind", "email")
+            text = msg.get("body", "") or ""
+            if not text:
+                continue
+            try:
+                result = self.ingest_signal(
+                    workspace_id,
+                    opportunity_id,
+                    signal_kind=signal_kind,
+                    text=text,
+                    title=msg.get("subject"),
+                    external_ref=msg.get("external_ref"),
+                    created_by=created_by,
+                )
+                results.append(result)
+            except ChangeError:
+                # Skip malformed/duplicate signals; keep polling.
+                continue
+        return {"processed": len(results), "results": results}
+
+    def delay_analysis(
+        self,
+        workspace_id,
+        opportunity_id,
+        *,
+        event_id: str,
+        delay_days: int,
+    ) -> dict:
+        from app.modules.change.delay_analysis import compute_delay_impact
+
+        event = self._get_event_row(workspace_id, event_id)
+        if event.trigger_date is None:
+            raise ChangeError("no_trigger_date")
+        activities = self._schedule_activities(workspace_id, opportunity_id)
+        return compute_delay_impact(
+            trigger_date=event.trigger_date,
+            delay_days=delay_days,
+            activities=activities,
+        )
 
     def register_inbox_email(self, workspace_id, opportunity_id) -> dict:
         self._require_baseline(workspace_id, opportunity_id)

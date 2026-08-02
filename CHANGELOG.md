@@ -120,6 +120,18 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - **TS-325** — drawing confidence heatmap: `backend/app/modules/drawings/heatmap.py`
   returns per-page/per-region confidence from text-extraction signals; Drawings tab
   renders a simple region overlay.
+- **TS-326** — IFC / model quantity import: `backend/app/modules/drawings/ifc.py` parses
+  IFC-SPF building element and quantity entities, returning candidate BOQ lines and
+  schedule activities with `confidence: low` / `verify_manually`; the Drawings tab adds
+  an IFC import file picker and results table.
+- **TS-327** — live change signal ingestion: `POST /api/change/opportunities/{id}/signals/poll`
+  ingests batched email/RFI/site-instruction/daily-report/meeting-minutes messages behind
+  `TS_CHANGE_SIGNAL_POLLING_ENABLED`; Changes tab adds signal ingestion and one-click
+  polling UI.
+- **TS-328** — delay-event critical-path and programme links: `backend/app/modules/change/delay_analysis.py`
+  computes impacted schedule activities from an event trigger date and delay window using
+  imported `integrations.schedule` activities and predecessor links; the Changes tab adds
+  a delay analysis form and impacted-activity list.
 - Added `docs/REMAINING_GAPS_ROADMAP.md` with one row for every `Partial` / `Missing`
   capability from `FEATURE_COVERAGE.md`.
 - Created **Phase 22** in `tasks/backlog.md` with 33 concrete tasks (TS-301–TS-333)
@@ -269,8 +281,9 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ### Next
 
-- Phase 22 remaining gaps (TS-326+): IFC/model quantity import, live change signals,
-  delay analysis, control tower trends, governance, and live connectors.
+- Phase 22 remaining gaps (TS-329+): control tower trends, document-class ACL, custom
+  branded report templates, advisor/white-label, subcontractor portal, integrations UI,
+  and live connectors (Stripe GCC/UK, Razorpay, email/SMS).
 
 ### Done — 2026-08-01 (Phase 19 claims workspace: TS-258–TS-266)
 

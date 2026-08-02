@@ -728,6 +728,12 @@ export const api = {
     req<NoticeDeadline>(`/change/events/${eventId}/notice-deadline`, {}, token),
   requestNoticeDraft: (token: string, eventId: string) =>
     req<NoticeDraft>(`/change/events/${eventId}/notice-draft`, { method: "POST" }, token),
+  ingestSignal: (token: string, opportunityId: string, body: { signal_kind: string; text: string; title?: string; external_ref?: string }) =>
+    req<ChangeEvent>(`/change/opportunities/${opportunityId}/signals`, { method: "POST", body: JSON.stringify(body) }, token),
+  pollSignals: (token: string, opportunityId: string, messages: { signal_kind?: string; subject?: string; body: string; external_ref?: string }[]) =>
+    req<{ processed: number; results: { event: ChangeEvent; created: boolean; classification: Record<string, unknown> }[] }>(`/change/opportunities/${opportunityId}/signals/poll`, { method: "POST", body: JSON.stringify({ messages }) }, token),
+  runDelayAnalysis: (token: string, opportunityId: string, body: { event_id: string; delay_days: number }) =>
+    req<{ trigger_date: string; delay_days: number; window_end: string; impacted_count: number; impacted_activities: { source_native_id: string; name: string; start_date: string | null; finish_date: string | null; duration_days: number | null; delay_window_days: number }[]; note?: string }>(`/change/opportunities/${opportunityId}/delay-analysis`, { method: "POST", body: JSON.stringify(body) }, token),
   // Claims workspace (Phase 19)
   listClaims: (token: string, opportunityId: string) =>
     req<{ claims: Claim[] }>(`/claims/opportunities/${opportunityId}/claims`, {}, token),
@@ -931,6 +937,11 @@ export const api = {
     req<{ links: DrawingBoqLink[] }>(`/drawings/opportunities/${opportunityId}/drawings/${drawingId}/boq-links`, {}, token),
   getDrawingHeatmap: (token: string, opportunityId: string, drawingId: string) =>
     req<{ pages: { page: number; confidence: number; cannot_determine: boolean; regions: Record<string, { start_line: number; end_line: number; confidence: number }> }[]; overall_confidence: number; note?: string }>(`/drawings/opportunities/${opportunityId}/drawings/${drawingId}/heatmap`, {}, token),
+  importIfcQuantities: (token: string, opportunityId: string, drawingId: string, file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    return req<{ boq_candidates: { description: string; classification: string; unit: string; quantity: number; count: number; confidence: string; verify_manually: boolean }[]; activity_candidates: { source_native_id: string; name: string; classification: string }[]; element_count: number; note?: string }>(`/drawings/opportunities/${opportunityId}/drawings/${drawingId}/ifc-quantities`, { method: "POST", body }, token);
+  },
 };
 
 export type PlanSnapshot = {

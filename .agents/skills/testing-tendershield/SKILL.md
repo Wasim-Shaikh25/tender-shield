@@ -290,3 +290,23 @@ Expected local baseline:
     `GET /api/claims/claims/{id}` should return `status: settled` and the chosen
     `recovered_amount_minor`.
 14. Unit gate: `cd backend && .venv/bin/pytest tests/test_claims.py -q` → `8 passed`.
+
+### PR #97 continuation notes (TS-267–TS-270)
+
+1. `backend/app/modules/evidence/__init__.py` now exists, so `evidence` is auto-discovered
+   by `pkgutil.iter_modules` and `TS_ENABLED_MODULES` no longer needs to list it explicitly.
+2. New endpoints covered by the golden path:
+   - `GET /api/claims/claims/{id}/conflicts` (owner/admin role)
+   - `GET /api/claims/opportunities/{id}/claim-metrics`
+   - `GET /api/analytics/claim-metrics?opportunity_id=...`
+   - `GET /api/outcomes/metrics/margin-protected`
+3. Evidence record types added in TS-270: `geotagged_photo`, `labour`, `plant`, `material`, `daywork`.
+   All accept a `metadata` JSON object and satisfy the claims checklist (`photos`, `labour`, `plant`,
+   `material`, `quantum`) when attached to the linked change event.
+4. Recovered claim value after settlement flows into `margin-protected` via the `oc_claim_recoveries`
+   table; expect `claim_recoveries_minor` and `total_margin_protected_minor` to equal the settled
+   amount.
+5. Model-derived smoke DB: when creating tables from SQLAlchemy models instead of using
+   `alembic upgrade head`, call `create_app(Settings(...))` **first** so every module is imported
+   and `Base.metadata` contains all tables (e.g., `standards.workspace_notice_standards`).
+6. Unit gate for PR #97: `cd backend && .venv/bin/pytest tests/test_claims.py -q` → `12 passed`.

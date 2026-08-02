@@ -546,7 +546,7 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
 | TS-301 | Change / variation inbox and confirmation workflow UI | Research Doc §4.F, §5.3; FEATURE_COVERAGE.md §F | frontend/app/opportunities/[id]/changes/ | done |
-| TS-302 | Claims workspace UI | Research Doc §4.G, §5.3; FEATURE_COVERAGE.md §G | frontend/app/opportunities/[id]/claims/ | todo |
+| TS-302 | Claims workspace UI | Research Doc §4.G, §5.3; FEATURE_COVERAGE.md §G | frontend/app/opportunities/[id]/claims/ | done |
 | TS-303 | Commercial Control Tower dashboards UI | Research Doc §4.H, §12.2; FEATURE_COVERAGE.md §H | frontend/app/controltower/ or /analytics/controltower | todo |
 | TS-304 | Subcontract management UI | Research Doc §13 Subcontract control; FEATURE_COVERAGE.md §I | frontend/app/opportunities/[id]/subcontracts/ | todo |
 | TS-305 | Integration source configuration UI | Research Doc §4.I; FEATURE_COVERAGE.md §I | frontend/app/settings/integrations/ | todo |

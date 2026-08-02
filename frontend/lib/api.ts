@@ -116,6 +116,111 @@ export type NoticeDraft = {
   status: string;
 };
 
+export type Claim = {
+  id: string;
+  opportunity_id: string;
+  change_event_id?: string | null;
+  baseline_id?: string | null;
+  claim_type: string;
+  claimant_party?: string | null;
+  status: "draft" | "submitted" | "under_review" | "negotiating" | "settled" | "rejected" | "withdrawn";
+  title: string;
+  description?: string | null;
+  claim_amount_minor?: number | null;
+  recovered_amount_minor?: number | null;
+  currency: string;
+  submitted_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  completeness_score?: number | null;
+  chain_integrity?: string | null;
+};
+
+export type ClaimChronologyEntry = {
+  id: string;
+  entry_type: string;
+  source_kind?: string | null;
+  source_id?: string | null;
+  title: string;
+  occurred_at: string;
+  source_page?: number | null;
+  source_quote?: string | null;
+  document_id?: string | null;
+  custody_chain?: unknown[];
+};
+
+export type ClaimChecklistItem = {
+  id: string;
+  item_type: string;
+  required: boolean;
+  present: boolean;
+  evidence_record_ids?: string[];
+  override_note?: string | null;
+  updated_at?: string;
+};
+
+export type ClaimLineItem = {
+  id: string;
+  description: string;
+  quantity: string;
+  unit: string;
+  rate_minor: number;
+  measured_total_minor: number;
+  daywork_days?: number | null;
+  daywork_rate_minor?: number | null;
+  daywork_total_minor?: number;
+  total_minor: number;
+  currency: string;
+};
+
+export type ClaimQuantum = {
+  currency: string;
+  measured_total_minor: number;
+  daywork_total_minor: number;
+  total_minor: number;
+  line_items: ClaimLineItem[];
+};
+
+export type ClaimResponse = {
+  id: string;
+  response_kind: string;
+  received_at: string;
+  due_at?: string | null;
+  responder: string;
+  notes?: string | null;
+  document_id?: string | null;
+  created_at?: string;
+};
+
+export type ClaimNegotiation = {
+  id: string;
+  round: number;
+  offered_amount_minor: number;
+  counter_amount_minor?: number | null;
+  status: string;
+  recorded_by: string;
+  recorded_at?: string;
+};
+
+export type ClaimSettlement = {
+  id: string;
+  outcome: string;
+  settled_amount_minor: number;
+  currency: string;
+  notes?: string | null;
+  recorded_by: string;
+  recorded_at?: string;
+};
+
+export type ClaimDraft = {
+  id: string;
+  draft_kind: string;
+  status: string;
+  version: number;
+  body?: Record<string, unknown>;
+  created_at?: string;
+};
+
 export type PlanSection = {
   type: "kpi" | "table" | "chart" | "mermaid" | "text";
   title: string;
@@ -488,6 +593,87 @@ export const api = {
     req<NoticeDeadline>(`/change/events/${eventId}/notice-deadline`, {}, token),
   requestNoticeDraft: (token: string, eventId: string) =>
     req<NoticeDraft>(`/change/events/${eventId}/notice-draft`, { method: "POST" }, token),
+  // Claims workspace (Phase 19)
+  listClaims: (token: string, opportunityId: string) =>
+    req<{ claims: Claim[] }>(`/claims/opportunities/${opportunityId}/claims`, {}, token),
+  createClaim: (token: string, opportunityId: string, body: {
+    claim_type: string;
+    title: string;
+    description?: string;
+    claimant_party?: string;
+    change_event_id?: string;
+    baseline_id?: string;
+    claim_amount_minor?: number;
+    currency?: string;
+  }) =>
+    req<Claim>(`/claims/opportunities/${opportunityId}/claims`, { method: "POST", body: JSON.stringify(body) }, token),
+  getClaim: (token: string, claimId: string) =>
+    req<Claim>(`/claims/${claimId}`, {}, token),
+  submitClaim: (token: string, claimId: string) =>
+    req<Claim>(`/claims/${claimId}/submit`, { method: "POST" }, token),
+  getClaimChronology: (token: string, claimId: string) =>
+    req<{ entries: ClaimChronologyEntry[] }>(`/claims/${claimId}/chronology`, {}, token),
+  getClaimChecklist: (token: string, claimId: string) =>
+    req<{ items: ClaimChecklistItem[] }>(`/claims/${claimId}/checklist`, {}, token),
+  overrideChecklistItem: (token: string, claimId: string, itemId: string, override_note: string) =>
+    req<ClaimChecklistItem>(`/claims/${claimId}/checklist/${itemId}/override`, { method: "POST", body: JSON.stringify({ override_note }) }, token),
+  getClaimQuantum: (token: string, claimId: string) =>
+    req<ClaimQuantum>(`/claims/${claimId}/quantum`, {}, token),
+  addClaimLineItem: (token: string, claimId: string, body: {
+    description: string;
+    quantity: string;
+    unit: string;
+    rate_minor: number;
+    daywork_days?: number;
+    daywork_rate_minor?: number;
+    cost_code_id?: string;
+    currency?: string;
+  }) =>
+    req<ClaimLineItem>(`/claims/${claimId}/quantum/line-items`, { method: "POST", body: JSON.stringify(body) }, token),
+  updateClaimLineItem: (token: string, claimId: string, lineId: string, body: Partial<{
+    description: string;
+    quantity: string;
+    unit: string;
+    rate_minor: number;
+    daywork_days?: number;
+    daywork_rate_minor?: number;
+  }>) =>
+    req<ClaimLineItem>(`/claims/${claimId}/quantum/line-items/${lineId}`, { method: "PUT", body: JSON.stringify(body) }, token),
+  deleteClaimLineItem: (token: string, claimId: string, lineId: string) =>
+    req<{ ok: boolean }>(`/claims/${claimId}/quantum/line-items/${lineId}`, { method: "DELETE" }, token),
+  recordClaimResponse: (token: string, claimId: string, body: {
+    response_kind: string;
+    received_at: string;
+    responder: string;
+    due_at?: string;
+    notes?: string;
+    document_id?: string;
+  }) =>
+    req<ClaimResponse>(`/claims/${claimId}/responses`, { method: "POST", body: JSON.stringify(body) }, token),
+  recordClaimNegotiation: (token: string, claimId: string, body: {
+    offered_amount_minor: number;
+    counter_amount_minor?: number;
+    status?: string;
+  }) =>
+    req<ClaimNegotiation>(`/claims/${claimId}/negotiations`, { method: "POST", body: JSON.stringify(body) }, token),
+  recordClaimSettlement: (token: string, claimId: string, body: {
+    outcome: string;
+    settled_amount_minor: number;
+    notes?: string;
+  }) =>
+    req<ClaimSettlement>(`/claims/${claimId}/settlement`, { method: "POST", body: JSON.stringify(body) }, token),
+  listClaimDrafts: (token: string, claimId: string) =>
+    req<{ drafts: ClaimDraft[] }>(`/claims/${claimId}/drafts`, {}, token),
+  generateClaimDraft: (token: string, claimId: string, kind: string) =>
+    req<ClaimDraft>(`/claims/${claimId}/drafts/${kind}`, { method: "POST" }, token),
+  getClaimDraft: (token: string, draftId: string) =>
+    req<ClaimDraft>(`/drafts/${draftId}`, {}, token),
+  approveClaimDraft: (token: string, draftId: string) =>
+    req<ClaimDraft>(`/drafts/${draftId}/approve`, { method: "POST" }, token),
+  getClaimChainIntegrity: (token: string, claimId: string) =>
+    req<{ status: string; missing_link?: string }>(`/claims/${claimId}/chain-integrity`, {}, token),
+  getClaimMetrics: (token: string, opportunityId: string) =>
+    req<Record<string, unknown>>(`/claims/opportunities/${opportunityId}/claim-metrics`, {}, token),
 };
 
 export type PlanSnapshot = {

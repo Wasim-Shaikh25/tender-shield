@@ -414,6 +414,23 @@ Delay-event register (TS-262).
 - **A13 (TS-269):** Settled `recovered_amount_minor` is passed to `outcomes` for the `margin_protected` metric.
 - **A14 (TS-270):** Site evidence record types (`geotagged_photo`, `labour`, `plant`, `daywork`) count toward checklist items.
 
+## Frontend UI (TS-302)
+
+### Public pages
+
+- `/opportunities/{id}` gains a **Claims** tab.
+- The tab renders the claims workspace: list, create, chronology, checklist, quantum, responses, negotiations, settlement, drafts.
+
+### Acceptance criteria
+
+- F1: Tab lists `GET /api/claims/opportunities/{id}/claims` with `title`, `claim_type`, `status`, `claim_amount_minor`, and `currency`.
+- F2: New claim form calls `POST /api/claims/opportunities/{id}/claims` with `claim_type`, `title`, and optional `change_event_id`.
+- F3: Selecting a claim fetches `GET /api/claims/{id}`, `GET /api/claims/{id}/chronology`, `GET /api/claims/{id}/checklist`, and `GET /api/claims/{id}/quantum`.
+- F4: Quantum panel lists line items, totals, and a form to add new line items (`POST /api/claims/{id}/quantum/line-items`).
+- F5: Response form records `POST /api/claims/{id}/responses`; negotiation form records `POST /api/claims/{id}/negotiations`; settlement form records `POST /api/claims/{id}/settlement`.
+- F6: Draft buttons call `POST /api/claims/{id}/drafts/{kind}` and display returned `artifact_id`.
+- F7: Submit button calls `POST /api/claims/{id}/submit`.
+
 ## Out of scope
 
 - GCC/FIDIC-specific entitlement law — only facts and deadlines.

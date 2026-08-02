@@ -489,9 +489,9 @@ Requirement source: Research Doc §4.H, §12.2.
 
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
-| TS-271 | Spec: `controltower` module — exposure model, dashboards, forecasting | Research Doc §4.H | `specs/modules/controltower.md` (new) | todo |
-| TS-272 | Commercial exposure model (deterministic): at-risk revenue, unnotified change, submitted / certified / rejected value, ageing, cash exposure | Research Doc §4.H | `specs/modules/controltower.md` | todo |
-| TS-273 | Project deadline + evidence-health dashboard | Research Doc §4.H | `specs/modules/controltower.md` | todo |
+| TS-271 | Spec: `controltower` module — exposure model, dashboards, forecasting | Research Doc §4.H | `specs/modules/controltower.md` (new) | done |
+| TS-272 | Commercial exposure model (deterministic): at-risk revenue, unnotified change, submitted / certified / rejected value, ageing, cash exposure | Research Doc §4.H | `specs/modules/controltower.md` | done |
+| TS-273 | Project deadline + evidence-health dashboard | Research Doc §4.H | `specs/modules/controltower.md` | done |
 | TS-274 | Risk-adjusted forecast at completion with explicit assumptions block | Research Doc §4.H | `specs/modules/controltower.md` | todo |
 | TS-275 | Client / consultant response-time analytics | Research Doc §4.H | `specs/modules/controltower.md` | todo |
 | TS-276 | Portfolio clause trends, recurring omission patterns and loss-reason analysis across projects | Research Doc §4.H | `specs/modules/analytics.md` (update) | todo |

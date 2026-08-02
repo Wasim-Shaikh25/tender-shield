@@ -6,6 +6,24 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — 2026-08-02 (Phase 20 first slice: TS-271–TS-273)
+
+- **TS-271 control tower spec** — `specs/modules/controltower.md` defines exposure model,
+  deadline/evidence-health dashboard, and portfolio rollup with no invented numbers.
+- **TS-272 commercial exposure model** — `controltower.exposure_for_opportunity` computes
+  deterministic `at_risk_revenue_minor`, `submitted_minor`, `certified_minor`,
+  `rejected_minor`/`withdrawn_minor`, `unnotified_change_minor`, `age_days_avg/max`, and
+  `cash_exposure_minor` from claim and change data.
+- **TS-273 project deadline + evidence-health dashboard** — `GET /api/controltower/dashboard`
+  returns opportunity deadlines (overdue/due_soon/ok), evidence-health score, and unclaimed
+  change events; `GET /api/controltower/portfolio` rolls up workspace exposure and health.
+- **Foundation:** `Opportunity.contract_value_minor` + `currency` (ingestion model/router/migration)
+  so downstream modules have an explicit revenue base.
+- **Registry:** `claims.summary_for_opportunity` and `controltower` capabilities exposed via
+  `app.core.registry`.
+- **Migrations** — `4d30db0a270c_add_opportunity_contract_value`.
+- **Tests** — new `test_controltower.py` covering exposure, dashboard, portfolio (567 passed).
+
 ### Done — 2026-08-01 (Phase 19 remaining: TS-267–TS-270)
 
 - **TS-267 conflicts control** — per-claim `claimant_party` (`contractor`/`employer`/`engineer`/`other`);
@@ -26,7 +44,8 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ### Next
 
-- Phase 20 (TS-271–TS-280): Commercial Control Tower & Portfolio Intelligence.
+- Phase 20 remaining (TS-274–TS-280): risk-adjusted forecast, response-time analytics,
+  portfolio clause trends, executive summaries, payment control, economics metrics.
 
 ### Done — 2026-08-01 (Phase 19 claims workspace: TS-258–TS-266)
 

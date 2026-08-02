@@ -36,12 +36,14 @@ class PricingService:
         session,
         *,
         findings_factory: Callable[[Any], Any] | None = None,
+        ingestion_factory: Callable[[Any], Any] | None = None,
         rulepacks_loader_provider: Callable[[], Any | None] | None = None,
         boq_engine_provider: Callable[[], Any | None] | None = None,
         review_factory: Callable[[Any], Any] | None = None,
     ):
         self.s = session
         self._findings_factory = findings_factory
+        self._ingestion_factory = ingestion_factory
         self._rulepacks_loader_provider = rulepacks_loader_provider
         self._boq_engine_provider = boq_engine_provider
         self._review_factory = review_factory
@@ -49,6 +51,11 @@ class PricingService:
     def _pack(self):
         loader = self._rulepacks_loader_provider() if self._rulepacks_loader_provider else None
         return loader.get_pack(self.PACK_ID) if loader else None
+
+    def _opportunity(self, workspace_id, opportunity_id):
+        if self._ingestion_factory is None:
+            return None
+        return self._ingestion_factory(self.s).get_opportunity(workspace_id, opportunity_id)
 
     def _require_review_gate(self, workspace_id, opportunity_id) -> None:
         """Pricing artifacts inherit the export gate (spec §Guardrails 1/2):
@@ -69,8 +76,8 @@ class PricingService:
         workspace_id,
         opportunity_id,
         *,
-        contract_value_minor: int,
-        currency: str = "INR",
+        contract_value_minor: int | None = None,
+        currency: str | None = None,
         facts_by_finding: dict[str, dict[str, Any]] | None = None,
     ) -> list[dict]:
         self._require_review_gate(workspace_id, opportunity_id)
@@ -78,7 +85,19 @@ class PricingService:
         patterns = pack.patterns if pack else {}
         rulepack_version = pack.version_tag if pack else "unknown"
 
+        opp = self._opportunity(workspace_id, opportunity_id)
+        if opp is None:
+            raise PricingError("opportunity_not_found")
+        effective_contract_value = contract_value_minor
+        if effective_contract_value is None:
+            if opp.contract_value_minor is None:
+                raise PricingError("contract_value_required")
+            effective_contract_value = opp.contract_value_minor
+        effective_currency = currency or opp.currency or "INR"
+
+        facts_override = facts_by_finding or {}
         findings = []
+        row_facts: dict[str, dict] = {}
         if self._findings_factory is not None:
             rows = self._findings_factory(self.s).list(workspace_id, opportunity_id)
             findings = [
@@ -89,13 +108,19 @@ class PricingService:
                 }
                 for r in rows
             ]
+            row_facts = {str(r.id): (r.facts or {}) for r in rows}
+
+        merged_facts = {
+            fid: {**row_facts.get(fid, {}), **facts_override.get(fid, {})}
+            for fid in set(row_facts) | set(facts_override)
+        }
 
         results = compute_loadings(
             findings,
             patterns,
-            facts_by_finding or {},
-            contract_value_minor=contract_value_minor,
-            currency=currency,
+            merged_facts,
+            contract_value_minor=effective_contract_value,
+            currency=effective_currency,
             rulepack_version=rulepack_version,
         )
         self._persist_loadings(workspace_id, opportunity_id, results)

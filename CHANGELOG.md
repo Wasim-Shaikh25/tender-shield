@@ -6,6 +6,17 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — carry-overs (TS-163, TS-296)
+
+- **TS-163 account-centric auth re-architecture** — removed Google/Apple OIDC modules
+  and configuration; backend flow is account-first (signup creates a `User` only),
+  workspace created explicitly after login, OTP on every login, email/mobile
+  verification, account settings/export/erasure and admin endpoints already in place.
+- **TS-296 finding facts and real pricing inputs** — added `facts` JSON column to
+  `findings` and `Finding` contract; `pricing.get_loadings` now defaults to the
+  persisted `Opportunity.contract_value_minor` and per-finding `facts`, with optional
+  query overrides still supported.
+
 ### Done — 2026-08-02 (Phase 21: TS-281–TS-292)
 
 - **TS-281 integration adapter framework** — `backend/app/modules/integrations/` with

@@ -1,20 +1,11 @@
-"""Risk-to-price loading engine (TS-203).
+"""Risk-to-price loading engine (TS-203, TS-296).
 
 Converts accepted risk findings into a rupee figure an estimator can add to a
-rate — deterministically, over facts the caller supplies, never over an LLM
-call (`CLAUDE.md` §4). Every loading shows the formula and inputs that produced
-it; a finding whose pattern has no `price_impact`, or whose required facts are
-unavailable, produces no loading and a stated reason — never a defaulted value
-(`specs/modules/pricing-intel.md` §1).
-
-Known gap, stated rather than hidden: neither `Finding` nor `Opportunity`
-currently persist the structured facts (`payment_days`, `project_duration_months`,
-...) or the contract value a loading needs — `Finding.explanation` carries only
-`evidence_quote`/`industry_reason`, and `Opportunity` has no value field. This
-engine therefore takes `facts_by_finding` and `contract_value_minor` as explicit
-caller-supplied inputs rather than silently sourcing them from somewhere that
-doesn't exist. The real fix is a schema addition tracked as a follow-up task,
-matching how TS-294/295 were filed for the equivalent `evalinvariants` gaps.
+rate — deterministically, over facts persisted on the finding and the opportunity
+contract value, never over an LLM call (`CLAUDE.md` §4). Every loading shows the
+formula and inputs that produced it; a finding whose pattern has no `price_impact`,
+or whose required facts are unavailable, produces no loading and a stated reason
+— never a defaulted value (`specs/modules/pricing-intel.md` §1).
 """
 
 from __future__ import annotations

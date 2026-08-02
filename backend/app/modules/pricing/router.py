@@ -1,9 +1,8 @@
 """API routes for `pricing` (TS-201, spec §Public interface).
 
-`GET /loading` per the spec's stated method — since neither `Finding.facts` nor
-`Opportunity.contract_value_minor` are persisted yet (see `loading.py`'s
-docstring, and the follow-up filed as a Phase 16 task), the caller supplies
-both as query parameters for now. Rate benchmarking is `POST`, not the spec's
+`GET /loading` sources `contract_value_minor` and `Finding.facts` from the persisted
+opportunity and findings when not supplied by the caller. Optional query parameters
+still allow per-request overrides. Rate benchmarking is `POST`, not the spec's
 literal `GET`: it carries a BOQ CSV body, and a GET request body is unreliable
 across HTTP clients/proxies — the same reasoning `boq/router.py`'s own
 `run_boq` already applies.
@@ -30,6 +29,7 @@ def _service(request: Request, session: Session) -> PricingService:
     return PricingService(
         session,
         findings_factory=reg.get("findings.store_factory"),
+        ingestion_factory=reg.get("ingestion.service_factory"),
         rulepacks_loader_provider=lambda: reg.get("rulepacks.loader"),
         boq_engine_provider=lambda: reg.get("boq.engine"),
         review_factory=reg.get("review.service_factory"),
@@ -40,7 +40,7 @@ def _service(request: Request, session: Session) -> PricingService:
 def get_loading(
     opportunity_id: str,
     request: Request,
-    contract_value_minor: int,
+    contract_value_minor: int | None = None,
     currency: str = "INR",
     facts: str | None = None,
     session: Session = Depends(get_session),

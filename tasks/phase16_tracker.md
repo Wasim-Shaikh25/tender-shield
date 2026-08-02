@@ -141,7 +141,7 @@ calendar-bound, not engineering-bound.
 | TS-233 | Human gold set (50) | evals | — | P1 | **done** | Slice table filled; annotated per §19 | — |
 | TS-294 | `Finding.document_id` | `findings` | 3 | P2 | **done** | Migration + writers updated | — |
 | TS-295 | `Finding.currency` | `findings` | 3 | P1 | **done** | Explicit ISO 4217 alongside amount_exposure | — |
-| TS-296 | `Finding.facts` + `Opportunity.contract_value_minor` | `findings` | 3 | P2 | todo | Real fact sourcing for pricing.loading | TS-203 |
+| TS-296 | `Finding.facts` + `Opportunity.contract_value_minor` | `findings` | 3 | P2 | done | Real fact sourcing for pricing.loading | TS-203 |
 | TS-234 | North-star metric — margin protected | `outcomes` | 1 | P0 | **done** | Deterministic; excludes speculative value; grows with Phases 18–19 | TS-203, TS-215 |
 
 ---

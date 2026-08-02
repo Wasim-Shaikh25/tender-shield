@@ -271,7 +271,7 @@ Audit only — no source changes. Findings and full remediation detail live in
 | TS-160 | XLSX/CSV text extraction does not emit page markers, so spreadsheet-derived deadlines and clauses lose page provenance | audit TS-I10; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/ingestion.md` (update) | done |
 | TS-161 | Email/password login selects an arbitrary workspace for multi-workspace users | audit TS-A17; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/auth.md` (update) | done |
 | TS-162 | Severity evaluator silently defaults missing facts to 0 | audit TS-R03; `PRODUCTION_READINESS_AUDIT.md` | `specs/modules/risk.md` (update) | done |
-| TS-163 | Account-centric auth re-architecture: account as top-level identity, workspace created after login, OTP on every login, remove social login, email+mobile verification, account/security settings | user request; Doc §5 | `specs/modules/auth.md`, `specs/frontend.md` (update) | in-progress |
+| TS-163 | Account-centric auth re-architecture: account as top-level identity, workspace created after login, OTP on every login, remove social login, email+mobile verification, account/security settings | user request; Doc §5 | `specs/modules/auth.md`, `specs/frontend.md` (update) | done |
 | TS-164 | Replace Anthropic LLM integration with OpenRouter (OpenAI-compatible API) for risk classifier and assistant agent | user request; `PRODUCTION_READINESS_AUDIT.md` TS-R02/TS-A14 | `specs/modules/risk.md`, `specs/modules/assistant.md`, `docs/deployment.md` | done |
 | TS-165 | Add MinIO storage example to production env and deployment docs | user request | `.env.prod`, `docs/deployment.md` | done |
 | TS-166 | Create end-to-end automation test scenarios doc and check in the end-to-end audit prompt | user request | `evals/e2e/` | done |
@@ -408,7 +408,7 @@ Tracker: `tasks/phase16_tracker.md`.
 |---|---|---|---|---|
 | TS-294 | Add `Finding.document_id` (migration + risk/boq/qualification/standards writers) so quote/citation checks resolve to one document instead of any document sharing a page number | TS-226 finding; `specs/eval-at-scale.md` §1 | `specs/modules/findings.md` (update) | done |
 | TS-295 | Add `Finding.currency` (ISO 4217) alongside `amount_exposure` so `check_currency_integrity` can assert an explicit currency, not just an int; required before Phase 16 multi-jurisdiction findings (Strategy §E.2) can be trusted cross-currency | TS-226 finding; Strategy §E.2 | `specs/modules/findings.md` (update) | done |
-| TS-296 | Add `Finding.facts` (structured extraction facts, not just quote/detail) and `Opportunity.contract_value_minor` so `pricing.loading` can source real facts instead of caller-supplied query params | TS-203 finding; `specs/modules/pricing-intel.md` | `specs/modules/findings.md` (update), `specs/data-model.md` (update) | todo |
+| TS-296 | Add `Finding.facts` (structured extraction facts, not just quote/detail) and `Opportunity.contract_value_minor` so `pricing.loading` can source real facts instead of caller-supplied query params | TS-203 finding; `specs/modules/pricing-intel.md` | `specs/modules/findings.md` (update), `specs/data-model.md` (update) | done |
 
 ## Phase 17 — Stage 2: Baseline Lock & Handover completion
 

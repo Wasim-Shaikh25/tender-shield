@@ -42,6 +42,8 @@ Columns:
 - `amount_exposure` (BigInteger) — monetary exposure in minor units (paise)
 - `currency` (String, ISO 4217) — explicit currency for `amount_exposure` (TS-295)
 - `document_id` (Uuid, nullable) — source document for quote/citation resolution (TS-294)
+- `facts` (JSON, nullable) — structured extraction facts (e.g. `payment_days`,
+  `project_duration_months`) for pricing loading (TS-296)
 - `review_status` (`proposed` | `accepted` | `edited` | `rejected` |
   `false_positive` | `needs_clarification`)
 - `review_note`, `review_reason`, `reviewed_by`

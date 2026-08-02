@@ -64,6 +64,7 @@ class Finding(BaseModel):
     amount_exposure: int | None = None
     currency: str | None = None
     document_id: uuid.UUID | None = None
+    facts: dict | None = None
     review_status: ReviewStatus = ReviewStatus.PROPOSED
     review_reason: str | None = None
     explanation: dict | None = None

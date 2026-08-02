@@ -1,4 +1,4 @@
-"""Control tower — portfolio exposure and project dashboards (TS-272, TS-273)."""
+"""Control tower — portfolio exposure and project dashboards (TS-272–TS-280)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,10 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+from app.modules.controltower.models import CtPaymentEvent
 
 
 class ControlTowerError(Exception):
@@ -26,7 +29,9 @@ class ControlTowerService:
         claims_factory: Callable | None = None,
         change_factory: Callable | None = None,
         evidence_factory: Callable | None = None,
+        findings_factory: Callable | None = None,
         outcomes_factory: Callable | None = None,
+        billing_factory: Callable | None = None,
         publish: Callable | None = None,
     ):
         self.s = session
@@ -34,7 +39,9 @@ class ControlTowerService:
         self._claims_factory = claims_factory
         self._change_factory = change_factory
         self._evidence_factory = evidence_factory
+        self._findings_factory = findings_factory
         self._outcomes_factory = outcomes_factory
+        self._billing_factory = billing_factory
         self._publish = publish
 
     def exposure_for_opportunity(
@@ -318,6 +325,527 @@ class ControlTowerService:
             "opportunities": opportunity_snapshots,
         }
 
+    def forecast_for_opportunity(
+        self,
+        workspace_id,
+        opportunity_id,
+        *,
+        projected_final_cost_minor: int,
+        contingency_percent: float = 0.0,
+        cost_of_capital_pa: float = 0.12,
+        currency: str = "INR",
+    ) -> dict:
+        ws = uuid.UUID(str(workspace_id))
+        oid = uuid.UUID(str(opportunity_id))
+        opportunity = self._get_opportunity(ws, oid)
+        if opportunity is None:
+            raise ControlTowerError("opportunity_not_found")
+
+        exposure = self.exposure_for_opportunity(
+            ws, oid, cost_of_capital_pa=cost_of_capital_pa, currency=currency
+        )
+
+        contract_value = getattr(opportunity, "contract_value_minor", None)
+        contract_currency = getattr(opportunity, "currency", currency)
+
+        forecast_revenue = None
+        if contract_value is not None and contract_currency == currency:
+            forecast_revenue = max(int(contract_value - exposure["submitted_minor"]), 0)
+
+        contingency_multiplier = Decimal(1) + Decimal(str(contingency_percent)) / Decimal(100)
+        forecast_cost = int(
+            Decimal(projected_final_cost_minor) * contingency_multiplier
+            + Decimal(exposure["unnotified_change_minor"])
+            + Decimal(exposure["cash_exposure_minor"])
+        )
+
+        assumptions = {
+            "projected_final_cost_minor": projected_final_cost_minor,
+            "contingency_percent": contingency_percent,
+            "cost_of_capital_pa": cost_of_capital_pa,
+            "currency": currency,
+            "contract_value_minor": contract_value,
+            "contract_currency": contract_currency,
+            "exposure_submitted_minor": exposure["submitted_minor"],
+            "exposure_certified_minor": exposure["certified_minor"],
+            "exposure_unnotified_change_minor": exposure["unnotified_change_minor"],
+            "exposure_cash_exposure_minor": exposure["cash_exposure_minor"],
+        }
+
+        if self._publish:
+            self._publish(
+                "controltower.forecast_computed",
+                {
+                    "workspace_id": str(ws),
+                    "opportunity_id": str(oid),
+                    "forecast_revenue_minor": forecast_revenue,
+                    "forecast_cost_minor": forecast_cost,
+                },
+            )
+
+        return {
+            "opportunity_id": str(oid),
+            "currency": currency,
+            "forecast_revenue_minor": forecast_revenue,
+            "forecast_cost_minor": forecast_cost,
+            "forecast_margin_minor": (
+                forecast_revenue - forecast_cost if forecast_revenue is not None else None
+            ),
+            "assumptions": assumptions,
+        }
+
+    def response_times_for_opportunity(self, workspace_id, opportunity_id) -> dict:
+        ws = uuid.UUID(str(workspace_id))
+        oid = uuid.UUID(str(opportunity_id))
+        if self._claims_factory is None:
+            return {
+                "opportunity_id": str(oid),
+                "response_stats": [],
+                "overall": {"count": 0, "avg_days": 0, "median_days": 0, "p90_days": 0},
+                "negotiation_cadence_days": 0,
+                "unavailable": True,
+            }
+        claims = self._claims_factory(self.s)
+        if not hasattr(claims, "response_analytics_for_opportunity"):
+            return {
+                "opportunity_id": str(oid),
+                "response_stats": [],
+                "overall": {"count": 0, "avg_days": 0, "median_days": 0, "p90_days": 0},
+                "negotiation_cadence_days": 0,
+                "unavailable": True,
+            }
+        return claims.response_analytics_for_opportunity(ws, oid)
+
+    def clause_trends_for_workspace(self, workspace_id) -> dict:
+        ws = uuid.UUID(str(workspace_id))
+        if self._findings_factory is None:
+            return {
+                "workspace_id": str(ws),
+                "by_category": [],
+                "by_pattern": [],
+                "loss_reasons": [],
+                "unavailable": True,
+            }
+        store = self._findings_factory(self.s)
+        if not hasattr(store, "list_for_workspace"):
+            return {
+                "workspace_id": str(ws),
+                "by_category": [],
+                "by_pattern": [],
+                "loss_reasons": [],
+                "unavailable": True,
+            }
+        rows = store.list_for_workspace(ws)
+        by_category: dict[str, dict] = {}
+        by_pattern: dict[str, dict] = {}
+        loss_reasons: dict[str, dict] = {}
+        for row in rows:
+            cat = row.category
+            by_category.setdefault(
+                cat, {"category": cat, "count": 0, "exposure_minor": 0, "currency": row.currency}
+            )
+            by_category[cat]["count"] += 1
+            if row.amount_exposure:
+                by_category[cat]["exposure_minor"] += row.amount_exposure
+
+            pattern = row.pattern_id or "none"
+            by_pattern.setdefault(
+                pattern,
+                {
+                    "pattern_id": pattern,
+                    "pattern_version": row.pattern_version,
+                    "count": 0,
+                    "exposure_minor": 0,
+                    "currency": row.currency,
+                },
+            )
+            by_pattern[pattern]["count"] += 1
+            if row.amount_exposure:
+                by_pattern[pattern]["exposure_minor"] += row.amount_exposure
+
+            if row.review_status == "rejected" and row.review_reason:
+                loss_reasons.setdefault(
+                    row.review_reason,
+                    {"reason": row.review_reason, "count": 0, "exposure_minor": 0},
+                )
+                loss_reasons[row.review_reason]["count"] += 1
+                if row.amount_exposure:
+                    loss_reasons[row.review_reason]["exposure_minor"] += row.amount_exposure
+
+        return {
+            "workspace_id": str(ws),
+            "by_category": sorted(by_category.values(), key=lambda x: x["count"], reverse=True),
+            "by_pattern": sorted(by_pattern.values(), key=lambda x: x["count"], reverse=True),
+            "loss_reasons": sorted(loss_reasons.values(), key=lambda x: x["count"], reverse=True),
+        }
+
+    def executive_summary_for_opportunity(
+        self,
+        workspace_id,
+        opportunity_id,
+        *,
+        cost_of_capital_pa: float = 0.12,
+        currency: str = "INR",
+    ) -> dict:
+        ws = uuid.UUID(str(workspace_id))
+        oid = uuid.UUID(str(opportunity_id))
+        opportunity = self._get_opportunity(ws, oid)
+        if opportunity is None:
+            raise ControlTowerError("opportunity_not_found")
+
+        exposure = self.exposure_for_opportunity(
+            ws, oid, cost_of_capital_pa=cost_of_capital_pa, currency=currency
+        )
+        dashboard = self.dashboard_for_opportunity(ws, oid, currency=currency)
+        response = self.response_times_for_opportunity(ws, oid)
+        forecast = None
+        contract_value = getattr(opportunity, "contract_value_minor", None)
+        if contract_value is not None:
+            forecast = self.forecast_for_opportunity(
+                ws,
+                oid,
+                projected_final_cost_minor=contract_value,
+                cost_of_capital_pa=cost_of_capital_pa,
+                currency=currency,
+            )
+
+        top_risks: list[dict] = []
+        if self._findings_factory is not None:
+            try:
+                store = self._findings_factory(self.s)
+                if hasattr(store, "list_for_workspace"):
+                    rows = [
+                        {
+                            "id": str(r.id),
+                            "title": r.title,
+                            "severity": r.severity,
+                            "category": r.category,
+                            "amount_exposure": r.amount_exposure,
+                            "currency": r.currency,
+                            "source_page": r.source_page,
+                            "source_quote": r.source_quote,
+                            "document_id": str(r.document_id) if r.document_id else None,
+                        }
+                        for r in store.list_for_workspace(ws)
+                        if r.opportunity_id == oid and r.amount_exposure is not None
+                    ]
+                    top_risks = sorted(
+                        rows, key=lambda x: x["amount_exposure"] or 0, reverse=True
+                    )[:5]
+            except Exception:
+                pass
+
+        return {
+            "opportunity_id": str(oid),
+            "title": getattr(opportunity, "title", None),
+            "contract_value_minor": contract_value,
+            "currency": getattr(opportunity, "currency", currency),
+            "exposure": exposure,
+            "dashboard": dashboard,
+            "response_times": response,
+            "forecast": forecast,
+            "top_risks": top_risks,
+        }
+
+    def _payment_events(
+        self, workspace_id: uuid.UUID, opportunity_id: uuid.UUID
+    ) -> list[CtPaymentEvent]:
+        return list(
+            self.s.scalars(
+                select(CtPaymentEvent)
+                .where(
+                    CtPaymentEvent.workspace_id == workspace_id,
+                    CtPaymentEvent.opportunity_id == opportunity_id,
+                )
+                .order_by(CtPaymentEvent.due_date.asc())
+            )
+        )
+
+    def payment_schedule_for_opportunity(self, workspace_id, opportunity_id) -> dict:
+        ws = uuid.UUID(str(workspace_id))
+        oid = uuid.UUID(str(opportunity_id))
+        today = date.today()
+        events = self._payment_events(ws, oid)
+        schedule = []
+        collection_actions = []
+        release_actions = []
+        total_pending = 0
+        total_certified = 0
+        total_overdue = 0
+        for row in events:
+            amount = row.amount_minor or 0
+            certified = row.certified_amount_minor or 0
+            variance = amount - certified
+            age_days = (today - row.due_date).days if row.due_date else 0
+            entry = {
+                "id": str(row.id),
+                "kind": row.kind,
+                "due_date": row.due_date.isoformat() if row.due_date else None,
+                "amount_minor": amount,
+                "certified_amount_minor": row.certified_amount_minor,
+                "variance_minor": variance,
+                "currency": row.currency,
+                "status": row.status,
+                "age_days": age_days,
+                "description": row.description,
+            }
+            schedule.append(entry)
+            if row.status == "pending":
+                total_pending += amount
+                if age_days > 0:
+                    total_overdue += amount
+                    collection_actions.append(entry)
+            if row.status == "certified" and row.kind in {"retention", "security"}:
+                release_actions.append(entry)
+            if row.certified_amount_minor is not None:
+                total_certified += certified
+
+        return {
+            "opportunity_id": str(oid),
+            "schedule": schedule,
+            "total_pending_minor": total_pending,
+            "total_certified_minor": total_certified,
+            "total_overdue_minor": total_overdue,
+            "collection_actions": collection_actions,
+            "release_actions": release_actions,
+        }
+
+    def record_payment_event(
+        self,
+        workspace_id,
+        opportunity_id,
+        *,
+        kind: str,
+        due_date: date,
+        amount_minor: int,
+        certified_amount_minor: int | None = None,
+        currency: str = "INR",
+        status: str = "pending",
+        released_at: datetime | None = None,
+        description: str | None = None,
+        created_by: uuid.UUID | str,
+    ) -> dict:
+        ws = uuid.UUID(str(workspace_id))
+        oid = uuid.UUID(str(opportunity_id))
+        created_by = uuid.UUID(str(created_by))
+        if kind not in {"ra", "progress", "retention", "security"}:
+            raise ControlTowerError("invalid_payment_kind")
+        if status not in {"pending", "certified", "released"}:
+            raise ControlTowerError("invalid_payment_status")
+        event = CtPaymentEvent(
+            workspace_id=ws,
+            opportunity_id=oid,
+            kind=kind,
+            due_date=due_date,
+            amount_minor=amount_minor,
+            certified_amount_minor=certified_amount_minor,
+            currency=currency,
+            status=status,
+            released_at=released_at,
+            description=description,
+            created_by=created_by,
+        )
+        self.s.add(event)
+        self.s.commit()
+        return self._payment_event_dict(event)
+
+    def _payment_event_dict(self, row: CtPaymentEvent) -> dict:
+        return {
+            "id": str(row.id),
+            "opportunity_id": str(row.opportunity_id),
+            "kind": row.kind,
+            "due_date": row.due_date.isoformat() if row.due_date else None,
+            "amount_minor": row.amount_minor,
+            "certified_amount_minor": row.certified_amount_minor,
+            "currency": row.currency,
+            "status": row.status,
+            "released_at": row.released_at.isoformat() if row.released_at else None,
+            "description": row.description,
+        }
+
+    def economics_for_workspace(
+        self,
+        workspace_id,
+        *,
+        cost_of_sales_minor: int | None = None,
+        customer_acquisition_cost_minor: int | None = None,
+        currency: str = "INR",
+    ) -> dict:
+        ws = uuid.UUID(str(workspace_id))
+        if self._billing_factory is None:
+            return {
+                "workspace_id": str(ws),
+                "currency": currency,
+                "unavailable": True,
+            }
+        billing = self._billing_factory(self.s)
+        if not all(
+            hasattr(billing, name)
+            for name in ("invoices_for_workspace", "project_subscriptions_for_workspace")
+        ):
+            return {
+                "workspace_id": str(ws),
+                "currency": currency,
+                "unavailable": True,
+            }
+        invoices = billing.invoices_for_workspace(ws)
+        subs = billing.project_subscriptions_for_workspace(ws)
+        opps = self._list_opportunities(ws)
+        paid_invoices = [i for i in invoices if i.status == "paid" and i.currency == currency]
+        total_invoiced = sum(i.amount_minor for i in paid_invoices)
+
+        # Map invoices by opportunity if available (workspace_id is used as proxy here).
+        paid_opportunity_ids = set()
+        for inv in paid_invoices:
+            if inv.workspace_id:
+                paid_opportunity_ids.add(str(inv.workspace_id))
+
+        total_opps = len(opps)
+        paid_count = len([o for o in opps if str(o.id) in paid_opportunity_ids])
+
+        paid_conversion = _rate(paid_count, total_opps)
+
+        gross_margin = None
+        if cost_of_sales_minor is not None and total_invoiced > 0:
+            gross_margin = int(round(100 * (total_invoiced - cost_of_sales_minor) / total_invoiced))
+
+        avg_revenue = int(total_invoiced / max(paid_count, 1))
+        cac_payback = None
+        if customer_acquisition_cost_minor is not None and avg_revenue > 0:
+            cac_payback = round(customer_acquisition_cost_minor / avg_revenue, 2)
+
+        # Project retention: paid opportunities with a subscription or more than one invoice.
+        sub_opp_ids = {str(s.opportunity_id) for s in subs if s.status == "active"}
+        invoices_by_opp: dict[str, int] = {}
+        for inv in paid_invoices:
+            key = str(inv.workspace_id) if inv.workspace_id else "none"
+            invoices_by_opp[key] = invoices_by_opp.get(key, 0) + 1
+        retained_count = 0
+        for opp_id in paid_opportunity_ids:
+            if opp_id in sub_opp_ids or invoices_by_opp.get(opp_id, 0) > 1:
+                retained_count += 1
+        project_retention = _rate(retained_count, max(paid_count, 1))
+
+        # Expansion revenue: paid invoices beyond the first per opportunity.
+        expansion_revenue = 0
+        for inv in paid_invoices:
+            key = str(inv.workspace_id) if inv.workspace_id else "none"
+            if invoices_by_opp.get(key, 0) > 1:
+                expansion_revenue += inv.amount_minor
+
+        return {
+            "workspace_id": str(ws),
+            "currency": currency,
+            "total_opportunities": total_opps,
+            "paid_opportunities": paid_count,
+            "paid_conversion_percent": paid_conversion,
+            "total_invoiced_minor": total_invoiced,
+            "gross_margin_percent": gross_margin,
+            "cost_of_sales_minor": cost_of_sales_minor,
+            "customer_acquisition_cost_minor": customer_acquisition_cost_minor,
+            "avg_revenue_per_opportunity_minor": avg_revenue,
+            "cac_payback_opportunities": cac_payback,
+            "project_retention_percent": project_retention,
+            "expansion_revenue_minor": expansion_revenue,
+            "assumptions": {
+                "cost_of_sales_minor": cost_of_sales_minor,
+                "customer_acquisition_cost_minor": customer_acquisition_cost_minor,
+            },
+        }
+
+    def customer_outcomes_for_workspace(
+        self,
+        workspace_id,
+        *,
+        hours_per_review_saved: float = 2.0,
+        currency: str = "INR",
+    ) -> dict:
+        ws = uuid.UUID(str(workspace_id))
+        result = {"workspace_id": str(ws), "currency": currency}
+
+        risks_priced_count = 0
+        risks_priced_value = 0
+        if self._findings_factory is not None:
+            try:
+                store = self._findings_factory(self.s)
+                if hasattr(store, "list_for_workspace"):
+                    for r in store.list_for_workspace(ws):
+                        if r.amount_exposure and r.currency == currency:
+                            risks_priced_count += 1
+                            risks_priced_value += r.amount_exposure
+            except Exception:
+                pass
+        result["risks_priced_count"] = risks_priced_count
+        result["risks_priced_value_minor"] = risks_priced_value
+
+        bad_bids_declined = 0
+        bad_bids_value = 0
+        omissions_corrected = 0
+        omissions_value = 0
+        value_notified = 0
+        value_certified = 0
+        if self._outcomes_factory is not None:
+            try:
+                outcomes = self._outcomes_factory(self.s)
+                if hasattr(outcomes, "bid_outcomes_for_workspace"):
+                    for o in outcomes.bid_outcomes_for_workspace(ws):
+                        if o["result"] == "declined":
+                            bad_bids_declined += 1
+                            if o["quoted_value_minor"]:
+                                bad_bids_value += o["quoted_value_minor"]
+                if hasattr(outcomes, "risk_materializations_for_workspace"):
+                    for m in outcomes.risk_materializations_for_workspace(ws):
+                        if not m["materialized"] and m["impact_amount_minor"]:
+                            omissions_corrected += 1
+                            omissions_value += m["impact_amount_minor"]
+                if hasattr(outcomes, "claim_recoveries_for_workspace"):
+                    for cr in outcomes.claim_recoveries_for_workspace(ws):
+                        if cr["currency"] == currency:
+                            value_certified += cr["recovered_amount_minor"]
+            except Exception:
+                pass
+        result["bad_bids_declined_count"] = bad_bids_declined
+        result["bad_bids_value_minor"] = bad_bids_value
+        result["omissions_corrected_count"] = omissions_corrected
+        result["omissions_corrected_value_minor"] = omissions_value
+
+        if self._claims_factory is not None:
+            try:
+                claims = self._claims_factory(self.s)
+                if hasattr(claims, "list_claim_summaries"):
+                    for opp in self._list_opportunities(ws):
+                        for c in claims.list_claim_summaries(ws, opp.id):
+                            if c.get("currency") == currency:
+                                if c.get("status") in {
+                                    "submitted",
+                                    "under_review",
+                                    "negotiated",
+                                    "disputed",
+                                }:
+                                    value_notified += c.get("claim_amount_minor") or 0
+                                if c.get("status") == "settled":
+                                    value_certified += c.get("recovered_amount_minor") or 0
+                                    value_notified += c.get("claim_amount_minor") or 0
+            except Exception:
+                pass
+        result["value_notified_minor"] = value_notified
+        result["value_certified_minor"] = value_certified
+
+        findings_reviewed = 0
+        if self._findings_factory is not None:
+            try:
+                store = self._findings_factory(self.s)
+                if hasattr(store, "list_for_workspace"):
+                    findings_reviewed = sum(
+                        1 for r in store.list_for_workspace(ws) if r.review_status != "proposed"
+                    )
+            except Exception:
+                pass
+        result["hours_saved"] = round(findings_reviewed * hours_per_review_saved, 2)
+        result["assumptions"] = {"hours_per_review_saved": hours_per_review_saved}
+
+        return result
+
     def _get_opportunity(self, workspace_id: uuid.UUID, opportunity_id: uuid.UUID) -> Any | None:
         if self._ingestion_factory is None:
             raise ControlTowerError("ingestion_unavailable")
@@ -388,3 +916,9 @@ class ControlTowerService:
             return datetime.fromisoformat(str(value))
         except Exception:
             return None
+
+
+def _rate(numerator: int, denominator: int) -> int:
+    if denominator <= 0:
+        return 0
+    return int(round(100 * numerator / denominator))

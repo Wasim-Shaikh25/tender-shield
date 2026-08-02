@@ -25,6 +25,8 @@ _ERROR_STATUS = {
     "change_unavailable": 503,
     "import_failed": 422,
     "invalid_url": 400,
+    "webhook_unauthorized": 401,
+    "invalid_webhook_payload": 422,
 }
 
 
@@ -34,6 +36,7 @@ class CreateSourceBody(BaseModel):
     opportunity_id: str | None = None
     config: dict | None = None
     rate_limit_calls_per_minute: int | None = None
+    webhook_secret: str | None = None
 
 
 class ImportPayload(BaseModel):
@@ -75,13 +78,16 @@ def create_source(
     principal: Any = Depends(require("admin")),
 ):
     try:
+        config = dict(body.config or {})
+        if body.webhook_secret:
+            config["webhook_secret"] = body.webhook_secret
         row = _service(request, session).create_source(
             principal.workspace_id,
             adapter_kind=body.adapter_kind,
             name=body.name,
             created_by=principal.user_id,
             opportunity_id=body.opportunity_id,
-            config=body.config,
+            config=config,
             rate_limit=body.rate_limit_calls_per_minute,
         )
     except IntegrationsError as exc:
@@ -296,14 +302,15 @@ def poll_source(
 
 
 @router.post("/sources/{source_id}/webhook")
-def receive_webhook(
+async def receive_webhook(
     source_id: str,
-    payload: dict,
     request: Request,
     session: Session = Depends(get_session),
 ):
     try:
-        return _service(request, session).handle_webhook(source_id, payload)
+        raw_body = await request.body()
+        signature = request.headers.get("X-Integration-Signature")
+        return _service(request, session).handle_webhook(source_id, raw_body, signature)
     except IntegrationsError as exc:
         _raise(exc)
 

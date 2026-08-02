@@ -1,4 +1,6 @@
-"""Integrations module tests (TS-336 SSRF protection)."""
+"""Integrations module tests (TS-336 SSRF protection, TS-337 webhook auth)."""
+
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -149,3 +151,87 @@ class TestDynamicConnectorRoutes:
         )
         assert r.status_code == 200
         assert r.json()["base_url"] == "https://1.1.1.1/"
+
+
+class TestIntegrationWebhooks:
+    """Route-level tests for integration source webhook signature verification."""
+
+    @staticmethod
+    def _signature(secret: str, body: bytes) -> str:
+        import hmac
+        from hashlib import sha256
+
+        return hmac.new(secret.encode(), body, sha256).hexdigest()
+
+    def _create_source(self, client: TestClient, headers: dict, secret: str | None) -> str:
+        payload: dict[str, Any] = {"adapter_kind": "dynamic", "name": "webhook-source"}
+        if secret:
+            payload["webhook_secret"] = secret
+        r = client.post("/api/integrations/sources", json=payload, headers=headers)
+        assert r.status_code == 200, r.text
+        return r.json()["id"]
+
+    def test_webhook_with_valid_signature_is_accepted(self, client: TestClient):
+        headers = _auth(client)
+        secret = "super-secret"
+        source_id = self._create_source(client, headers, secret)
+        body = b'{"events":[{"source_native_id":"x"}]}'
+        sig = self._signature(secret, body)
+        r = client.post(
+            f"/api/integrations/sources/{source_id}/webhook",
+            content=body,
+            headers={
+                **headers,
+                "X-Integration-Signature": sig,
+                "Content-Type": "application/json",
+            },
+        )
+        assert r.status_code == 200
+        assert r.json()["status"] == "received"
+
+    def test_webhook_with_invalid_signature_is_rejected(self, client: TestClient):
+        headers = _auth(client)
+        secret = "super-secret"
+        source_id = self._create_source(client, headers, secret)
+        body = b'{"events":[]}'
+        r = client.post(
+            f"/api/integrations/sources/{source_id}/webhook",
+            content=body,
+            headers={
+                **headers,
+                "X-Integration-Signature": "bad",
+                "Content-Type": "application/json",
+            },
+        )
+        assert r.status_code == 401
+        assert r.json()["detail"] == "webhook_unauthorized"
+
+    def test_webhook_without_signature_is_rejected(self, client: TestClient):
+        headers = _auth(client)
+        secret = "super-secret"
+        source_id = self._create_source(client, headers, secret)
+        body = b'{"events":[]}'
+        r = client.post(
+            f"/api/integrations/sources/{source_id}/webhook",
+            content=body,
+            headers={**headers, "Content-Type": "application/json"},
+        )
+        assert r.status_code == 401
+
+    def test_webhook_with_valid_signature_but_invalid_json(self, client: TestClient):
+        headers = _auth(client)
+        secret = "super-secret"
+        source_id = self._create_source(client, headers, secret)
+        body = b"not json"
+        sig = self._signature(secret, body)
+        r = client.post(
+            f"/api/integrations/sources/{source_id}/webhook",
+            content=body,
+            headers={
+                **headers,
+                "X-Integration-Signature": sig,
+                "Content-Type": "application/json",
+            },
+        )
+        assert r.status_code == 422
+        assert r.json()["detail"] == "invalid_webhook_payload"

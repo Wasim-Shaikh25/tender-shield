@@ -6,7 +6,7 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
-### Done — Round 9 audit gap closure (TS-335/TS-336)
+### Done — Round 9 audit gap closure (TS-335/TS-336/TS-337)
 
 - **TS-335** — Round 9 production-readiness gap-closure requirements doc
   (`docs/GAP_CLOSURE_REQUIREMENTS.md`) and spec (`specs/903-round9-gap-closure.md`)
@@ -17,14 +17,17 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   `POST/PUT /api/integrations/dynamic-connectors`, `/test`, and `/poll`; new
   `backend/tests/test_integrations.py` covers accepted/rejected URLs and route-level
   `400 invalid_url` mapping.
+- **TS-337** — Integration source webhooks now require a per-source
+  `webhook_secret` and an `X-Integration-Signature` HMAC-SHA256 hex digest of the
+  raw body; `BaseConnector.verify_webhook` provides a constant-time default and
+  can be overridden per provider; missing/invalid signatures return `401 webhook_unauthorized`.
 
 ### Next
 
-- Round 9 audit gap closure continues: **TS-337** (integration webhook signature
-  verification), **TS-338** (document-class ACL enforcement on read/export/change
-  paths), **TS-339** (public API `notice_id`/`change_event_id` validation),
-  **TS-340** (governance retention/archive execution), **TS-341** (eval deadline
-  and tender-value match ≥95%).
+- Round 9 audit gap closure continues: **TS-338** (document-class ACL enforcement
+  on read/export/change paths), **TS-339** (public API `notice_id`/`change_event_id`
+  validation), **TS-340** (governance retention/archive execution), **TS-341**
+  (eval deadline and tender-value match ≥95%).
 
 ### Done — Round 8 release-blocker fixes (TS-299)
 

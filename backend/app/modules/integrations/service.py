@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -592,7 +593,12 @@ class IntegrationsService:
             raise IntegrationsError("import_failed") from exc
         return self._job_dict(job, result)
 
-    def handle_webhook(self, source_id: str, payload: dict) -> dict:
+    def handle_webhook(
+        self,
+        source_id: str,
+        raw_body: bytes,
+        signature: str | None,
+    ) -> dict:
         source = self.s.scalar(
             select(IntegrationSource).where(
                 IntegrationSource.id == uuid.UUID(str(source_id))
@@ -603,6 +609,14 @@ class IntegrationsService:
         connector = self._connector_for_source(source)
         if connector is None:
             raise IntegrationsError("unknown_connector")
+        config = source.config or {}
+        secret = config.get("webhook_secret")
+        if not connector.verify_webhook(source, raw_body, signature, secret):
+            raise IntegrationsError("webhook_unauthorized")
+        try:
+            payload = json.loads(raw_body) if raw_body else {}
+        except json.JSONDecodeError as exc:
+            raise IntegrationsError("invalid_webhook_payload") from exc
         self._publish(
             "integrations.webhook_received",
             {"source_id": source_id, "event_count": len(payload.get("events", []))},

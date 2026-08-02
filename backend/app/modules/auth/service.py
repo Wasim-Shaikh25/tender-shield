@@ -494,7 +494,7 @@ class AuthService:
             object_type="workspace", object_id=workspace_id,
             detail={"target_user_id": str(user.id), "role": role, "old_role": old_role},
         )
-        return {"workspace_id": str(workspace_id), "user_id": str(user.id), "role": role}
+        return {"user_id": str(user.id), "email": user.email, "role": role}
 
     def list_workspace_members(self, workspace_id, user_id) -> list[dict]:
         workspace_uuid = uuid.UUID(str(workspace_id))

@@ -52,6 +52,8 @@ ORDER BY src_row
 
 
 def _defect(category: str, severity: Severity, title: str, detail: str, row) -> Finding:
+    src_row = row.get("src_row")
+    source_page = int(src_row) if src_row is not None else None
     return Finding(
         kind=FindingKind.BOQ_DEFECT,
         category=category,
@@ -59,6 +61,7 @@ def _defect(category: str, severity: Severity, title: str, detail: str, row) -> 
         title=title,
         detail=detail,
         source=FindingSource.DETERMINISTIC_CHECK,
+        source_page=source_page,
         suggested_action="Verify against the source workbook before bid submission.",
     )
 

@@ -22,6 +22,14 @@ _CMP = {
 _VALID_SEVERITIES = {"critical", "high", "medium", "low", "info"}
 
 
+class MissingFactError(Exception):
+    """Raised when a severity rule references a fact not supplied in context."""
+
+    def __init__(self, fact: str):
+        self.fact = fact
+        super().__init__(f"missing severity fact: {fact}")
+
+
 def _ev(node: ast.AST, ctx: dict):
     if isinstance(node, ast.IfExp):
         return _ev(node.body, ctx) if _ev(node.test, ctx) else _ev(node.orelse, ctx)
@@ -43,7 +51,7 @@ def _ev(node: ast.AST, ctx: dict):
         if node.id in _VALID_SEVERITIES:
             return node.id
         if node.id not in ctx:
-            raise NameError(f"missing severity fact: {node.id}")
+            raise MissingFactError(node.id)
         return ctx[node.id]
     if isinstance(node, ast.Constant):
         return node.value
@@ -52,9 +60,21 @@ def _ev(node: ast.AST, ctx: dict):
 
 def evaluate_severity(rule: str, context: dict, *, default: str = "medium") -> str:
     """Evaluate a severity_rule against a fact context. Falls back to `default`
-    on any malformed rule/context rather than raising into the pipeline."""
+    on any malformed rule/context rather than raising into the pipeline.
+    Missing facts are logged so pack authors can align facts with rules."""
     try:
         value = _ev(ast.parse(rule, mode="eval").body, context)
+    except MissingFactError as exc:
+        logger.warning(
+            "severity rule %r missing fact %r; defaulting to %r",
+            rule,
+            exc.fact,
+            default,
+        )
+        return default
+    except SyntaxError:
+        logger.warning("severity rule %r is not valid syntax; defaulting to %r", rule, default)
+        return default
     except Exception:
         logger.warning("severity rule failed to evaluate: %r", rule, exc_info=True)
         return default

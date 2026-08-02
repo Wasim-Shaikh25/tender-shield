@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core import audit as audit_log
 from app.core.deps import get_session, require
 from app.core.pagination import PaginationParams, paginated_list_response
-from app.core.storage import StorageError, ValidationError, validate_and_store
+from app.core.storage import StorageError, ValidationError, sanitize_filename, validate_and_store
 from app.modules.baseline.service import BaselineError, BaselineService
 from app.modules.baseline.watchlist import control_dict
 
@@ -383,8 +383,9 @@ def handover_export(
         object_id=opportunity_id,
         detail={"format": format, "filename": filename, "view": view or "full"},
     )
+    safe = sanitize_filename(filename)
     return Response(
         content=data,
         media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'attachment; filename="{safe}"'},
     )

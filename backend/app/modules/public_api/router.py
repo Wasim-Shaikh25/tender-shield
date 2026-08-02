@@ -151,13 +151,25 @@ def signature_status(
     }
 
 
+_ALLOWED_CALLBACK_STATUSES = frozenset({"requested", "signed", "declined", "expired", "error"})
+
+
 @router.post("/signatures/callback")
 def signature_callback(
     body: SignatureCallbackBody,
     request: Request,
     session: Session = Depends(get_session),
+    x_callback_secret: str | None = Header(None, alias="X-Callback-Secret"),
 ):
-    # Webhook callbacks are provider-authenticated by shared secret outside this route.
+    settings = request.app.state.ctx.settings
+    secret = settings.public_api_callback_secret
+    if secret is None:
+        if settings.is_prod():
+            raise HTTPException(401, "callback_secret_not_configured")
+    elif x_callback_secret != secret.get_secret_value():
+        raise HTTPException(401, "invalid_callback_secret")
+    if body.status not in _ALLOWED_CALLBACK_STATUSES:
+        raise HTTPException(400, "invalid_status")
     try:
         row = _service(request, session).signature_callback(body.external_id, body.status)
     except PublicApiError as exc:

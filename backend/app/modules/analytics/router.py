@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_session, require
+from app.core.storage import sanitize_filename
 from app.modules.analytics.plan_agent import PlanDashboardAgent
 from app.modules.analytics.service import AnalyticsError, AnalyticsService
 
@@ -108,10 +109,11 @@ def export_report(
         result = _service(request, session).export_report(principal.workspace_id, filter, format)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+    safe = sanitize_filename(result["filename"])
     return Response(
         content=result["content"],
         media_type=result["content_type"],
-        headers={"Content-Disposition": f'attachment; filename="{result["filename"]}"'},
+        headers={"Content-Disposition": f'attachment; filename="{safe}"'},
     )
 
 
@@ -231,8 +233,9 @@ def export_plan_snapshot(
         if str(exc) == "snapshot_not_found":
             raise HTTPException(404, "snapshot_not_found") from exc
         raise HTTPException(400, str(exc)) from exc
+    safe = sanitize_filename(result["filename"])
     return Response(
         content=result["content"],
         media_type=result["content_type"],
-        headers={"Content-Disposition": f'attachment; filename="{result["filename"]}"'},
+        headers={"Content-Disposition": f'attachment; filename="{safe}"'},
     )

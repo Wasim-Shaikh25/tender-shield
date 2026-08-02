@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
@@ -84,13 +85,13 @@ async def upload_boq(
         raise HTTPException(422, str(exc)) from exc
     except StorageError as exc:
         raise HTTPException(500, str(exc)) from exc
-    csv_text = to_csv(file.filename, data)
+    csv_text = await asyncio.to_thread(to_csv, file.filename, data)
     # Digital tables failed on a PDF → fall back to offline scanned-table OCR
     # (rapid-table) if enabled. Still no cloud.
     if not csv_text and file.filename.lower().endswith(".pdf"):
         scanned = reg.get("ingestion.scanned_boq_csv")
         if scanned is not None:
-            csv_text = scanned(data)
+            csv_text = await asyncio.to_thread(scanned, data)
     if not csv_text:
         raise HTTPException(422, "no_boq_table_found")
     try:

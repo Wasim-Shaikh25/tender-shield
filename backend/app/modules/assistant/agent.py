@@ -112,7 +112,8 @@ class OpenRouterAgent:
                 ],
             )
             text = response.choices[0].message.content or ""
-            return _validate_citations(text.strip(), _allowed_pages(context))
+            text = sanitize_message(text.strip())
+            return _validate_citations(text, _allowed_pages(context))
         except Exception:
             logger.exception("OpenRouterAgent failed")
             return "I couldn't complete that request just now — please try a specific query."

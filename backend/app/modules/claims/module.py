@@ -76,6 +76,18 @@ def setup(ctx: AppContext) -> None:
             workspace_id, opportunity_id
         ),
     )
+    reg.provide(
+        "claims.list_for_opportunity",
+        lambda session, workspace_id, opportunity_id: factory(session).list_claims(
+            workspace_id, opportunity_id
+        ),
+    )
+    reg.provide(
+        "claims.summary_for_opportunity",
+        lambda session, workspace_id, opportunity_id: factory(session).list_claim_summaries(
+            workspace_id, opportunity_id
+        ),
+    )
 
 
 module = ModuleSpec(

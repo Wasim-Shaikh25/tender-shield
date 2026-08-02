@@ -269,6 +269,18 @@ class ClaimsService:
         )
         return [self._enriched_claim_dict(row) for row in rows]
 
+    def list_claim_summaries(self, workspace_id, opportunity_id) -> list[dict]:
+        wid = _to_uuid(workspace_id)
+        oid = _to_uuid(opportunity_id)
+        rows = list(
+            self.s.scalars(
+                select(Claim)
+                .where(Claim.workspace_id == wid, Claim.opportunity_id == oid)
+                .order_by(Claim.created_at.desc())
+            )
+        )
+        return [self._claim_dict(row) for row in rows]
+
     def get_claim(self, workspace_id, claim_id) -> dict:
         row = self._get_claim_row(workspace_id, claim_id)
         return self._enriched_claim_dict(row)

@@ -579,4 +579,16 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-332 | Data residency, encryption at rest and retention controls | Research Doc §11.2 security baseline; FEATURE_COVERAGE.md §I | backend/app/modules/governance + settings UI | done |
 | TS-333 | Live CDE/ERP connector sync (OAuth + polling/webhooks) | Research Doc §4.I; FEATURE_COVERAGE.md §I | backend/app/modules/integrations/connectors/ + API | done |
 | TS-334 | Generic dynamic REST connector (no-code) for ERP/Oracle/sandbox systems — store connector spec in DB, DynamicRestConnector fetches from UI, test endpoint pings sandbox URL without persisting | User request (post-Phase 22) | backend/app/modules/integrations/dynamic.py + frontend/settings/integrations | done |
-| TS-335 | Backfill backend tests for Phase 22 modules and fix connector/RLS/subcontract gaps discovered during testing | CLAUDE.md §1; user request | backend/tests/test_integrations.py, test_public_api.py, test_subcontract.py | done |
+| TS-342 | Backfill backend tests for Phase 22 modules and fix connector/RLS/subcontract gaps discovered during testing (merged as separate task) | CLAUDE.md §1; user request | backend/tests/test_integrations.py, test_public_api.py, test_subcontract.py | done |
+
+## Phase 23 — Round 9 audit gap closure
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-335 | Round 9 gap-closure requirements doc + spec | `docs/GAP_CLOSURE_REQUIREMENTS.md`; `PRODUCTION_READINESS_AUDIT.md` | `specs/903-round9-gap-closure.md` | done |
+| TS-336 | Dynamic REST connector SSRF protection | `PRODUCTION_READINESS_AUDIT.md` TS-INT-03; `specs/modules/integrations.md` | `backend/app/modules/integrations/connectors/dynamic.py` | done |
+| TS-337 | Integration source webhook signature verification | `PRODUCTION_READINESS_AUDIT.md` TS-INT-02; `specs/modules/integrations.md` | `backend/app/modules/integrations/router.py`, `service.py`, `connectors/base.py` | done |
+| TS-338 | Document-class ACL enforcement on read/export/change/claims/drafting paths | `PRODUCTION_READINESS_AUDIT.md` TS-ACL-01; `specs/modules/auth.md` | `backend/app/modules/auth/acl.py` + router deps | done |
+| TS-339 | Public API `request_signature` `notice_id` / `change_event_id` workspace validation | `PRODUCTION_READINESS_AUDIT.md` TS-PUB-04; `specs/modules/public_api.md` | `backend/app/modules/public_api/service.py` | done |
+| TS-340 | Governance retention / archive execution job | `PRODUCTION_READINESS_AUDIT.md` TS-GOV-01; `specs/modules/governance.md` | `backend/app/modules/governance/` + scheduler | todo |
+| TS-341 | Eval deadline and tender-value match ≥95% | `PRODUCTION_READINESS_AUDIT.md` TS-EV-01; `specs/modules/ingestion.md` | `backend/app/modules/ingestion/deadlines.py`, extraction prompts, eval smoke | todo |

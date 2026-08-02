@@ -53,6 +53,7 @@ class ExportService:
         ingestion_factory=None,
         workspace_factory=None,
         pack_version="in-works",
+        document_class_permitted_fn=None,
     ):
         self.s = session
         self._review_factory = review_factory
@@ -61,6 +62,7 @@ class ExportService:
         self._ingestion_factory = ingestion_factory
         self._workspace_factory = workspace_factory
         self._pack_version = pack_version
+        self._document_class_permitted_fn = document_class_permitted_fn
 
     def _gate_ok(self, workspace_id, opportunity_id) -> bool:
         if self._review_factory is None:
@@ -175,13 +177,33 @@ class ExportService:
             return render_pdf(title, artifacts, findings, meta, template)
         return render_docx(title, artifacts, findings, meta, template)
 
+    def _check_document_class_acl(self, workspace_id, opportunity_id, role: str | None) -> None:
+        if self._document_class_permitted_fn is None or role is None:
+            return
+        if self._ingestion_factory is None:
+            return
+        docs = self._ingestion_factory(self.s).list_documents(workspace_id, opportunity_id)
+        for doc in docs:
+            if not self._document_class_permitted_fn(
+                self.s, workspace_id, role, doc.kind
+            ):
+                raise ExportError("document_class_forbidden")
+
     def export(
-        self, workspace_id, opportunity_id, fmt: str, template_id: str | None = None
+        self,
+        workspace_id,
+        opportunity_id,
+        fmt: str,
+        template_id: str | None = None,
+        *,
+        role: str | None = None,
     ) -> tuple[str, str, bytes]:
         if fmt not in FORMATS:
             raise ExportError("bad_format")
         if not self._gate_ok(workspace_id, opportunity_id):
             raise ExportError("review_incomplete")  # Doc §11.4 — the export gate
+
+        self._check_document_class_acl(workspace_id, opportunity_id, role)
 
         title = self._title(workspace_id, opportunity_id)
         meta = {
@@ -204,11 +226,19 @@ class ExportService:
         return filename, media_type, data
 
     def export_unreviewed(
-        self, workspace_id, opportunity_id, fmt: str, template_id: str | None = None
+        self,
+        workspace_id,
+        opportunity_id,
+        fmt: str,
+        template_id: str | None = None,
+        *,
+        role: str | None = None,
     ) -> tuple[str, str, bytes]:
         """Express lane export — bypasses review gate, watermarks every format."""
         if fmt not in FORMATS:
             raise ExportError("bad_format")
+
+        self._check_document_class_acl(workspace_id, opportunity_id, role)
 
         title = self._title(workspace_id, opportunity_id)
         meta = {

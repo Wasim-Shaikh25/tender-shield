@@ -38,6 +38,7 @@ def _service(request: Request, session: Session) -> ExportService:
         ingestion_factory=reg.get("ingestion.service_factory"),
         workspace_factory=reg.get("auth.workspace_factory"),
         pack_version=pack_version,
+        document_class_permitted_fn=reg.get("auth.document_class_permitted"),
     )
 
 
@@ -52,10 +53,14 @@ def export_pack(
 ):
     try:
         filename, media_type, data = _service(request, session).export(
-            principal.workspace_id, opportunity_id, format, template_id=template_id
+            principal.workspace_id,
+            opportunity_id,
+            format,
+            template_id=template_id,
+            role=principal.role,
         )
     except ExportError as exc:
-        status = 403 if exc.code == "review_incomplete" else 400
+        status = 403 if exc.code in ("review_incomplete", "document_class_forbidden") else 400
         raise HTTPException(status, exc.code) from exc
     audit_log.log(
         request,

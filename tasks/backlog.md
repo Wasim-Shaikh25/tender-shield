@@ -552,7 +552,7 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-305 | Integration source configuration UI | Research Doc §4.I; FEATURE_COVERAGE.md §I | frontend/app/settings/integrations/ | todo |
 | TS-306 | Public API key management UI | Research Doc §4.I; FEATURE_COVERAGE.md §I | frontend/app/settings/api-keys/ | todo |
 | TS-307 | Admin / Advisor multi-client workspace UI | Research Doc §3.3 Advisor Edition, §8.3; FEATURE_COVERAGE.md §I | frontend/app/advisor/ and admin workspace switcher | todo |
-| TS-308 | Plan dashboard navigation link | Research Doc §4 analytics; plan-dashboard spec | frontend/components/nav/ | todo |
+| TS-308 | Plan dashboard navigation link | Research Doc §4 analytics; plan-dashboard spec | frontend/components/nav/ | done |
 | TS-309 | Pricing / rate benchmark / cashflow results UI | Research Doc §4.C rate build-up; pricing-intel spec | frontend/app/opportunities/[id]/pricing/ | todo |
 | TS-310 | DOCX upload and text extraction | Research Doc §4.A bulk upload; FEATURE_COVERAGE.md §A | backend/app/modules/ingestion/extract.py | todo |
 | TS-311 | Image (PNG/JPG/TIFF) upload and standalone OCR | Research Doc §4.A OCR; FEATURE_COVERAGE.md §A | backend/app/modules/ingestion/ocr.py | todo |

@@ -47,6 +47,8 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ### Done — gap closure roadmap (TS-301)
 
+- **TS-308** — added a `Plan` nav link to `frontend/app/layout.tsx` so the existing
+  `/plan` AI dashboard is discoverable; typecheck and build pass.
 - Added `docs/REMAINING_GAPS_ROADMAP.md` with one row for every `Partial` / `Missing`
   capability from `FEATURE_COVERAGE.md`.
 - Created **Phase 22** in `tasks/backlog.md` with 33 concrete tasks (TS-301–TS-333)

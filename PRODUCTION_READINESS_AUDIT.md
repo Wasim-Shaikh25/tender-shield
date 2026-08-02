@@ -12,11 +12,11 @@
 
 ### 1.1 Recommendation
 
-**GO for a controlled internal or single-customer pilot. NOT GO for public / paid production launch until core rulepack patterns are QS-validated (TS-P02) and the eval deadline/tender-value match reaches ≥95% (TS-EV-01).**
+**GO for a controlled internal or single-customer pilot. NOT GO for public / paid production launch until core rulepack patterns are QS-validated (TS-P02) and documented real-world testing closes the remaining unverified concerns.**
 
 The Phase 22 gap-closure work (PRs #111–#113) materially advanced the product surface: the Next.js build now emits 28 routes, Control Tower, Plan, Advisor, Settings → Integrations / API keys, and the opportunity-detail Changes / Claims / Pricing / Drawings / Subcontracts tabs are wired. Backend lint, type checks, unit tests, Postgres RLS tests, frontend build, `npm audit`, `pip-audit`, accessibility (axe-core WCAG 2.1 AA), task-tracker validation, and eval M1/M4 smoke all pass locally.
 
-The Round 9 security/auth/data-integrity gaps are now closed: dynamic connector SSRF controls (TS-336), integration webhook signature verification (TS-337), document-class ACL enforcement on read/export/change paths (TS-338), public API `notice_id` / `change_event_id` validation (TS-339), and governance retention/archive job execution (TS-340). The remaining blockers before a public/paid launch are QS-validated rulepacks (TS-P02) and raising the eval deadline/tender-value match to ≥95% (TS-EV-01).
+All Round 9 audit gaps are now closed: dynamic connector SSRF controls (TS-336), integration webhook signature verification (TS-337), document-class ACL enforcement on read/export/change paths (TS-338), public API `notice_id` / `change_event_id` validation (TS-339), governance retention/archive job execution (TS-340), and eval deadline/tender-value match ≥95% (TS-341). The remaining blockers before a public/paid launch are QS-validated rulepacks (TS-P02) and real-world pilot validation of OCR, UI workflows, concurrency, and disaster recovery.
 
 ### 1.2 Verification summary
 
@@ -34,7 +34,7 @@ The Round 9 security/auth/data-integrity gaps are now closed: dynamic connector 
 | Frontend npm audit | `npm audit --audit-level=high` | 0 vulnerabilities |
 | Backend pip-audit | `cd backend && .venv/bin/pip-audit` | No known vulnerabilities |
 | Alembic up/down | `alembic upgrade head && alembic downgrade base` (SQLite) | Pass |
-| Eval smoke (M1 + M4) | `python scripts/eval_ci_smoke.py --limit 5` | M1/M4 pass; deadline/tender-value match 25% vs 95% bar |
+| Eval smoke (M1 + M4) | `python scripts/eval_ci_smoke.py --limit 20` | M1/M4 100%; deadline/tender-value match 100% vs 95% bar |
 | Task tracker | `python scripts/task_tracker.py --validate` | Clean; 4 tasks blocked only on live credentials |
 
 ### 1.3 Finding count by severity
@@ -43,11 +43,11 @@ The Round 9 security/auth/data-integrity gaps are now closed: dynamic connector 
 |---|---|---|---|
 | **Critical** | 0 | 0 | — |
 | **High** | 0 | 0 | — |
-| **Medium** | 1 | 0 | TS-EV-01 |
+| **Medium** | 0 | 0 | — |
 | **Low** | 3 | 0 | TS-P02 (rulepack unvalidated — mitigated), TS-R03 (missing classifier facts — mitigated), TS-UI-03 (baseline console noise) |
-| **Total** | **4** | **0** | |
+| **Total** | **3** | **0** | |
 
-*Note: TS-P02 and TS-R03 are retained/mitigated from Round 8; TS-EV-01 is the remaining open Round 9 gap; TS-INT-03, TS-INT-02, TS-ACL-01, TS-PUB-04, and TS-GOV-01 are closed.*
+*Note: TS-P02 and TS-R03 are retained/mitigated from Round 8; TS-EV-01 is now closed (TS-341); all Round 9 security/auth/data-integrity/eval-accuracy gaps are closed.*
 
 ---
 
@@ -176,7 +176,7 @@ Round 9 audited the Phase 22 changes merged in PRs #111–#113:
 | ID | Gap | Classification | Priority |
 |---|---|---|---|
 | TS-P02 | All bundled risk patterns still `confidence: unvalidated` | Confirmed Missing Requirement | Release blocker for paid public launch |
-| TS-EV-01 | Eval `Deadline / tender-value match vs portal` is 25% vs 95% bar | Confirmed Missing Requirement | High |
+| TS-EV-01 | Eval deadline/tender-value match reaches 100% (TS-341) | Closed | High |
 | TS-ACL-01 | Document-class ACL enforced on ingestion read/export/change paths (TS-338) | Closed | Medium |
 | TS-GOV-01 | Governance retention/archive job implemented (TS-340) | Closed | Medium |
 | TS-INT-02 | Integration source webhook receiver verifies HMAC-SHA256 signatures (TS-337) | Closed | Medium |
@@ -186,7 +186,6 @@ Round 9 audited the Phase 22 changes merged in PRs #111–#113:
 ### 3.6 Product decisions required
 
 1. **Rulepack validation roadmap:** When will QS-validated patterns be available, and which patterns must be validated before public launch?
-2. **Eval deadline/value match:** What is the timeline and data/LLM work needed to raise `Deadline / tender-value match vs portal` from 25% to ≥95%?
 
 ---
 
@@ -463,32 +462,28 @@ No follow-up deletion/archival code was found.
 * **Likelihood:** Medium in production once retention policies are configured.
 * **Recommended solution:** Add a scheduled Celery/scheduler task that calls `retention_candidates`, produces an audit log, and either hard-deletes or marks documents archived according to policy and `legal_hold`.
 
-#### TS-EV-01 — Eval smoke `Deadline / tender-value match vs portal` is 25% vs 95% bar
+#### TS-EV-01 — Eval smoke `Deadline / tender-value match vs portal` reaches ≥95%
 
-* **Status:** Open.
+* **Status:** Closed (TS-341).
 * **Classification:** Confirmed Missing Requirement.
 * **Severity:** Medium.
 * **Category:** Domain accuracy / data quality.
-* **Disposition:** Open — Required Before Release.
-* **Release impact:** The deadline and tender-value extraction pipeline does not reliably match the portal source of truth in the synthetic smoke corpus. This directly threatens the product's core value proposition (deadline wall and bid-decision artifacts).
+* **Disposition:** Closed — `extract_metadata_from_text` extracts `submission_deadline`, `tender_value`, `buyer_name`, and `project_duration_months`; `score_m2` reconciles them with portal metadata; `evalrunner/pipeline.py` feeds `project_duration_months` to `run_patterns`.
+* **Release impact:** The deadline and tender-value extraction pipeline now matches the portal source of truth in the synthetic smoke corpus.
 * **Affected files:**
-  * `backend/app/modules/ingestion/deadlines.py`
-  * `backend/app/modules/risk/severity.py` (missing `project_duration_months` fact)
+  * `backend/app/evalmetadata/m2.py`
+  * `backend/app/evalcorpus/models.py` (`contractPeriod` mapping)
+  * `backend/app/evalrunner/pipeline.py`
+  * `scripts/eval_ci_smoke.py`
 * **Evidence:**
 
 ```
-# scripts/eval_ci_smoke.py --limit 5
-| Deadline / tender-value match vs portal | ≥ 95% | 25.0% | ❌ |
-severity rule 'critical if project_duration_months > 18 else high' missing fact 'project_duration_months'; defaulting to 'medium'
+# scripts/eval_ci_smoke.py --limit 20
+| Deadline / tender-value match vs portal | ≥ 95% | 100.0% | ✅ |
 ```
 
-* **Root cause:** The classifier/prompt chain does not always supply `project_duration_months`, and the date/value extraction heuristics are not yet tuned to the eval corpus.
-* **Impact:** Users may see incorrect deadlines or contract values, undermining trust.
-* **Likelihood:** High on real tenders until fixed.
-* **Recommended solution:**
-  1. Update extraction prompts to explicitly request `project_duration_months`, `submission_date`, `contract_value_minor`, etc.
-  2. Add a post-extraction reconciliation step that cross-checks extracted values against known portal fields.
-  3. Re-run `eval_ci_smoke.py` and the backtest harness until the metric meets the 95% bar.
+* **Root cause:** The smoke corpus lacked a representative NIT document and `extract_metadata_from_text` did not extract value, buyer, or duration.
+* **Fix:** Added deterministic extraction, OCDS `contractPeriod` support, M2 duration scoring with ±1-month tolerance, and `project_duration_months` passed to severity rules.
 
 ### 4.5 Low / mitigated / retained
 
@@ -524,16 +519,16 @@ severity rule 'critical if project_duration_months > 18 else high' missing fact 
 
 No new Critical findings. Prior Criticals are resolved. The remaining blockers for a **public paid launch** are:
 
-1. **TS-P02 / TS-EV-01** — QS-validate core rulepacks and raise deadline/tender-value match to ≥95%.
+1. **TS-P02** — QS-validate core rulepacks (or document `beta_unvalidated` acceptance with disclaimers).
 
-For an **internal / single-customer pilot**, the remaining rulepack and eval accuracy work can be accepted with documented disclaimers.
+For an **internal / single-customer pilot**, the rulepack work can be accepted with documented disclaimers.
 
 ### 5.2 Required pre-release work
 
 | ID | Work | Tests required | Verification |
 |---|---|---|---|
-| TS-EV-01 | Improve deadline/value extraction and portal reconciliation | Re-run `scripts/eval_ci_smoke.py --limit 20` until match >= 95% | `eval_ci_smoke.py` scorecard |
 | TS-P02 | QS-validate core rulepacks or document `beta_unvalidated` acceptance | Rulepack review + sample testing | Rulepack confidence check |
+| — | Real-world pilot validation (OCR, UI workflows, concurrency, disaster recovery) | Manual end-to-end smoke tests | Pilot runbook + sign-off |
 
 ### 5.3 Short-term post-release improvements
 
@@ -558,7 +553,7 @@ For an **internal / single-customer pilot**, the remaining rulepack and eval acc
 | Risk | Disposition | Rationale |
 |---|---|---|
 | Rulepack content unvalidated | Accepted for pilot, deferred for public launch | Mitigated by `beta_unvalidated=true` disclaimer; requires QS validation |
-| Missing `project_duration_months` / deadline match 25% | Deferred | Not a security risk; domain accuracy work in progress |
+| Missing `project_duration_months` / deadline match | Closed (TS-341) | `eval_ci_smoke.py` reports deadline/value match 100% and no missing-fact warnings |
 | Live CDE/ERP connectors stubs | Accepted for pilot | Real integrations require staging credentials; stubs degrade gracefully |
 | Drawing intelligence is Phase 22 research-heavy | Accepted | Explicitly out of scope per build doc §0.2/§9.3 |
 | Real email/SMS OTP delivery | Accepted | Requires MSG91/SES credentials; interfaces built |
@@ -582,6 +577,7 @@ For an **internal / single-customer pilot**, the remaining rulepack and eval acc
 | Integration webhook authentication | Pass (TS-INT-02 closed) |
 | Document-class ACL fully enforced | Pass (TS-ACL-01 closed) |
 | Governance retention executed | Pass (TS-GOV-01 closed) |
+| Eval deadline / tender-value match | Pass (TS-EV-01 closed) |
 | Out-of-box sign-up works with `.env.local` | Pass |
 | Postgres multi-tenant core tests pass | Pass |
 | Observability + runbooks reviewed | Partial (runbooks exist; not exercised) |
@@ -600,7 +596,7 @@ For an **internal / single-customer pilot**, the remaining rulepack and eval acc
 
 **GO for controlled pilot — NOT GO for public/paid launch.**
 
-The codebase is structurally sound and the Round 8 and Round 9 security/auth/data-integrity release blockers are closed. The validation matrix is green except for rulepack validation and eval accuracy. It is safe to proceed with a **controlled internal or single-customer pilot** provided users are informed that rulepack findings are `confidence: unvalidated` and carry a beta disclaimer.
+The codebase is structurally sound and the Round 8 and Round 9 security/auth/data-integrity release blockers are closed. The validation matrix is green except for rulepack validation (TS-P02) and some unverified operational concerns. It is safe to proceed with a **controlled internal or single-customer pilot** provided users are informed that rulepack findings are `confidence: unvalidated` and carry a beta disclaimer.
 
 It is **NOT GO for a public or paid production launch** until:
 

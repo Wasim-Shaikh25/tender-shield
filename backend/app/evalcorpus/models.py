@@ -136,6 +136,8 @@ class CorpusTender:
     currency: str = ""
     tender_start: str | None = None
     tender_end: str | None = None
+    contract_period_start: str | None = None
+    contract_period_end: str | None = None
     documents: list[CorpusDocument] = field(default_factory=list)
     provenance: Provenance | None = None
     raw_metadata: dict[str, Any] = field(default_factory=dict)
@@ -196,6 +198,7 @@ def tender_from_ocds(
     tender = release.get("tender") or {}
     buyer_block = release.get("buyer") or {}
     period = tender.get("tenderPeriod") or {}
+    contract = tender.get("contractPeriod") or {}
 
     value_minor, currency = _first_value(tender.get("value"))
 
@@ -235,6 +238,8 @@ def tender_from_ocds(
         currency=currency,
         tender_start=parse_datetime(period.get("startDate")),
         tender_end=parse_datetime(period.get("endDate")),
+        contract_period_start=parse_datetime(contract.get("startDate")),
+        contract_period_end=parse_datetime(contract.get("endDate")),
         documents=documents,
         provenance=Provenance(
             source=source, adapter_version=adapter_version, source_url=source_url

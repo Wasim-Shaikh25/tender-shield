@@ -262,13 +262,25 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Updated `specs/modules/assistant-ui.md` with session-delete and sidebar
   behavior.
 
+### Done — E2E fix pass + global sidebar (TS-355/TS-356)
+
+- **TS-355** — Assistant follow-up chips now persist and serialize:
+  `ChatMessage` has a `suggested_followups` JSON column, `answer_and_store`
+  returns the full persisted message JSON, and the frontend replaces the
+  optimistic assistant bubble with the server response in place.
+- **TS-355** — `.md` and `.txt` files can now be uploaded through the UI:
+  added to `ALLOWED_UPLOAD_EXTENSIONS`, `MAX_UPLOAD_SIZES`, magic-trust list,
+  and the opportunity file input `accept` attribute.
+- **TS-356** — Global navigation moved into a left sidebar (`AppShell`):
+  main nav links, workspace selector, account links, and sign-out are now in a
+  collapsible drawer on mobile and a fixed sidebar on desktop.
+
 ### Next
 
-- **TS-355** — Fix E2E issues discovered in the screen-recorded run:
-  persist and serialize assistant `suggested_followups` so follow-up chips render,
-  add `.md`/`txt` to the upload/storage whitelist, and fix the assistant
-  live-update quirk on the first message.
-- **TS-356** — Move the global top navbar links into a collapsible left sidebar.
+- **TS-346** — Run validation importer against real public-tender corpus (India/UAE)
+  via `scripts/corpus_harvest.py` with `TS_OPENROUTER_API_KEY` for AI risk validation.
+- **TS-347** — Expand the `in-works` rulepack to avoid the same 5 synthetic risk
+  findings on every opportunity and add UAE/India notice-standard overlays.
 
 - **Auth team invitation/member-add 500s** — `add_workspace_member` now returns the
   `email` field required by `MemberResponse`, so `POST /api/auth/workspaces/{id}/members`

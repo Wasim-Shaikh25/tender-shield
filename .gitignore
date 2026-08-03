@@ -33,6 +33,8 @@ evals/runs/
 *.db
 *.log
 logs/
+validation_report*.md
+validation-artifacts.zip
 
 # OS / editor
 .DS_Store

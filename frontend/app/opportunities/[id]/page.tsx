@@ -25,6 +25,7 @@ import { ClaimsTab } from "./claims-tab";
 import { PricingTab } from "./pricing-tab";
 import { DrawingsTab } from "./drawings-tab";
 import { SubcontractsTab } from "./subcontracts-tab";
+import { RulepackSelector } from "./rulepack-selector";
 
 export default function OpportunityDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -183,6 +184,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-ink">{title}</h1>
         <div className="flex gap-2">
+          {session && <RulepackSelector token={session.token} opportunityId={id} />}
           <label className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-white disabled:opacity-50">
             <input
               type="file"

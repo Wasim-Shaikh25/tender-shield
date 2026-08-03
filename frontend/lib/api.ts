@@ -371,6 +371,19 @@ export type PlanDashboard = {
   citations?: string[];
 };
 
+export type RulePackSummary = {
+  id: string;
+  pack_id: string;
+  version: string;
+  scope: "global" | "workspace";
+  workspace_id: string | null;
+  jurisdiction: string;
+  is_active: boolean;
+  status: "draft" | "active" | "deprecated";
+  created_at: string;
+  activated_at: string | null;
+};
+
 type SignupResponse = components["schemas"]["SignupResponse"];
 type ForgotPasswordResponse = components["schemas"]["ForgotPasswordResponse"];
 type OkResponse = components["schemas"]["OkResponse"];
@@ -1024,6 +1037,23 @@ export const api = {
     body.append("file", file);
     return req<{ boq_candidates: { description: string; classification: string; unit: string; quantity: number; count: number; confidence: string; verify_manually: boolean }[]; activity_candidates: { source_native_id: string; name: string; classification: string }[]; element_count: number; note?: string }>(`/drawings/opportunities/${opportunityId}/drawings/${drawingId}/ifc-quantities`, { method: "POST", body }, token);
   },
+  // Rulepack admin (TS-348)
+  listRulepacks: (token: string) =>
+    req<{ packs: RulePackSummary[] }>("/rulepacks/admin/packs", {}, token),
+  uploadRulepack: (token: string, file: File, scope: "global" | "workspace" = "workspace") => {
+    const body = new FormData();
+    body.append("archive", file);
+    body.append("scope", scope);
+    return req<RulePackSummary>("/rulepacks/admin/packs", { method: "POST", body, headers: {} }, token);
+  },
+  activateRulepack: (token: string, id: string) =>
+    req<RulePackSummary>(`/rulepacks/admin/packs/${id}/activate`, { method: "POST" }, token),
+  deleteRulepack: (token: string, id: string) =>
+    req<{ ok: boolean }>(`/rulepacks/admin/packs/${id}`, { method: "DELETE" }, token),
+  getOpportunityRulepacks: (token: string, opportunityId: string) =>
+    req<{ packs: RulePackSummary[] }>(`/rulepacks/opportunities/${opportunityId}/packs`, {}, token),
+  applyOpportunityRulepacks: (token: string, opportunityId: string, packIds: string[]) =>
+    req<{ packs: RulePackSummary[] }>(`/rulepacks/opportunities/${opportunityId}/packs`, { method: "POST", body: JSON.stringify({ pack_ids: packIds }) }, token),
 };
 
 export type PlanSnapshot = {

@@ -219,10 +219,39 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   a fake-agent test verifying prior user/assistant messages are passed as history.
 - Updated `specs/modules/assistant-ui.md` status to `implemented`.
 
+### Done — Project state marketing dashboard + all-projects/workspace filter dashboard (TS-353/TS-354)
+
+- New `project_state` backend module (`backend/app/modules/project_state/`):
+  computes deterministic project state (`draft` → `ingesting` → `ingested` →
+  `reviewing` → `reviewed` → `baseline_locked` → `submitted`/`awarded`/`rejected`/
+  `withdrawn`) and next actions from `ingestion`, `findings`, and `baseline`
+  modules via registry capabilities.
+- `ProjectStateService` returns `state`, `state_label`, `health`, `next_action`,
+  `blockers`, `completed_gates`, and counts for every opportunity the user can
+  access.
+- Added `WorkspaceAdmin.list_for_user` in `auth` so `project_state` can scope
+  queries to the user's workspace memberships.
+- New routes:
+  - `GET /api/project_state/opportunities` — list with filters (workspace,
+    status, health, jurisdiction, value range, deadline range).
+  - `GET /api/project_state/opportunities/{id}/state` — single project state card.
+  - `GET /api/project_state/workspaces/me/opportunities/state` — per-workspace
+    state counts + upcoming deadlines (≤7 days).
+- New frontend pages:
+  - `/projects` — all-projects board with filter panel, state summary cards,
+    health badges, blockers, and next-action deep links.
+  - `/projects/{id}/state` — read-only state card for one opportunity.
+  - `/dashboard/state` — workspace-level state summary.
+- Added `ProjectState` and `WorkspaceStateSummary` types plus `listProjectStates`,
+  `getProjectState`, and `listWorkspaceStateSummaries` API helpers in
+  `frontend/lib/api.ts`.
+- Added `backend/tests/test_project_state.py` covering draft, ingested,
+  reviewing, list filtering, and workspace summaries.
+- Updated `specs/project-state-dashboard.md` status to `implemented`.
+
 ### Next
 
-- TS-353/TS-354 — Project state marketing dashboard + all-projects/workspace
-  filter dashboard.
+- No active task queued; awaiting next sequence item.
 
 - **Auth team invitation/member-add 500s** — `add_workspace_member` now returns the
   `email` field required by `MemberResponse`, so `POST /api/auth/workspaces/{id}/members`

@@ -1,6 +1,6 @@
 # Project State Dashboard — Spec
 
-**Status:** draft
+**Status:** implemented
 **Requirement refs:** Doc §9, §1.1; `specs/modules/controltower.md`; user request
 **Task refs:** TS-353, TS-354
 

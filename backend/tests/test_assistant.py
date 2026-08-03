@@ -219,6 +219,74 @@ def test_admin_chat_allows_superadmin_and_logs_audit(client):
     assert any(row["action"] == "assistant.admin_query" for row in audit)
 
 
+def test_session_chat_returns_followups_and_citations(client):
+    headers = _auth(client)
+    opp_id = _opp(client, headers)
+    s = client.post(
+        "/api/assistant/sessions",
+        json={"opportunity_id": opp_id, "title": "Followup test"},
+        headers=headers,
+    ).json()
+    session_id = s["id"]
+    ans = client.post(
+        f"/api/assistant/sessions/{session_id}/chat",
+        json={"message": "list the deadlines"},
+        headers=headers,
+    ).json()
+    assert ans["source"] == "tool"
+    assert isinstance(ans.get("citations"), list)
+    assert isinstance(ans.get("suggested_followups"), list)
+    assert len(ans["suggested_followups"]) > 0
+
+
+def test_session_history_is_passed_to_llm_agent(client):
+    """A second chat turn should include the first user and assistant messages."""
+    from app.modules.assistant.service import AssistantService
+
+    headers = _auth(client)
+    opp_id = _opp(client, headers)
+
+    # Create a session through the API to keep workspace/opportunity valid.
+    s = client.post(
+        "/api/assistant/sessions",
+        json={"opportunity_id": opp_id, "title": "History test"},
+        headers=headers,
+    ).json()
+    session_id = s["id"]
+    workspace_id = client.get("/api/auth/workspaces", headers=headers).json()[0]["workspace_id"]
+
+    Session = client.app.state.ctx.registry.require("db.sessionmaker")
+    db = Session()
+
+    captured: dict = {}
+
+    class FakeAgent:
+        def answer(self, message, context, *, identity=None, history=None):
+            captured["message"] = message
+            captured["history"] = history
+            return f"Reply for {message}"
+
+    svc = AssistantService(db, agent=FakeAgent())
+    # Seed a first turn so there is prior history.
+    svc.answer_and_store(
+        workspace_id, session_id, opp_id,
+        message="first question",
+        identity={"user_id": "u", "is_superadmin": True},
+    )
+
+    db.expire_all()
+    second = svc.answer_and_store(
+        workspace_id, session_id, opp_id,
+        message="second question",
+        identity={"user_id": "u", "is_superadmin": True},
+    )
+    assert "history" in captured
+    assert len(captured["history"]) >= 2
+    roles = [m["role"] for m in captured["history"]]
+    assert "user" in roles and "assistant" in roles
+    assert second["answer"] == "Reply for second question"
+
+
 def test_session_is_workspace_scoped(client):
     # User A creates a session in workspace A.
     headers_a, ws_a = auth_headers_and_workspace(client, "a@x.com", workspace_name="A")

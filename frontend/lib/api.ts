@@ -405,6 +405,27 @@ export type RagSuggestion = {
   created_at: string;
 };
 
+export type AssistantSession = {
+  id: string;
+  opportunity_id: string | null;
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AssistantMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  type: string;
+  dashboard?: PlanDashboard | null;
+  grounded: boolean;
+  source?: string;
+  citations?: string[];
+  suggested_followups?: string[];
+  created_at: string;
+};
+
 type SignupResponse = components["schemas"]["SignupResponse"];
 type ForgotPasswordResponse = components["schemas"]["ForgotPasswordResponse"];
 type OkResponse = components["schemas"]["OkResponse"];
@@ -656,21 +677,18 @@ export const api = {
       { method: "POST", body: JSON.stringify({ csv }) },
       token
     ),
-  askAssistant: (
-    token: string,
-    message: string,
-    opportunityId?: string
-  ) =>
-    req<{
-      type?: string;
-      answer: string;
-      source: string;
-      dashboard?: PlanDashboard;
-    }>(
-      `/assistant/chat`,
-      { method: "POST", body: JSON.stringify({ ...(opportunityId ? { opportunity_id: opportunityId } : {}), message }) },
-      token
-    ),
+  // Assistant (TS-352)
+  createAssistantSession: (token: string, title?: string, opportunityId?: string) =>
+    req<AssistantSession>("/assistant/sessions", {
+      method: "POST",
+      body: JSON.stringify({ title, opportunity_id: opportunityId }),
+    }, token),
+  listAssistantSessions: (token: string, opportunityId?: string) =>
+    req<{ sessions: AssistantSession[] }>(`/assistant/sessions${opportunityId ? `?opportunity_id=${encodeURIComponent(opportunityId)}` : ""}`, {}, token),
+  getAssistantMessages: (token: string, sessionId: string) =>
+    req<{ messages: AssistantMessage[] }>(`/assistant/sessions/${sessionId}/messages`, {}, token),
+  sendAssistantMessage: (token: string, sessionId: string, message: string) =>
+    req<AssistantMessage>(`/assistant/sessions/${sessionId}/chat`, { method: "POST", body: JSON.stringify({ message }) }, token),
   reviewFinding: (token: string, opportunityId: string, findingId: string, decision: string, note?: string) =>
     req<{ id: string; review_status: string }>(
       `/review/findings/${findingId}`,

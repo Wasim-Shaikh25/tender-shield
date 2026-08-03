@@ -2,25 +2,34 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, PlanDashboard } from "@/lib/api";
+import { api, type AssistantSession, type AssistantMessage, type PlanDashboard } from "@/lib/api";
 import { useSession } from "@/components/session";
+import { Markdown } from "@/components/markdown";
 import { DashboardView } from "@/components/plan-dashboard";
 
-type Message = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  type?: string;
-  dashboard?: PlanDashboard;
-  source?: string;
-  loading?: boolean;
+type UIMessage = AssistantMessage & { loading?: boolean };
+
+const SOURCE_LABEL: Record<string, string> = {
+  tool: "Tool result",
+  llm: "AI answer",
+  refusal: "Scope guard",
+  user: "You",
+};
+
+const SOURCE_CLASS: Record<string, string> = {
+  tool: "bg-emerald-100 text-emerald-700",
+  llm: "bg-blue-100 text-blue-700",
+  refusal: "bg-amber-100 text-amber-700",
+  user: "bg-slate-100 text-slate-600",
 };
 
 export default function AssistantPage() {
   const { session } = useSession();
   const router = useRouter();
+  const [sessions, setSessions] = useState<AssistantSession[]>([]);
+  const [activeSession, setActiveSession] = useState<AssistantSession | null>(null);
+  const [messages, setMessages] = useState<UIMessage[]>([]);
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -31,66 +40,153 @@ export default function AssistantPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  useEffect(() => {
+    if (!session) return;
+    api.listAssistantSessions(session.token)
+      .then((res) => setSessions(res.sessions))
+      .catch(() => setError("Could not load chat sessions."));
+  }, [session]);
+
+  useEffect(() => {
+    if (!session || !activeSession) {
+      setMessages([]);
+      return;
+    }
+    api.getAssistantMessages(session.token, activeSession.id)
+      .then((res) => setMessages(res.messages))
+      .catch(() => setError("Could not load messages."));
+  }, [session, activeSession]);
+
   if (!session) {
     if (typeof window !== "undefined") router.replace("/login");
     return null;
   }
 
-  const sendMessage = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!input.trim() || loading) return;
-    const text = input.trim();
-    const userMsg: Message = {
+  async function loadSessions() {
+    if (!session) return;
+    const res = await api.listAssistantSessions(session.token);
+    setSessions(res.sessions);
+  }
+
+  async function createSession(title?: string) {
+    if (!session) throw new Error("Not authenticated");
+    const res = await api.createAssistantSession(session.token, title);
+    await loadSessions();
+    setActiveSession(res);
+    return res;
+  }
+
+  async function send(text: string) {
+    if (!session || !text.trim() || loading) return;
+    const trimmed = text.trim();
+    setInput("");
+    setError(null);
+
+    let sess = activeSession;
+    if (!sess) {
+      try {
+        sess = await createSession(trimmed.slice(0, 40));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to create chat session");
+        return;
+      }
+    }
+
+    setLoading(true);
+    const userMsg: UIMessage = {
       id: `u-${Date.now()}`,
       role: "user",
-      content: text,
+      content: trimmed,
+      type: "text",
+      grounded: true,
+      source: "user",
+      created_at: new Date().toISOString(),
     };
     const assistantId = `a-${Date.now()}`;
-    setMessages((m) => [...m, userMsg, {
-      id: assistantId,
-      role: "assistant",
-      content: "",
-      loading: true,
-    }]);
-    setInput("");
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await api.askAssistant(session.token, text);
-      const assistantMsg: Message = {
+    setMessages((m) => [
+      ...m,
+      userMsg,
+      {
         id: assistantId,
         role: "assistant",
-        content: data.answer,
-        type: data.type || "text",
-        dashboard: data.dashboard,
-        source: data.source,
-      };
-      setMessages((m) => m.map((x) => (x.id === assistantId ? assistantMsg : x)));
+        content: "",
+        type: "text",
+        grounded: true,
+        loading: true,
+        created_at: new Date().toISOString(),
+      },
+    ]);
+
+    try {
+      const data = await api.sendAssistantMessage(session.token, sess.id, trimmed);
+      setMessages((m) =>
+        m.map((x) =>
+          x.id === assistantId
+            ? { ...data, id: assistantId, loading: false }
+            : x
+        )
+      );
       if (data.type === "dashboard" && data.dashboard) {
-        setPanelDashboard(data.dashboard);
+        setPanelDashboard(data.dashboard ?? null);
         setPanelOpen(true);
       }
+      await loadSessions();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Assistant request failed");
       setMessages((m) => m.filter((x) => x.id !== assistantId));
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const togglePanel = (dashboard?: PlanDashboard) => {
-    if (dashboard) setPanelDashboard(dashboard);
-    setPanelOpen((p) => !p);
-  };
+  const activeTitle = activeSession?.title || activeSession?.id?.slice(0, 8) || "New chat";
 
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-4 md:flex-row">
+      {/* Sessions sidebar */}
+      <div className="hidden w-64 shrink-0 flex-col rounded-xl border border-slate-200 bg-white md:flex">
+        <div className="border-b border-slate-100 p-4">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveSession(null);
+              setMessages([]);
+              setInput("");
+            }}
+            className="w-full rounded-md bg-ink py-2 text-sm font-medium text-white hover:opacity-90"
+          >
+            + New chat
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2">
+          {sessions.length === 0 && (
+            <p className="p-2 text-xs text-slate-500">No previous chats.</p>
+          )}
+          {sessions.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setActiveSession(s)}
+              className={`mb-1 w-full rounded-md px-3 py-2 text-left text-sm ${
+                activeSession?.id === s.id
+                  ? "bg-slate-100 font-medium text-ink"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <span className="block truncate">{s.title || `Chat ${s.id.slice(0, 8)}`}</span>
+              <span className="block truncate text-xs text-slate-400">
+                {new Date(s.updated_at).toLocaleString()}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Chat column */}
       <div className="flex flex-1 flex-col rounded-xl border border-slate-200 bg-white">
         <div className="border-b border-slate-100 p-4">
           <h1 className="text-xl font-bold text-ink">AI Assistant</h1>
           <p className="text-sm text-slate-600">
-            Ask anything about your workspace — deadlines, risks, BOQ defects, documents, or request a dashboard across all tenders.
+            {activeSession ? activeTitle : "Start a new chat"} · ask about deadlines, risks, BOQ defects, missing documents, or request a dashboard.
           </p>
         </div>
 
@@ -106,7 +202,7 @@ export default function AssistantPage() {
               className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[80%] rounded-xl px-4 py-3 text-sm ${
+                className={`max-w-[90%] rounded-xl px-4 py-3 text-sm md:max-w-[80%] ${
                   m.role === "user"
                     ? "bg-ink text-white"
                     : "border border-slate-200 bg-slate-50 text-slate-800"
@@ -119,18 +215,60 @@ export default function AssistantPage() {
                   </span>
                 ) : (
                   <div className="space-y-2">
-                    <p className="whitespace-pre-wrap">{m.content}</p>
+                    {m.role === "assistant" ? (
+                      <div className="assistant-markdown">
+                        <Markdown source={m.content} />
+                      </div>
+                    ) : (
+                      <p className="whitespace-pre-wrap">{m.content}</p>
+                    )}
+
+                    {m.role === "assistant" && (
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        {m.source && (
+                          <span className={`rounded-full px-2 py-0.5 text-xs ${SOURCE_CLASS[m.source] || "bg-slate-100 text-slate-600"}`}>
+                            {SOURCE_LABEL[m.source] || m.source}
+                          </span>
+                        )}
+                        {m.citations && m.citations.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {m.citations.map((c, i) => (
+                              <span key={i} className="rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-700">
+                                {c.replace(/^p/, "p. ")}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {m.type === "dashboard" && m.dashboard && (
                       <button
                         type="button"
-                        onClick={() => togglePanel(m.dashboard)}
+                        onClick={() => {
+                          setPanelDashboard(m.dashboard ?? null);
+                          setPanelOpen(true);
+                        }}
                         className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
                       >
                         {panelOpen ? "Hide dashboard" : "Show dashboard"}
                       </button>
                     )}
-                    {m.source && (
-                      <p className="text-xs opacity-70">Source: {m.source}</p>
+
+                    {m.role === "assistant" && m.suggested_followups && m.suggested_followups.length > 0 && (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {m.suggested_followups.map((chip) => (
+                          <button
+                            key={chip}
+                            type="button"
+                            onClick={() => send(chip)}
+                            disabled={loading}
+                            className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:border-ink hover:text-ink disabled:opacity-50"
+                          >
+                            {chip}
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </div>
                 )}
@@ -146,7 +284,13 @@ export default function AssistantPage() {
           </div>
         )}
 
-        <form onSubmit={sendMessage} className="flex items-start gap-2 border-t border-slate-100 p-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            send(input);
+          }}
+          className="flex items-start gap-2 border-t border-slate-100 p-4"
+        >
           <input
             type="text"
             value={input}
@@ -167,7 +311,7 @@ export default function AssistantPage() {
 
       {/* Collapsible dashboard panel */}
       {panelOpen && panelDashboard && (
-        <div className="w-full rounded-xl border border-slate-200 bg-white p-4 md:w-[45%] md:max-w-xl overflow-y-auto">
+        <div className="w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 md:w-[45%] md:max-w-xl">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-ink">Dashboard</h2>
             <button

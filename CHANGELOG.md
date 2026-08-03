@@ -196,10 +196,31 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - Added frontend `Rulepacks` page (`/rulepacks`) for upload/list/activate/delete and
   a `RulepackSelector` on the opportunity detail page for applying multiple packs.
 
+### Done — AI assistant redesign: persistent threads, rich markdown, citations, follow-ups (TS-352)
+
+- `AssistantService` now loads the last 10 messages from a `chat_session` and
+  passes them as `history` to `OpenRouterAgent`, so follow-up questions like
+  "how did I greet you?" can be answered from the thread.
+- `OpenRouterAgent.answer` accepts a `history` parameter and builds an
+  alternating user/assistant message list before the final tool-grounded prompt.
+- Deterministic tool handlers (`_deadlines`, `_missing`, `_findings`) and the
+  dashboard/refusal/LLM paths now return `citations` and `suggested_followups`.
+- Added `_attach_followups` to provide interactive follow-up chips based on the
+  detected intent (deadlines, missing docs, risk findings, dashboard, refusal).
+- New frontend `components/markdown.tsx` parses CommonMark-style formatting
+  (headings, bold/italic, inline code, code blocks, lists, blockquotes, links) and
+  renders it with Tailwind classes; no raw HTML is injected.
+- Rewrote `/assistant` page: sidebar with persistent chat sessions, loading of
+  message history, Markdown-rendered assistant replies, source badges, page
+  citation chips, suggested follow-up chips, and dashboard panel rendering.
+- Added `lib/api.ts` session helpers: `createAssistantSession`,
+  `listAssistantSessions`, `getAssistantMessages`, `sendAssistantMessage`.
+- Added `backend/tests/test_assistant.py` cases for `suggested_followups` plus
+  a fake-agent test verifying prior user/assistant messages are passed as history.
+- Updated `specs/modules/assistant-ui.md` status to `implemented`.
+
 ### Next
 
-- TS-352 — AI assistant redesign: persistent thread history + rich markdown/
-  Tailwind rendering with citations.
 - TS-353/TS-354 — Project state marketing dashboard + all-projects/workspace
   filter dashboard.
 

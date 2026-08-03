@@ -1,4 +1,6 @@
 from app.core.module import AppContext, ModuleSpec
+from app.core.storage import get_storage
+from app.modules.rulepacks.admin_service import RulePackAdminService
 from app.modules.rulepacks.correction_service import CorrectionService
 from app.modules.rulepacks.loader import RulePackLoader
 from app.modules.rulepacks.router import router
@@ -7,7 +9,22 @@ from app.modules.rulepacks.router import router
 def setup(ctx: AppContext) -> None:
     reg = ctx.registry
     loader = RulePackLoader(ctx.settings.rulepacks_dir or None)
+    session_factory = reg.get("db.sessionmaker")
+    if session_factory:
+        loader.set_session_factory(session_factory)
     reg.provide("rulepacks.loader", loader)
+
+    storage = get_storage(ctx.settings)
+
+    def admin_factory(session):
+        return RulePackAdminService(
+            session,
+            settings=ctx.settings,
+            loader=loader,
+            storage=storage,
+        )
+
+    reg.provide("rulepacks.admin_factory", admin_factory)
 
     def correction_factory(session):
         return CorrectionService(

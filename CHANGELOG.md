@@ -157,15 +157,32 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   all-projects/workspace filter dashboard.
 - Added the three specs to `specs/README.md` index and updated `tasks/backlog.md`.
 
+### Done — Rulepack admin: upload, versioning, per-project multi-pack, private packs (TS-348–TS-350)
+
+- **TS-348** — New `app.modules.rulepacks.admin_service.RulePackAdminService`
+  validates uploaded `.zip` archives, persists source files to `StorageBackend`,
+  and stores versioned rulepacks in `rulepacks` / `rulepack_files` DB tables.
+- **TS-349/TS-350** — Workspace-scoped (`scope=workspace`) and global (`scope=global`)
+  packs with RLS isolation; admin API (`GET/POST/DELETE /api/rulepacks/admin/packs`,
+  activation, per-opportunity apply) and opportunity-level multi-pack selection
+  (`/api/rulepacks/opportunities/{id}/packs`).
+- `RulePackLoader` now loads combined DB-backed packs per opportunity and falls
+  back to disk; `RiskService` and `BoqService` consume the merged pack.
+- Fixed UUID string coercion in `rulepacks` queries that caused `pytest` SQLAlchemy
+  `AttributeError: 'str' object has no attribute 'hex'`.
+- Added `backend/tests/test_rulepacks_admin.py` covering upload, version bump,
+  activation, per-opportunity application, and workspace isolation.
+- Added frontend `Rulepacks` page (`/rulepacks`) for upload/list/activate/delete and
+  a `RulepackSelector` on the opportunity detail page for applying multiple packs.
+
 ### Next
 
-- TS-346 — Run the validation importer against a real public-tender corpus
-  (India/UAE) via `scripts/corpus_harvest.py` and `TS_OPENROUTER_API_KEY` for
-  AI risk validation.
-- TS-347 — Expand the `in-works` rulepack to avoid the same 5 risk findings on
-  every synthetic opportunity and add UAE/India notice-standard overlays.
-- TS-348–TS-354 — Implement the new rulepack admin, assistant UI, and project
-  dashboard specs once the design is approved.
+- TS-351 — RAG-assisted rulepack expansion (suggest YAML patterns from uploaded
+  circulars/rulebooks while keeping deterministic YAML as source of truth).
+- TS-352 — AI assistant redesign: persistent thread history + rich markdown/
+  Tailwind rendering with citations.
+- TS-353/TS-354 — Project state marketing dashboard + all-projects/workspace
+  filter dashboard.
 
 - **Auth team invitation/member-add 500s** — `add_workspace_member` now returns the
   `email` field required by `MemberResponse`, so `POST /api/auth/workspaces/{id}/members`

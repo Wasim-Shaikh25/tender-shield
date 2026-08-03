@@ -73,21 +73,31 @@ class RiskService:
         docs = self._ingestion_factory(self.session).list_documents(workspace_id, opportunity_id)
         return document_set_hash([d.sha256 for d in docs])
 
-    def _rulepack_version(self) -> str:
+    def _pack_for_opportunity(self, opportunity_id) -> object | None:
+        if not self._loader:
+            return None
+        return self._loader.get_combined_pack_for_opportunity(
+            self.session, opportunity_id
+        ) or self._loader.get_pack(self._pack_id)
+
+    def _rulepack_version(self, opportunity_id) -> str:
         if not self._loader:
             return "unknown"
-        pack = self._loader.get_pack(self._pack_id)
+        pack = self._pack_for_opportunity(opportunity_id)
         return pack.meta.version if pack else "unknown"
 
     def run_opportunity(self, workspace_id, opportunity_id) -> list[Finding]:
         if not self._loader:
             return []
+        pack = self._pack_for_opportunity(opportunity_id)
         paying = self._is_paying(workspace_id)
         # Paying workspaces see only validated patterns unless the beta/disclaimer
         # flag is explicitly enabled (TS-125). When enabled, unvalidated patterns
         # are still tagged with a disclaimer so users know they are unverified.
         validated_only = paying and not self._settings.beta_unvalidated
-        patterns = self._loader.list_patterns(self._pack_id, validated_only=validated_only)
+        patterns = list(pack.patterns.values()) if pack else []
+        if pack and not validated_only:
+            patterns = [p for p in patterns if p.confidence == "validated" or not validated_only]
         # Tag unvalidated patterns with a disclaimer whenever they may appear in
         # the result set (free workspaces or beta-enabled paying workspaces).
         disclaimer = None
@@ -99,7 +109,7 @@ class RiskService:
         clauses = self._clauses(workspace_id, opportunity_id)
         facts = self._opp_facts(workspace_id, opportunity_id)
         provenance = {
-            "rulepack_version": self._rulepack_version(),
+            "rulepack_version": self._rulepack_version(opportunity_id),
             "document_hash": self._document_hash(workspace_id, opportunity_id),
             "engine_version": get_engine_version(),
         }

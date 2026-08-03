@@ -34,23 +34,32 @@ class BoqEngine:
         self._loader_provider = loader_provider
         self._pack_id = pack_id
 
-    def _pack(self):
+    def _pack(self, pack: object | None = None):
+        if pack is not None:
+            return pack
         loader = self._loader_provider()
         return loader.get_pack(self._pack_id) if loader else None
 
-    def normalize_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
+    def pack_for_opportunity(self, session, opportunity_id) -> object | None:
+        loader = self._loader_provider()
+        if not loader:
+            return self._pack()
+        combined = loader.get_combined_pack_for_opportunity(session, opportunity_id)
+        return combined or self._pack()
+
+    def normalize_dataframe(self, df: pd.DataFrame, *, pack: object | None = None) -> pd.DataFrame:
         """The canonical-schema normalization step alone, for consumers (e.g.
         `pricing`'s rate benchmarking) that need normalized rows rather
         than defect findings. Exposed on the already-published `boq.engine`
         capability so no new registry entry is needed."""
-        pack = self._pack()
+        pack = self._pack(pack)
         unit_canon = pack.unit_canon if pack else _FALLBACK_UNIT_CANON
         return normalize(df, unit_canon)
 
-    def check_dataframe(self, df: pd.DataFrame) -> list[Finding]:
-        pack = self._pack()
+    def check_dataframe(self, df: pd.DataFrame, *, pack: object | None = None) -> list[Finding]:
+        pack = self._pack(pack)
         cfg = pack.boq_checks if pack else None
-        normalized = self.normalize_dataframe(df)
+        normalized = self.normalize_dataframe(df, pack=pack)
         return run_checks(
             normalized,
             tolerance=cfg.arithmetic_tolerance if cfg else 1.0,
@@ -58,14 +67,21 @@ class BoqEngine:
             outlier_multiplier=cfg.qty_outlier_multiplier if cfg else 3,
         )
 
-    def scope_gaps(self, df: pd.DataFrame, spec_text: str, checklist_id: str) -> list[Finding]:
-        pack = self._pack()
+    def scope_gaps(
+        self,
+        df: pd.DataFrame,
+        spec_text: str,
+        checklist_id: str,
+        *,
+        pack: object | None = None,
+    ) -> list[Finding]:
+        pack = self._pack(pack)
         if not pack or checklist_id not in pack.trade_checklists:
             return []  # degrade: no checklist available
         return scope_gaps(df, SpecTextIndex(spec_text), pack.trade_checklists[checklist_id])
 
-    def available_checklists(self) -> list[str]:
-        pack = self._pack()
+    def available_checklists(self, *, pack: object | None = None) -> list[str]:
+        pack = self._pack(pack)
         return sorted(pack.trade_checklists) if pack else []
 
     def cross_check_schedule(self, df: pd.DataFrame, activities: list[dict]) -> list[Finding]:
@@ -135,7 +151,7 @@ class BoqRunner:
         return document_set_hash(digests)
 
     def _provenance_stamp(self, workspace_id, opportunity_id, csv_text: str) -> ProvenanceStamp:
-        pack = self._engine._pack()
+        pack = self._engine.pack_for_opportunity(self.s, opportunity_id)
         return ProvenanceStamp(
             rulepack_version=pack.meta.version if pack else "unknown",
             model_id="none",
@@ -144,10 +160,11 @@ class BoqRunner:
 
     def run_csv(self, workspace_id, opportunity_id, csv_text: str) -> list[Finding]:
         df = pd.read_csv(io.StringIO(csv_text))
-        findings = self._engine.check_dataframe(df)
+        pack = self._engine.pack_for_opportunity(self.s, opportunity_id)
+        findings = self._engine.check_dataframe(df, pack=pack)
         spec_text = self._spec_text(workspace_id, opportunity_id)
-        for checklist_id in self._engine.available_checklists():
-            findings.extend(self._engine.scope_gaps(df, spec_text, checklist_id))
+        for checklist_id in self._engine.available_checklists(pack=pack):
+            findings.extend(self._engine.scope_gaps(df, spec_text, checklist_id, pack=pack))
         activities = self._schedule_activities(workspace_id, opportunity_id)
         if activities:
             findings.extend(self._engine.cross_check_schedule(df, activities))

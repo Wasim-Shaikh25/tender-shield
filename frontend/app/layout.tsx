@@ -29,6 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Link href="/controltower" className="hover:text-ink">Control Tower</Link>
                 <Link href="/plan" className="hover:text-ink">Plan</Link>
                 <Link href="/assistant" className="hover:text-ink">AI Assistant</Link>
+                <Link href="/rulepacks" className="hover:text-ink">Rulepacks</Link>
                 <Link href="/standards" className="hover:text-ink">Standards</Link>
                 <Link href="/help" className="hover:text-ink">Help</Link>
                 <HeaderActions />

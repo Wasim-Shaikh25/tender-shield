@@ -41,6 +41,18 @@ _DASHBOARD_KEYWORDS = {
     "boq defect",
     "bid readiness",
 }
+_OFFTOPIC_KEYWORDS = {
+    "weather",
+    "cricket",
+    "football",
+    "movie",
+    "recipe",
+    "stock market",
+    "politics",
+    "current affairs",
+    "who won",
+    "sports",
+}
 _REFUSAL = (
     "I can only help with this workspace's tenders — deadlines, risk findings, "
     "BOQ defects, missing documents, and the rule-pack. Ask me e.g. "
@@ -259,8 +271,11 @@ class AssistantService:
         ):
             return self._findings(workspace_id, m, opportunity_id)
 
-        # Not a recognized grounded intent → defer to the LLM if configured,
-        # else refuse (grounded-only, Doc §8).
+        # Not a recognized grounded intent. Refuse common off-topic questions
+        # before calling the LLM (grounded-only, Doc §8).
+        if any(w in m for w in _OFFTOPIC_KEYWORDS):
+            return {"type": "text", "answer": _REFUSAL, "grounded": True, "source": "refusal"}
+
         if self._agent is not None:
             context = {
                 "deadlines": tools.list_deadlines(self._ing, self.s, workspace_id, opportunity_id),

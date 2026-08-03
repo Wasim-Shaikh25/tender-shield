@@ -194,8 +194,13 @@ class AssistantService:
         self.s.add(user_msg)
         self.s.commit()
         answer = self.answer(
-            workspace_id, opportunity_id, message=message, identity=identity
+            workspace_id,
+            opportunity_id,
+            message=message,
+            session_id=session_id,
+            identity=identity,
         )
+        answer = self._attach_followups(message, answer)
         self._add_message(workspace_id, session_id, "assistant", answer)
         return answer
 
@@ -221,8 +226,13 @@ class AssistantService:
         self.s.commit()
 
         answer = self.answer(
-            workspace_id, opportunity_id, message=message, identity=identity
+            workspace_id,
+            opportunity_id,
+            message=message,
+            session_id=session_id,
+            identity=identity,
         )
+        answer = self._attach_followups(message, answer)
         payload = json.dumps(answer)
         yield f"data: {payload}\n\n"
 
@@ -230,19 +240,82 @@ class AssistantService:
         yield "event: done\ndata: {}\n\n"
 
     # ---- answer logic ------------------------------------------------------
+    def _history(self, workspace_id, session_id, current_message: str) -> list[dict]:
+        """Return prior session messages as {role, content} for LLM context."""
+        if not session_id:
+            return []
+        msgs = self.get_messages(workspace_id, session_id)
+        # The current user turn was just stored by answer_and_store/stream;
+        # exclude it from history so the final prompt is not duplicated.
+        if msgs and msgs[-1].role == "user":
+            msgs = msgs[:-1]
+        return [{"role": m.role, "content": m.content} for m in msgs[-10:]]
+
+    def _attach_followups(self, message: str, answer: dict) -> dict:
+        """Add interactive follow-up chips based on the intent and answer source."""
+        m = message.lower()
+        followups: list[str] = []
+        source = answer.get("source")
+        if answer.get("type") == "dashboard":
+            followups = [
+                "Show a risk severity dashboard",
+                "Show a bid readiness dashboard",
+            ]
+        elif source == "tool":
+            deadline_words = ("deadline", "due", "submission", "pre-bid", "clarification cut")
+            missing_words = ("missing", "document checklist", "which docs", "what documents")
+            risk_words = (
+                "risk", "finding", "clause", "ld", "escalation",
+                "termination", "payment", "defect", "critical", "severity",
+            )
+            if any(w in m for w in deadline_words):
+                followups = [
+                    "What is the submission deadline?",
+                    "Show unconfirmed deadlines",
+                    "Show critical risks",
+                ]
+            elif any(w in m for w in missing_words):
+                followups = [
+                    "Run document check",
+                    "What is the submission deadline?",
+                ]
+            elif any(w in m for w in risk_words):
+                followups = [
+                    "Show critical findings",
+                    "Show high severity findings",
+                    "List payment-related findings",
+                ]
+        elif source == "refusal":
+            followups = [
+                "What can you help with?",
+                "Show the deadlines",
+                "List the risk findings",
+            ]
+        answer["suggested_followups"] = followups
+        return answer
+
     def answer(
         self,
         workspace_id,
         opportunity_id=None,
         *,
         message: str,
+        session_id=None,
         identity: dict | None = None,
     ) -> dict:
         self._bind_workspace(workspace_id, user_id=identity.get("user_id") if identity else None)
         if identity and not identity.get("is_superadmin"):
             if not self._can_access(workspace_id, identity["user_id"]):
-                return {"type": "text", "answer": _REFUSAL, "grounded": True, "source": "refusal"}
+                return {
+                    "type": "text",
+                    "answer": _REFUSAL,
+                    "grounded": True,
+                    "source": "refusal",
+                    "citations": [],
+                    "suggested_followups": ["What can you help with?", "Show the deadlines"],
+                }
 
+        history = self._history(workspace_id, session_id, message)
         m = message.lower()
 
         if any(w in m for w in _DASHBOARD_KEYWORDS):
@@ -274,16 +347,37 @@ class AssistantService:
         # Not a recognized grounded intent. Refuse common off-topic questions
         # before calling the LLM (grounded-only, Doc §8).
         if any(w in m for w in _OFFTOPIC_KEYWORDS):
-            return {"type": "text", "answer": _REFUSAL, "grounded": True, "source": "refusal"}
+            return {
+                "type": "text",
+                "answer": _REFUSAL,
+                "grounded": True,
+                "source": "refusal",
+                "citations": [],
+                "suggested_followups": ["What can you help with?", "Show the deadlines"],
+            }
 
         if self._agent is not None:
             context = {
                 "deadlines": tools.list_deadlines(self._ing, self.s, workspace_id, opportunity_id),
                 "findings": tools.filter_findings(self._find, self.s, workspace_id, opportunity_id),
             }
-            reply = self._agent.answer(message, context, identity=identity)
-            return {"type": "text", "answer": reply, "grounded": True, "source": "llm"}
-        return {"type": "text", "answer": _REFUSAL, "grounded": True, "source": "refusal"}
+            reply = self._agent.answer(message, context, identity=identity, history=history)
+            return {
+                "type": "text",
+                "answer": reply,
+                "grounded": True,
+                "source": "llm",
+                "citations": [],
+                "suggested_followups": [],
+            }
+        return {
+            "type": "text",
+            "answer": _REFUSAL,
+            "grounded": True,
+            "source": "refusal",
+            "citations": [],
+            "suggested_followups": ["What can you help with?", "Show the deadlines"],
+        }
 
     def admin_answer(
         self,
@@ -335,10 +429,15 @@ class AssistantService:
         )
         return {
             "type": "dashboard",
-            "answer": f"Generated a {dashboard.get('title', 'dashboard')} for this tender.",
+            "answer": f"Generated a **{dashboard.get('title', 'dashboard')}** for this tender.",
             "dashboard": dashboard,
             "grounded": True,
             "source": "llm",
+            "citations": [],
+            "suggested_followups": [
+                "Show a risk severity dashboard",
+                "Show a bid readiness dashboard",
+            ],
         }
 
     def _deadlines(self, workspace_id, opportunity_id=None) -> dict:
@@ -349,6 +448,12 @@ class AssistantService:
                 "answer": "No deadlines have been extracted yet.",
                 "grounded": True,
                 "source": "tool",
+                "citations": [],
+                "suggested_followups": [
+                    "Show the deadlines",
+                    "List the risk findings",
+                    "Run document check",
+                ],
             }
         scope = "this tender" if opportunity_id else "workspace"
         lines = [
@@ -362,7 +467,12 @@ class AssistantService:
             "answer": f"Deadlines for {scope}:\n" + "\n".join(lines),
             "grounded": True,
             "source": "tool",
-            "citations": [f"p{r['page']}" for r in rows],
+            "citations": [f"p{r['page']}" for r in rows if r["page"]],
+            "suggested_followups": [
+                "What is the submission deadline?",
+                "Show unconfirmed deadlines",
+                "Show critical risks",
+            ],
         }
 
     def _missing(self, workspace_id, opportunity_id=None) -> dict:
@@ -372,7 +482,18 @@ class AssistantService:
             ans = f"Missing expected documents: {names}."
         else:
             ans = "All expected documents are present."
-        return {"type": "text", "answer": ans, "grounded": True, "source": "tool"}
+        return {
+            "type": "text",
+            "answer": ans,
+            "grounded": True,
+            "source": "tool",
+            "citations": [],
+            "suggested_followups": [
+                "Run document check",
+                "What is the submission deadline?",
+                "List the risk findings",
+            ],
+        }
 
     def _findings(self, workspace_id, m: str, opportunity_id=None) -> dict:
         severity = next((s for s in _SEVERITIES if s in m), None)
@@ -388,6 +509,12 @@ class AssistantService:
                 "and BOQ check first.",
                 "grounded": True,
                 "source": "tool",
+                "citations": [],
+                "suggested_followups": [
+                    "Run risk review",
+                    "Run BOQ check",
+                    "Show the deadlines",
+                ],
             }
         lines = [
             f"- [{r['severity']}] {r['category']}: {r['title']}"
@@ -402,4 +529,9 @@ class AssistantService:
             "grounded": True,
             "source": "tool",
             "citations": [f"p{r['page']}" for r in rows if r["page"]],
+            "suggested_followups": [
+                "Show critical findings",
+                "Show high severity findings",
+                "List payment-related findings",
+            ],
         }

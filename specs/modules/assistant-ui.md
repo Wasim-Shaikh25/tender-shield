@@ -1,6 +1,6 @@
 # AI Assistant UI — Spec
 
-**Status:** draft
+**Status:** implemented
 **Requirement refs:** Doc §8, §9; `specs/modules/assistant.md`; user request
 **Task refs:** TS-352
 

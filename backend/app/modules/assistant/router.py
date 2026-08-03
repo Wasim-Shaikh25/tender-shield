@@ -125,7 +125,10 @@ def get_messages(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ):
-    msgs = _service(request, session).get_messages(principal.workspace_id, session_id)
+    svc = _service(request, session)
+    if not svc.get_session(principal.workspace_id, session_id):
+        raise HTTPException(404, "session_not_found")
+    msgs = svc.get_messages(principal.workspace_id, session_id)
     return {"messages": [_message_json(m) for m in msgs]}
 
 
@@ -153,6 +156,19 @@ def session_chat(
         message=body.message,
         identity=_identity(principal),
     )
+
+
+@router.delete("/sessions/{session_id}")
+def delete_session(
+    session_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+):
+    ok = _service(request, session).delete_session(principal.workspace_id, session_id)
+    if not ok:
+        raise HTTPException(404, "session_not_found")
+    return {"deleted": True}
 
 
 @router.post("/sessions/{session_id}/stream")

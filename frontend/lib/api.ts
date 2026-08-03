@@ -719,6 +719,8 @@ export const api = {
     req<{ messages: AssistantMessage[] }>(`/assistant/sessions/${sessionId}/messages`, {}, token),
   sendAssistantMessage: (token: string, sessionId: string, message: string) =>
     req<AssistantMessage>(`/assistant/sessions/${sessionId}/chat`, { method: "POST", body: JSON.stringify({ message }) }, token),
+  deleteAssistantSession: (token: string, sessionId: string) =>
+    req<{ deleted: boolean }>(`/assistant/sessions/${sessionId}`, { method: "DELETE" }, token),
   reviewFinding: (token: string, opportunityId: string, findingId: string, decision: string, note?: string) =>
     req<{ id: string; review_status: string }>(
       `/review/findings/${findingId}`,

@@ -249,6 +249,19 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   reviewing, list filtering, and workspace summaries.
 - Updated `specs/project-state-dashboard.md` status to `implemented`.
 
+### Done — Assistant sidebar cleanup: delete chat + compact header (TS-352 follow-up)
+
+- `AssistantService.delete_session` removes a `ChatSession` and its messages.
+- Added `DELETE /api/assistant/sessions/{id}` route.
+- Updated `/assistant` page: moved title, description, and "New chat" into the
+  sidebar; each previous chat has a "Delete" action with confirmation; the chat
+  column header is now a minimal title bar.
+- Added `api.deleteAssistantSession` helper in `frontend/lib/api.ts`.
+- Added `test_delete_session` in `backend/tests/test_assistant.py` to verify
+  cascade removal.
+- Updated `specs/modules/assistant-ui.md` with session-delete and sidebar
+  behavior.
+
 ### Next
 
 - No active task queued; awaiting next sequence item.

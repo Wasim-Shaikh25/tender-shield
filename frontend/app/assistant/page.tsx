@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, type AssistantSession, type AssistantMessage, type PlanDashboard } from "@/lib/api";
 import { useSession } from "@/components/session";
@@ -40,12 +40,16 @@ export default function AssistantPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const loadSessions = useCallback(async () => {
+    if (!session) return;
+    const res = await api.listAssistantSessions(session.token);
+    setSessions(res.sessions);
+  }, [session]);
+
   useEffect(() => {
     if (!session) return;
-    api.listAssistantSessions(session.token)
-      .then((res) => setSessions(res.sessions))
-      .catch(() => setError("Could not load chat sessions."));
-  }, [session]);
+    loadSessions();
+  }, [session, loadSessions]);
 
   useEffect(() => {
     if (!session || !activeSession) {
@@ -62,18 +66,34 @@ export default function AssistantPage() {
     return null;
   }
 
-  async function loadSessions() {
-    if (!session) return;
-    const res = await api.listAssistantSessions(session.token);
-    setSessions(res.sessions);
-  }
-
   async function createSession(title?: string) {
     if (!session) throw new Error("Not authenticated");
     const res = await api.createAssistantSession(session.token, title);
     await loadSessions();
     setActiveSession(res);
     return res;
+  }
+
+  async function deleteSession(id: string) {
+    if (!session) return;
+    if (!confirm("Delete this chat?")) return;
+    try {
+      await api.deleteAssistantSession(session.token, id);
+      if (activeSession?.id === id) {
+        setActiveSession(null);
+        setMessages([]);
+      }
+      await loadSessions();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete chat");
+    }
+  }
+
+  function startNewChat() {
+    setActiveSession(null);
+    setMessages([]);
+    setInput("");
+    setPanelOpen(false);
   }
 
   async function send(text: string) {
@@ -143,17 +163,15 @@ export default function AssistantPage() {
 
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-4 md:flex-row">
-      {/* Sessions sidebar */}
-      <div className="hidden w-64 shrink-0 flex-col rounded-xl border border-slate-200 bg-white md:flex">
+      {/* Sidebar: title + new chat + session history + delete */}
+      <div className="flex w-full flex-col rounded-xl border border-slate-200 bg-white md:w-64 md:shrink-0">
         <div className="border-b border-slate-100 p-4">
+          <h1 className="text-lg font-bold text-ink">AI Assistant</h1>
+          <p className="text-xs text-slate-500">Ask about deadlines, risks, BOQ defects, or request a dashboard.</p>
           <button
             type="button"
-            onClick={() => {
-              setActiveSession(null);
-              setMessages([]);
-              setInput("");
-            }}
-            className="w-full rounded-md bg-ink py-2 text-sm font-medium text-white hover:opacity-90"
+            onClick={startNewChat}
+            className="mt-3 w-full rounded-md bg-ink py-2 text-sm font-medium text-white hover:opacity-90"
           >
             + New chat
           </button>
@@ -163,35 +181,50 @@ export default function AssistantPage() {
             <p className="p-2 text-xs text-slate-500">No previous chats.</p>
           )}
           {sessions.map((s) => (
-            <button
+            <div
               key={s.id}
-              onClick={() => setActiveSession(s)}
-              className={`mb-1 w-full rounded-md px-3 py-2 text-left text-sm ${
+              className={`group mb-1 flex items-center justify-between rounded-md px-3 py-2 text-sm ${
                 activeSession?.id === s.id
                   ? "bg-slate-100 font-medium text-ink"
                   : "text-slate-600 hover:bg-slate-50"
               }`}
             >
-              <span className="block truncate">{s.title || `Chat ${s.id.slice(0, 8)}`}</span>
-              <span className="block truncate text-xs text-slate-400">
-                {new Date(s.updated_at).toLocaleString()}
-              </span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setActiveSession(s)}
+                className="min-w-0 flex-1 text-left"
+              >
+                <span className="block truncate">{s.title || `Chat ${s.id.slice(0, 8)}`}</span>
+                <span className="block truncate text-xs text-slate-400">
+                  {new Date(s.updated_at).toLocaleString()}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteSession(s.id)}
+                className="ml-2 rounded px-2 py-1 text-xs text-slate-400 hover:bg-red-50 hover:text-red-600 md:opacity-0 md:group-hover:opacity-100"
+                aria-label="Delete chat"
+              >
+                Delete
+              </button>
+            </div>
           ))}
         </div>
       </div>
 
       {/* Chat column */}
       <div className="flex flex-1 flex-col rounded-xl border border-slate-200 bg-white">
-        <div className="border-b border-slate-100 p-4">
-          <h1 className="text-xl font-bold text-ink">AI Assistant</h1>
-          <p className="text-sm text-slate-600">
-            {activeSession ? activeTitle : "Start a new chat"} · ask about deadlines, risks, BOQ defects, missing documents, or request a dashboard.
-          </p>
+        <div className="border-b border-slate-100 p-3">
+          <h2 className="text-sm font-semibold text-ink">{activeSession ? activeTitle : "Start a new chat"}</h2>
         </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
-          {messages.length === 0 && (
+          {!activeSession && messages.length === 0 && (
+            <div className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
+              Start typing to create a new chat. You can also pick an older chat from the sidebar.
+            </div>
+          )}
+          {activeSession && messages.length === 0 && (
             <div className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
               Try: “What are the critical risks across my tenders?” or “Show a risk severity dashboard.”
             </div>

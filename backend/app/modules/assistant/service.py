@@ -158,6 +158,14 @@ class AssistantService:
             )
         )
 
+    def delete_session(self, workspace_id, session_id) -> bool:
+        sess = self.get_session(workspace_id, session_id)
+        if not sess:
+            return False
+        self.s.delete(sess)
+        self.s.commit()
+        return True
+
     def _add_message(self, workspace_id, session_id, role: str, answer: dict) -> ChatMessage:
         msg = ChatMessage(
             workspace_id=uuid.UUID(str(workspace_id)),

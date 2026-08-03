@@ -218,6 +218,34 @@ To demonstrate the `tendershield.access` logger from the UI:
   `document.execCommand('selectAll')` followed by
   `document.execCommand('insertText', false, csv)` so the controlled component
   fires `onChange` and enables the submit button.
+- **React controlled inputs/forms still not submitting?** Some pages (AI
+  Assistant, pricing forms) may not react to native `type`/`click` events in
+  the dev box. As a last resort, call the element's React `onChange`/`onSubmit`
+  directly through the internal props key, e.g.:
+  ```js
+  const input = document.querySelector('input');
+  const key = Object.keys(input).find(k => k.startsWith('__reactProps$'));
+  input[key].onChange({ target: { value: 'your text' } });
+  const form = document.querySelector('form');
+  const formKey = Object.keys(form).find(k => k.startsWith('__reactProps$'));
+  form[formKey].onSubmit({ preventDefault() {}, target: form });
+  ```
+- **Validation env login mismatch:** `.env.validation` sets
+  `TS_AUTH_LOGIN_OTP_ENABLED=false`, so `/auth/login` returns tokens directly.
+  The login page (`frontend/app/login/page.tsx`) expects `mfa_required: true`
+  and shows `Unexpected login response` otherwise. For a UI walkthrough,
+  override the env var when starting the backend (`TS_AUTH_LOGIN_OTP_ENABLED=true`)
+  and use the dev `mfa_code`; or fix the login page to call `signIn` directly
+  when `mfa_required` is false.
+- **BOQ accumulation bug:** In the validation DB, `BoqRunner.run_csv` re-adds
+  prior workspace `scope_gap` findings as `historical:*` cards. Expect the
+  second opportunity's BOQ tab to show 15 findings (10 base + 5 historical
+  duplicates) and the Analytics BOQ defect total to equal the sum 10 + 15 +
+  ... + 255 = 6,625.
+- **Control Tower `null` currency crash:** `frontend/app/controltower/page.tsx`
+  `rupees(minor, currency = "INR")` throws `RangeError: Invalid currency code: null`
+  when backend returns `currency: null`. To view the page during a smoke test,
+  temporarily fall back with `const cur = currency || "INR";` and revert after.
 
 ## Regression shell probe
 

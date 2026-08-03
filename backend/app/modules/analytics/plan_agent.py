@@ -79,18 +79,16 @@ class PlanDashboardAgent:
         self._client = openrouter_client("analytics.plan")
 
     def _identity_prompt(self, identity: dict | None) -> str:
-        if not identity:
-            return _SYSTEM.format(
-                workspace_id="-",
-                user_id="-",
-                role="-",
-                schema=json.dumps(_SCHEMA, indent=2),
-            )
-        return _SYSTEM.format(
-            workspace_id=identity.get("workspace_id", "-"),
-            user_id=identity.get("user_id", "-"),
-            role=identity.get("role", "-"),
-            schema=json.dumps(_SCHEMA, indent=2),
+        # Use str.replace so that literal braces in the section data shapes are
+        # not treated as str.format placeholders.
+        ws = identity.get("workspace_id", "-") if identity else "-"
+        user = identity.get("user_id", "-") if identity else "-"
+        role = identity.get("role", "-") if identity else "-"
+        return (
+            _SYSTEM.replace("{workspace_id}", ws)
+            .replace("{user_id}", user)
+            .replace("{role}", role)
+            .replace("{schema}", json.dumps(_SCHEMA, indent=2))
         )
 
     def generate(self, query: str, context: dict, *, identity: dict | None = None) -> dict:
@@ -105,6 +103,7 @@ class PlanDashboardAgent:
                 model=self.model,
                 max_tokens=self.max_tokens,
                 temperature=0,
+                response_format={"type": "json_object"},
                 messages=[
                     {"role": "system", "content": self._identity_prompt(identity)},
                     {

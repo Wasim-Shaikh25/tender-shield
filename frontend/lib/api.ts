@@ -384,6 +384,27 @@ export type RulePackSummary = {
   activated_at: string | null;
 };
 
+export type RulePackFile = {
+  id: string;
+  path: string;
+  size: number;
+  mime_type: string;
+};
+
+export type RagSuggestion = {
+  id: string;
+  rulepack_id: string;
+  source_file_id: string | null;
+  kind: string;
+  proposed_yaml: Record<string, unknown>;
+  rationale: string;
+  source_quote: string;
+  source_page: number | null;
+  confidence: string;
+  status: string;
+  created_at: string;
+};
+
 type SignupResponse = components["schemas"]["SignupResponse"];
 type ForgotPasswordResponse = components["schemas"]["ForgotPasswordResponse"];
 type OkResponse = components["schemas"]["OkResponse"];
@@ -1054,6 +1075,16 @@ export const api = {
     req<{ packs: RulePackSummary[] }>(`/rulepacks/opportunities/${opportunityId}/packs`, {}, token),
   applyOpportunityRulepacks: (token: string, opportunityId: string, packIds: string[]) =>
     req<{ packs: RulePackSummary[] }>(`/rulepacks/opportunities/${opportunityId}/packs`, { method: "POST", body: JSON.stringify({ pack_ids: packIds }) }, token),
+  listRulepackFiles: (token: string, id: string) =>
+    req<{ files: RulePackFile[] }>(`/rulepacks/admin/packs/${id}/files`, {}, token),
+  generateRagSuggestions: (token: string, rulepackId: string, fileId: string) =>
+    req<{ suggestions: RagSuggestion[] }>(`/rulepacks/admin/packs/${rulepackId}/files/${fileId}/suggest`, { method: "POST" }, token),
+  listRagSuggestions: (token: string, rulepackId: string, status?: string) =>
+    req<{ suggestions: RagSuggestion[] }>(`/rulepacks/admin/packs/${rulepackId}/suggestions${status ? `?status=${encodeURIComponent(status)}` : ""}`, {}, token),
+  approveRagSuggestion: (token: string, id: string) =>
+    req<{ suggestion_id: string; new_rulepack: { id: string; pack_id: string; version: string; status: string; is_active: boolean } }>(`/rulepacks/admin/suggestions/${id}/approve`, { method: "POST" }, token),
+  rejectRagSuggestion: (token: string, id: string) =>
+    req<{ id: string; status: string }>(`/rulepacks/admin/suggestions/${id}/reject`, { method: "POST" }, token),
 };
 
 export type PlanSnapshot = {

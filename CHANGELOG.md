@@ -157,6 +157,27 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   all-projects/workspace filter dashboard.
 - Added the three specs to `specs/README.md` index and updated `tasks/backlog.md`.
 
+### Done — RAG-assisted rulepack expansion (TS-351)
+
+- New `rp_rag_suggestions` table (workspace-isolated + RLS) and migration
+  `a50a314e2702_add_rp_rag_suggestions_table.py`.
+- New `app.modules.rulepacks.rag_service.RagSuggestionService` extracts text from
+  an uploaded source file via `ingestion.service_factory`, prompts an LLM to propose
+  rulepack YAML fragments, stores suggestions as `proposed`, and on approval creates
+  a new draft `RulePack` version with the merged fragment. Deterministic YAML rulepacks
+  remain the source of truth; RAG never edits an active pack.
+- New admin API routes:
+  - `POST /api/rulepacks/admin/packs/{id}/files/{file_id}/suggest`
+  - `GET /api/rulepacks/admin/packs/{id}/suggestions`
+  - `POST /api/rulepacks/admin/suggestions/{id}/approve`
+  - `POST /api/rulepacks/admin/suggestions/{id}/reject`
+- Wired into `rulepacks.module` as `rulepacks.rag_factory`.
+- Frontend `/rulepacks` page adds a RAG panel: select pack/source file, generate
+  suggestions, review rationale/source quote, approve/reject. New API helpers and
+  types in `frontend/lib/api.ts`.
+- Added `backend/tests/test_rulepacks_rag.py` covering suggestion generation,
+  approval creating a draft version, and rejection.
+
 ### Done — Rulepack admin: upload, versioning, per-project multi-pack, private packs (TS-348–TS-350)
 
 - **TS-348** — New `app.modules.rulepacks.admin_service.RulePackAdminService`
@@ -177,8 +198,6 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ### Next
 
-- TS-351 — RAG-assisted rulepack expansion (suggest YAML patterns from uploaded
-  circulars/rulebooks while keeping deterministic YAML as source of truth).
 - TS-352 — AI assistant redesign: persistent thread history + rich markdown/
   Tailwind rendering with citations.
 - TS-353/TS-354 — Project state marketing dashboard + all-projects/workspace

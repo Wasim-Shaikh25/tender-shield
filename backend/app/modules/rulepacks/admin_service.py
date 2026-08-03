@@ -36,6 +36,41 @@ def _to_uuid(value) -> uuid.UUID | None:
     return uuid.UUID(str(value))
 
 
+def bump_version(
+    session: Session,
+    pack_id: str,
+    version: str,
+    scope: str,
+    workspace_id: uuid.UUID | str | None,
+) -> str:
+    """Return a version string that does not collide with existing rows."""
+    ws_uuid = _to_uuid(workspace_id)
+    existing = session.execute(
+        select(RulePack.id).where(
+            RulePack.pack_id == pack_id,
+            RulePack.version == version,
+            RulePack.scope == scope,
+            RulePack.workspace_id == ws_uuid,
+        )
+    ).scalars().first()
+    if existing is None:
+        return version
+    base = version
+    for n in range(2, 1000):
+        candidate = f"{base}-{n}"
+        existing = session.execute(
+            select(RulePack.id).where(
+                RulePack.pack_id == pack_id,
+                RulePack.version == candidate,
+                RulePack.scope == scope,
+                RulePack.workspace_id == ws_uuid,
+            )
+        ).scalars().first()
+        if existing is None:
+            return candidate
+    raise RulePackAdminError("version_collision")
+
+
 class RulePackAdminService:
     def __init__(
         self,
@@ -183,31 +218,7 @@ class RulePackAdminService:
     def _bump_version_if_needed(
         self, pack_id: str, version: str, scope: str, workspace_id: uuid.UUID | str | None
     ) -> str:
-        existing = self.s.execute(
-            select(RulePack.id).where(
-                RulePack.pack_id == pack_id,
-                RulePack.version == version,
-                RulePack.scope == scope,
-                RulePack.workspace_id == _to_uuid(workspace_id),
-            )
-        ).scalars().first()
-        if existing is None:
-            return version
-        base = version
-        ws_uuid = _to_uuid(workspace_id)
-        for n in range(2, 1000):
-            candidate = f"{base}-{n}"
-            existing = self.s.execute(
-                select(RulePack.id).where(
-                    RulePack.pack_id == pack_id,
-                    RulePack.version == candidate,
-                    RulePack.scope == scope,
-                    RulePack.workspace_id == ws_uuid,
-                )
-            ).scalars().first()
-            if existing is None:
-                return candidate
-        raise RulePackAdminError("version_collision")
+        return bump_version(self.s, pack_id, version, scope, workspace_id)
 
     def list_packs(
         self,

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_session, require, require_superadmin
 from app.modules.rulepacks.admin_service import RulePackAdminError, RulePackAdminService
 from app.modules.rulepacks.correction_service import CorrectionError, CorrectionService
+from app.modules.rulepacks.rag_service import RagSuggestionError, RagSuggestionService
 
 router = APIRouter()
 
@@ -42,6 +43,19 @@ def _raise_admin(exc: RulePackAdminError):
 
 def _raise_correction(exc: CorrectionError):
     status = 404 if exc.code == "not_found" else 400
+    raise HTTPException(status, exc.code) from exc
+
+
+def _rag(request: Request, session: Session) -> RagSuggestionService:
+    reg = request.app.state.ctx.registry
+    factory = reg.get("rulepacks.rag_factory")
+    if factory:
+        return factory(session)
+    raise HTTPException(503, "rulepack_rag_unavailable")
+
+
+def _raise_rag(exc: RagSuggestionError):
+    status = 404 if exc.code in ("not_found", "suggestion_not_found", "rulepack_not_found") else 400
     raise HTTPException(status, exc.code) from exc
 
 
@@ -255,3 +269,74 @@ def dismiss_correction_proposal(
         )
     except CorrectionError as exc:
         _raise_correction(exc)
+
+
+@router.post("/admin/packs/{rulepack_id}/files/{file_id}/suggest")
+def suggest_rag_from_file(
+    rulepack_id: str,
+    file_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    try:
+        suggestions = _rag(request, session).suggest_from_file(
+            rulepack_id,
+            file_id,
+            principal.workspace_id,
+            principal.user_id,
+        )
+    except RagSuggestionError as exc:
+        _raise_rag(exc)
+    return {"suggestions": suggestions}
+
+
+@router.get("/admin/packs/{rulepack_id}/suggestions")
+def list_rag_suggestions(
+    rulepack_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    status: str | None = None,
+    principal: Any = Depends(require("viewer")),
+):
+    return {
+        "suggestions": _rag(request, session).list_suggestions(
+            rulepack_id,
+            principal.workspace_id,
+            status=status,
+        )
+    }
+
+
+@router.post("/admin/suggestions/{suggestion_id}/approve")
+def approve_rag_suggestion(
+    suggestion_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    try:
+        return _rag(request, session).approve_suggestion(
+            suggestion_id,
+            principal.workspace_id,
+            principal.user_id,
+        )
+    except RagSuggestionError as exc:
+        _raise_rag(exc)
+
+
+@router.post("/admin/suggestions/{suggestion_id}/reject")
+def reject_rag_suggestion(
+    suggestion_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("admin")),
+):
+    try:
+        return _rag(request, session).reject_suggestion(
+            suggestion_id,
+            principal.workspace_id,
+            principal.user_id,
+        )
+    except RagSuggestionError as exc:
+        _raise_rag(exc)

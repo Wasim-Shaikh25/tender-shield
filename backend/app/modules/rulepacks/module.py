@@ -3,6 +3,7 @@ from app.core.storage import get_storage
 from app.modules.rulepacks.admin_service import RulePackAdminService
 from app.modules.rulepacks.correction_service import CorrectionService
 from app.modules.rulepacks.loader import RulePackLoader
+from app.modules.rulepacks.rag_service import RagSuggestionService
 from app.modules.rulepacks.router import router
 
 
@@ -35,6 +36,17 @@ def setup(ctx: AppContext) -> None:
         )
 
     reg.provide("rulepacks.correction_factory", correction_factory)
+
+    def rag_factory(session):
+        return RagSuggestionService(
+            session,
+            settings=ctx.settings,
+            storage=storage,
+            ingestion_factory=reg.get("ingestion.service_factory"),
+            publish=ctx.events.publish,
+        )
+
+    reg.provide("rulepacks.rag_factory", rag_factory)
 
 
 module = ModuleSpec(

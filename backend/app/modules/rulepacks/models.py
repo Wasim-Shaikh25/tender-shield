@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, String, Uuid, func
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base, WorkspaceScopedMixin
@@ -77,6 +77,33 @@ class OpportunityRulepack(Base, WorkspaceScopedMixin):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     applied_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+
+
+class RagSuggestion(Base, WorkspaceScopedMixin):
+    """LLM-generated rulepack additions extracted from source circulars/
+    rulebooks. Human approval creates a new draft RulePack version; it never
+    modifies an active pack directly (spec rulepacks B10)."""
+
+    _tablename_ = "rp_rag_suggestions"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    rulepack_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("rulepacks.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    source_file_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("rulepack_files.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    kind: Mapped[str] = mapped_column(String, nullable=False)
+    proposed_yaml: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    rationale: Mapped[str] = mapped_column(String, nullable=False, default="")
+    source_quote: Mapped[str] = mapped_column(String, nullable=False, default="")
+    source_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    confidence: Mapped[str] = mapped_column(String, nullable=False, default="unvalidated")
+    status: Mapped[str] = mapped_column(String, nullable=False, default="proposed")
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 class CorrectionProposal(Base, WorkspaceScopedMixin):

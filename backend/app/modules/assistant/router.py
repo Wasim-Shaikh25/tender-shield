@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import log as audit_log
 from app.core.deps import get_session, require, require_superadmin
-from app.modules.assistant.service import AssistantService
+from app.modules.assistant.service import AssistantService, _message_json
 
 router = APIRouter()
 
@@ -61,20 +61,6 @@ def _session_json(s) -> dict:
         "title": s.title,
         "created_at": s.created_at.isoformat() if s.created_at else None,
         "updated_at": s.updated_at.isoformat() if s.updated_at else None,
-    }
-
-
-def _message_json(m) -> dict:
-    return {
-        "id": str(m.id),
-        "role": m.role,
-        "content": m.content,
-        "type": m.message_type,
-        "dashboard": m.dashboard,
-        "grounded": m.grounded,
-        "source": m.source,
-        "citations": m.citations,
-        "created_at": m.created_at.isoformat() if m.created_at else None,
     }
 
 

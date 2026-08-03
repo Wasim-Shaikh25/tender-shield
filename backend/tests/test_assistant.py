@@ -128,7 +128,7 @@ def test_session_and_history(client):
     assert len(msgs) == 2
     assert msgs[0]["role"] == "user"
     assert msgs[1]["role"] == "assistant"
-    assert msgs[1]["content"] == ans["answer"]
+    assert msgs[1]["content"] == ans["content"]
 
 
 def test_sse_stream_stores_messages(client):
@@ -284,7 +284,7 @@ def test_session_history_is_passed_to_llm_agent(client):
     assert len(captured["history"]) >= 2
     roles = [m["role"] for m in captured["history"]]
     assert "user" in roles and "assistant" in roles
-    assert second["answer"] == "Reply for second question"
+    assert second["content"] == "Reply for second question"
 
 
 def test_delete_session(client):

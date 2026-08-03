@@ -41,6 +41,7 @@ class ChatMessage(Base, WorkspaceScopedMixin):
     grounded: Mapped[bool] = mapped_column(default=True, nullable=False)
     source: Mapped[str | None] = mapped_column(String, nullable=True)  # tool | llm | refusal
     citations: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    suggested_followups: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

@@ -38,6 +38,9 @@ change (`CLAUDE.md` §1.2).
 | `modules/pricing-intel.md` | Risk-to-price loading, SOR benchmarking, cashflow model | Strategy §C.2–C.4 |
 | `modules/express-report.md` | Pay-per-report lane (no subscription) | §7, §15, §11.4; Strategy §F.2 |
 | `modules/controltower.md` | Commercial control tower: exposure, dashboard, portfolio | Research §4.H, §12.2 |
+| `modules/rulepacks-admin.md` | Rulepack upload, versioning, per-project multi-pack selection, and private workspace packs | user request; `modules/rulepacks.md` |
+| `modules/assistant-ui.md` | AI Assistant persistent threads + rich markdown/chat UI | user request; `modules/assistant.md` |
+| `project-state-dashboard.md` | Project state marketing dashboard + all-projects/workspace filter | user request; `modules/controltower.md`, §9 |
 | `modules/outcomes.md` | Bid outcome + risk materialization capture | §1.1(9), §11.5; Strategy §C.6 |
 | `900-production-readiness-audit-fixes.md` | Cross-cutting hardening and product completeness from audit | `PRODUCTION_READINESS_AUDIT.md` |
 | `901-post-audit-remaining-fixes.md` | Second batch of audit fixes after TS-083–TS-092 | `PRODUCTION_READINESS_AUDIT.md` |

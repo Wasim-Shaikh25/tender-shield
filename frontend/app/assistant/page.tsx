@@ -35,6 +35,7 @@ export default function AssistantPage() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelDashboard, setPanelDashboard] = useState<PlanDashboard | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const sendingRef = useRef(false);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -56,6 +57,7 @@ export default function AssistantPage() {
       setMessages([]);
       return;
     }
+    if (sendingRef.current) return;
     api.getAssistantMessages(session.token, activeSession.id)
       .then((res) => setMessages(res.messages))
       .catch(() => setError("Could not load messages."));
@@ -98,46 +100,43 @@ export default function AssistantPage() {
 
   async function send(text: string) {
     if (!session || !text.trim() || loading) return;
+    sendingRef.current = true;
     const trimmed = text.trim();
     setInput("");
     setError(null);
 
     let sess = activeSession;
-    if (!sess) {
-      try {
+    let assistantId = "";
+    try {
+      if (!sess) {
         sess = await createSession(trimmed.slice(0, 40));
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to create chat session");
-        return;
       }
-    }
 
-    setLoading(true);
-    const userMsg: UIMessage = {
-      id: `u-${Date.now()}`,
-      role: "user",
-      content: trimmed,
-      type: "text",
-      grounded: true,
-      source: "user",
-      created_at: new Date().toISOString(),
-    };
-    const assistantId = `a-${Date.now()}`;
-    setMessages((m) => [
-      ...m,
-      userMsg,
-      {
-        id: assistantId,
-        role: "assistant",
-        content: "",
+      setLoading(true);
+      const userMsg: UIMessage = {
+        id: `u-${Date.now()}`,
+        role: "user",
+        content: trimmed,
         type: "text",
         grounded: true,
-        loading: true,
+        source: "user",
         created_at: new Date().toISOString(),
-      },
-    ]);
+      };
+      assistantId = `a-${Date.now()}`;
+      setMessages((m) => [
+        ...m,
+        userMsg,
+        {
+          id: assistantId,
+          role: "assistant",
+          content: "",
+          type: "text",
+          grounded: true,
+          loading: true,
+          created_at: new Date().toISOString(),
+        },
+      ]);
 
-    try {
       const data = await api.sendAssistantMessage(session.token, sess.id, trimmed);
       setMessages((m) =>
         m.map((x) =>
@@ -153,8 +152,11 @@ export default function AssistantPage() {
       await loadSessions();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Assistant request failed");
-      setMessages((m) => m.filter((x) => x.id !== assistantId));
+      if (assistantId) {
+        setMessages((m) => m.filter((x) => x.id !== assistantId));
+      }
     } finally {
+      sendingRef.current = false;
       setLoading(false);
     }
   }

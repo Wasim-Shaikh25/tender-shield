@@ -598,3 +598,9 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
 | TS-343 | Round 10 production-readiness re-audit: refresh `PRODUCTION_READINESS_AUDIT.md` for `e912395`, re-run validation matrix, and document `.env.local` test hermeticity (TS-ENV-01) | `PRODUCTION_READINESS_AUDIT.md`; user request | `PRODUCTION_READINESS_AUDIT.md` | done |
+
+## Phase 25 — Automated full-pipeline validation importer
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-344 | End-to-end validation importer: create a test workspace by API, seed 50+ sample opportunities, run ingestion/risk/BOQ/baseline and downstream features, and produce a pass/fail report | user request; `specs/eval-at-scale.md` | `scripts/validate_full_pipeline.py` | done |

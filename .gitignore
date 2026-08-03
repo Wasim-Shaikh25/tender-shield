@@ -25,6 +25,7 @@ dist/
 
 # Local runtime artifacts
 .tender_storage/
+.validation_storage/
 # Harvested evaluation corpus — public records, but large and reproducible from
 # source; never commit it, and never let a customer document near it.
 evals/corpus/

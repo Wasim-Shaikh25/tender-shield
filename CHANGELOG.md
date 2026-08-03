@@ -109,11 +109,24 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   is sourced because `TS_AUTH_MOBILE_VERIFICATION_ENABLED=true` conflicts with
   tests that assume the default `false`.
 
+### Done — Automated full-pipeline validation importer (TS-344)
+
+- **TS-344** — Added `scripts/validate_full_pipeline.py` to create a test
+  account/workspace, seed 50 opportunities from sample fixtures, and exercise
+  ingestion, risk review, BOQ checks, auto-review, baseline lock, notice register,
+  drafting artifacts, subcontracts, change events, claims, pricing checks,
+  control-tower dashboards, and export through the public API.
+- Added `.env.validation` with OTP/MFA disabled and SQLite isolation, plus
+  `specs/validation-automation.md` describing the script.
+- Ran the script in the sandbox against `backend/validation.db`; produced
+  `validation_report.md` and `VALIDATION_IMPORT_NOTES.md` with login credentials
+  and local SQLite import instructions.
+
 ### Next
 
-- Continue Round 10 / remaining work per `tasks/backlog.md` and
-  `PRODUCTION_READINESS_AUDIT.md` (rulepack QS validation, real-world pilot
-  testing).
+- Run the same script against a real public-tender corpus (India/UAE) via
+  `scripts/corpus_harvest.py` and optionally add `TS_OPENROUTER_API_KEY` for AI
+  risk validation.
 
 ### Done — Round 8 release-blocker fixes (TS-299)
 

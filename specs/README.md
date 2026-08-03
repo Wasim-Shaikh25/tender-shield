@@ -33,6 +33,7 @@ change (`CLAUDE.md` §1.2).
 | `modules/health.md` | Health / module discovery / capabilities endpoint | §11.1 |
 | `modules/notifications.md` | Deadline-digest notification sender abstraction | §11.6, §11.7 |
 | `eval-at-scale.md` | Automated evaluation on 1,000+ real tenders across countries (M1–M5 scoring, corpus, runner) | §11.5, §19; Strategy §A.2 |
+| `validation-automation.md` | Unattended full-pipeline validation importer and report generator | `eval-at-scale.md`, user request; §11.5 |
 | `modules/marketdata.md` | Employer Behaviour Graph from public award records | Strategy §C.1 |
 | `modules/pricing-intel.md` | Risk-to-price loading, SOR benchmarking, cashflow model | Strategy §C.2–C.4 |
 | `modules/express-report.md` | Pay-per-report lane (no subscription) | §7, §15, §11.4; Strategy §F.2 |

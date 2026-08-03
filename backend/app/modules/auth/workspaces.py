@@ -61,6 +61,24 @@ class WorkspaceAdmin:
         user = self.s.get(User, uuid.UUID(str(user_id)))
         return user.plan if user else None
 
+    def list_for_user(self, user_id) -> list[dict]:
+        """Return workspaces where the user is a member."""
+        rows = self.s.execute(
+            select(Workspace, WorkspaceMember)
+            .join(WorkspaceMember, Workspace.id == WorkspaceMember.workspace_id)
+            .where(WorkspaceMember.user_id == uuid.UUID(str(user_id)))
+            .order_by(Workspace.name)
+        )
+        return [
+            {
+                "workspace_id": str(w.id),
+                "name": w.name,
+                "owner_id": str(w.owner_id),
+                "country": w.country,
+            }
+            for w, _ in rows
+        ]
+
     def list_members(self, workspace_id) -> list[dict]:
         rows = self.s.execute(
             select(User.id, User.email)

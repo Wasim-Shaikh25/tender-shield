@@ -287,6 +287,35 @@ def test_session_history_is_passed_to_llm_agent(client):
     assert second["answer"] == "Reply for second question"
 
 
+def test_delete_session(client):
+    headers = _auth(client)
+    opp_id = _opp(client, headers)
+    s = client.post(
+        "/api/assistant/sessions",
+        json={"opportunity_id": opp_id, "title": "To delete"},
+        headers=headers,
+    ).json()
+    session_id = s["id"]
+
+    # Seed a message so we also verify cascade delete.
+    client.post(
+        f"/api/assistant/sessions/{session_id}/chat",
+        json={"message": "hello"},
+        headers=headers,
+    )
+
+    res = client.delete(f"/api/assistant/sessions/{session_id}", headers=headers)
+    assert res.status_code == 200
+    assert res.json()["deleted"] is True
+
+    list_res = client.get("/api/assistant/sessions", headers=headers)
+    assert all(s["id"] != session_id for s in list_res.json()["sessions"])
+
+    # Messages are gone too.
+    msg_res = client.get(f"/api/assistant/sessions/{session_id}/messages", headers=headers)
+    assert msg_res.status_code == 404
+
+
 def test_session_is_workspace_scoped(client):
     # User A creates a session in workspace A.
     headers_a, ws_a = auth_headers_and_workspace(client, "a@x.com", workspace_name="A")

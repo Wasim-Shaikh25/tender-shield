@@ -75,9 +75,11 @@ No new backend tables; reuses `chat_sessions` / `chat_messages` from
   chunks and runs markdown parsing at the end (or incrementally for plain text).
 - **B8 (new conversation):** a "+" button creates a fresh session; previous
   sessions remain in a sidebar.
+- **B8.1 (session delete):** each session in the sidebar has a delete action
+  with confirmation; deletion removes the session and its messages (CASCADE).
 - **B9 (opportunity/workspace scope):** the chat is scoped to the current
-  workspace or the selected opportunity. The scope is shown in the header and
-  can be switched from the sidebar.
+  workspace or the selected opportunity. The scope is shown in the sidebar and
+  can be switched from there; the chat column header is kept minimal.
 - **B10 (copy/export):** each assistant message has a copy-to-clipboard button
   and an option to export the whole thread as `.md`.
 - **B11 (safety):** user markdown input is plain text only; XSS is prevented by

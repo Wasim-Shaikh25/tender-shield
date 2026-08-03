@@ -426,6 +426,36 @@ export type AssistantMessage = {
   created_at: string;
 };
 
+export type ProjectState = {
+  opportunity_id: string;
+  workspace_id: string;
+  title: string;
+  employer: string | null;
+  jurisdiction: string;
+  contract_value_minor: number | null;
+  currency: string;
+  submission_due: string | null;
+  days_to_deadline: number | null;
+  state: string;
+  state_label: string;
+  health: string;
+  next_action: { label: string; link: string };
+  blockers: { kind: string; message: string; count?: number }[];
+  completed_gates: string[];
+  document_count: number;
+  finding_count: number;
+  unreviewed_finding_count: number;
+  baseline_count: number;
+};
+
+export type WorkspaceStateSummary = {
+  workspace_id: string;
+  workspace_name: string | null;
+  opportunity_count: number;
+  state_counts: Record<string, number>;
+  upcoming_deadlines: { opportunity_id: string; title: string; submission_due: string | null; days_to_deadline: number | null; state: string }[];
+};
+
 type SignupResponse = components["schemas"]["SignupResponse"];
 type ForgotPasswordResponse = components["schemas"]["ForgotPasswordResponse"];
 type OkResponse = components["schemas"]["OkResponse"];
@@ -689,6 +719,8 @@ export const api = {
     req<{ messages: AssistantMessage[] }>(`/assistant/sessions/${sessionId}/messages`, {}, token),
   sendAssistantMessage: (token: string, sessionId: string, message: string) =>
     req<AssistantMessage>(`/assistant/sessions/${sessionId}/chat`, { method: "POST", body: JSON.stringify({ message }) }, token),
+  deleteAssistantSession: (token: string, sessionId: string) =>
+    req<{ deleted: boolean }>(`/assistant/sessions/${sessionId}`, { method: "DELETE" }, token),
   reviewFinding: (token: string, opportunityId: string, findingId: string, decision: string, note?: string) =>
     req<{ id: string; review_status: string }>(
       `/review/findings/${findingId}`,
@@ -1103,6 +1135,18 @@ export const api = {
     req<{ suggestion_id: string; new_rulepack: { id: string; pack_id: string; version: string; status: string; is_active: boolean } }>(`/rulepacks/admin/suggestions/${id}/approve`, { method: "POST" }, token),
   rejectRagSuggestion: (token: string, id: string) =>
     req<{ id: string; status: string }>(`/rulepacks/admin/suggestions/${id}/reject`, { method: "POST" }, token),
+  // Project state dashboard (TS-353/TS-354)
+  listProjectStates: (token: string, filters?: Record<string, string | number | undefined>) => {
+    const params = new URLSearchParams();
+    Object.entries(filters ?? {}).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== "") params.set(k, String(v));
+    });
+    return req<{ opportunities: ProjectState[] }>(`/project_state/opportunities?${params.toString()}`, {}, token);
+  },
+  getProjectState: (token: string, opportunityId: string) =>
+    req<ProjectState>(`/project_state/opportunities/${opportunityId}/state`, {}, token),
+  listWorkspaceStateSummaries: (token: string) =>
+    req<{ workspaces: WorkspaceStateSummary[] }>("/project_state/workspaces/me/opportunities/state", {}, token),
 };
 
 export type PlanSnapshot = {

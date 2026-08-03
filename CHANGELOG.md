@@ -122,11 +122,26 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   `validation_report.md` and `VALIDATION_IMPORT_NOTES.md` with login credentials
   and local SQLite import instructions.
 
+### Done — Validation UI follow-up bugfixes (TS-345)
+
+- **TS-345** — Fixed `frontend/app/controltower/page.tsx` issues discovered in the
+  validation UI re-run:
+  - `rupees()` now treats `null`, `undefined`, and `NaN` as missing and renders
+    `—` instead of `₹NaN`.
+  - `isUnavailable()` now checks `data.unavailable === true` so the dashboard
+    object returned by `/controltower/portfolio` is no longer treated as
+    unavailable when it only carries module-availability flags.
+  - `Margin protected` MetricCard now reads
+    `margin_protected.total_margin_protected_minor` from the object returned by
+    the backend instead of trying to format the whole object as a number.
+
 ### Next
 
-- Run the same script against a real public-tender corpus (India/UAE) via
-  `scripts/corpus_harvest.py` and optionally add `TS_OPENROUTER_API_KEY` for AI
-  risk validation.
+- TS-346 — Run the validation importer against a real public-tender corpus
+  (India/UAE) via `scripts/corpus_harvest.py` and `TS_OPENROUTER_API_KEY` for
+  AI risk validation.
+- TS-347 — Expand the `in-works` rulepack to avoid the same 5 risk findings on
+  every synthetic opportunity and add UAE/India notice-standard overlays.
 
 ### Done — Round 8 release-blocker fixes (TS-299)
 

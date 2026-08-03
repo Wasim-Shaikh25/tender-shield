@@ -604,3 +604,16 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
 | TS-344 | End-to-end validation importer: create a test workspace by API, seed 50+ sample opportunities, run ingestion/risk/BOQ/baseline and downstream features, and produce a pass/fail report | user request; `specs/eval-at-scale.md` | `scripts/validate_full_pipeline.py` | done |
+
+## Phase 26 — Validation UI follow-up bugfixes
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-345 | Validation UI follow-up: fix Control Tower `Margin protected` `₹NaN`, per-opportunity dashboard `unavailable` flag, and NaN currency formatting | testing; `PRODUCTION_READINESS_AUDIT.md` UI findings | `frontend/app/controltower/page.tsx` | done |
+
+## Phase 27 — Validation against real public-tender corpus + rulepack expansion
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-346 | Run validation importer against real public-tender corpus (India/UAE) via `scripts/corpus_harvest.py` with `TS_OPENROUTER_API_KEY` for AI risk validation | user request; `specs/eval-at-scale.md` | `scripts/validate_full_pipeline.py` | todo |
+| TS-347 | Expand `in-works` rulepack: avoid same 5 synthetic risk findings on every opportunity; add UAE/India notice-standard and employer-family overlays | user request; `PRODUCTION_READINESS_AUDIT.md` UI findings | `rulepacks/in-works/` | todo |

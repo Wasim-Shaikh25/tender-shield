@@ -218,6 +218,29 @@ To demonstrate the `tendershield.access` logger from the UI:
   `document.execCommand('selectAll')` followed by
   `document.execCommand('insertText', false, csv)` so the controlled component
   fires `onChange` and enables the submit button.
+- **React controlled inputs/forms still not submitting?** Some pages (AI
+  Assistant, pricing forms) may not react to native `type`/`click` events in
+  the dev box. As a last resort, call the element's React `onChange`/`onSubmit`
+  directly through the internal props key, e.g.:
+  ```js
+  const input = document.querySelector('input');
+  const key = Object.keys(input).find(k => k.startsWith('__reactProps$'));
+  input[key].onChange({ target: { value: 'your text' } });
+  const form = document.querySelector('form');
+  const formKey = Object.keys(form).find(k => k.startsWith('__reactProps$'));
+  form[formKey].onSubmit({ preventDefault() {}, target: form });
+  ```
+- **Validation env login mismatch — RESOLVED.** `.env.validation` sets
+  `TS_AUTH_LOGIN_OTP_ENABLED=false`, so `/auth/login` returns tokens directly.
+  `frontend/app/login/page.tsx` now handles `mfa_required: false` and calls
+  `signIn` directly when tokens are present.
+- **BOQ accumulation bug — RESOLVED.** `backend/app/modules/boq/service.py` now
+  skips historical scope-gap suggestions that are already covered by the current
+  BOQ's own findings. Expect every seeded opportunity's BOQ tab to show exactly
+  10 findings and Analytics BOQ defect total to equal 50 × 10 = 500.
+- **Control Tower `null` currency crash — RESOLVED.** `frontend/app/controltower/page.tsx`
+  `rupees()` now falls back to `"INR"` when `currency` is `null` and the
+  `Margin protected` card reads `margin_protected.total_margin_protected_minor`.
 
 ## Regression shell probe
 

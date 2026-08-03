@@ -598,3 +598,34 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
 | TS-343 | Round 10 production-readiness re-audit: refresh `PRODUCTION_READINESS_AUDIT.md` for `e912395`, re-run validation matrix, and document `.env.local` test hermeticity (TS-ENV-01) | `PRODUCTION_READINESS_AUDIT.md`; user request | `PRODUCTION_READINESS_AUDIT.md` | done |
+
+## Phase 25 — Automated full-pipeline validation importer
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-344 | End-to-end validation importer: create a test workspace by API, seed 50+ sample opportunities, run ingestion/risk/BOQ/baseline and downstream features, and produce a pass/fail report | user request; `specs/eval-at-scale.md` | `scripts/validate_full_pipeline.py` | done |
+
+## Phase 26 — Validation UI follow-up bugfixes
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-345 | Validation UI follow-up: fix Control Tower `Margin protected` `₹NaN`, per-opportunity dashboard `unavailable` flag, and NaN currency formatting | testing; `PRODUCTION_READINESS_AUDIT.md` UI findings | `frontend/app/controltower/page.tsx` | done |
+
+## Phase 27 — Validation against real public-tender corpus + rulepack expansion
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-346 | Run validation importer against real public-tender corpus (India/UAE) via `scripts/corpus_harvest.py` with `TS_OPENROUTER_API_KEY` for AI risk validation | user request; `specs/eval-at-scale.md` | `scripts/validate_full_pipeline.py` | todo |
+| TS-347 | Expand `in-works` rulepack: avoid same 5 synthetic risk findings on every opportunity; add UAE/India notice-standard and employer-family overlays | user request; `PRODUCTION_READINESS_AUDIT.md` UI findings | `rulepacks/in-works/` | todo |
+
+## Phase 28 — Admin/rulepack, AI assistant, and project dashboards (design)
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-348 | Rulepack admin: spec for uploading rulepacks (YAML + source PDF/Word/image/zip), storing versions, and applying them per project | user request; `rulepacks/` | `specs/modules/rulepacks-admin.md` | todo |
+| TS-349 | Rulepack per-project selection: spec for choosing one or more rulepacks (universal + regional + private) at opportunity creation and later | user request; `specs/modules/rulepacks.md` | `specs/modules/rulepacks-admin.md` | todo |
+| TS-350 | Private rulepacks: spec for user/workspace-scoped packs that are not shared with other workspaces | user request; `specs/modules/rulepacks.md` | `specs/modules/rulepacks-admin.md` | todo |
+| TS-351 | RAG-assisted rulepack expansion: spec for suggesting new YAML patterns from uploaded circulars/rulebooks without replacing deterministic YAML rulepacks | user request; `specs/modules/rulepacks.md` | `specs/modules/rulepacks-admin.md` | todo |
+| TS-352 | AI assistant redesign: persistent thread history + rich markdown/Tailwind rendering with citations | user request; `specs/modules/assistant.md` | `specs/modules/assistant-ui.md` | todo |
+| TS-353 | Project state marketing dashboard: spec for state-machine view (draft → ingested → reviewed → baseline locked → awarded/rejected) with "what's next" actions | user request; `specs/frontend.md` | `specs/project-state-dashboard.md` | todo |
+| TS-354 | All-projects / workspace filter dashboard: spec for a global opportunity board with filters by workspace, jurisdiction, status, deadline | user request; `specs/frontend.md` | `specs/project-state-dashboard.md` | todo |

@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { api, type Opportunity } from "@/lib/api";
 import { useSession } from "@/components/session";
 
-function rupees(minor?: number, currency = "INR") {
-  if (minor === undefined || minor === null) return "—";
-  return new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 0 }).format(minor / 100);
+function rupees(minor?: number | null, currency?: string | null) {
+  if (minor === undefined || minor === null || Number.isNaN(minor)) return "—";
+  const code = currency || "INR";
+  return new Intl.NumberFormat("en-IN", { style: "currency", currency: code, maximumFractionDigits: 0 }).format(minor / 100);
 }
 
 function percent(value?: number | null) {
@@ -21,7 +22,7 @@ function formatDate(value?: string | null) {
 }
 
 function isUnavailable(data: Record<string, unknown> | null) {
-  return Boolean(data?.unavailable);
+  return data?.unavailable === true;
 }
 
 function MetricCard({ label, value }: { label: string; value: React.ReactNode }) {
@@ -181,7 +182,7 @@ export default function ControlTowerPage() {
             <MetricCard label="Cash exposure" value={rupees(portfolio.total_cash_exposure_minor as number, portfolio.currency as string)} />
             <MetricCard label="Healthy" value={(portfolio.opportunities_healthy as number) ?? 0} />
             <MetricCard label="At risk" value={(portfolio.opportunities_at_risk as number) ?? 0} />
-            <MetricCard label="Margin protected" value={rupees(portfolio.margin_protected as number, portfolio.currency as string)} />
+            <MetricCard label="Margin protected" value={rupees(typeof portfolio.margin_protected === "object" && portfolio.margin_protected !== null ? (portfolio.margin_protected as Record<string, unknown>).total_margin_protected_minor as number : (portfolio.margin_protected as number | null), portfolio.currency as string)} />
           </div>
         </section>
       )}

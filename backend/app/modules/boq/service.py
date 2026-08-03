@@ -13,7 +13,7 @@ from collections.abc import Callable
 
 import pandas as pd
 
-from app.core.contracts.findings import Finding
+from app.core.contracts.findings import Finding, FindingKind
 from app.core.provenance import ProvenanceStamp, content_hash, document_set_hash, stamp_findings
 from app.modules.boq.engine import (
     SpecTextIndex,
@@ -153,7 +153,21 @@ class BoqRunner:
             findings.extend(self._engine.cross_check_schedule(df, activities))
         historical_gaps = self._historical_scope_gaps(workspace_id, opportunity_id)
         if historical_gaps:
-            findings.extend(self._engine.historical_scope_suggestions(df, historical_gaps))
+            current_scope_gap_categories = {
+                f.category for f in findings if f.kind == FindingKind.SCOPE_GAP
+            }
+            for hf in self._engine.historical_scope_suggestions(df, historical_gaps):
+                # Skip historical suggestions already covered by the current BOQ's
+                # own scope-gap findings to avoid duplicate cards per opportunity.
+                prefix = "historical:"
+                base_category = (
+                    hf.category[len(prefix) :]
+                    if hf.category and hf.category.startswith(prefix)
+                    else hf.category
+                )
+                if base_category in current_scope_gap_categories:
+                    continue
+                findings.append(hf)
         stamp = self._provenance_stamp(workspace_id, opportunity_id, csv_text)
         findings = stamp_findings(findings, stamp)
         if self._store_factory is not None:

@@ -109,13 +109,63 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   is sourced because `TS_AUTH_MOBILE_VERIFICATION_ENABLED=true` conflicts with
   tests that assume the default `false`.
 
+### Done — Automated full-pipeline validation importer (TS-344)
+
+- **TS-344** — Added `scripts/validate_full_pipeline.py` to create a test
+  account/workspace, seed 50 opportunities from sample fixtures, and exercise
+  ingestion, risk review, BOQ checks, auto-review, baseline lock, notice register,
+  drafting artifacts, subcontracts, change events, claims, pricing checks,
+  control-tower dashboards, and export through the public API.
+- Added `.env.validation` with OTP/MFA disabled and SQLite isolation, plus
+  `specs/validation-automation.md` describing the script.
+- Ran the script in the sandbox against `backend/validation.db`; produced
+  `validation_report.md` and `VALIDATION_IMPORT_NOTES.md` with login credentials
+  and local SQLite import instructions.
+
+### Done — Validation UI follow-up bugfixes (TS-345)
+
+- **TS-345** — Fixed `frontend/app/controltower/page.tsx` issues discovered in the
+  validation UI re-run:
+  - `rupees()` now treats `null`, `undefined`, and `NaN` as missing and renders
+    `—` instead of `₹NaN`.
+  - `isUnavailable()` now checks `data.unavailable === true` so the dashboard
+    object returned by `/controltower/portfolio` is no longer treated as
+    unavailable when it only carries module-availability flags.
+  - `Margin protected` MetricCard now reads
+    `margin_protected.total_margin_protected_minor` from the object returned by
+    the backend instead of trying to format the whole object as a number.
+
 ### Next
 
-- Continue Round 10 / remaining work per `tasks/backlog.md` and
-  `PRODUCTION_READINESS_AUDIT.md` (rulepack QS validation, real-world pilot
-  testing).
+- TS-346 — Run the validation importer against a real public-tender corpus
+  (India/UAE) via `scripts/corpus_harvest.py` and `TS_OPENROUTER_API_KEY` for
+  AI risk validation.
+- TS-347 — Expand the `in-works` rulepack to avoid the same 5 risk findings on
+  every synthetic opportunity and add UAE/India notice-standard overlays.
 
-### Done — Round 8 release-blocker fixes (TS-299)
+### Done — Design documentation for rulepack admin, assistant UI, and project dashboards (TS-348–TS-354)
+
+- **TS-348/TS-349/TS-350/TS-351** — New spec `specs/modules/rulepacks-admin.md`
+  covering rulepack upload (zip + source PDF/Word/image files), versioning,
+  per-project multi-pack selection, workspace-private packs, and RAG-assisted
+  pattern suggestions that remain human-approved.
+- **TS-352** — New spec `specs/modules/assistant-ui.md` for persistent threaded
+  chat history, rich markdown/Tailwind rendering, citations, suggested
+  follow-ups, and dashboard-type assistant responses.
+- **TS-353/TS-354** — New spec `specs/project-state-dashboard.md` for a
+  deterministic project state machine, marketing state view, and an
+  all-projects/workspace filter dashboard.
+- Added the three specs to `specs/README.md` index and updated `tasks/backlog.md`.
+
+### Next
+
+- TS-346 — Run the validation importer against a real public-tender corpus
+  (India/UAE) via `scripts/corpus_harvest.py` and `TS_OPENROUTER_API_KEY` for
+  AI risk validation.
+- TS-347 — Expand the `in-works` rulepack to avoid the same 5 risk findings on
+  every synthetic opportunity and add UAE/India notice-standard overlays.
+- TS-348–TS-354 — Implement the new rulepack admin, assistant UI, and project
+  dashboard specs once the design is approved.
 
 - **Auth team invitation/member-add 500s** — `add_workspace_member` now returns the
   `email` field required by `MemberResponse`, so `POST /api/auth/workspaces/{id}/members`

@@ -60,6 +60,21 @@ _REFUSAL = (
 )
 
 
+def _message_json(m: ChatMessage) -> dict:
+    return {
+        "id": str(m.id),
+        "role": m.role,
+        "content": m.content,
+        "type": m.message_type,
+        "dashboard": m.dashboard,
+        "grounded": m.grounded,
+        "source": m.source,
+        "citations": m.citations,
+        "suggested_followups": m.suggested_followups or [],
+        "created_at": m.created_at.isoformat() if m.created_at else None,
+    }
+
+
 class AssistantService:
     def __init__(
         self,
@@ -177,6 +192,7 @@ class AssistantService:
             grounded=answer.get("grounded", True),
             source=answer.get("source"),
             citations=answer.get("citations", []),
+            suggested_followups=answer.get("suggested_followups", []),
         )
         self.s.add(msg)
         self.s.commit()
@@ -209,8 +225,8 @@ class AssistantService:
             identity=identity,
         )
         answer = self._attach_followups(message, answer)
-        self._add_message(workspace_id, session_id, "assistant", answer)
-        return answer
+        assistant_msg = self._add_message(workspace_id, session_id, "assistant", answer)
+        return _message_json(assistant_msg)
 
     def answer_stream(
         self,

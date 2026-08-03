@@ -189,7 +189,7 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
             <input
               type="file"
               className="hidden"
-              accept=".pdf,.docx,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.tiff,.tif,.zip"
+              accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.md,.png,.jpg,.jpeg,.tiff,.tif,.zip"
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) uploadFile(file);

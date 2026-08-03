@@ -342,3 +342,28 @@ Expected local baseline:
    `alembic upgrade head`, call `create_app(Settings(...))` **first** so every module is imported
    and `Base.metadata` contains all tables (e.g., `standards.workspace_notice_standards`).
 6. Unit gate for PR #97: `cd backend && .venv/bin/pytest tests/test_claims.py -q` → `12 passed`.
+
+## Main feature / assistant + project-state notes
+
+- `.env.local` ships with `TS_AUTH_LOGIN_OTP_ENABLED` commented out, but the backend
+  config default for `auth_login_otp_enabled` is `true`. For a smoke test that logs
+  in without MFA, set `TS_AUTH_LOGIN_OTP_ENABLED=false` before starting the backend.
+- The upload whitelist (`backend/app/core/storage.py` `ALLOWED_UPLOAD_EXTENSIONS`)
+  and the frontend file input on the opportunity detail page do **not** include `.md`
+  or `.txt`. To test tender-text upload with `evals/in-works/sample_tender/conditions.md`,
+  copy it to a `.csv` file first; the backend will classify the text as `nit`.
+- The `boq.csv` fixture still produces exactly 10 deterministic findings and no
+  `Historical:*` duplicate scope-gap cards when the current BOQ already covers the
+  same categories.
+- Assistant chat routes are `/assistant`, `/api/assistant/sessions`, and
+  `/api/assistant/sessions/{id}/chat`. Threads persist in the sidebar; the reply
+  renders Markdown, a `source` badge, and `citations` chips.
+- **Known assistant gap:** `AssistantService._attach_followups` computes suggested
+  follow-ups, but they are not stored in `ChatMessage` and are not serialized in
+  `_message_json`, so the frontend follow-up chips are never rendered.
+- **Known assistant live-update quirk:** after sending a message, the assistant
+  reply may not appear in the main chat until the thread is clicked again in the
+  sidebar; reloading `/assistant` and selecting the thread shows the persisted messages.
+- Project-state pages are `/projects` (list + filters), `/projects/{id}/state`
+  (single card), and `/dashboard/state` (workspace summary). They derive state,
+  health, blockers, and next actions from ingestion / findings / baselines.

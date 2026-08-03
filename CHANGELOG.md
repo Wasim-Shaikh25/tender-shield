@@ -264,7 +264,11 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ### Next
 
-- No active task queued; awaiting next sequence item.
+- **TS-355** — Fix E2E issues discovered in the screen-recorded run:
+  persist and serialize assistant `suggested_followups` so follow-up chips render,
+  add `.md`/`txt` to the upload/storage whitelist, and fix the assistant
+  live-update quirk on the first message.
+- **TS-356** — Move the global top navbar links into a collapsible left sidebar.
 
 - **Auth team invitation/member-add 500s** — `add_workspace_member` now returns the
   `email` field required by `MemberResponse`, so `POST /api/auth/workspaces/{id}/members`

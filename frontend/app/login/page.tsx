@@ -62,8 +62,18 @@ export default function LoginPage() {
         if (login.mfa_required && login.mfa_token) {
           setMfaToken(login.mfa_token);
           setStep("otp");
+        } else if (login.access_token) {
+          // OTP/MFA disabled — the backend returned tokens directly.
+          const all = await signIn(login as import("@/lib/api").Tokens);
+          if (all.length === 0) {
+            setStep("workspace");
+          } else if (login.workspace_id && !isNoWorkspace(login.workspace_id)) {
+            router.push("/opportunities");
+          } else {
+            await switchWorkspace(all[0].workspace_id);
+            router.push("/opportunities");
+          }
         } else {
-          // The account-first flow always returns an MFA challenge from /login.
           setError("Unexpected login response");
         }
       }

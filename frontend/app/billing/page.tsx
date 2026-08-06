@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useSession } from "@/components/session";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 
 export default function BillingPage() {
   const { session } = useSession();
@@ -67,100 +72,172 @@ export default function BillingPage() {
     }
   }
 
-  if (!session) return <p className="text-sm text-slate-500">Sign in to view billing.</p>;
+  if (!session) return <p className="text-sm text-text-muted">Sign in to view billing.</p>;
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-ink">Billing</h1>
-        <Link href="/billing/settings" className="text-sm text-slate-600 hover:underline">Billing settings</Link>
+        <div>
+          <h1 className="text-heading-lg text-text-primary">Billing</h1>
+          <p className="text-sm text-text-muted mt-1">Manage your subscription and payments</p>
+        </div>
+        <Link href="/billing/settings">
+          <Button variant="secondary" size="md">
+            Billing Settings
+          </Button>
+        </Link>
       </div>
 
+      {/* Billing Status */}
       {status && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6">
-          <div className="grid gap-4 sm:grid-cols-4">
-            <div>
-              <p className="text-sm text-slate-500">Plan</p>
-              <p className="font-semibold capitalize">{status.plan}</p>
+        <Card>
+          <CardHeader>
+            <CardTitle>Current Status</CardTitle>
+            <CardDescription>Your plan and usage overview</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-4">
+              <div>
+                <p className="text-sm text-text-muted mb-1">Plan</p>
+                <p className="text-base font-semibold text-text-primary capitalize">{status.plan}</p>
+              </div>
+              <div>
+                <p className="text-sm text-text-muted mb-1">Reviews Used</p>
+                <p className="text-base font-semibold text-text-primary">
+                  {status.reviews_used}{status.reviews_limit ? ` / ${status.reviews_limit}` : " (unlimited)"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-text-muted mb-1">Seats</p>
+                <p className="text-base font-semibold text-text-primary">{status.seats}</p>
+              </div>
+              <div>
+                <label htmlFor="coupon-code" className="text-sm text-text-muted mb-2 block">Coupon Code</label>
+                <input
+                  id="coupon-code"
+                  type="text"
+                  value={coupon}
+                  onChange={(e) => setCoupon(e.target.value)}
+                  placeholder="Optional code"
+                  className="w-full rounded-md border border-border-default px-3 py-2 text-sm outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                />
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-slate-500">Reviews used</p>
-              <p className="font-semibold">{status.reviews_used}{status.reviews_limit ? ` / ${status.reviews_limit}` : ""}</p>
-            </div>
-            <div>
-              <p className="text-sm text-slate-500">Seats</p>
-              <p className="font-semibold">{status.seats}</p>
-            </div>
-            <div>
-              <p className="text-sm text-slate-500">Coupon</p>
-              <input
-                type="text"
-                value={coupon}
-                onChange={(e) => setCoupon(e.target.value)}
-                placeholder="Optional code"
-                className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
-              />
-            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Quick Actions */}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="primary"
+          size="md"
+          onClick={() => checkout("paygo")}
+          disabled={busy}
+        >
+          Pay for One Review
+        </Button>
+      </div>
+
+      {/* Plans */}
+      {status && plans.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold text-text-primary mb-4">Available Plans</h2>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {plans.map((p) => {
+              const isCurrent = status.plan === p.id;
+              const isUpgrade = rankPlan(p.id) > rankPlan(status.plan);
+              return (
+                <Card
+                  key={p.id}
+                  className={cn(
+                    isCurrent && "border-success bg-success-bg"
+                  )}
+                >
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <CardTitle className="capitalize">{p.name}</CardTitle>
+                      {isCurrent && (
+                        <Badge variant="success" size="sm">
+                          Current
+                        </Badge>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <p className="text-3xl font-bold text-text-primary">
+                        {new Intl.NumberFormat("en-IN", { style: "currency", currency: p.currency }).format(p.price_minor / 100)}
+                      </p>
+                      {p.id !== "free" && (
+                        <p className="text-sm text-text-muted mt-1">per month</p>
+                      )}
+                    </div>
+                    <Button
+                      variant={isCurrent ? "secondary" : isUpgrade ? "primary" : "outline"}
+                      size="md"
+                      className="w-full"
+                      onClick={() => changePlan(p.id)}
+                      disabled={busy || isCurrent}
+                    >
+                      {isCurrent ? "Current Plan" : isUpgrade ? `Upgrade to ${p.name}` : `Downgrade to ${p.name}`}
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        <button onClick={() => checkout("paygo")} disabled={busy} className="rounded-md bg-ink px-3 py-1.5 text-sm text-white hover:opacity-90 disabled:opacity-50">
-          Pay for one review
-        </button>
-      </div>
-
-      {status && plans.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-3">
-          {plans.map((p) => {
-            const isCurrent = status.plan === p.id;
-            const isUpgrade = rankPlan(p.id) > rankPlan(status.plan);
-            return (
-              <div key={p.id} className={`rounded-xl border p-4 ${isCurrent ? "border-emerald-500 bg-emerald-50" : "border-slate-200 bg-white"}`}>
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold capitalize text-ink">{p.name}</h3>
-                  {isCurrent && <span className="rounded-full bg-emerald-200 px-2 py-0.5 text-xs font-medium text-emerald-800">Current</span>}
-                </div>
-                <p className="mt-1 text-2xl font-bold text-ink">
-                  {new Intl.NumberFormat("en-IN", { style: "currency", currency: p.currency }).format(p.price_minor / 100)}
-                  <span className="text-sm font-normal text-slate-500">{p.id === "free" ? "" : "/mo"}</span>
-                </p>
-                <button
-                  onClick={() => changePlan(p.id)}
-                  disabled={busy || isCurrent}
-                  className="mt-4 w-full rounded-md bg-ink px-3 py-1.5 text-sm text-white disabled:opacity-50"
-                >
-                  {isCurrent ? "Current plan" : isUpgrade ? `Upgrade to ${p.name}` : `Downgrade to ${p.name}`}
-                </button>
-              </div>
-            );
-          })}
-        </div>
+      {/* Messages */}
+      {message && (
+        <Alert variant="success" title="Success">
+          {message}
+        </Alert>
+      )}
+      {error && (
+        <Alert variant="error" title="Error">
+          {error}
+        </Alert>
       )}
 
-      {message && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</p>}
-      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-
-      <div className="flex gap-1 border-b border-slate-200 pb-1">
+      {/* Tab Navigation */}
+      <div className="flex gap-1 border-b border-border-default overflow-x-auto">
         {(["overview", "invoices", "payments", "history"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`rounded-t-md px-3 py-1.5 text-sm ${tab === t ? "bg-white font-medium text-ink" : "text-slate-500 hover:text-ink"}`}
+            className={cn(
+              "px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors duration-base",
+              tab === t
+                ? "border-b-2 border-ink text-text-primary"
+                : "text-text-secondary hover:text-text-primary"
+            )}
           >
-            {t === "history" ? "Plan history" : t.charAt(0).toUpperCase() + t.slice(1)}
+            {t === "history" ? "Plan History" : t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
       </div>
 
       {tab === "overview" && (
         <div className="space-y-4">
-          <p className="text-sm text-slate-500">Pick a plan above to upgrade or downgrade. Enter a coupon code before clicking to apply a discount. Payments are verified by signed webhooks before your plan is activated.</p>
-          <div className="rounded-xl border border-slate-200 bg-white p-6">
-            <h2 className="text-lg font-semibold text-ink">Need help?</h2>
-            <p className="text-sm text-slate-500">Downgrading to Free takes effect immediately. Upgrades require a verified payment.</p>
-          </div>
+          <Alert variant="info" title="Upgrade or Downgrade">
+            Pick a plan above to change your subscription. Enter a coupon code to apply a discount. Payments are verified by webhook before activation.
+          </Alert>
+          <Card>
+            <CardHeader>
+              <CardTitle>Important Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2 text-sm text-text-secondary">
+                <li>- Downgrading to Free takes effect immediately</li>
+                <li>- Upgrades require a verified payment</li>
+                <li>- Payments are processed securely</li>
+              </ul>
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -172,82 +249,144 @@ export default function BillingPage() {
 }
 
 function InvoiceTable({ invoices }: { invoices: { id: string; invoice_number: string; amount_minor: number; currency: string; status: string; paid_at: string | null; created_at: string }[] }) {
-  if (invoices.length === 0) return <p className="text-sm text-slate-500">No invoices yet.</p>;
+  if (invoices.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center">
+          <p className="text-text-secondary">No invoices yet.</p>
+        </CardContent>
+      </Card>
+    );
+  }
   return (
-    <table className="w-full text-sm">
-      <thead className="border-b border-slate-200 text-left text-slate-500">
-        <tr>
-          <th className="py-2">Number</th>
-          <th className="py-2">Amount</th>
-          <th className="py-2">Status</th>
-          <th className="py-2">Paid at</th>
-        </tr>
-      </thead>
-      <tbody>
-        {invoices.map((inv) => (
-          <tr key={inv.id} className="border-b border-slate-100">
-            <td className="py-2">{inv.invoice_number}</td>
-            <td className="py-2">{formatMinor(inv.amount_minor, inv.currency)}</td>
-            <td className="py-2 capitalize">{inv.status}</td>
-            <td className="py-2">{inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : "—"}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <Card>
+      <CardContent className="pt-0">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="border-b border-border-default text-left text-text-secondary bg-bg-secondary">
+              <tr>
+                <th className="px-4 py-3 font-medium">Number</th>
+                <th className="px-4 py-3 font-medium">Amount</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Paid At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invoices.map((inv) => (
+                <tr key={inv.id} className="border-b border-border-default hover:bg-bg-secondary transition-colors">
+                  <td className="px-4 py-3 text-text-primary font-medium">{inv.invoice_number}</td>
+                  <td className="px-4 py-3 text-text-primary">{formatMinor(inv.amount_minor, inv.currency)}</td>
+                  <td className="px-4 py-3">
+                    <Badge variant={inv.status === "paid" ? "success" : inv.status === "pending" ? "warning" : "secondary"} size="sm">
+                      {inv.status}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-text-secondary">
+                    {inv.paid_at ? new Date(inv.paid_at).toLocaleDateString("en-IN") : "-"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
 function PaymentTable({ payments }: { payments: { id: string; provider: string; event_type: string; amount_minor: number | null; currency: string | null; status: string; created_at: string }[] }) {
-  if (payments.length === 0) return <p className="text-sm text-slate-500">No payments recorded.</p>;
+  if (payments.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center">
+          <p className="text-text-secondary">No payments recorded.</p>
+        </CardContent>
+      </Card>
+    );
+  }
   return (
-    <table className="w-full text-sm">
-      <thead className="border-b border-slate-200 text-left text-slate-500">
-        <tr>
-          <th className="py-2">Provider</th>
-          <th className="py-2">Event</th>
-          <th className="py-2">Amount</th>
-          <th className="py-2">Status</th>
-          <th className="py-2">Date</th>
-        </tr>
-      </thead>
-      <tbody>
-        {payments.map((p) => (
-          <tr key={p.id} className="border-b border-slate-100">
-            <td className="py-2">{p.provider}</td>
-            <td className="py-2">{p.event_type}</td>
-            <td className="py-2">{p.amount_minor ? formatMinor(p.amount_minor, p.currency || "INR") : "—"}</td>
-            <td className="py-2 capitalize">{p.status}</td>
-            <td className="py-2">{new Date(p.created_at).toLocaleDateString()}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <Card>
+      <CardContent className="pt-0">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="border-b border-border-default text-left text-text-secondary bg-bg-secondary">
+              <tr>
+                <th className="px-4 py-3 font-medium">Provider</th>
+                <th className="px-4 py-3 font-medium">Event</th>
+                <th className="px-4 py-3 font-medium">Amount</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payments.map((p) => (
+                <tr key={p.id} className="border-b border-border-default hover:bg-bg-secondary transition-colors">
+                  <td className="px-4 py-3 text-text-primary font-medium capitalize">{p.provider}</td>
+                  <td className="px-4 py-3 text-text-primary">{p.event_type}</td>
+                  <td className="px-4 py-3 text-text-primary">
+                    {p.amount_minor ? formatMinor(p.amount_minor, p.currency || "INR") : "-"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge variant={p.status === "success" ? "success" : p.status === "pending" ? "warning" : "secondary"} size="sm">
+                      {p.status}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-text-secondary">{new Date(p.created_at).toLocaleDateString("en-IN")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
 function HistoryTable({ history }: { history: { id: string; old_plan: string; new_plan: string; reason: string | null; created_at: string }[] }) {
-  if (history.length === 0) return <p className="text-sm text-slate-500">No plan changes yet.</p>;
+  if (history.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center">
+          <p className="text-text-secondary">No plan changes yet.</p>
+        </CardContent>
+      </Card>
+    );
+  }
   return (
-    <table className="w-full text-sm">
-      <thead className="border-b border-slate-200 text-left text-slate-500">
-        <tr>
-          <th className="py-2">Date</th>
-          <th className="py-2">From</th>
-          <th className="py-2">To</th>
-          <th className="py-2">Reason</th>
-        </tr>
-      </thead>
-      <tbody>
-        {history.map((h) => (
-          <tr key={h.id} className="border-b border-slate-100">
-            <td className="py-2">{new Date(h.created_at).toLocaleDateString()}</td>
-            <td className="py-2 capitalize">{h.old_plan}</td>
-            <td className="py-2 capitalize">{h.new_plan}</td>
-            <td className="py-2">{h.reason || "—"}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <Card>
+      <CardContent className="pt-0">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="border-b border-border-default text-left text-text-secondary bg-bg-secondary">
+              <tr>
+                <th className="px-4 py-3 font-medium">Date</th>
+                <th className="px-4 py-3 font-medium">From</th>
+                <th className="px-4 py-3 font-medium">To</th>
+                <th className="px-4 py-3 font-medium">Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.map((h) => (
+                <tr key={h.id} className="border-b border-border-default hover:bg-bg-secondary transition-colors">
+                  <td className="px-4 py-3 text-text-secondary">{new Date(h.created_at).toLocaleDateString("en-IN")}</td>
+                  <td className="px-4 py-3">
+                    <Badge variant="secondary" size="sm">
+                      {h.old_plan}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge variant="primary" size="sm">
+                      {h.new_plan}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-text-secondary">{h.reason || "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

@@ -6,7 +6,7 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
-### Done — Complete UI/UX Redesign (Phase 1-4)
+### Done — Complete UI/UX Redesign (Phase 1-5, 17/20+ pages)
 
 **PHASE 1: Design System Foundation**
 - **Comprehensive Design Tokens** — Established semantic color system (primary, secondary, 
@@ -64,7 +64,7 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   - Blocker warnings with better visibility
   - Improved mobile responsiveness
 
-**PHASE 5: Medium-Priority Pages (Critical Workflows)**
+**PHASE 4: Advanced Page Redesigns**
 - **Opportunity Detail** (`/opportunities/[id]`) — Complete redesign with:
   - Card-based tab navigation and content sections
   - Enhanced risk review interface with Badge and Alert components
@@ -90,6 +90,42 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   - Professional action buttons for load/export/delete
   - Enhanced date formatting and status display
 
+**PHASE 5: Medium-Priority Pages (Settings, Billing, Support, Projects)**
+- **Settings Pages** (`/settings`, `/settings/notifications`, `/settings/api-keys`, `/settings/integrations`):
+  - **Main Settings** — Complete redesign with 8 Card-based sections:
+    - Profile Information (email with verification badge, phone)
+    - Change Email (two-step verification flow)
+    - Quick Links to other settings pages
+    - Document Access Control (ACL rule management)
+    - Report Templates (CRUD operations)
+    - Data Governance (retention policies)
+    - Security (password change, account actions)
+  - **Notification Preferences** — Card-based notification channel configuration
+  - **API Keys** — Professional key management with scope badges
+  - **Integrations** — Dynamic REST connector setup with form controls, test/poll actions
+
+- **Billing Settings** (`/billing/settings`) — Redesigned with:
+  - Current plan badge display
+  - Professional billing information form (GSTIN, PAN, address, city, country, payment token)
+  - Danger zone for subscription cancellation
+  - Improved error handling and loading states
+
+- **Project State** (`/projects/[id]/state`) — Dashboard redesign with:
+  - Project header with title, state label, and health status badges
+  - Next Action buttons with opportunity link
+  - Blockers section with warning styling
+  - Completed Gates display with success badges
+  - Project metrics (documents, findings, open findings, baselines)
+  - Improved mobile responsiveness
+
+- **Support Pages** (`/support/tickets`, `/support/tickets/[id]`):
+  - **Tickets List** — Card-based ticket creation and management
+  - **Ticket Detail** — Professional conversation thread with:
+    - Original message card
+    - Conversation section with left-border accents
+    - Reply form (hidden when closed)
+    - Status-aware display
+
 ### Done — UI/UX Development Tools Setup
 
 - **shadcn/ui** — Installed as component library; `components.json` configured.
@@ -99,20 +135,25 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ### Next — Remaining Pages & Polish
 
-- [ ] Settings pages redesign (account, notifications, API keys, integrations)
-- [ ] Billing/subscription pages redesign
-- [ ] Team management page redesign
-- [ ] Opportunity detail page complete redesign
-- [ ] Project state/detail pages
-- [ ] Support/help pages
-- [ ] Admin pages (users, workspaces, audit log)
-- [ ] Additional shared components (Modal, Dropdown, Tabs, Table)
-- [ ] Motion/animation refinement with Framer Motion
+**PHASE 6: Admin Pages (7 pages)**
+- [ ] `/admin` — Admin dashboard
+- [ ] `/admin/users` — User management
+- [ ] `/admin/users/[id]` — User detail
+- [ ] `/admin/workspaces` — Workspace management
+- [ ] `/admin/audit-log` — Audit log viewer
+- [ ] `/admin/support` — Support management
+- [ ] `/admin/coupons` — Coupon management
+
+**PHASE 7: Polish & QA**
+- [ ] Create additional shared components (Modal, Dropdown, Tabs, Table, Skeleton, Tooltip, Popover, Breadcrumb)
+- [ ] Add Framer Motion animations and micro-interactions
 - [ ] Accessibility audit & testing (WCAG AA)
-- [ ] Dark mode support (if in scope)
 - [ ] Responsive behavior finalization
-- [ ] Visual QA pass
-- [ ] Functional QA pass
+- [ ] Visual QA pass (colors, alignment, spacing)
+- [ ] Functional QA pass (all workflows tested)
+- [ ] Dark mode support (if in scope)
+- [ ] Performance optimization
+- [ ] Browser compatibility verification
 
 ### Done — Round 9 audit gap closure (TS-335/TS-336/TS-337)
 

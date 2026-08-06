@@ -242,9 +242,28 @@
 
 ---
 
+## TASK TRACKING
+
+All UI/UX redesign work is tracked under the master initiative:
+
+| Task ID | Title | Status |
+|---------|-------|--------|
+| TS-357 | Master UI/UX redesign initiative (7 phases) | in-progress |
+| TS-358 | PHASE 1: Design System Foundation | done |
+| TS-359 | PHASE 2: Global Application Shell | done |
+| TS-360 | PHASE 3: Core Page Redesigns (6 pages) | done |
+| TS-361 | PHASE 4: Advanced Page Redesigns (3 pages) | done |
+| TS-362 | PHASE 5: Additional Page Redesigns (8 pages) | in-progress |
+| TS-363 | PHASE 6: Admin Page Redesigns (7 pages) | todo |
+| TS-364 | PHASE 7: Polish & QA | todo |
+| TS-365 | Create frontend-ui-redesign.md spec | done |
+
+See `tasks/backlog.md` for full task details and `specs/frontend-ui-redesign.md` for comprehensive spec.
+
 ## GIT HISTORY
 
 ```
+9cfc600 docs(tasks): create UI/UX redesign task tracking (TS-357 to TS-365)
 edd4b9d feat(team): redesign team management page
 c3d8159 docs(changelog): document UI redesign progress
 884e017 feat(projects): redesign projects page

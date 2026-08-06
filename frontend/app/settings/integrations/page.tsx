@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/components/session";
 import { api, type DynamicConnectorConfig } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
 import IntegrationSourcesPanel from "./integration-sources";
 
 const DEFAULT_COST_LINE_MAPPING = JSON.stringify(
@@ -98,7 +102,7 @@ export default function IntegrationsSettingsPage() {
       }
       setForm(emptyForm);
       setEditing(null);
-      setMessage("Connector saved.");
+      setMessage("Connector saved successfully.");
       api.listDynamicConnectors(session.token)
         .then((r) => setConnectors(r.connectors))
         .catch(() => setConnectors([]));
@@ -133,9 +137,8 @@ export default function IntegrationsSettingsPage() {
     setLoading(true);
     setError(null);
     try {
-      const r = await api.pollDynamicConnector(session.token, id);
+      await api.pollDynamicConnector(session.token, id);
       setMessage("Poll completed. Check sync jobs for details.");
-      console.log(r);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Poll failed");
     } finally {
@@ -146,6 +149,7 @@ export default function IntegrationsSettingsPage() {
   const remove = async (id: string) => {
     if (!session || !confirm("Delete this connector?")) return;
     setLoading(true);
+    setError(null);
     try {
       await api.deleteDynamicConnector(session.token, id);
       api.listDynamicConnectors(session.token)
@@ -179,169 +183,226 @@ export default function IntegrationsSettingsPage() {
     setForm(emptyForm);
   };
 
-  const field = (
-    label: string,
-    value: string,
-    onChange: (v: string) => void,
-    type: "text" | "password" | "textarea" = "text",
-    placeholder = ""
-  ) => (
-    <div className="space-y-1">
-      <label className="text-sm font-medium text-slate-700">{label}</label>
-      {type === "textarea" ? (
-        <textarea
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono"
-          rows={4}
-          placeholder={placeholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={loading}
-        />
-      ) : (
-        <input
-          type={type}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-          placeholder={placeholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={loading}
-        />
-      )}
-    </div>
-  );
-
   if (!session) return null;
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-ink">Integrations</h1>
+      {/* Header */}
+      <div>
+        <h1 className="text-heading-lg text-text-primary">Integrations</h1>
+        <p className="text-sm text-text-muted mt-2">Connect external systems and configure data sources</p>
+      </div>
 
-      {error && <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-      {message && <div className="rounded-md bg-green-50 p-3 text-sm text-green-700">{message}</div>}
+      {/* Alerts */}
+      {error && <Alert variant="error" title="Error">{error}</Alert>}
+      {message && <Alert variant="success" title="Success">{message}</Alert>}
 
+      {/* Create/Edit Connector Form */}
       {isAdmin && (
-        <section className="rounded-xl border border-slate-200 bg-white p-6">
-          <h2 className="mb-4 text-lg font-semibold text-ink">
-            {editing ? "Edit dynamic connector" : "New dynamic connector"}
-          </h2>
-          <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
-            {field("Name", form.name, (v) => setForm({ ...form, name: v }))}
-            {field("Base URL", form.base_url, (v) => setForm({ ...form, base_url: v }))}
-            <div className="space-y-1">
-              <label htmlFor="auth-type" className="text-sm font-medium text-slate-700">Auth type</label>
-              <select
-                id="auth-type"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                value={form.auth_type}
-                onChange={(e) => setForm({ ...form, auth_type: e.target.value as FormState["auth_type"] })}
-                disabled={loading}
-              >
-                <option value="none">None</option>
-                <option value="bearer">Bearer token</option>
-                <option value="basic">Basic (username / password)</option>
-                <option value="api_key">API key header</option>
-              </select>
-            </div>
-            {field(
-              "Auth config (JSON)",
-              form.auth_config,
-              (v) => setForm({ ...form, auth_config: v }),
-              "textarea",
-              '{"token":""} or {"username":"","password":""} or {"header_name":"X-Api-Key","api_key":""}'
-            )}
-            {field(
-              "Headers (JSON)",
-              form.headers,
-              (v) => setForm({ ...form, headers: v }),
-              "textarea",
-              '{"Accept":"application/json"}'
-            )}
-            {field(
-              "Pagination (JSON)",
-              form.pagination,
-              (v) => setForm({ ...form, pagination: v }),
-              "textarea",
-              '{"type":"offset","offset_param":"offset","limit_param":"limit","limit":100}'
-            )}
-            {field(
-              "Mappings (JSON)",
-              form.mappings,
-              (v) => setForm({ ...form, mappings: v }),
-              "textarea",
-              DEFAULT_COST_LINE_MAPPING
-            )}
-            <label className="flex items-center gap-2 text-sm text-slate-700 md:col-span-2">
-              <input
-                type="checkbox"
-                checked={form.enabled}
-                onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
-              />
-              Enabled
-            </label>
-            <div className="flex gap-3 md:col-span-2">
-              <button
-                type="submit"
-                disabled={loading}
-                className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-              >
-                {loading ? "Saving..." : editing ? "Update connector" : "Create connector"}
-              </button>
-              {editing && (
-                <button
-                  type="button"
-                  onClick={cancelEdit}
-                  className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700"
-                >
-                  Cancel
-                </button>
-              )}
-            </div>
-          </form>
-        </section>
-      )}
-
-      {testResult && (
-        <section className="rounded-xl border border-slate-200 bg-white p-6">
-          <h2 className="mb-2 text-lg font-semibold text-ink">Test result</h2>
-          <div className="space-y-1 text-sm text-slate-700">
-            <p>Status: <span className={testResult.status === "ok" ? "text-green-700" : "text-red-700"}>{testResult.status}</span></p>
-            <p>HTTP status: {testResult.http_status ?? "-"}</p>
-            <p>Latency: {testResult.latency_ms}ms</p>
-            <pre className="mt-2 max-h-48 overflow-auto rounded-md bg-slate-50 p-3 text-xs">{testResult.preview}</pre>
-          </div>
-        </section>
-      )}
-
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
-        <h2 className="mb-4 text-lg font-semibold text-ink">Dynamic connectors</h2>
-        {connectors.length === 0 ? (
-          <p className="text-sm text-slate-500">No dynamic connectors configured yet.</p>
-        ) : (
-          <ul className="space-y-3">
-            {connectors.map((c) => (
-              <li key={c.id} className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-4 md:flex-row md:items-center md:justify-between">
+        <Card>
+          <CardHeader>
+            <CardTitle>{editing ? "Edit Connector" : "Create Connector"}</CardTitle>
+            <CardDescription>
+              {editing ? "Update connector configuration" : "Set up a new REST API connector"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <p className="font-medium text-ink">{c.name}</p>
-                  <p className="text-sm text-slate-500">{c.base_url}</p>
-                  <p className="text-xs text-slate-400">
-                    {c.enabled ? "enabled" : "disabled"}
-                    {c.last_test_status && ` · last test: ${c.last_test_status}`}
-                  </p>
+                  <label className="block text-sm font-medium text-text-primary mb-2">Name <span className="text-error">*</span></label>
+                  <input
+                    type="text"
+                    placeholder="Connector name"
+                    className="w-full rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    disabled={loading}
+                    required
+                  />
                 </div>
-                {isAdmin && (
-                  <div className="flex flex-wrap gap-2">
-                    <button onClick={() => test(c.id!)} disabled={loading} className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm text-white disabled:opacity-50">Test</button>
-                    <button onClick={() => poll(c.id!)} disabled={loading} className="rounded-md bg-green-600 px-3 py-1.5 text-sm text-white disabled:opacity-50">Poll</button>
-                    <button onClick={() => edit(c)} disabled={loading} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700">Edit</button>
-                    <button onClick={() => remove(c.id!)} disabled={loading} className="rounded-md border border-red-300 px-3 py-1.5 text-sm text-red-700">Delete</button>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">Base URL <span className="text-error">*</span></label>
+                  <input
+                    type="text"
+                    placeholder="https://api.example.com"
+                    className="w-full rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                    value={form.base_url}
+                    onChange={(e) => setForm({ ...form, base_url: e.target.value })}
+                    disabled={loading}
+                    required
+                  />
+                </div>
+              </div>
 
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label htmlFor="auth-type" className="block text-sm font-medium text-text-primary mb-2">Auth Type</label>
+                  <select
+                    id="auth-type"
+                    className="w-full rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                    value={form.auth_type}
+                    onChange={(e) => setForm({ ...form, auth_type: e.target.value as FormState["auth_type"] })}
+                    disabled={loading}
+                  >
+                    <option value="none">None</option>
+                    <option value="bearer">Bearer Token</option>
+                    <option value="basic">Basic Auth</option>
+                    <option value="api_key">API Key Header</option>
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <label className="flex items-center gap-2 text-sm text-text-primary">
+                    <input
+                      type="checkbox"
+                      checked={form.enabled}
+                      onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
+                      className="h-4 w-4 accent-ink"
+                    />
+                    Enabled
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">Auth Config (JSON)</label>
+                <textarea
+                  className="w-full rounded-md border border-border-default px-3 py-2 text-sm font-mono text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink resize-none"
+                  rows={3}
+                  placeholder={`{"token":"..."}  or  {"username":"...","password":"..."}`}
+                  value={form.auth_config}
+                  onChange={(e) => setForm({ ...form, auth_config: e.target.value })}
+                  disabled={loading}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">Headers (JSON)</label>
+                <textarea
+                  className="w-full rounded-md border border-border-default px-3 py-2 text-sm font-mono text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink resize-none"
+                  rows={2}
+                  placeholder={`{"Accept":"application/json"}`}
+                  value={form.headers}
+                  onChange={(e) => setForm({ ...form, headers: e.target.value })}
+                  disabled={loading}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">Pagination (JSON)</label>
+                <textarea
+                  className="w-full rounded-md border border-border-default px-3 py-2 text-sm font-mono text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink resize-none"
+                  rows={3}
+                  placeholder={`{"type":"offset","offset_param":"offset","limit_param":"limit","limit":100}`}
+                  value={form.pagination}
+                  onChange={(e) => setForm({ ...form, pagination: e.target.value })}
+                  disabled={loading}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">Field Mappings (JSON)</label>
+                <textarea
+                  className="w-full rounded-md border border-border-default px-3 py-2 text-sm font-mono text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink resize-none"
+                  rows={4}
+                  value={form.mappings}
+                  onChange={(e) => setForm({ ...form, mappings: e.target.value })}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <Button variant="primary" size="md" type="submit" disabled={loading}>
+                  {loading ? "Saving..." : editing ? "Update Connector" : "Create Connector"}
+                </Button>
+                {editing && (
+                  <Button variant="outline" size="md" type="button" onClick={cancelEdit} disabled={loading}>
+                    Cancel
+                  </Button>
+                )}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Test Result */}
+      {testResult && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Test Result</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-text-muted">Status:</span>
+              <Badge variant={testResult.status === "ok" ? "success" : "error"}>
+                {testResult.status}
+              </Badge>
+            </div>
+            <p className="text-sm text-text-muted">HTTP: {testResult.http_status ?? "-"}</p>
+            <p className="text-sm text-text-muted">Latency: {testResult.latency_ms}ms</p>
+            {testResult.preview && (
+              <pre className="mt-3 max-h-48 overflow-auto rounded-md bg-bg-secondary p-3 text-xs font-mono text-text-primary break-words">
+                {testResult.preview}
+              </pre>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Connectors List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Dynamic Connectors</CardTitle>
+          <CardDescription>{connectors.length} connector{connectors.length !== 1 ? "s" : ""} configured</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {connectors.length === 0 ? (
+            <p className="text-sm text-text-muted py-4">No connectors configured yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {connectors.map((c) => (
+                <div key={c.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border border-border-default hover:bg-bg-secondary transition-colors">
+                  <div className="flex-1">
+                    <h3 className="font-medium text-text-primary">{c.name}</h3>
+                    <p className="text-sm text-text-muted mt-1">{c.base_url}</p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {c.enabled ? (
+                        <Badge variant="success" size="sm">Enabled</Badge>
+                      ) : (
+                        <Badge variant="secondary" size="sm">Disabled</Badge>
+                      )}
+                      {c.last_test_status && (
+                        <Badge variant={c.last_test_status === "ok" ? "success" : "warning"} size="sm">
+                          Last test: {c.last_test_status}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  {isAdmin && (
+                    <div className="flex gap-2 flex-wrap justify-end">
+                      <Button variant="outline" size="sm" onClick={() => test(c.id!)} disabled={loading}>
+                        Test
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => poll(c.id!)} disabled={loading}>
+                        Poll
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => edit(c)} disabled={loading}>
+                        Edit
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => remove(c.id!)} disabled={loading}>
+                        Delete
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Integration Sources Panel */}
       {session && <IntegrationSourcesPanel token={session.token} isAdmin={!!isAdmin} />}
     </div>
   );

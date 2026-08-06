@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/components/session";
 import { api } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
 
 const SCOPES = ["read", "write", "signature"];
 
@@ -77,79 +81,109 @@ export default function ApiKeysSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-ink">Public API keys</h1>
+      {/* Header */}
+      <div>
+        <h1 className="text-heading-lg text-text-primary">API Keys</h1>
+        <p className="text-sm text-text-muted mt-2">Create and manage API keys for programmatic access</p>
+      </div>
 
-      {error && <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-      {message && <div className="rounded-md bg-green-50 p-3 text-sm text-green-700">{message}</div>}
+      {/* Alerts */}
+      {error && <Alert variant="error" title="Error">{error}</Alert>}
+      {message && <Alert variant="success" title="Success">{message}</Alert>}
 
+      {/* Create Key Form */}
       {isAdmin && (
-        <section className="rounded-xl border border-slate-200 bg-white p-6">
-          <h2 className="mb-4 text-lg font-semibold text-ink">Create key</h2>
-          <form onSubmit={create} className="grid gap-4">
-            <input
-              type="text"
-              placeholder="Key name"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={loading}
-            />
-            <div className="flex gap-4 text-sm text-slate-700">
-              {SCOPES.map((s) => (
-                <label key={s} className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={selectedScopes.includes(s)}
-                    onChange={() => toggleScope(s)}
-                    disabled={loading}
-                  />
-                  {s}
-                </label>
-              ))}
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-fit rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-            >
-              Create key
-            </button>
-          </form>
+        <Card>
+          <CardHeader>
+            <CardTitle>Create API Key</CardTitle>
+            <CardDescription>Generate a new API key with specific permissions</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={create} className="space-y-4">
+              <div>
+                <label htmlFor="key-name" className="block text-sm font-medium text-text-primary mb-2">Key Name <span className="text-error">*</span></label>
+                <input
+                  id="key-name"
+                  type="text"
+                  placeholder="e.g., Integration Server, Mobile App"
+                  className="w-full rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+              </div>
 
-          {plaintext && (
-            <div className="mt-4 rounded-md bg-amber-50 p-3">
-              <p className="text-sm font-medium text-amber-800">Copy this key now:</p>
-              <code className="block break-all text-sm text-amber-900">{plaintext}</code>
-            </div>
-          )}
-        </section>
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-3">Scopes</label>
+                <div className="flex flex-wrap gap-3">
+                  {SCOPES.map((s) => (
+                    <label key={s} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedScopes.includes(s)}
+                        onChange={() => toggleScope(s)}
+                        disabled={loading}
+                        className="h-4 w-4 accent-ink"
+                      />
+                      <span className="text-sm font-medium text-text-primary capitalize">{s}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <Button variant="primary" size="md" type="submit" disabled={loading}>
+                {loading ? "Creating..." : "Create Key"}
+              </Button>
+            </form>
+
+            {plaintext && (
+              <Alert variant="warning" title="Copy your key now">
+                <code className="block break-all bg-bg-secondary rounded px-2 py-1 text-xs font-mono text-text-primary mt-2">
+                  {plaintext}
+                </code>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
       )}
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
-        <h2 className="mb-4 text-lg font-semibold text-ink">Active keys</h2>
-        {keys.length === 0 ? (
-          <p className="text-sm text-slate-500">No API keys yet.</p>
-        ) : (
-          <ul className="space-y-3">
-            {keys.map((k) => (
-              <li key={k.id} className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 p-3">
-                <div>
-                  <p className="font-medium text-ink">{k.name}</p>
-                  <p className="text-xs text-slate-500">{k.scopes.join(", ")}</p>
+      {/* Active Keys List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Active Keys</CardTitle>
+          <CardDescription>{keys.length} API key{keys.length !== 1 ? "s" : ""} configured</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {keys.length === 0 ? (
+            <p className="text-sm text-text-muted py-4">No API keys yet. Create one to get started.</p>
+          ) : (
+            <div className="space-y-3">
+              {keys.map((k) => (
+                <div key={k.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border border-border-default hover:bg-bg-secondary transition-colors">
+                  <div className="flex-1">
+                    <p className="font-medium text-text-primary">{k.name}</p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {k.scopes.map((scope) => (
+                        <Badge key={scope} variant="secondary" size="sm">{scope}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                  {isAdmin && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => revoke(k.id)}
+                    >
+                      Revoke
+                    </Button>
+                  )}
                 </div>
-                {isAdmin && (
-                  <button
-                    onClick={() => revoke(k.id)}
-                    className="rounded-md border border-red-300 px-3 py-1.5 text-sm text-red-700"
-                  >
-                    Revoke
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

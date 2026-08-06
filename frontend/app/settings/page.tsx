@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, type AccountSettings, type ReportTemplate } from "@/lib/api";
 import { useSession } from "@/components/session";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
 
 export default function SettingsPage() {
   const { session, signOut } = useSession();
@@ -310,279 +314,476 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-ink">Account & Security</h1>
-      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-      {message && <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">{message}</p>}
+      {/* Header */}
+      <div>
+        <h1 className="text-heading-lg text-text-primary">Account & Security Settings</h1>
+        <p className="text-sm text-text-muted mt-2">Manage your profile, security, and preferences</p>
+      </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
-        <h2 className="mb-4 text-lg font-semibold text-ink">Profile</h2>
-        {settings ? (
-          <form onSubmit={updateProfile} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="settings-email" className="mb-1 block text-sm font-medium text-slate-700">Email</label>
-                <input id="settings-email" readOnly value={settings.email} className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-500" />
-                {settings.email_verified && <span className="text-xs text-green-600">Verified</span>}
-              </div>
-              <div>
-                <label htmlFor="settings-phone" className="mb-1 block text-sm font-medium text-slate-700">Phone</label>
-                <input
-                  id="settings-phone"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                />
-                {settings.mobile_verified ? (
-                  <span className="text-xs text-green-600">Verified</span>
-                ) : (
-                  <span className="text-xs text-amber-600">Unverified</span>
-                )}
-              </div>
-              <div>
-                <label htmlFor="settings-org" className="mb-1 block text-sm font-medium text-slate-700">Organisation / Firm</label>
-                <input
-                  id="settings-org"
-                  value={form.org_name}
-                  onChange={(e) => setForm({ ...form, org_name: e.target.value })}
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label htmlFor="settings-city" className="mb-1 block text-sm font-medium text-slate-700">City</label>
-                <input
-                  id="settings-city"
-                  value={form.city}
-                  onChange={(e) => setForm({ ...form, city: e.target.value })}
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label htmlFor="settings-dob" className="mb-1 block text-sm font-medium text-slate-700">Date of Birth</label>
-                <input
-                  id="settings-dob"
-                  type="date"
-                  value={form.dob}
-                  onChange={(e) => setForm({ ...form, dob: e.target.value })}
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-            >
-              Save profile
-            </button>
-          </form>
-        ) : (
-          <p className="text-sm text-slate-500">Loading profile...</p>
-        )}
-      </section>
+      {/* Alerts */}
+      {error && <Alert variant="error" title="Error">{error}</Alert>}
+      {message && <Alert variant="success" title="Success">{message}</Alert>}
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-ink">Notification preferences</h2>
-          <Link href="/settings/notifications" className="text-sm text-indigo-600 hover:underline">Edit preferences</Link>
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
-        <h2 className="mb-4 text-lg font-semibold text-ink">Email</h2>
-        {emailChange.step === "form" ? (
-          <form onSubmit={requestEmailChange} className="space-y-4">
-            <div>
-              <label htmlFor="settings-new-email" className="mb-1 block text-sm font-medium text-slate-700">New email</label>
-              <input
-                id="settings-new-email"
-                type="email"
-                value={emailChange.new_email}
-                onChange={(e) => setEmailChange({ ...emailChange, new_email: e.target.value })}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                required
-              />
-            </div>
-            <button type="submit" disabled={loading} className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
-              Request email change
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={verifyEmailChange} className="space-y-4">
-            <p className="text-sm text-slate-600">A verification code was sent to {emailChange.new_email}.</p>
-            <div>
-              <label htmlFor="settings-email-token" className="mb-1 block text-sm font-medium text-slate-700">Verification code</label>
-              <input
-                id="settings-email-token"
-                value={emailChange.token}
-                onChange={(e) => setEmailChange({ ...emailChange, token: e.target.value })}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                required
-              />
-            </div>
-            <button type="submit" disabled={loading} className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
-              Verify new email
-            </button>
-          </form>
-        )}
-      </section>
-
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
-        <h2 className="mb-4 text-lg font-semibold text-ink">Document class access</h2>
-        <p className="mb-4 text-sm text-slate-600">Set the minimum role required to upload or view each document class. No rule means everyone in the workspace has access.</p>
-        <form onSubmit={saveAcl} className="mb-4 grid gap-3 sm:grid-cols-4">
-          <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={aclForm.document_class} onChange={(e) => setAclForm({ ...aclForm, document_class: e.target.value })}>
-            {DOCUMENT_CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={aclForm.min_role} onChange={(e) => setAclForm({ ...aclForm, min_role: e.target.value })}>
-            {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
-          <button type="submit" disabled={loading} className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-50 sm:col-span-2">Save rule</button>
-        </form>
-        {aclRules.length > 0 && (
-          <ul className="space-y-2">
-            {aclRules.map((r) => (
-              <li key={r.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
-                <span className="capitalize">{r.document_class}</span>
-                <span className="text-slate-600">min role: {r.min_role}</span>
-                <button onClick={() => removeAcl(r.document_class)} disabled={loading} className="text-sm text-red-600 hover:underline disabled:opacity-50">Remove</button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
-        <h2 className="mb-4 text-lg font-semibold text-ink">Report templates</h2>
-        <p className="mb-4 text-sm text-slate-600">Customise the title, footer and watermark for exported reports. The default template is applied automatically.</p>
-        <form onSubmit={saveTemplate} className="mb-4 grid gap-3 sm:grid-cols-2">
-          <input placeholder="Template name" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={templateForm.name || ""} onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })} required />
-          <input placeholder="Report title (e.g. Bid Review Pack)" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={templateForm.report_title || ""} onChange={(e) => setTemplateForm({ ...templateForm, report_title: e.target.value })} />
-          <input placeholder="Footer text" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={templateForm.footer_text || ""} onChange={(e) => setTemplateForm({ ...templateForm, footer_text: e.target.value })} />
-          <input placeholder="Watermark text" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={templateForm.watermark_text || ""} onChange={(e) => setTemplateForm({ ...templateForm, watermark_text: e.target.value })} />
-          <input placeholder="Primary colour (hex)" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={templateForm.primary_color || ""} onChange={(e) => setTemplateForm({ ...templateForm, primary_color: e.target.value })} />
-          <input placeholder="Logo URL" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={templateForm.logo_url || ""} onChange={(e) => setTemplateForm({ ...templateForm, logo_url: e.target.value })} />
-          <button type="submit" disabled={loading} className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-50 sm:col-span-2">{editingTemplate ? "Update template" : "Create template"}</button>
-        </form>
-        {templates.length > 0 && (
-          <ul className="space-y-2">
-            {templates.map((t) => (
-              <li key={t.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
-                <span>{t.name} {t.is_default && <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">default</span>}</span>
-                <div className="flex gap-3">
-                  <button onClick={() => editTemplate(t)} disabled={loading} className="text-indigo-600 hover:underline disabled:opacity-50">Edit</button>
-                  {!t.is_default && <button onClick={() => setDefaultTemplate(t.id)} disabled={loading} className="text-indigo-600 hover:underline disabled:opacity-50">Set default</button>}
-                  <button onClick={() => deleteTemplate(t.id)} disabled={loading} className="text-red-600 hover:underline disabled:opacity-50">Delete</button>
+      {/* Profile Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Profile Information</CardTitle>
+          <CardDescription>Update your personal and organization details</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {settings ? (
+            <form onSubmit={updateProfile} className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label htmlFor="settings-email" className="block text-sm font-medium text-text-primary mb-2">Email</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="settings-email"
+                      readOnly
+                      value={settings.email}
+                      className="flex-1 rounded-md border border-border-default bg-bg-secondary px-3 py-2 text-sm text-text-muted"
+                    />
+                    {settings.email_verified && (
+                      <Badge variant="success" size="sm">Verified</Badge>
+                    )}
+                  </div>
                 </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                <div>
+                  <label htmlFor="settings-phone" className="block text-sm font-medium text-text-primary mb-2">Phone</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="settings-phone"
+                      type="tel"
+                      value={form.phone}
+                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                      className="flex-1 rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                    />
+                    {settings.mobile_verified ? (
+                      <Badge variant="success" size="sm">Verified</Badge>
+                    ) : (
+                      <Badge variant="warning" size="sm">Verify</Badge>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="settings-org" className="block text-sm font-medium text-text-primary mb-2">Organization / Firm</label>
+                  <input
+                    id="settings-org"
+                    type="text"
+                    placeholder="Your company name"
+                    value={form.org_name}
+                    onChange={(e) => setForm({ ...form, org_name: e.target.value })}
+                    className="w-full rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="settings-city" className="block text-sm font-medium text-text-primary mb-2">City</label>
+                  <input
+                    id="settings-city"
+                    type="text"
+                    placeholder="Your city"
+                    value={form.city}
+                    onChange={(e) => setForm({ ...form, city: e.target.value })}
+                    className="w-full rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label htmlFor="settings-dob" className="block text-sm font-medium text-text-primary mb-2">Date of Birth</label>
+                  <input
+                    id="settings-dob"
+                    type="date"
+                    value={form.dob}
+                    onChange={(e) => setForm({ ...form, dob: e.target.value })}
+                    className="w-full rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                  />
+                </div>
+              </div>
+              <Button variant="primary" size="md" type="submit" disabled={loading}>
+                {loading ? "Saving..." : "Save Profile"}
+              </Button>
+            </form>
+          ) : (
+            <p className="text-sm text-text-muted py-4">Loading profile...</p>
+          )}
+        </CardContent>
+      </Card>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
-        <h2 className="mb-4 text-lg font-semibold text-ink">Data governance</h2>
-        <form onSubmit={saveGovernance} className="mb-4 grid gap-3 sm:grid-cols-2">
-          <input placeholder="Data region (e.g. IN, EU, US)" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={governance.data_region} onChange={(e) => setGovernance({ ...governance, data_region: e.target.value })} />
-          <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={governance.encryption_at_rest} onChange={(e) => setGovernance({ ...governance, encryption_at_rest: e.target.value })}>
-            <option value="none">No encryption at rest (default)</option>
-            <option value="sse-s3">SSE-S3</option>
-            <option value="aws:kms">AWS KMS</option>
-          </select>
-          <input type="number" min={1} placeholder="Retention days" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={governance.retention_days} onChange={(e) => setGovernance({ ...governance, retention_days: e.target.value })} />
-          <input type="number" min={1} placeholder="Archive after days" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={governance.archive_after_days} onChange={(e) => setGovernance({ ...governance, archive_after_days: e.target.value })} />
-          <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2">
-            <input type="checkbox" checked={governance.legal_hold} onChange={(e) => setGovernance({ ...governance, legal_hold: e.target.checked })} />
-            Legal hold (blocks retention actions)
-          </label>
-          <button type="submit" disabled={loading} className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-50 sm:col-span-2">Save data governance</button>
-        </form>
-        {retentionCandidates.length > 0 && (
-          <div className="mt-4">
-            <h3 className="text-sm font-semibold text-slate-700">Retention candidates ({retentionCandidates.length})</h3>
-            <ul className="mt-2 space-y-2">
-              {retentionCandidates.map((d) => (
-                <li key={d.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
-                  <span>{d.filename} <span className="text-slate-500">({d.kind})</span></span>
-                  <span className="text-slate-500">{new Date(d.created_at).toLocaleDateString()}</span>
-                </li>
+      {/* Email Change Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Change Email</CardTitle>
+          <CardDescription>Update your email address securely</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {emailChange.step === "form" ? (
+            <form onSubmit={requestEmailChange} className="space-y-4">
+              <div>
+                <label htmlFor="settings-new-email" className="block text-sm font-medium text-text-primary mb-2">New Email <span className="text-error">*</span></label>
+                <input
+                  id="settings-new-email"
+                  type="email"
+                  placeholder="your.newemail@example.com"
+                  value={emailChange.new_email}
+                  onChange={(e) => setEmailChange({ ...emailChange, new_email: e.target.value })}
+                  className="w-full rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                  required
+                />
+              </div>
+              <Button variant="primary" size="md" type="submit" disabled={loading}>
+                {loading ? "Sending..." : "Request Email Change"}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={verifyEmailChange} className="space-y-4">
+              <Alert variant="info" title="Verification Code Sent">
+                A verification code was sent to <strong>{emailChange.new_email}</strong>
+              </Alert>
+              <div>
+                <label htmlFor="settings-email-token" className="block text-sm font-medium text-text-primary mb-2">Verification Code <span className="text-error">*</span></label>
+                <input
+                  id="settings-email-token"
+                  type="text"
+                  placeholder="Enter code"
+                  value={emailChange.token}
+                  onChange={(e) => setEmailChange({ ...emailChange, token: e.target.value })}
+                  className="w-full rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                  required
+                />
+              </div>
+              <Button variant="primary" size="md" type="submit" disabled={loading}>
+                {loading ? "Verifying..." : "Verify & Update Email"}
+              </Button>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Quick Links */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Notification Preferences</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-text-muted mb-4">Manage how you receive notifications</p>
+            <Link href="/settings/notifications">
+              <Button variant="outline" size="md" className="w-full">
+                Edit Preferences
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">API & Integrations</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <Link href="/settings/api-keys">
+                <Button variant="outline" size="sm" className="w-full">
+                  Manage API Keys
+                </Button>
+              </Link>
+              <Link href="/settings/integrations">
+                <Button variant="outline" size="sm" className="w-full">
+                  Manage Integrations
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Document Access Control */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Document Access Control</CardTitle>
+          <CardDescription>Set minimum role requirements for document classes</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <form onSubmit={saveAcl} className="grid gap-3 md:grid-cols-4">
+            <select
+              value={aclForm.document_class}
+              onChange={(e) => setAclForm({ ...aclForm, document_class: e.target.value })}
+              className="rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+            >
+              {DOCUMENT_CLASSES.map((c) => (
+                <option key={c} value={c}>{c}</option>
               ))}
-            </ul>
-          </div>
-        )}
-      </section>
+            </select>
+            <select
+              value={aclForm.min_role}
+              onChange={(e) => setAclForm({ ...aclForm, min_role: e.target.value })}
+              className="rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+            >
+              {ROLES.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+            <Button variant="primary" size="md" type="submit" disabled={loading} className="md:col-span-2">
+              {loading ? "Saving..." : "Save Rule"}
+            </Button>
+          </form>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
-        <h2 className="mb-4 text-lg font-semibold text-ink">Security</h2>
-        <form onSubmit={changePassword} className="space-y-4">
-          <div>
-            <label htmlFor="settings-current-password" className="mb-1 block text-sm font-medium text-slate-700">Current password</label>
-            <input
-              id="settings-current-password"
-              type="password"
-              value={password.current}
-              onChange={(e) => setPassword({ ...password, current: e.target.value })}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="settings-new-password" className="mb-1 block text-sm font-medium text-slate-700">New password</label>
-            <input
-              id="settings-new-password"
-              type="password"
-              value={password.new}
-              onChange={(e) => setPassword({ ...password, new: e.target.value })}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              required
-              minLength={8}
-            />
-          </div>
-          <div>
-            <label htmlFor="settings-confirm-password" className="mb-1 block text-sm font-medium text-slate-700">Confirm new password</label>
-            <input
-              id="settings-confirm-password"
-              type="password"
-              value={password.confirm}
-              onChange={(e) => setPassword({ ...password, confirm: e.target.value })}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              required
-              minLength={8}
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            Change password
-          </button>
-        </form>
+          {aclRules.length > 0 && (
+            <div className="space-y-2 border-t border-border-default pt-4">
+              <p className="text-sm font-medium text-text-primary">Active Rules</p>
+              {aclRules.map((r) => (
+                <div key={r.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-lg bg-bg-secondary">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary capitalize">{r.document_class}</p>
+                    <p className="text-xs text-text-muted">min role: {r.min_role}</p>
+                  </div>
+                  <Button variant="destructive" size="sm" onClick={() => removeAcl(r.document_class)} disabled={loading}>
+                    Remove
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-        <div className="mt-6 flex flex-wrap gap-3 border-t border-slate-100 pt-4">
-          <button
-            onClick={signOut}
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Sign out
-          </button>
-          <button
-            onClick={exportData}
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Export account data
-          </button>
-          <button
-            onClick={deleteAccount}
-            className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-          >
-            Delete account
-          </button>
-        </div>
-        <div className="mt-4">
-          <a href="/settings/integrations" className="text-sm text-indigo-600 hover:underline">Manage integrations &rarr;</a>
-          <a href="/settings/api-keys" className="ml-4 text-sm text-indigo-600 hover:underline">Manage API keys &rarr;</a>
-        </div>
-      </section>
+      {/* Report Templates */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Report Templates</CardTitle>
+          <CardDescription>Customize export layouts with your branding</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <form onSubmit={saveTemplate} className="grid gap-3 md:grid-cols-2">
+            <input
+              type="text"
+              placeholder="Template name"
+              className="rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+              value={templateForm.name || ""}
+              onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
+              required
+            />
+            <input
+              type="text"
+              placeholder="Report title"
+              className="rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+              value={templateForm.report_title || ""}
+              onChange={(e) => setTemplateForm({ ...templateForm, report_title: e.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="Footer text"
+              className="rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+              value={templateForm.footer_text || ""}
+              onChange={(e) => setTemplateForm({ ...templateForm, footer_text: e.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="Watermark text"
+              className="rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+              value={templateForm.watermark_text || ""}
+              onChange={(e) => setTemplateForm({ ...templateForm, watermark_text: e.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="Primary color (hex)"
+              className="rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+              value={templateForm.primary_color || ""}
+              onChange={(e) => setTemplateForm({ ...templateForm, primary_color: e.target.value })}
+            />
+            <input
+              type="url"
+              placeholder="Logo URL"
+              className="rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+              value={templateForm.logo_url || ""}
+              onChange={(e) => setTemplateForm({ ...templateForm, logo_url: e.target.value })}
+            />
+            <Button variant="primary" size="md" type="submit" disabled={loading} className="md:col-span-2">
+              {editingTemplate ? "Update Template" : "Create Template"}
+            </Button>
+          </form>
+
+          {templates.length > 0 && (
+            <div className="space-y-2 border-t border-border-default pt-4">
+              <p className="text-sm font-medium text-text-primary">Saved Templates</p>
+              {templates.map((t) => (
+                <div key={t.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-lg bg-bg-secondary">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">{t.name}</p>
+                    {t.is_default && <Badge variant="success" size="sm" className="mt-1">Default</Badge>}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => editTemplate(t)} disabled={loading}>
+                      Edit
+                    </Button>
+                    {!t.is_default && (
+                      <Button variant="outline" size="sm" onClick={() => setDefaultTemplate(t.id)} disabled={loading}>
+                        Set Default
+                      </Button>
+                    )}
+                    <Button variant="destructive" size="sm" onClick={() => deleteTemplate(t.id)} disabled={loading}>
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Data Governance */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Data Governance</CardTitle>
+          <CardDescription>Configure data residency, retention, and encryption</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={saveGovernance} className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">Data Region</label>
+                <input
+                  type="text"
+                  placeholder="e.g., IN, EU, US"
+                  className="w-full rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                  value={governance.data_region}
+                  onChange={(e) => setGovernance({ ...governance, data_region: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">Encryption at Rest</label>
+                <select
+                  value={governance.encryption_at_rest}
+                  onChange={(e) => setGovernance({ ...governance, encryption_at_rest: e.target.value })}
+                  className="w-full rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                >
+                  <option value="none">None (default)</option>
+                  <option value="sse-s3">SSE-S3</option>
+                  <option value="aws:kms">AWS KMS</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">Retention Days</label>
+                <input
+                  type="number"
+                  min={1}
+                  placeholder="Leave blank for no retention"
+                  className="w-full rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                  value={governance.retention_days}
+                  onChange={(e) => setGovernance({ ...governance, retention_days: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">Archive After Days</label>
+                <input
+                  type="number"
+                  min={1}
+                  placeholder="Leave blank for no archival"
+                  className="w-full rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                  value={governance.archive_after_days}
+                  onChange={(e) => setGovernance({ ...governance, archive_after_days: e.target.value })}
+                />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-text-primary">
+              <input
+                type="checkbox"
+                checked={governance.legal_hold}
+                onChange={(e) => setGovernance({ ...governance, legal_hold: e.target.checked })}
+                className="h-4 w-4 accent-ink"
+              />
+              Legal Hold (blocks retention actions)
+            </label>
+            <Button variant="primary" size="md" type="submit" disabled={loading}>
+              {loading ? "Saving..." : "Save Governance Settings"}
+            </Button>
+          </form>
+
+          {retentionCandidates.length > 0 && (
+            <div className="mt-6 border-t border-border-default pt-4">
+              <p className="text-sm font-medium text-text-primary mb-3">Retention Candidates ({retentionCandidates.length})</p>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {retentionCandidates.map((d) => (
+                  <div key={d.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-lg bg-bg-secondary text-sm">
+                    <div>
+                      <p className="font-medium text-text-primary">{d.filename}</p>
+                      <p className="text-xs text-text-muted">{d.kind} • {new Date(d.created_at).toLocaleDateString("en-IN")}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Security Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Security</CardTitle>
+          <CardDescription>Manage passwords and sensitive account actions</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Change Password */}
+          <div className="border-b border-border-default pb-6">
+            <h3 className="text-sm font-medium text-text-primary mb-4">Change Password</h3>
+            <form onSubmit={changePassword} className="space-y-4">
+              <div>
+                <label htmlFor="settings-current-password" className="block text-sm font-medium text-text-primary mb-2">Current Password <span className="text-error">*</span></label>
+                <input
+                  id="settings-current-password"
+                  type="password"
+                  value={password.current}
+                  onChange={(e) => setPassword({ ...password, current: e.target.value })}
+                  className="w-full rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="settings-new-password" className="block text-sm font-medium text-text-primary mb-2">New Password <span className="text-error">*</span></label>
+                <input
+                  id="settings-new-password"
+                  type="password"
+                  minLength={8}
+                  value={password.new}
+                  onChange={(e) => setPassword({ ...password, new: e.target.value })}
+                  className="w-full rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="settings-confirm-password" className="block text-sm font-medium text-text-primary mb-2">Confirm Password <span className="text-error">*</span></label>
+                <input
+                  id="settings-confirm-password"
+                  type="password"
+                  minLength={8}
+                  value={password.confirm}
+                  onChange={(e) => setPassword({ ...password, confirm: e.target.value })}
+                  className="w-full rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                  required
+                />
+              </div>
+              <Button variant="primary" size="md" type="submit" disabled={loading}>
+                {loading ? "Updating..." : "Change Password"}
+              </Button>
+            </form>
+          </div>
+
+          {/* Account Actions */}
+          <div>
+            <h3 className="text-sm font-medium text-text-primary mb-4">Account Actions</h3>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="md" onClick={signOut}>
+                Sign Out
+              </Button>
+              <Button variant="outline" size="md" onClick={exportData}>
+                Export Data
+              </Button>
+              <Button variant="destructive" size="md" onClick={deleteAccount}>
+                Delete Account
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

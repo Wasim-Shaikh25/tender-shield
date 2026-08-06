@@ -5,12 +5,16 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { api, type ProjectState } from "@/lib/api";
 import { useSession } from "@/components/session";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
 
-const HEALTH_CLASS: Record<string, string> = {
-  healthy: "bg-emerald-100 text-emerald-700",
-  at_risk: "bg-amber-100 text-amber-700",
-  poor: "bg-rose-100 text-rose-700",
-  completed: "bg-slate-100 text-slate-600",
+const HEALTH_VARIANT: Record<string, "success" | "warning" | "error" | "secondary"> = {
+  healthy: "success",
+  at_risk: "warning",
+  poor: "error",
+  completed: "secondary",
 };
 
 const HEALTH_LABEL: Record<string, string> = {
@@ -33,7 +37,7 @@ export default function ProjectStatePage() {
     if (!session || !id) return;
     api.getProjectState(session.token, id)
       .then(setState)
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load state"))
+      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load project state"))
       .finally(() => setLoading(false));
   }, [session, id]);
 
@@ -42,103 +46,135 @@ export default function ProjectStatePage() {
     return null;
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Loading state…</p>;
-  if (error) return <p className="text-sm text-red-600">{error}</p>;
-  if (!state) return <p className="text-sm text-slate-500">Not found.</p>;
+  if (loading) return <p className="p-6 text-sm text-text-muted">Loading project state…</p>;
+  if (error) return <Alert variant="error" title="Error">{error}</Alert>;
+  if (!state) return <Alert variant="info" title="Not Found">Project state not found.</Alert>;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div className="flex items-center gap-2 text-sm text-slate-500">
-        <Link href="/projects" className="hover:text-ink">All Projects</Link>
+    <div className="space-y-6">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 text-sm text-text-muted">
+        <Link href="/projects" className="hover:text-text-primary">All Projects</Link>
         <span>/</span>
         <span>State</span>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-6">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold text-ink">{state.title}</h1>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">
-            {state.state_label}
-          </span>
-          <span className={`rounded-full px-3 py-1 text-sm font-medium ${HEALTH_CLASS[state.health] || ""}`}>
-            {HEALTH_LABEL[state.health] || state.health}
-          </span>
-        </div>
-        <p className="mt-2 text-sm text-slate-600">
-          {state.employer || "No employer"} · {state.jurisdiction} ·{" "}
-          {state.contract_value_minor ? `${state.contract_value_minor} ${state.currency}` : "No value"} ·{" "}
-          {state.submission_due
-            ? `Deadline ${new Date(state.submission_due).toLocaleDateString()} (${state.days_to_deadline}d)`
-            : "No deadline"}
-        </p>
-
-        <div className="mt-6">
-          <h2 className="text-sm font-semibold text-slate-700">Next action</h2>
-          <div className="mt-2 flex items-center gap-3">
-            <Link
-              href={state.next_action.link}
-              className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-            >
-              {state.next_action.label}
-            </Link>
-            <Link
-              href={`/opportunities/${id}`}
-              className="text-sm text-blue-600 hover:underline"
-            >
-              Open opportunity
-            </Link>
+      {/* Project Header */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center gap-3 mb-2">
+            <CardTitle className="flex-1">{state.title}</CardTitle>
+            <Badge variant="secondary" size="sm">{state.state_label}</Badge>
+            <Badge variant={HEALTH_VARIANT[state.health] || "secondary"} size="sm">
+              {HEALTH_LABEL[state.health] || state.health}
+            </Badge>
           </div>
-        </div>
-
-        {state.blockers.length > 0 && (
-          <div className="mt-6">
-            <h2 className="text-sm font-semibold text-slate-700">Blockers</h2>
-            <ul className="mt-2 space-y-2">
-              {state.blockers.map((b, i) => (
-                <li key={i} className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                  {b.message}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <div className="mt-6">
-          <h2 className="text-sm font-semibold text-slate-700">Completed gates</h2>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {state.completed_gates.length === 0 && (
-              <span className="text-sm text-slate-500">None yet.</span>
-            )}
-            {state.completed_gates.map((g) => (
-              <span
-                key={g}
-                className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"
+          <CardDescription className="space-y-1">
+            <div>{state.employer || "No employer"} · {state.jurisdiction}</div>
+            <div>
+              {state.contract_value_minor ? `${state.contract_value_minor} ${state.currency}` : "No value"} ·{" "}
+              {state.submission_due
+                ? `Deadline ${new Date(state.submission_due).toLocaleDateString()} (${state.days_to_deadline}d)`
+                : "No deadline"}
+            </div>
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <h3 className="text-sm font-medium text-text-primary mb-3">Next Action</h3>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="primary"
+                size="md"
+                asChild
               >
-                {g.replace(/_/g, " ")}
-              </span>
-            ))}
+                <Link href={state.next_action.link}>
+                  {state.next_action.label}
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                size="md"
+                asChild
+              >
+                <Link href={`/opportunities/${id}`}>
+                  Open Opportunity
+                </Link>
+              </Button>
+            </div>
           </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <div className="rounded-lg bg-slate-50 p-3">
-            <p className="text-lg font-bold text-ink">{state.document_count}</p>
-            <p className="text-xs text-slate-500">Documents</p>
+      {/* Blockers */}
+      {state.blockers.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Blockers</CardTitle>
+            <CardDescription>{state.blockers.length} issue{state.blockers.length !== 1 ? "s" : ""}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {state.blockers.map((b, i) => (
+                <div key={i} className="flex items-start gap-3 p-3 rounded-lg border border-warning bg-warning/5">
+                  <div className="flex-1">
+                    <p className="text-sm text-text-primary">{b.message}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Completed Gates */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Completed Gates</CardTitle>
+          <CardDescription>{state.completed_gates.length} gate{state.completed_gates.length !== 1 ? "s" : ""}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {state.completed_gates.length === 0 ? (
+            <p className="text-sm text-text-muted">No gates completed yet.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {state.completed_gates.map((g) => (
+                <Badge key={g} variant="success" size="sm">
+                  {g.replace(/_/g, " ")}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Metrics */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Project Metrics</CardTitle>
+          <CardDescription>Overview of project documents and findings</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="rounded-lg bg-bg-secondary p-4 text-center">
+              <p className="text-2xl font-bold text-text-primary">{state.document_count}</p>
+              <p className="text-xs text-text-muted mt-1">Documents</p>
+            </div>
+            <div className="rounded-lg bg-bg-secondary p-4 text-center">
+              <p className="text-2xl font-bold text-text-primary">{state.finding_count}</p>
+              <p className="text-xs text-text-muted mt-1">Findings</p>
+            </div>
+            <div className="rounded-lg bg-bg-secondary p-4 text-center">
+              <p className="text-2xl font-bold text-text-primary">{state.unreviewed_finding_count}</p>
+              <p className="text-xs text-text-muted mt-1">Open Findings</p>
+            </div>
+            <div className="rounded-lg bg-bg-secondary p-4 text-center">
+              <p className="text-2xl font-bold text-text-primary">{state.baseline_count}</p>
+              <p className="text-xs text-text-muted mt-1">Baselines</p>
+            </div>
           </div>
-          <div className="rounded-lg bg-slate-50 p-3">
-            <p className="text-lg font-bold text-ink">{state.finding_count}</p>
-            <p className="text-xs text-slate-500">Findings</p>
-          </div>
-          <div className="rounded-lg bg-slate-50 p-3">
-            <p className="text-lg font-bold text-ink">{state.unreviewed_finding_count}</p>
-            <p className="text-xs text-slate-500">Open findings</p>
-          </div>
-          <div className="rounded-lg bg-slate-50 p-3">
-            <p className="text-lg font-bold text-ink">{state.baseline_count}</p>
-            <p className="text-xs text-slate-500">Baselines</p>
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

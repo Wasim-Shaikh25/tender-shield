@@ -6,31 +6,87 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — Complete UI/UX Redesign (Phase 1-4)
+
+**PHASE 1: Design System Foundation**
+- **Comprehensive Design Tokens** — Established semantic color system (primary, secondary, 
+  tertiary, status colors), spacing scale, typography scale, shadows, radius, and transitions.
+- **Tailwind Configuration** — Created `tailwind.config.ts` with 40+ custom tokens covering
+  all design system aspects.
+- **Global Styles** — Enhanced `globals.css` with CSS variables, focus states, form base styles,
+  link styling, and accessibility features (WCAG AA compliance).
+- **UI Component Library** — Created foundational components (Button, Input, Card, Badge, Alert)
+  with variants and proper accessibility attributes.
+
+**PHASE 2: Global Application Shell**
+- **AppShell Redesign** — Completely redesigned navigation with:
+  - Modern sidebar with improved visual hierarchy
+  - Workspace selector dropdown (replaces basic `<select>`)
+  - Better visual separation of main nav and account sections
+  - Smooth mobile drawer transitions
+  - Improved sign-out button styling
+  - Enhanced responsive behavior
+
+**PHASE 3: Core Page Redesigns**
+- **Authentication Pages** (`/login`, signup, verify, MFA, workspace creation):
+  - Redesigned with Card-based layout
+  - New Input component with labels, help text, error states
+  - Improved Button styling with loading states
+  - Better form field organization
+  - Clearer multi-step feedback
+
+- **Landing Page** (`/`):
+  - Modern hero section with improved copy
+  - Feature cards with better typography hierarchy
+  - Enhanced CTA buttons with variants
+  - Added info badge for key differentiator
+  - Better spacing and visual rhythm
+
+- **Opportunities Board** (`/opportunities`):
+  - Redesigned card grid with hover states
+  - Improved create form with better input styling
+  - Better empty state with actionable messaging
+  - Enhanced deadline badge styling
+  - Cleaner status indicators
+
+- **Dashboard** (`/dashboard/state`):
+  - Redesigned state metrics cards
+  - Improved deadline listing with urgency colors (red/amber/info)
+  - Better visual hierarchy using Card components
+  - Loading and empty state improvements
+  - Enhanced date formatting for Indian locale
+
+- **Projects List** (`/projects`):
+  - Redesigned filter UI with organized sections
+  - Improved state summary cards with click-to-filter
+  - Better health status badges with color variants
+  - Enhanced project card details with metadata
+  - Blocker warnings with better visibility
+  - Improved mobile responsiveness
+
 ### Done — UI/UX Development Tools Setup
 
-- **shadcn/ui** — Installed as component library for Next.js frontend; `components.json`
-  configured for automatic component scaffolding and CLI-based component installation.
-- **Framer Motion** — Added npm dependency for micro-interactions, smooth animations,
-  and gesture-driven UX enhancements across the app.
-- **UI/UX Pro Max Skill** — Installed comprehensive design intelligence AI skill with:
-  - 84 UI styles (landing, app interface, charts)
-  - 192 color palettes with psychology insights
-  - 74 font pairings (Google Fonts ready)
-  - 98 UX guidelines and best practices
-  - 25 chart types across 22 tech stacks
-  - Automated design system generation engine
-  - Sub-skills: design-system, brand, ui-styling, design, slides, banner-design
-- **UI Development Guide** — Created `UI_SETUP_GUIDE.md` with installation summary,
-  usage patterns, component import commands, and troubleshooting.
-- **21st.dev MCP** — Documented setup requirements; pending manual MCP configuration
-  if organization chooses to enable for pattern reference.
+- **shadcn/ui** — Installed as component library; `components.json` configured.
+- **Framer Motion** — Added for future micro-interactions and animations.
+- **UI/UX Pro Max Skill** — Installed with 84 UI styles, 192 color palettes, 74 font pairings,
+  and automated design system generation engine.
 
-### Next — Phase 1 UI Redesign
+### Next — Remaining Pages & Polish
 
-- TBD: Use UI/UX Pro Max skill to generate design system for TenderShield
-- TBD: Create shadcn component library for bid analysis, risk highlighting, clauses
-- TBD: Implement animations with Framer Motion for interactive features
-- TBD: Establish design tokens and Tailwind theme for brand consistency
+- [ ] Settings pages redesign (account, notifications, API keys, integrations)
+- [ ] Billing/subscription pages redesign
+- [ ] Team management page redesign
+- [ ] Opportunity detail page complete redesign
+- [ ] Project state/detail pages
+- [ ] Support/help pages
+- [ ] Admin pages (users, workspaces, audit log)
+- [ ] Additional shared components (Modal, Dropdown, Tabs, Table)
+- [ ] Motion/animation refinement with Framer Motion
+- [ ] Accessibility audit & testing (WCAG AA)
+- [ ] Dark mode support (if in scope)
+- [ ] Responsive behavior finalization
+- [ ] Visual QA pass
+- [ ] Functional QA pass
 
 ### Done — Round 9 audit gap closure (TS-335/TS-336/TS-337)
 

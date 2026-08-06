@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
+import { Dropdown, DropdownItem, DropdownSeparator } from "@/components/ui/dropdown";
 
 export default function AdminUsersPage() {
   const { session } = useSession();
@@ -136,20 +137,21 @@ export default function AdminUsersPage() {
                       {u.suspended_at && <Badge variant="warning" size="sm">Suspended</Badge>}
                     </div>
                   </div>
-                  <div className="flex gap-2 flex-wrap justify-end">
+                  <Dropdown trigger={<Button variant="outline" size="sm">Actions ▼</Button>} align="right">
                     {u.suspended_at ? (
-                      <Button variant="outline" size="sm" onClick={() => unsuspend(u.user_id)} disabled={loading}>
+                      <DropdownItem onClick={() => unsuspend(u.user_id)} disabled={loading}>
                         Unsuspend
-                      </Button>
+                      </DropdownItem>
                     ) : (
-                      <Button variant="outline" size="sm" onClick={() => suspend(u.user_id)} disabled={loading}>
+                      <DropdownItem onClick={() => suspend(u.user_id)} disabled={loading}>
                         Suspend
-                      </Button>
+                      </DropdownItem>
                     )}
-                    <Button variant="destructive" size="sm" onClick={() => deleteUser(u.user_id)} disabled={loading}>
+                    <DropdownSeparator />
+                    <DropdownItem destructive onClick={() => deleteUser(u.user_id)} disabled={loading}>
                       Delete
-                    </Button>
-                  </div>
+                    </DropdownItem>
+                  </Dropdown>
                 </div>
               ))}
             </div>

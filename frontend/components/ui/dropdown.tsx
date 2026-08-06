@@ -88,20 +88,23 @@ export function DropdownItem({
   children,
   onClick,
   destructive = false,
+  disabled = false,
 }: {
   children: ReactNode;
   onClick?: () => void;
   destructive?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       role="menuitem"
       onClick={onClick}
+      disabled={disabled}
       className={cn(
-        "block w-full text-left px-4 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-inset",
+        "block w-full text-left px-4 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-inset disabled:opacity-50 disabled:cursor-not-allowed",
         destructive
-          ? "text-error hover:bg-error/5"
-          : "text-text-primary hover:bg-bg-secondary"
+          ? "text-error hover:bg-error/5 disabled:hover:bg-transparent"
+          : "text-text-primary hover:bg-bg-secondary disabled:hover:bg-transparent"
       )}
     >
       {children}

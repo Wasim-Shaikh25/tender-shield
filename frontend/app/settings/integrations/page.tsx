@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
+import { Dropdown, DropdownItem, DropdownSeparator } from "@/components/ui/dropdown";
 import IntegrationSourcesPanel from "./integration-sources";
 
 const DEFAULT_COST_LINE_MAPPING = JSON.stringify(
@@ -386,20 +387,21 @@ export default function IntegrationsSettingsPage() {
                     </div>
                   </div>
                   {isAdmin && (
-                    <div className="flex gap-2 flex-wrap justify-end">
-                      <Button variant="outline" size="sm" onClick={() => test(c.id!)} disabled={loading}>
-                        Test
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => poll(c.id!)} disabled={loading}>
-                        Poll
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => edit(c)} disabled={loading}>
+                    <Dropdown trigger={<Button variant="outline" size="sm">Actions ▼</Button>} align="right">
+                      <DropdownItem onClick={() => test(c.id!)} disabled={loading}>
+                        Test Connection
+                      </DropdownItem>
+                      <DropdownItem onClick={() => poll(c.id!)} disabled={loading}>
+                        Poll Data
+                      </DropdownItem>
+                      <DropdownItem onClick={() => edit(c)} disabled={loading}>
                         Edit
-                      </Button>
-                      <Button variant="destructive" size="sm" onClick={() => remove(c.id!)} disabled={loading}>
+                      </DropdownItem>
+                      <DropdownSeparator />
+                      <DropdownItem destructive onClick={() => remove(c.id!)} disabled={loading}>
                         Delete
-                      </Button>
-                    </div>
+                      </DropdownItem>
+                    </Dropdown>
                   )}
                 </div>
               ))}

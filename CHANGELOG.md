@@ -64,6 +64,32 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   - Blocker warnings with better visibility
   - Improved mobile responsiveness
 
+**PHASE 5: Medium-Priority Pages (Critical Workflows)**
+- **Opportunity Detail** (`/opportunities/[id]`) — Complete redesign with:
+  - Card-based tab navigation and content sections
+  - Enhanced risk review interface with Badge and Alert components
+  - Professional deadline wall with urgency indicators
+  - Improved BOQ checker with textarea styling
+  - Better artifact generation and export UI
+  - Handover baseline management with organized sections
+  - Professional notice-rule register display
+  - Enhanced audit trail with better typography
+  
+- **Billing Dashboard** (`/billing`) — Comprehensive redesign with:
+  - Professional billing status card with coupon input
+  - Improved plan selector with pricing display
+  - Better status messaging with Alert component
+  - Enhanced invoice, payment, and history tables with Badge status indicators
+  - Better table header and row styling
+  - Improved hover states and transitions
+  
+- **Plan Dashboard** (`/plan`) — Modern redesign with:
+  - Form-based dashboard generation interface
+  - Better opportunity and template selection
+  - Improved save/snapshot management UI
+  - Professional action buttons for load/export/delete
+  - Enhanced date formatting and status display
+
 ### Done — UI/UX Development Tools Setup
 
 - **shadcn/ui** — Installed as component library; `components.json` configured.

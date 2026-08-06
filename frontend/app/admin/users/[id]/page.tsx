@@ -1,15 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { api, type UserDetail } from "@/lib/api";
 import { useSession } from "@/components/session";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
 
 export default function AdminUserDetailPage() {
   const { session } = useSession();
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const [user, setUser] = useState<UserDetail | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -25,69 +31,160 @@ export default function AdminUserDetailPage() {
     return null;
   }
   if (!session.is_superadmin) {
-    return <p className="p-6 text-sm text-red-600">Superadmin access required.</p>;
+    return <Alert variant="error" title="Access Denied">Superadmin access required.</Alert>;
   }
 
   const act = async (fn: () => Promise<unknown>, success: string) => {
     if (!session) return;
+    setLoading(true);
     setError(null);
     setMessage(null);
     try {
       await fn();
       setMessage(success);
-      api.adminGetUser(session.token, id).then(setUser);
+      await api.adminGetUser(session.token, id).then(setUser);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Action failed");
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (!user) return <p className="p-6 text-sm text-slate-500">Loading...</p>;
+  if (!user) return <p className="p-6 text-sm text-text-muted">Loading user details…</p>;
 
   return (
-    <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold text-ink">{user.email}</h1>
-      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-      {message && <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">{message}</p>}
-
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div><p className="text-xs text-slate-500">Email</p><p className="text-sm font-medium">{user.email} {user.email_verified && "(verified)"}</p></div>
-          <div><p className="text-xs text-slate-500">Phone</p><p className="text-sm font-medium">{user.phone} {user.mobile_verified && "(verified)"}</p></div>
-          <div><p className="text-xs text-slate-500">Organisation</p><p className="text-sm font-medium">{user.org_name}</p></div>
-          <div><p className="text-xs text-slate-500">City</p><p className="text-sm font-medium">{user.city}</p></div>
-          <div><p className="text-xs text-slate-500">Plan</p><p className="text-sm font-medium capitalize">{user.plan || "free"}</p></div>
-          <div><p className="text-xs text-slate-500">DOB</p><p className="text-sm font-medium">{user.dob ?? "—"}</p></div>
-          <div><p className="text-xs text-slate-500">Created</p><p className="text-sm font-medium">{user.created_at ?? "—"}</p></div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-start gap-4">
+        <div className="flex-1">
+          <h1 className="text-heading-lg text-text-primary">{user.email}</h1>
+          <p className="text-sm text-text-muted mt-2">User profile and account details</p>
         </div>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/admin/users">Back</Link>
+        </Button>
+      </div>
 
-        <div className="mt-6 flex gap-3">
-          {user.suspended_at ? (
-            <button onClick={() => act(() => api.adminUnsuspendUser(session.token, id), "User unsuspended")} className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white">Unsuspend</button>
-          ) : (
-            <button onClick={() => act(() => api.adminSuspendUser(session.token, id), "User suspended")} className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white">Suspend</button>
-          )}
-          <button onClick={() => act(() => api.adminDeleteUser(session.token, id), "User deleted")} className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white">Delete</button>
-        </div>
-      </section>
+      {/* Alerts */}
+      {error && <Alert variant="error" title="Error">{error}</Alert>}
+      {message && <Alert variant="success" title="Success">{message}</Alert>}
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
-        <h2 className="mb-3 text-lg font-semibold text-ink">Workspaces</h2>
-        {user.workspaces?.length ? (
-          <ul className="divide-y divide-slate-100">
-            {user.workspaces.map((w) => (
-              <li key={w.workspace_id} className="flex items-center justify-between py-2">
-                <span className="text-sm font-medium text-slate-900">{w.name}</span>
-                <div className="flex items-center gap-3">
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs capitalize text-slate-600">{w.plan || "free"}</span>
-                  <span className="text-xs text-slate-500">{w.role}</span>
+      {/* User Details */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Account Information</CardTitle>
+          <CardDescription>Personal and account details</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div>
+              <p className="text-xs font-medium text-text-muted uppercase">Email</p>
+              <div className="flex items-center gap-2 mt-2">
+                <p className="text-sm text-text-primary">{user.email}</p>
+                {user.email_verified && <Badge variant="success" size="sm">Verified</Badge>}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-text-muted uppercase">Phone</p>
+              <div className="flex items-center gap-2 mt-2">
+                <p className="text-sm text-text-primary">{user.phone || "—"}</p>
+                {user.mobile_verified && <Badge variant="success" size="sm">Verified</Badge>}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-text-muted uppercase">Organization</p>
+              <p className="text-sm text-text-primary mt-2">{user.org_name || "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-text-muted uppercase">City</p>
+              <p className="text-sm text-text-primary mt-2">{user.city || "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-text-muted uppercase">Plan</p>
+              <p className="text-sm text-text-primary capitalize mt-2">{user.plan || "free"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-text-muted uppercase">Date of Birth</p>
+              <p className="text-sm text-text-primary mt-2">{user.dob || "—"}</p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="text-xs font-medium text-text-muted uppercase">Created</p>
+              <p className="text-sm text-text-primary mt-2">{user.created_at || "—"}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Account Actions</CardTitle>
+          <CardDescription>Manage this user account</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-3 flex-wrap">
+            {user.suspended_at ? (
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => act(() => api.adminUnsuspendUser(session.token, id), "User unsuspended")}
+                disabled={loading}
+              >
+                {loading ? "Processing..." : "Unsuspend User"}
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="md"
+                onClick={() => act(() => api.adminSuspendUser(session.token, id), "User suspended")}
+                disabled={loading}
+              >
+                {loading ? "Processing..." : "Suspend User"}
+              </Button>
+            )}
+            <Button
+              variant="destructive"
+              size="md"
+              onClick={() => act(() => api.adminDeleteUser(session.token, id), "User deleted")}
+              disabled={loading}
+            >
+              {loading ? "Processing..." : "Delete User"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Workspaces */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Workspaces</CardTitle>
+          <CardDescription>{user.workspaces?.length || 0} workspace{(user.workspaces?.length ?? 0) !== 1 ? "s" : ""}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {user.workspaces?.length ? (
+            <div className="space-y-3">
+              {user.workspaces.map((w) => (
+                <div key={w.workspace_id} className="flex items-center justify-between p-3 rounded-lg border border-border-default hover:bg-bg-secondary transition-colors">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">{w.name}</p>
+                    <p className="text-xs text-text-muted mt-1">ID: {w.workspace_id}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" size="sm" className="capitalize">
+                      {w.plan || "free"}
+                    </Badge>
+                    <Badge variant="info" size="sm" className="capitalize">
+                      {w.role}
+                    </Badge>
+                  </div>
                 </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-slate-500">No workspaces.</p>
-        )}
-      </section>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-text-muted">No workspaces.</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

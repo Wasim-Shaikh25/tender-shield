@@ -4,8 +4,20 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useSession } from "@/components/session";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
 
 const ROLES = ["viewer", "reviewer", "estimator", "admin", "owner"];
+const ROLE_LABELS: Record<string, string> = {
+  viewer: "Viewer",
+  reviewer: "Reviewer",
+  estimator: "Estimator",
+  admin: "Admin",
+  owner: "Owner",
+};
 
 type Member = { user_id: string; email: string; role: string };
 type Invitation = { invitation_id: string; email: string; role: string; project_id?: string | null; expires_at: string };
@@ -104,127 +116,159 @@ export default function TeamPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-ink">Team</h1>
-      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-      {message && <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">{message}</p>}
+    <div className="space-y-8">
+      {/* Page Header */}
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold text-text-primary">Team Management</h1>
+        <p className="text-text-secondary">Manage team members, roles, and permissions.</p>
+      </div>
+
+      {/* Alerts */}
+      {error && <Alert variant="error" title="Error">{error}</Alert>}
+      {message && <Alert variant="success" title="Success">{message}</Alert>}
+
+      {/* Invite Token */}
       {inviteToken && (
-        <div className="rounded-md bg-slate-50 p-3 text-sm break-all font-mono text-slate-700">
-          Invitation token: {inviteToken}
-        </div>
+        <Card className="bg-info-bg border-info">
+          <CardContent className="pt-6">
+            <p className="text-sm text-info-text font-medium mb-2">Invitation token (for testing):</p>
+            <code className="block text-xs bg-white border border-info rounded p-2 font-mono break-all text-text-primary">
+              {inviteToken}
+            </code>
+          </CardContent>
+        </Card>
       )}
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
-        <h2 className="mb-4 text-lg font-semibold text-ink">Invite member</h2>
-        <form onSubmit={sendInvite} className="flex flex-col gap-4 sm:flex-row">
-          <input
-            type="email"
-            placeholder="Email"
-            value={invite.email}
-            onChange={(e) => setInvite({ ...invite, email: e.target.value })}
-            className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
-            required
-          />
-          <select
-            value={invite.role}
-            onChange={(e) => setInvite({ ...invite, role: e.target.value })}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-          >
-            {ROLES.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            Invite
-          </button>
-        </form>
-      </section>
+      {/* Invite Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Invite Team Member</CardTitle>
+          <CardDescription>Send an invitation to add a new member to your workspace.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={sendInvite} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-2">
+                <Input
+                  type="email"
+                  label="Email address"
+                  placeholder="team@example.com"
+                  value={invite.email}
+                  onChange={(e) => setInvite({ ...invite, email: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="role" className="block text-sm font-medium text-text-primary mb-1.5">
+                  Role
+                </label>
+                <select
+                  id="role"
+                  value={invite.role}
+                  onChange={(e) => setInvite({ ...invite, role: e.target.value })}
+                  className="w-full rounded-md border border-border-default bg-white px-3 py-2 text-sm text-text-primary focus:border-ink focus:ring-1 focus:ring-ink outline-none"
+                >
+                  {ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {ROLE_LABELS[r]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button type="submit" variant="primary" size="md" loading={loading}>
+                Send Invite
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
-        <h2 className="mb-4 text-lg font-semibold text-ink">Members</h2>
-        {members.length === 0 ? (
-          <p className="text-sm text-slate-500">No members found.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="border-b border-slate-200 text-left text-slate-500">
-              <tr>
-                <th className="py-2">Email</th>
-                <th className="py-2">Role</th>
-                <th className="py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
+      {/* Members Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Team Members ({members.length})</CardTitle>
+          <CardDescription>Members with access to this workspace.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {members.length === 0 ? (
+            <p className="text-sm text-text-muted py-8 text-center">No members in this workspace yet.</p>
+          ) : (
+            <div className="space-y-3">
               {members.map((m) => (
-                <tr key={m.user_id} className="border-b border-slate-100">
-                  <td className="py-2">{m.email}</td>
-                  <td className="py-2">
+                <div
+                  key={m.user_id}
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 border border-border-default rounded-lg"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-text-primary truncate">{m.email}</p>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
                     <select
                       value={m.role}
                       onChange={(e) => changeRole(m.user_id, e.target.value)}
-                      className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+                      className="rounded-md border border-border-default bg-white px-3 py-2 text-sm text-text-primary focus:border-ink focus:ring-1 focus:ring-ink outline-none"
                     >
                       {ROLES.map((r) => (
                         <option key={r} value={r}>
-                          {r}
+                          {ROLE_LABELS[r]}
                         </option>
                       ))}
                     </select>
-                  </td>
-                  <td className="py-2 text-right">
                     <button
                       onClick={() => removeMember(m.user_id)}
-                      className="text-sm text-red-600 hover:underline"
+                      className="text-sm font-medium text-error hover:text-error/80 transition-colors"
                     >
                       Remove
                     </button>
-                  </td>
-                </tr>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
-        <h2 className="mb-4 text-lg font-semibold text-ink">Pending invitations</h2>
-        {invitations.length === 0 ? (
-          <p className="text-sm text-slate-500">No pending invitations.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="border-b border-slate-200 text-left text-slate-500">
-              <tr>
-                <th className="py-2">Email</th>
-                <th className="py-2">Role</th>
-                <th className="py-2">Expires</th>
-                <th className="py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
+      {/* Pending Invitations Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Pending Invitations ({invitations.length})</CardTitle>
+          <CardDescription>Invitations awaiting acceptance.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {invitations.length === 0 ? (
+            <p className="text-sm text-text-muted py-8 text-center">No pending invitations.</p>
+          ) : (
+            <div className="space-y-3">
               {invitations.map((i) => (
-                <tr key={i.invitation_id} className="border-b border-slate-100">
-                  <td className="py-2">{i.email}</td>
-                  <td className="py-2 capitalize">{i.role}</td>
-                  <td className="py-2">{new Date(i.expires_at).toLocaleDateString()}</td>
-                  <td className="py-2 text-right">
+                <div
+                  key={i.invitation_id}
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 border border-border-default rounded-lg bg-bg-secondary"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-text-primary truncate">{i.email}</p>
+                    <p className="text-xs text-text-muted mt-1">
+                      Expires {new Date(i.expires_at).toLocaleDateString("en-IN")}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <Badge variant="info" size="sm">
+                      {ROLE_LABELS[i.role]}
+                    </Badge>
                     <button
                       onClick={() => revoke(i.invitation_id)}
-                      className="text-sm text-red-600 hover:underline"
+                      className="text-sm font-medium text-error hover:text-error/80 transition-colors"
                     >
                       Revoke
                     </button>
-                  </td>
-                </tr>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

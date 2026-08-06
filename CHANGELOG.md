@@ -229,15 +229,25 @@ All 24 application pages have been redesigned! The final polish phase includes:
 
 ### Next — PHASE 7: Polish & QA (Part 2 - Continued)
 
-Remaining work for complete polish and quality assurance:
-- [ ] **Component Integration**: Integrate Modal, Tabs, Dropdown, Table into existing page workflows
-- [ ] **Responsive Finalization**: Test and refine mobile/tablet/desktop breakpoints (320px, 768px, 1920px)
-- [ ] **Visual QA Pass**: Verify colors, alignment, spacing consistency across all 24 pages
-- [ ] **Functional QA Pass**: Test all workflows end-to-end (auth, opportunities, projects, admin)
-- [ ] **Performance Optimization**: Lighthouse scores ≥85, load times, bundle size optimization
-- [ ] **Browser Compatibility**: Chrome, Firefox, Safari, Edge verification
-- [ ] **Dark Mode Support** (if in scope)
-- [ ] **Documentation**: Design system guide, component library docs, animation patterns
+**Immediate Priority** (3-4 hours to launch):
+1. **Visual QA Pass** (30 min) — Verify colors, spacing, typography on all 24 pages
+2. **Responsive Design Testing** (45 min) — Test at 320px, 768px, 1920px breakpoints
+3. **Functional Workflow Testing** (60 min) — Auth, opportunities, projects, admin, settings
+4. **Performance Audit** (15 min) — Lighthouse scores, load times
+5. **Optional Enhancements** (2+ hours) — Table integration, Tooltip integration, additional components
+
+**Detailed roadmap**: See `PHASE7_COMPLETION_STATUS.md`
+
+**Sign-off Criteria** (from PHASE7_QA_CHECKLIST.md):
+- [ ] All visual QA items checked
+- [ ] Responsive design verified at 3 breakpoints
+- [ ] All functional workflows tested
+- [ ] Accessibility checks pass
+- [ ] Lighthouse scores 85+
+- [ ] No console errors
+- [ ] Browser compatibility verified
+- [ ] No regression issues
+- [ ] Performance <2s load time
 
 ### Done — Round 9 audit gap closure (TS-335/TS-336/TS-337)
 

@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
+import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
+import { Input } from "@/components/ui/input";
 
 export default function SettingsPage() {
   const { session, signOut } = useSession();
@@ -29,6 +31,8 @@ export default function SettingsPage() {
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
   const [governance, setGovernance] = useState({ data_region: "", retention_days: "", archive_after_days: "", legal_hold: false, encryption_at_rest: "none" });
   const [retentionCandidates, setRetentionCandidates] = useState<{ id: string; filename: string; kind: string; opportunity_id: string; created_at: string }[]>([]);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
 
   useEffect(() => {
     if (!session) return;
@@ -173,14 +177,13 @@ export default function SettingsPage() {
   };
 
   const deleteAccount = async () => {
-    if (!session) return;
-    const current = prompt("Enter your current password to delete your account:");
-    if (!current) return;
-    if (!confirm("This permanently deletes your account and workspaces. Continue?")) return;
+    if (!session || !deletePassword) return;
+    setLoading(true);
     setError(null);
     setMessage(null);
     try {
-      await api.deleteAccount(session.token, { password: current, confirm: true });
+      await api.deleteAccount(session.token, { password: deletePassword, confirm: true });
+      setDeleteModalOpen(false);
       signOut();
       router.push("/login");
     } catch (e) {
@@ -777,13 +780,64 @@ export default function SettingsPage() {
               <Button variant="outline" size="md" onClick={exportData}>
                 Export Data
               </Button>
-              <Button variant="destructive" size="md" onClick={deleteAccount}>
+              <Button variant="destructive" size="md" onClick={() => setDeleteModalOpen(true)}>
                 Delete Account
               </Button>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Delete Account Confirmation Modal */}
+      <Modal isOpen={deleteModalOpen} onClose={() => setDeleteModalOpen(false)} title="Delete Account" size="md">
+        <ModalBody>
+          <div className="space-y-4">
+            <Alert variant="error">
+              <p className="text-sm font-medium">⚠️ This action cannot be undone.</p>
+            </Alert>
+            <p className="text-text-secondary text-sm">
+              Deleting your account will:
+            </p>
+            <ul className="list-disc list-inside space-y-1 text-text-secondary text-sm">
+              <li>Permanently delete your account and all data</li>
+              <li>Remove you from all workspaces</li>
+              <li>Delete all your projects and opportunities</li>
+            </ul>
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-2">
+                Enter your password to confirm:
+              </label>
+              <Input
+                type="password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                placeholder="Current password"
+                disabled={loading}
+              />
+            </div>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button
+            onClick={() => {
+              setDeleteModalOpen(false);
+              setDeletePassword("");
+            }}
+            variant="secondary"
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={deleteAccount}
+            variant="destructive"
+            disabled={!deletePassword || loading}
+            loading={loading}
+          >
+            Delete Account
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 }

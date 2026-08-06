@@ -6,6 +6,32 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — UI/UX Development Tools Setup
+
+- **shadcn/ui** — Installed as component library for Next.js frontend; `components.json`
+  configured for automatic component scaffolding and CLI-based component installation.
+- **Framer Motion** — Added npm dependency for micro-interactions, smooth animations,
+  and gesture-driven UX enhancements across the app.
+- **UI/UX Pro Max Skill** — Installed comprehensive design intelligence AI skill with:
+  - 84 UI styles (landing, app interface, charts)
+  - 192 color palettes with psychology insights
+  - 74 font pairings (Google Fonts ready)
+  - 98 UX guidelines and best practices
+  - 25 chart types across 22 tech stacks
+  - Automated design system generation engine
+  - Sub-skills: design-system, brand, ui-styling, design, slides, banner-design
+- **UI Development Guide** — Created `UI_SETUP_GUIDE.md` with installation summary,
+  usage patterns, component import commands, and troubleshooting.
+- **21st.dev MCP** — Documented setup requirements; pending manual MCP configuration
+  if organization chooses to enable for pattern reference.
+
+### Next — Phase 1 UI Redesign
+
+- TBD: Use UI/UX Pro Max skill to generate design system for TenderShield
+- TBD: Create shadcn component library for bid analysis, risk highlighting, clauses
+- TBD: Implement animations with Framer Motion for interactive features
+- TBD: Establish design tokens and Tailwind theme for brand consistency
+
 ### Done — Round 9 audit gap closure (TS-335/TS-336/TS-337)
 
 - **TS-335** — Round 9 production-readiness gap-closure requirements doc

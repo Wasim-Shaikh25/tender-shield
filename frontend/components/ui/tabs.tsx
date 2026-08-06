@@ -1,7 +1,9 @@
 "use client";
 
 import { ReactNode, useState } from "react";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { fadeIn } from "@/lib/animations";
 
 interface TabsProps {
   defaultTab: string;
@@ -100,7 +102,17 @@ export function TabContent({
 
   if (activeTab !== value) return null;
 
-  return <div className={cn("pt-4", className)}>{children}</div>;
+  return (
+    <motion.div
+      className={cn("pt-4", className)}
+      variants={fadeIn}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+    >
+      {children}
+    </motion.div>
+  );
 }
 
 export function Tab({ id, label, children }: TabProps) {

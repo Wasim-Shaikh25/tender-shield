@@ -30,7 +30,7 @@ const ACCOUNT_NAV: NavItem[] = [
   { label: "Billing", href: "/billing" },
 ];
 
-export function AppShellRedesigned({ children }: { children: React.ReactNode }) {
+export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const isPublic = PUBLIC_PATHS.some((p) => pathname?.startsWith(p));

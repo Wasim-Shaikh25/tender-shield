@@ -119,7 +119,7 @@ export default function DashboardStatePage() {
                   <CardContent>
                     <div className="space-y-3">
                       {ws.upcoming_deadlines.map((d) => {
-                        const daysLeft = d.days_to_deadline;
+                        const daysLeft = d.days_to_deadline ?? 0;
                         let urgencyVariant: "error" | "warning" | "info" = "info";
                         if (daysLeft <= 3) urgencyVariant = "error";
                         else if (daysLeft <= 7) urgencyVariant = "warning";

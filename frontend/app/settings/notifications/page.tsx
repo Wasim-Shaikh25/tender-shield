@@ -93,7 +93,7 @@ export default function NotificationSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Quiet Hours</CardTitle>
-          <CardDescription>Specify times when you don't want to receive notifications</CardDescription>
+          <CardDescription>Specify times when you don&apos;t want to receive notifications</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div>

@@ -83,24 +83,18 @@ export default function ProjectStatePage() {
           <div>
             <h3 className="text-sm font-medium text-text-primary mb-3">Next Action</h3>
             <div className="flex items-center gap-3">
-              <Button
-                variant="primary"
-                size="md"
-                asChild
+              <Link
+                href={state.next_action.link}
+                className="inline-flex items-center justify-center gap-2 font-medium transition-colors duration-base focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap bg-ink text-white hover:bg-ink/90 active:bg-ink h-10 px-4 text-sm rounded-md"
               >
-                <Link href={state.next_action.link}>
-                  {state.next_action.label}
-                </Link>
-              </Button>
-              <Button
-                variant="outline"
-                size="md"
-                asChild
+                {state.next_action.label}
+              </Link>
+              <Link
+                href={`/opportunities/${id}`}
+                className="inline-flex items-center justify-center gap-2 font-medium transition-colors duration-base focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 whitespace-nowrap h-10 px-4 text-sm rounded-md border border-border-default text-text-primary hover:bg-bg-secondary active:bg-bg-tertiary"
               >
-                <Link href={`/opportunities/${id}`}>
-                  Open Opportunity
-                </Link>
-              </Button>
+                Open Opportunity
+              </Link>
             </div>
           </div>
         </CardContent>

@@ -115,7 +115,7 @@ export default function ApiKeysSettingsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-text-primary mb-3">Scopes</label>
+                <p className="block text-sm font-medium text-text-primary mb-3">Scopes</p>
                 <div className="flex flex-wrap gap-3">
                   {SCOPES.map((s) => (
                     <label key={s} className="flex items-center gap-2 cursor-pointer">

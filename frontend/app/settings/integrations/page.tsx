@@ -210,8 +210,9 @@ export default function IntegrationsSettingsPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">Name <span className="text-error">*</span></label>
+                  <label htmlFor="connector-name" className="block text-sm font-medium text-text-primary mb-2">Name <span className="text-error">*</span></label>
                   <input
+                    id="connector-name"
                     type="text"
                     placeholder="Connector name"
                     className="w-full rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
@@ -222,8 +223,9 @@ export default function IntegrationsSettingsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">Base URL <span className="text-error">*</span></label>
+                  <label htmlFor="connector-url" className="block text-sm font-medium text-text-primary mb-2">Base URL <span className="text-error">*</span></label>
                   <input
+                    id="connector-url"
                     type="text"
                     placeholder="https://api.example.com"
                     className="w-full rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
@@ -265,8 +267,9 @@ export default function IntegrationsSettingsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">Auth Config (JSON)</label>
+                <label htmlFor="auth-config" className="block text-sm font-medium text-text-primary mb-2">Auth Config (JSON)</label>
                 <textarea
+                  id="auth-config"
                   className="w-full rounded-md border border-border-default px-3 py-2 text-sm font-mono text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink resize-none"
                   rows={3}
                   placeholder={`{"token":"..."}  or  {"username":"...","password":"..."}`}
@@ -277,8 +280,9 @@ export default function IntegrationsSettingsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">Headers (JSON)</label>
+                <label htmlFor="headers-json" className="block text-sm font-medium text-text-primary mb-2">Headers (JSON)</label>
                 <textarea
+                  id="headers-json"
                   className="w-full rounded-md border border-border-default px-3 py-2 text-sm font-mono text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink resize-none"
                   rows={2}
                   placeholder={`{"Accept":"application/json"}`}
@@ -289,8 +293,9 @@ export default function IntegrationsSettingsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">Pagination (JSON)</label>
+                <label htmlFor="pagination-json" className="block text-sm font-medium text-text-primary mb-2">Pagination (JSON)</label>
                 <textarea
+                  id="pagination-json"
                   className="w-full rounded-md border border-border-default px-3 py-2 text-sm font-mono text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink resize-none"
                   rows={3}
                   placeholder={`{"type":"offset","offset_param":"offset","limit_param":"limit","limit":100}`}
@@ -301,8 +306,9 @@ export default function IntegrationsSettingsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">Field Mappings (JSON)</label>
+                <label htmlFor="field-mappings" className="block text-sm font-medium text-text-primary mb-2">Field Mappings (JSON)</label>
                 <textarea
+                  id="field-mappings"
                   className="w-full rounded-md border border-border-default px-3 py-2 text-sm font-mono text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink resize-none"
                   rows={4}
                   value={form.mappings}

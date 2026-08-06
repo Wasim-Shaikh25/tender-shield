@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert } from "@/components/ui/alert";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Tabs, TabList, TabTrigger, TabContent } from "@/components/ui/tabs";
 import { Dropdown, DropdownItem, DropdownSeparator } from "@/components/ui/dropdown";
@@ -230,16 +230,16 @@ export default function ComponentsDemo() {
                 <Badge variant="info">Info</Badge>
               </div>
               <Alert variant="info">
-                <AlertDescription>Info alert with helpful information</AlertDescription>
+                Info alert with helpful information
               </Alert>
               <Alert variant="success">
-                <AlertDescription>Success alert confirming an action</AlertDescription>
+                Success alert confirming an action
               </Alert>
               <Alert variant="warning">
-                <AlertDescription>Warning alert about a potential issue</AlertDescription>
+                Warning alert about a potential issue
               </Alert>
               <Alert variant="error">
-                <AlertDescription>Error alert indicating a problem</AlertDescription>
+                Error alert indicating a problem
               </Alert>
             </div>
           </CardContent>

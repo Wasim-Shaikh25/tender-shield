@@ -26,8 +26,16 @@ export default function OpportunitiesPage() {
   }
 
   useEffect(() => {
-    if (session) refresh();
-    else setLoading(false);
+    async function load() {
+      if (session) {
+        const { opportunities } = await api.listOpportunities(session.token);
+        setOpps(opportunities);
+        setLoading(false);
+      } else {
+        setLoading(false);
+      }
+    }
+    load();
   }, [session]);
 
   async function create(e: React.FormEvent) {

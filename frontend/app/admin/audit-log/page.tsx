@@ -102,7 +102,7 @@ export default function AdminAuditLogPage() {
                     <div className="flex-1">
                       <p className="text-sm font-medium text-text-primary">{l.action}</p>
                       <p className="text-xs text-text-muted mt-1">
-                        {l.object_type}:{l.object_id.slice(0, 8)}…
+                        {l.object_type}:{l.object_id ? l.object_id.slice(0, 8) : "unknown"}…
                       </p>
                     </div>
                     <Badge variant={getActionColor(l.action)} size="sm" className="capitalize">

@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, createContext } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { fadeIn } from "@/lib/animations";
@@ -22,7 +22,7 @@ interface TabsContextType {
   setActiveTab: (tab: string) => void;
 }
 
-const TabsContext = require("react").createContext<TabsContextType | null>(null);
+const TabsContext = createContext<TabsContextType | null>(null);
 
 export function Tabs({ defaultTab, children, className }: TabsProps) {
   const [activeTab, setActiveTab] = useState(defaultTab);

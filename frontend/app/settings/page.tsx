@@ -642,8 +642,9 @@ export default function SettingsPage() {
           <form onSubmit={saveGovernance} className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">Data Region</label>
+                <label htmlFor="data-region" className="block text-sm font-medium text-text-primary mb-2">Data Region</label>
                 <input
+                  id="data-region"
                   type="text"
                   placeholder="e.g., IN, EU, US"
                   className="w-full rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
@@ -652,8 +653,9 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">Encryption at Rest</label>
+                <label htmlFor="encryption-at-rest" className="block text-sm font-medium text-text-primary mb-2">Encryption at Rest</label>
                 <select
+                  id="encryption-at-rest"
                   value={governance.encryption_at_rest}
                   onChange={(e) => setGovernance({ ...governance, encryption_at_rest: e.target.value })}
                   className="w-full rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
@@ -664,8 +666,9 @@ export default function SettingsPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">Retention Days</label>
+                <label htmlFor="retention-days" className="block text-sm font-medium text-text-primary mb-2">Retention Days</label>
                 <input
+                  id="retention-days"
                   type="number"
                   min={1}
                   placeholder="Leave blank for no retention"
@@ -675,8 +678,9 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">Archive After Days</label>
+                <label htmlFor="archive-days" className="block text-sm font-medium text-text-primary mb-2">Archive After Days</label>
                 <input
+                  id="archive-days"
                   type="number"
                   min={1}
                   placeholder="Leave blank for no archival"
@@ -804,10 +808,11 @@ export default function SettingsPage() {
               <li>Delete all your projects and opportunities</li>
             </ul>
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-2">
+              <label htmlFor="delete-password" className="block text-sm font-medium text-text-primary mb-2">
                 Enter your password to confirm:
               </label>
               <Input
+                id="delete-password"
                 type="password"
                 value={deletePassword}
                 onChange={(e) => setDeletePassword(e.target.value)}

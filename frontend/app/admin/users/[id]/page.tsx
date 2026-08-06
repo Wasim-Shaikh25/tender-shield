@@ -60,9 +60,9 @@ export default function AdminUserDetailPage() {
           <h1 className="text-heading-lg text-text-primary">{user.email}</h1>
           <p className="text-sm text-text-muted mt-2">User profile and account details</p>
         </div>
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/admin/users">Back</Link>
-        </Button>
+        <Link href="/admin/users" className="inline-flex items-center justify-center gap-2 font-medium transition-colors duration-base focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 whitespace-nowrap h-8 px-3 text-sm rounded-md border border-border-default text-text-primary hover:bg-bg-secondary active:bg-bg-tertiary">
+          Back
+        </Link>
       </div>
 
       {/* Alerts */}

@@ -81,9 +81,9 @@ export default function AdminDashboardPage() {
                     <p className="text-sm font-medium text-text-primary">{u.email}</p>
                     <p className="text-xs text-text-muted mt-1">{u.org_name || "No organization"}</p>
                   </div>
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/admin/users/${u.user_id}`}>View</Link>
-                  </Button>
+                  <Link href={`/admin/users/${u.user_id}`} className="inline-flex items-center justify-center gap-2 font-medium transition-colors duration-base focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 whitespace-nowrap h-8 px-3 text-sm rounded-md border border-border-default text-text-primary hover:bg-bg-secondary active:bg-bg-tertiary">
+                    View
+                  </Link>
                 </div>
               ))}
             </div>
@@ -112,9 +112,9 @@ export default function AdminDashboardPage() {
                       </Badge>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/admin/workspaces/${w.workspace_id}`}>View</Link>
-                  </Button>
+                  <Link href={`/admin/workspaces/${w.workspace_id}`} className="inline-flex items-center justify-center gap-2 font-medium transition-colors duration-base focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 whitespace-nowrap h-8 px-3 text-sm rounded-md border border-border-default text-text-primary hover:bg-bg-secondary active:bg-bg-tertiary">
+                    View
+                  </Link>
                 </div>
               ))}
             </div>
@@ -130,18 +130,18 @@ export default function AdminDashboardPage() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-3">
-            <Button variant="primary" size="md" asChild>
-              <Link href="/admin/users">All Users</Link>
-            </Button>
-            <Button variant="outline" size="md" asChild>
-              <Link href="/admin/audit-log">Audit Log</Link>
-            </Button>
-            <Button variant="outline" size="md" asChild>
-              <Link href="/admin/coupons">Coupons</Link>
-            </Button>
-            <Button variant="outline" size="md" asChild>
-              <Link href="/admin/support">Support</Link>
-            </Button>
+            <Link href="/admin/users" className="inline-flex items-center justify-center gap-2 font-medium transition-colors duration-base focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap bg-ink text-white hover:bg-ink/90 active:bg-ink h-10 px-4 text-sm rounded-md">
+              All Users
+            </Link>
+            <Link href="/admin/audit-log" className="inline-flex items-center justify-center gap-2 font-medium transition-colors duration-base focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 whitespace-nowrap h-10 px-4 text-sm rounded-md border border-border-default text-text-primary hover:bg-bg-secondary active:bg-bg-tertiary">
+              Audit Log
+            </Link>
+            <Link href="/admin/coupons" className="inline-flex items-center justify-center gap-2 font-medium transition-colors duration-base focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 whitespace-nowrap h-10 px-4 text-sm rounded-md border border-border-default text-text-primary hover:bg-bg-secondary active:bg-bg-tertiary">
+              Coupons
+            </Link>
+            <Link href="/admin/support" className="inline-flex items-center justify-center gap-2 font-medium transition-colors duration-base focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 whitespace-nowrap h-10 px-4 text-sm rounded-md border border-border-default text-text-primary hover:bg-bg-secondary active:bg-bg-tertiary">
+              Support
+            </Link>
           </div>
         </CardContent>
       </Card>

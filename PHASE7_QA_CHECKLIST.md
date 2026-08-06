@@ -115,6 +115,40 @@
 
 ---
 
+## Component Integration Checklist
+
+### Modal Integration
+- [x] Settings delete account confirmation
+- [ ] Confirm dialogs on other destructive actions
+- [ ] Multi-step modal flows (if needed)
+
+### Dropdown Integration
+- [x] Admin users page (suspend/unsuspend/delete actions)
+- [x] Settings integrations page (test/poll/edit/delete connector actions)
+- [ ] API keys page (revoke actions)
+- [ ] Support page (ticket actions)
+- [ ] Other multi-action lists
+
+### Tabs Integration
+- [ ] Opportunities detail page (documents, analysis, risk clauses)
+- [ ] Projects detail page (different project views)
+- [ ] Settings pages (group related settings)
+- [ ] Admin workspace page (members, settings, plan)
+
+### Table Integration
+- [ ] Admin users list (tabular user data)
+- [ ] Audit log (events table)
+- [ ] Integration sources (sync jobs table)
+- [ ] Support tickets list (ticket history table)
+
+### Other Components (Status)
+- [x] Skeleton loading states (created, ready for integration)
+- [x] Tooltip (created, ready for integration)
+- [x] Breadcrumb (created, ready for integration)
+- [x] Toast (created, ready for integration)
+
+---
+
 ## Responsive Design Checklist
 
 ### Mobile (320px - 640px)

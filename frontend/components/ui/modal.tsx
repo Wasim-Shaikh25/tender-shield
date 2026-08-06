@@ -1,9 +1,18 @@
 "use client";
 
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { modalBackdrop, modalContent } from "@/lib/animations";
+
+const FOCUSABLE_ELEMENTS = [
+  "button",
+  "input",
+  "select",
+  "textarea",
+  "[href]",
+  "[tabindex]:not([tabindex=\\-1])",
+].join(",");
 
 interface ModalProps {
   isOpen: boolean;
@@ -29,19 +38,66 @@ export function Modal({
   size = "md",
   closeButton = true,
 }: ModalProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const previousActiveElement = useRef<Element | null>(null);
+
   useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    if (!isOpen) return;
+
+    // Save the previously focused element
+    previousActiveElement.current = document.activeElement;
+
+    // Focus management
+    const focusFirstElement = () => {
+      if (!contentRef.current) return;
+      const focusableElements = contentRef.current.querySelectorAll(FOCUSABLE_ELEMENTS);
+      if (focusableElements.length > 0) {
+        (focusableElements[0] as HTMLElement).focus();
+      }
     };
 
-    if (isOpen) {
-      document.addEventListener("keydown", handleEsc);
-      document.body.style.overflow = "hidden";
-    }
+    // Focus trap
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+
+      if (e.key === "Tab" && contentRef.current) {
+        const focusableElements = contentRef.current.querySelectorAll(FOCUSABLE_ELEMENTS);
+        if (focusableElements.length === 0) return;
+
+        const firstElement = focusableElements[0] as HTMLElement;
+        const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+        const activeElement = document.activeElement;
+
+        if (e.shiftKey) {
+          if (activeElement === firstElement) {
+            lastElement.focus();
+            e.preventDefault();
+          }
+        } else {
+          if (activeElement === lastElement) {
+            firstElement.focus();
+            e.preventDefault();
+          }
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+
+    // Use setTimeout to ensure DOM is ready
+    setTimeout(focusFirstElement, 0);
 
     return () => {
-      document.removeEventListener("keydown", handleEsc);
+      document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "";
+      // Restore focus to the previously focused element
+      if (previousActiveElement.current instanceof HTMLElement) {
+        previousActiveElement.current.focus();
+      }
     };
   }, [isOpen, onClose]);
 
@@ -59,6 +115,10 @@ export function Modal({
           />
 
           <motion.div
+            ref={contentRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={title ? "modal-title" : undefined}
             className={cn(
               "relative bg-bg-primary rounded-lg shadow-lg p-6 w-full mx-4",
               sizes[size]
@@ -71,12 +131,13 @@ export function Modal({
             {(title || closeButton) && (
               <div className="flex items-start justify-between mb-4">
                 {title && (
-                  <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
+                  <h2 id="modal-title" className="text-lg font-semibold text-text-primary">{title}</h2>
                 )}
                 {closeButton && (
                   <button
                     onClick={onClose}
-                    className="text-text-muted hover:text-text-primary transition-colors"
+                    type="button"
+                    className="text-text-muted hover:text-text-primary transition-colors rounded focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2"
                     aria-label="Close modal"
                   >
                     <svg

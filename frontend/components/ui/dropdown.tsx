@@ -12,6 +12,7 @@ interface DropdownProps {
 export function Dropdown({ trigger, children, align = "left" }: DropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -20,9 +21,39 @@ export function Dropdown({ trigger, children, align = "left" }: DropdownProps) {
       }
     }
 
+    function handleKeyDown(event: KeyboardEvent) {
+      if (!isOpen) return;
+
+      switch (event.key) {
+        case "Escape":
+          setIsOpen(false);
+          break;
+        case "ArrowDown": {
+          event.preventDefault();
+          const buttons = menuRef.current?.querySelectorAll("button");
+          if (buttons && buttons.length > 0) {
+            (buttons[0] as HTMLButtonElement).focus();
+          }
+          break;
+        }
+        case "ArrowUp": {
+          event.preventDefault();
+          const buttons = menuRef.current?.querySelectorAll("button");
+          if (buttons && buttons.length > 0) {
+            (buttons[buttons.length - 1] as HTMLButtonElement).focus();
+          }
+          break;
+        }
+      }
+    }
+
     if (isOpen) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+        document.removeEventListener("keydown", handleKeyDown);
+      };
     }
   }, [isOpen]);
 
@@ -30,13 +61,17 @@ export function Dropdown({ trigger, children, align = "left" }: DropdownProps) {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center justify-center focus:outline-none"
+        className="inline-flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 rounded transition-colors"
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
       >
         {trigger}
       </button>
 
       {isOpen && (
         <div
+          ref={menuRef}
+          role="menu"
           className={cn(
             "absolute top-full mt-2 min-w-[200px] bg-bg-primary rounded-lg shadow-lg border border-border-default py-1 z-50",
             align === "right" ? "right-0" : "left-0"
@@ -60,9 +95,10 @@ export function DropdownItem({
 }) {
   return (
     <button
+      role="menuitem"
       onClick={onClick}
       className={cn(
-        "block w-full text-left px-4 py-2 text-sm transition-colors",
+        "block w-full text-left px-4 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-inset",
         destructive
           ? "text-error hover:bg-error/5"
           : "text-text-primary hover:bg-bg-secondary"

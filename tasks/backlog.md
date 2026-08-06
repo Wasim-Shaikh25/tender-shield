@@ -631,3 +631,19 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-354 | All-projects / workspace filter dashboard: spec for a global opportunity board with filters by workspace, jurisdiction, status, deadline | user request; `specs/frontend.md` | `specs/project-state-dashboard.md` | done |
 | TS-355 | E2E test bugfixes: persist/serialize assistant `suggested_followups`, allow `.md`/`txt` upload, fix assistant live-update on first message | testing findings; `specs/modules/assistant.md` | `backend/app/modules/assistant/`, `frontend/app/assistant/`, `backend/app/core/storage.py` | done |
 | TS-356 | Global left sidebar navigation replacing top navbar | user request; `specs/frontend.md` | `frontend/app/layout.tsx`, `frontend/components/` | done |
+
+## Phase 29 — UI/UX Redesign (Master initiative)
+
+Master requirement: comprehensive end-to-end SaaS UI/UX transformation. Seven phases: 1) Design System (complete), 2) Global Shell (complete), 3) Core Pages (complete), 4) Advanced Pages (complete), 5) Additional Pages (in progress), 6) Admin Pages (pending), 7) Polish & QA (pending).
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-357 | **PARENT TASK: Master UI/UX redesign initiative** — Establish modern, premium, cohesive design system + redesign 20+ application pages across 7 phases; branches: `claude/ui-dev-tools-setup-r3sxpg` | user request (Master UI/UX prompt); `specs/frontend.md` | `specs/frontend.md`, `UI_REDESIGN_STATUS.md` | in-progress |
+| TS-358 | **PHASE 1: Design System Foundation** — Tailwind config + 40+ semantic tokens, global CSS with focus states, 6 core UI components (Button, Input, Card, Badge, Alert, utilities) | TS-357; user request | `specs/frontend.md` | done |
+| TS-359 | **PHASE 2: Global Application Shell** — Modern sidebar, workspace selector dropdown, nav hierarchy, mobile drawer, responsive behavior | TS-357; user request | `specs/frontend.md` | done |
+| TS-360 | **PHASE 3: Core Page Redesigns** — `/login`, `/`, `/opportunities`, `/dashboard/state`, `/projects`, `/team` (6 pages, all business logic preserved) | TS-357; user request | `specs/frontend.md` | done |
+| TS-361 | **PHASE 4: Advanced Page Redesigns** — `/opportunities/[id]`, `/billing`, `/plan` (3 pages, complex layouts, tables, dashboards) | TS-357; user request | `specs/frontend.md` | done |
+| TS-362 | **PHASE 5: Additional Page Redesigns** — `/settings`, `/settings/notifications`, `/settings/api-keys`, `/settings/integrations`, `/billing/settings`, `/projects/[id]/state`, `/support/tickets`, `/support/tickets/[id]` (8 pages, medium priority) | TS-357; user request | `specs/frontend.md` | in-progress |
+| TS-363 | **PHASE 6: Admin Page Redesigns** — `/admin`, `/admin/users`, `/admin/users/[id]`, `/admin/workspaces`, `/admin/audit-log`, `/admin/support`, `/admin/coupons` (7 pages, lower priority) | TS-357; user request | `specs/frontend.md` | todo |
+| TS-364 | **PHASE 7: Polish & QA** — Additional components (Modal, Table, Tabs, Dropdown, Toast, Skeleton, Tooltip, Popover, Breadcrumb), Framer Motion animations, WCAG AA accessibility audit, responsive finalization, visual QA, functional QA, dark mode, performance optimization | TS-357; user request | `specs/frontend.md` | todo |
+| TS-365 | Create comprehensive specs for UI redesign in `specs/frontend-ui-redesign.md` documenting design system, component library, page coverage, and acceptance criteria | TS-357; CLAUDE.md §3 | `specs/frontend-ui-redesign.md` (new) | done |

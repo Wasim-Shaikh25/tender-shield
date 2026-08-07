@@ -140,3 +140,33 @@ def set_default_report_template(
     if result is None:
         raise HTTPException(404, "not_found")
     return result
+
+
+@router.post("/opportunities/{opportunity_id}/email-summary")
+def export_email_summary(
+    opportunity_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    """Generate email-ready summary for an opportunity.
+
+    Returns JSON with subject, body (plaintext + HTML), mailto link, and preview.
+    """
+    try:
+        email_data = _service(request, session).email_summary(
+            principal.workspace_id, opportunity_id, role=principal.role
+        )
+    except ExportError as exc:
+        status = 403 if exc.code == "review_incomplete" else 400
+        raise HTTPException(status, exc.code) from exc
+    audit_log.log(
+        request,
+        session,
+        workspace_id=principal.workspace_id,
+        actor_user_id=principal.user_id,
+        action="export.email_summary_generated",
+        object_type="opportunity",
+        object_id=opportunity_id,
+    )
+    return email_data

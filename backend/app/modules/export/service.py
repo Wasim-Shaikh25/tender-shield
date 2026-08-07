@@ -6,11 +6,12 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy import select
 
 from app.modules.export.models import ReportTemplate
+from app.modules.export.email_export import generate_email_template_for_api
 from app.modules.export.render import (
     UNREVIEWED_VARIANT,
     render_docx,
@@ -369,3 +370,44 @@ class ExportService:
         row.is_default = True
         self.s.commit()
         return self._template_row_to_dict(row)
+
+    # ---- email export (TS-369) -----------------------------------------------
+    def email_summary(
+        self,
+        workspace_id,
+        opportunity_id,
+        *,
+        role: str | None = None,
+    ) -> dict:
+        """Generate email-ready summary with findings.
+
+        Returns dict with subject, body, body_html, mailto_link, preview.
+        """
+        if not self._gate_ok(workspace_id, opportunity_id):
+            raise ExportError("review_incomplete")
+
+        title = self._title(workspace_id, opportunity_id)
+        findings = self._findings(workspace_id, opportunity_id)
+
+        # Prepare reviewer email for attribution
+        reviewer_email = None
+        reviewer_meta = self._reviewer_meta(workspace_id, opportunity_id)
+        if reviewer_meta.get("reviewed_by_email"):
+            reviewer_email = reviewer_meta["reviewed_by_email"]
+
+        # For now, deadline_info is optional — can be populated from opportunity/project data
+        deadline_info = None
+        if self._ingestion_factory:
+            opp = self._ingestion_factory(self.s).get_opportunity(workspace_id, opportunity_id)
+            if opp and hasattr(opp, "deadline"):
+                deadline_date = opp.deadline
+                if deadline_date:
+                    days_left = (deadline_date.date() - date.today()).days
+                    deadline_info = {
+                        "date": deadline_date.isoformat(),
+                        "days_left": max(0, days_left),
+                    }
+
+        return generate_email_template_for_api(
+            title, findings, deadline_info=deadline_info, reviewer_email=reviewer_email
+        )

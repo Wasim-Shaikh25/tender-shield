@@ -227,7 +227,7 @@ All 24 application pages have been redesigned! The final polish phase includes:
   - Enhanced DropdownItem with disabled prop and proper styling
 - ✅ **QA Checklist Update**: Added component integration tracking to PHASE7_QA_CHECKLIST.md
 
-### Done — Export Enhancement (TS-366, TS-367, TS-369)
+### Done — Export Enhancement Phase 1: PDF & Email (TS-366, TS-367, TS-368, TS-369)
 
 **Requirements & Specification:**
 - **TS-367** — Created comprehensive export enhancement specification (`specs/export-enhancement.md`):
@@ -236,6 +236,19 @@ All 24 application pages have been redesigned! The final polish phase includes:
   - Business rationale: Revenue retention, workflow lock-in, competitive advantage
   - Phase 1 (immediate): PDF + Email Summary + Comparison (40 hours)
   - Phase 2 (optional): Stakeholder Report + Dashboard/Graph Exports (30 hours)
+
+**PDF Export Enhancement:**
+- **TS-368** — Enhanced PDF export for bid review pack:
+  - Improved `render_pdf()` with professional layout:
+    - Cover page with title and opportunity name
+    - Executive summary section with finding counts by severity
+    - Findings organized by severity level with color-coded headers
+    - Source quotes with page citations for traceability
+    - Dedicated quote styling (italic, indented, muted color)
+    - Professional spacing and visual hierarchy
+    - Multi-page artifacts (assumptions, clarifications)
+  - Updated filename format: `bid-review-[opportunityId]-[date].[ext]`
+  - Maintains existing review gate enforcement and watermarking
 
 **Email Export Implementation:**
 - **TS-369** — Backend email summary export module:

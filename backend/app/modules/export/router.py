@@ -170,3 +170,47 @@ def export_email_summary(
         object_id=opportunity_id,
     )
     return email_data
+
+
+class ComparisonBody(BaseModel):
+    version_1_date: str
+    version_1_findings: list[dict] | None = None
+    version_2_date: str | None = None
+    version_2_findings: list[dict] | None = None
+
+
+@router.post("/opportunities/{opportunity_id}/comparison-summary")
+def export_comparison_summary(
+    opportunity_id: str,
+    body: ComparisonBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("estimator")),
+):
+    """Generate comparison summary between two analysis versions.
+
+    Shows new risks, resolved risks, escalated/de-escalated findings.
+    If version_2_findings not provided, uses current findings.
+    """
+    try:
+        comparison_data = _service(request, session).comparison_summary(
+            principal.workspace_id,
+            opportunity_id,
+            body.version_1_date,
+            version_1_findings=body.version_1_findings,
+            version_2_date=body.version_2_date,
+            version_2_findings=body.version_2_findings,
+        )
+    except ExportError as exc:
+        raise HTTPException(400, exc.code) from exc
+    audit_log.log(
+        request,
+        session,
+        workspace_id=principal.workspace_id,
+        actor_user_id=principal.user_id,
+        action="export.comparison_generated",
+        object_type="opportunity",
+        object_id=opportunity_id,
+        detail={"v1_date": body.version_1_date, "v2_date": body.version_2_date},
+    )
+    return comparison_data

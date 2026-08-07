@@ -12,6 +12,7 @@ from sqlalchemy import select
 
 from app.modules.export.models import ReportTemplate
 from app.modules.export.email_export import generate_email_template_for_api
+from app.modules.export.version_comparison import generate_comparison_summary
 from app.modules.export.render import (
     UNREVIEWED_VARIANT,
     render_docx,
@@ -412,4 +413,40 @@ class ExportService:
 
         return generate_email_template_for_api(
             title, findings, deadline_info=deadline_info, reviewer_email=reviewer_email
+        )
+
+    # ---- version comparison (TS-370) -----------------------------------------------
+    def comparison_summary(
+        self,
+        workspace_id,
+        opportunity_id,
+        version_1_date: str,
+        version_1_findings: list[dict] | None = None,
+        version_2_date: str | None = None,
+        version_2_findings: list[dict] | None = None,
+    ) -> dict:
+        """Generate comparison summary between two analysis versions.
+
+        If versions not provided, uses current findings and compares against
+        proposed vs accepted findings (before/after review).
+
+        Returns dict with subject, body, and detailed change statistics.
+        """
+        title = self._title(workspace_id, opportunity_id)
+
+        # If version_2 not specified, use current state (all findings)
+        if version_2_findings is None:
+            version_2_findings = self._findings(workspace_id, opportunity_id)
+            version_2_date = date.today().isoformat()
+
+        # If version_1 not provided, use current state (this shouldn't normally happen)
+        if version_1_findings is None:
+            version_1_findings = self._findings(workspace_id, opportunity_id)
+
+        return generate_comparison_summary(
+            title,
+            version_1_date,
+            version_1_findings,
+            version_2_date or date.today().isoformat(),
+            version_2_findings,
         )

@@ -177,11 +177,13 @@ def render_pdf(
 ) -> bytes:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, PageBreak
 
     styles = getSampleStyleSheet()
     normal = styles["Normal"]
     small = ParagraphStyle("stamp", parent=normal, fontSize=8, textColor="#666666")
+    quote_style = ParagraphStyle("quote", parent=normal, fontSize=9, textColor="#555555", leftIndent=20, italic=True)
+
     buf = io.BytesIO()
     unreviewed = meta.get("variant") == UNREVIEWED_VARIANT
     page_callbacks = (
@@ -193,44 +195,85 @@ def render_pdf(
     doc = SimpleDocTemplate(
         buf, pagesize=A4, title=f"{title} — {opportunity_title}", **page_callbacks
     )
+
+    # Cover page
     flow = [
-        Paragraph(f"{title} — {opportunity_title}", styles["Title"]),
+        Paragraph(f"{title}", styles["Title"]),
+        Paragraph(f"{opportunity_title}", styles["Heading1"]),
+        Spacer(1, 24),
         Paragraph(stamp_line(meta, template), small),
-        Spacer(1, 12),
-        Paragraph("Risk findings", styles["Heading2"]),
+        PageBreak(),
     ]
 
+    # Executive summary
     accepted = findings if unreviewed else [
         f for f in findings if f.get("review_status") in ("accepted", "edited")
     ]
+
+    high_risk = [f for f in accepted if f.get("severity") in ("critical", "high")]
+    medium_risk = [f for f in accepted if f.get("severity") == "medium"]
+    boq_issues = [f for f in accepted if f.get("category") == "boq"]
+
+    flow.append(Paragraph("Executive Summary", styles["Heading1"]))
+    flow.append(Spacer(1, 10))
+    flow.append(Paragraph(f"Total findings: <b>{len(accepted)}</b>", normal))
+    if high_risk:
+        flow.append(Paragraph(f"<b>Critical/High Risk:</b> {len(high_risk)}", normal))
+    if medium_risk:
+        flow.append(Paragraph(f"<b>Medium Risk:</b> {len(medium_risk)}", normal))
+    if boq_issues:
+        flow.append(Paragraph(f"<b>BOQ Issues:</b> {len(boq_issues)}", normal))
+    flow.append(PageBreak())
+
+    # Risk findings with source quotes
+    flow.append(Paragraph("Risk Findings", styles["Heading1"]))
+    flow.append(Spacer(1, 10))
+
     if accepted:
-        for f in sorted(accepted, key=lambda x: _SEV_RANK.get(x.get("severity", "info"), 9)):
-            flow.append(
-                Paragraph(
-                    f"<b>[{f.get('severity')}]</b> {f.get('category')} — {f.get('title')}", normal
-                )
-            )
+        for severity_level in ("critical", "high", "medium", "low", "info"):
+            severity_findings = [f for f in accepted if f.get("severity") == severity_level]
+            if severity_findings:
+                flow.append(Paragraph(f"<b>{severity_level.upper()} SEVERITY</b>", styles["Heading2"]))
+                for f in severity_findings:
+                    flow.append(Paragraph(
+                        f"<b>{f.get('category', 'unknown').upper()}</b> -- {f.get('title', 'Untitled')}",
+                        normal
+                    ))
+                    quote = f.get("source_quote")
+                    if quote:
+                        page_ref = f.get("source_page")
+                        page_text = f" (Page {page_ref})" if page_ref else ""
+                        flow.append(Paragraph(f'<i>"{quote}"</i>{page_text}', quote_style))
+                    flow.append(Spacer(1, 6))
+                flow.append(Spacer(1, 12))
     else:
         flow.append(Paragraph("No accepted findings.", normal))
 
+    flow.append(PageBreak())
+
+    # Artifacts: Assumptions & Clarifications
     for art in artifacts:
         b = art.get("body", {})
-        flow.append(Spacer(1, 10))
-        flow.append(Paragraph(b.get("title", art.get("kind", "Artifact")), styles["Heading2"]))
+        flow.append(Paragraph(b.get("title", art.get("kind", "Artifact")).upper(), styles["Heading1"]))
         if b.get("preamble"):
             flow.append(Paragraph(b["preamble"], normal))
+            flow.append(Spacer(1, 10))
+
         for item in b.get("items", []):
             if art.get("kind") == "clarification_letter":
-                flow.append(Paragraph(f"{item.get('n')}. {item.get('heading', '')}", normal))
+                flow.append(Paragraph(f"<b>{item.get('n')}. {item.get('heading', '')}</b>", normal))
                 if item.get("quote"):
-                    flow.append(Paragraph(f"<i>“{item['quote']}”</i>", normal))
+                    flow.append(Paragraph(f'<i>"{item["quote"]}"</i>', quote_style))
                 flow.append(Paragraph(str(item.get("ask", "")), normal))
             else:
                 cat, txt = item.get("category"), item.get("assumption", "")
-                flow.append(Paragraph(f"{item.get('n')}. [{cat}] {txt}", normal))
+                flow.append(Paragraph(f"<b>{item.get('n')}. [{cat}]</b> {txt}", normal))
+            flow.append(Spacer(1, 8))
+
+        flow.append(Spacer(1, 16))
+
     doc.build(flow)
     return buf.getvalue()
-
 
 def _handover_table_sections(handover: dict) -> list[tuple[str, list[str], list, list[str]]]:
     specs = [

@@ -223,7 +223,9 @@ class ExportService:
             fmt, title, workspace_id, opportunity_id, meta, template=template
         )
 
-        filename = f"bid-review-pack-{opportunity_id}.{ext}"
+        # Format: bid-review-[opportunityId]-[date].[ext]
+        export_date = meta["date"].replace("-", "")  # YYYYMMDD format
+        filename = f"bid-review-{opportunity_id}-{export_date}.{ext}"
         return filename, media_type, data
 
     def export_unreviewed(

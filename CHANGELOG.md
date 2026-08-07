@@ -227,6 +227,41 @@ All 24 application pages have been redesigned! The final polish phase includes:
   - Enhanced DropdownItem with disabled prop and proper styling
 - ✅ **QA Checklist Update**: Added component integration tracking to PHASE7_QA_CHECKLIST.md
 
+### Done — Export Enhancement (TS-366, TS-367, TS-369)
+
+**Requirements & Specification:**
+- **TS-367** — Created comprehensive export enhancement specification (`specs/export-enhancement.md`):
+  - 5 main export types: PDF (bid review pack, dashboard, knowledge graph), email summaries, version comparison, stakeholder reports
+  - Detailed user stories, acceptance criteria, and technical implementation roadmap
+  - Business rationale: Revenue retention, workflow lock-in, competitive advantage
+  - Phase 1 (immediate): PDF + Email Summary + Comparison (40 hours)
+  - Phase 2 (optional): Stakeholder Report + Dashboard/Graph Exports (30 hours)
+
+**Email Export Implementation:**
+- **TS-369** — Backend email summary export module:
+  - New `backend/app/modules/export/email_export.py` with email generation functions:
+    - `generate_email_summary()` — creates email-ready templates with findings categorized by severity
+    - `generate_mailto_link()` — produces `mailto:` URLs for client-side email composition
+    - `generate_email_template_for_api()` — returns structured API response data
+  - Features:
+    - Markdown + HTML email formatting with emoji severity indicators (🔴 critical, 🟠 high, 🟡 medium, 🟢 low)
+    - Automatic finding categorization (high-risk, warnings, BOQ issues)
+    - Reviewer attribution and analysis timestamp
+    - Deadline information with days-remaining calculation
+    - Risk-based recommendations (Renegotiate/Address/Proceed)
+    - Email preview for UI display
+  - `ExportService.email_summary()` method with review gate enforcement
+  - `POST /api/export/opportunities/{id}/email-summary` endpoint with audit logging
+  - Full module integration into export pipeline (registry capabilities, soft dependencies)
+
+**Next** — Continue Phase 30 export enhancement:
+1. **TS-368** — PDF export for bid review pack (findings, assumptions, clarifications, metadata)
+2. **TS-370** — Version comparison export (before/after findings with delta tracking)
+3. **TS-371** — Stakeholder report generator (1-page executive summary, C-suite friendly)
+4. **TS-372–373** — Dynamic dashboard & knowledge graph exports (PDF, SVG, PNG, JSON-LD, GML)
+5. **TS-374–378** — Frontend UI components and buttons for export features
+6. **TS-379–381** — E2E testing, documentation, and performance optimization
+
 ### Next — PHASE 7: Polish & QA (Part 2 - Continued)
 
 **Immediate Priority** (3-4 hours to launch):

@@ -647,3 +647,28 @@ Master requirement: comprehensive end-to-end SaaS UI/UX transformation. Seven ph
 | TS-363 | **PHASE 6: Admin Page Redesigns** — `/admin`, `/admin/users`, `/admin/users/[id]`, `/admin/workspaces`, `/admin/audit-log`, `/admin/support`, `/admin/coupons` (7 pages, lower priority) | TS-357; user request | `specs/frontend.md` | done |
 | TS-364 | **PHASE 7: Polish & QA** — ✅ 8 components created + animations; ✅ WCAG AA audit complete; Next: a11y fixes, integration, responsive/visual/functional QA, performance | TS-357; user request | `specs/frontend.md`, `ACCESSIBILITY_AUDIT.md` | in-progress |
 | TS-365 | Create comprehensive specs for UI redesign in `specs/frontend-ui-redesign.md` documenting design system, component library, page coverage, and acceptance criteria | TS-357; CLAUDE.md §3 | `specs/frontend-ui-redesign.md` (new) | done |
+
+## Phase 30 — Export Enhancement (Business Critical)
+
+Enhance export functionality to become integral to contractor workflows. Current exports (DOCX, XLSX) support basic archival. New exports support collaboration, stakeholder communication, and AI-generated asset distribution.
+
+**Business Impact**: Increases product stickiness, enables audit trails, creates workflow lock-in.
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-366 | **PARENT TASK: Export Enhancement Initiative** — Comprehensive export system including PDF, email summaries, version comparison, and AI dashboard/knowledge graph exports; branches: `claude/export-enhancement-*` | user request (business critical); `specs/export-enhancement.md` | `specs/export-enhancement.md` | in-progress |
+| TS-367 | Create export enhancement specification documenting all export types (PDF, email, comparison, stakeholder reports) with user stories, technical requirements, and success metrics | TS-366; user request | `specs/export-enhancement.md` (new) | done |
+| TS-368 | Backend: PDF export for bid review pack (findings + assumptions + clarifications + metadata) using pdfkit or puppeteer | TS-366; `specs/export-enhancement.md` | `backend/app/modules/drafting/pdf_export.py` (new) | todo |
+| TS-369 | Backend: Email summary export (mailto template + PDF attachment) with pre-filled risk summary and stakeholder-friendly formatting | TS-366; `specs/export-enhancement.md` | `backend/app/modules/drafting/email_export.py` (new) | todo |
+| TS-370 | Backend: Version comparison export (DOCX/XLSX/PDF showing before/after findings with delta tracking) | TS-366; `specs/export-enhancement.md` | `backend/app/modules/drafting/comparison_export.py` (new) | todo |
+| TS-371 | Backend: Stakeholder report generator (1-page executive summary PDF, C-suite friendly, plain English, no jargon) | TS-366; `specs/export-enhancement.md` | `backend/app/modules/drafting/stakeholder_report.py` (new) | todo |
+| TS-372 | Backend: Dynamic dashboard export (PDF, SVG, JSON) with chart rendering and metadata | TS-366; `specs/export-enhancement.md` | `backend/app/modules/dashboards/export.py` (new) | todo |
+| TS-373 | Backend: Knowledge graph/risk network export (PDF, SVG, PNG, JSON-LD, GML) with graph visualization and linked data | TS-366; `specs/export-enhancement.md` | `backend/app/modules/knowledge_graph/export.py` (new) | todo |
+| TS-374 | Frontend: Add export UI buttons to opportunities detail page (PDF, email, comparison, stakeholder report) with export menu dropdown | TS-366; `specs/export-enhancement.md` | `frontend/app/opportunities/[id]/page.tsx` | todo |
+| TS-375 | Frontend: Email dialog component (pre-fill + recipient selection + send via mailto) | TS-366; `specs/export-enhancement.md` | `frontend/components/ui/email-dialog.tsx` (new) | todo |
+| TS-376 | Frontend: Version comparison selector (pick two versions to compare + export format selection) | TS-366; `specs/export-enhancement.md` | `frontend/components/ui/comparison-selector.tsx` (new) | todo |
+| TS-377 | Frontend: Dashboard export buttons (PDF, SVG, JSON) on dashboard/analytics pages | TS-366; `specs/export-enhancement.md` | `frontend/app/dashboard/page.tsx` (updated) | todo |
+| TS-378 | Frontend: Knowledge graph export buttons (PDF, SVG, PNG, JSON-LD, GML) on knowledge graph visualization page | TS-366; `specs/export-enhancement.md` | `frontend/app/knowledge-graph/page.tsx` (if exists) | todo |
+| TS-379 | Testing: E2E tests for all export formats (PDF, DOCX, XLSX, email, comparison, stakeholder report, dashboard exports) | TS-366; `specs/export-enhancement.md` | `backend/tests/test_export_*.py`, `frontend/e2e/export.spec.ts` (new) | todo |
+| TS-380 | Documentation: User guide for export features (how to use, best practices, format guidance) | TS-366; `specs/export-enhancement.md` | `docs/USER_GUIDE_EXPORTS.md` (new) | todo |
+| TS-381 | Performance optimization: Ensure exports complete in <5 seconds for large analyses; benchmark and optimize chart rendering for PDF | TS-366; `specs/export-enhancement.md` | Performance validation in E2E tests | todo |

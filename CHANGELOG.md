@@ -6,6 +6,38 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — Public-Facing Pages & Pricing (Marketing & Onboarding)
+
+**Public Landing Page** (`/`) — Enhanced with comprehensive feature explanations:
+- Added "Why TenderShield" section with 6 non-technical value propositions for contractors
+- Added "What TenderShield Finds" section with detailed explanations of each feature
+- Added "Every Review Includes" section with 6 key deliverables (deadline wall, risk register, BOQ assurance, etc.)
+- Added pricing tier preview cards linking to full pricing page
+- Added social proof/testimonials section with 4 contractor quotes
+- Improved copy to target non-technical contractor audience
+- Enhanced visual hierarchy with better spacing and typography
+
+**Help Page** (`/help`) — Comprehensive non-technical guide:
+- Getting Started in 3 Steps with clear workflow illustration
+- Key Features section (6 features with icons)
+- Concepts Explained with 8 non-technical definitions (deadline wall, risk register, BOQ, clarification letter, etc.)
+- 20 FAQ items covering common questions from contractors
+- Data Privacy section with security assurances (DPDP, GDPR compliance)
+- Call-to-action section linking to login and pricing
+
+**Pricing Page** (`/pricing`) — Complete subscription tier presentation:
+- Four pricing tiers: Free (1 review), Pay-Per-Tender (₹7,500), Pro (₹24,999/mo), Scale (₹74,999/mo)
+- Monthly/Annual billing toggle with 20% annual discount
+- Detailed comparison table (16 features across all tiers)
+- 8 billing FAQ items (switching plans, contracts, invoicing, etc.)
+- Annual savings calculator
+- All plans include free trial option
+
+**Public Access Configuration**:
+- Updated `AuthGate` PUBLIC_PATHS to include `/`, `/help`, `/pricing`
+- These pages now accessible without authentication
+- Support non-technical visitor flow: Landing → Help → Pricing → Login
+
 ### Done — Complete UI/UX Redesign (Phase 1-6, 24/24 pages - 100% complete!)
 
 **PHASE 1: Design System Foundation**

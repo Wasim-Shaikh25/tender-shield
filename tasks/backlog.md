@@ -672,3 +672,17 @@ Enhance export functionality to become integral to contractor workflows. Current
 | TS-379 | Testing: E2E tests for all export formats (PDF, DOCX, XLSX, email, comparison, stakeholder report, dashboard exports) | TS-366; `specs/export-enhancement.md` | `backend/tests/test_export_*.py`, `frontend/e2e/export.spec.ts` (new) | todo |
 | TS-380 | Documentation: User guide for export features (how to use, best practices, format guidance) | TS-366; `specs/export-enhancement.md` | `docs/USER_GUIDE_EXPORTS.md` (new) | todo |
 | TS-381 | Performance optimization: Ensure exports complete in <5 seconds for large analyses; benchmark and optimize chart rendering for PDF | TS-366; `specs/export-enhancement.md` | Performance validation in E2E tests | todo |
+
+## Public-Facing Pages & Marketing
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-382 | **PARENT TASK: Public-Facing Pages Initiative** — Landing page, help/documentation, and pricing pages for non-technical contractor audience; branches: public-pages-ready | user request (market positioning); `specs/public-pages.md` (new) | `specs/public-pages.md` | done |
+| TS-383 | Landing page (`/`) enhancement — Add comprehensive feature explanations, value propositions, benefits section, pricing preview, testimonials, and improved copy for non-technical audience | TS-382; user request | `frontend/app/page.tsx` (updated) | done |
+| TS-384 | Help/Documentation page (`/help`) — Comprehensive non-technical guide with getting started, features, concepts explained, 20 FAQs, and privacy/data assurances | TS-382; user request | `frontend/app/help/page.tsx` (new) | done |
+| TS-385 | Pricing page (`/pricing`) — Four-tier subscription model (Free, Pay-Per-Tender, Pro, Scale) with monthly/annual toggle, detailed comparison table, and billing FAQs | TS-382; user request | `frontend/app/pricing/page.tsx` (new) | done |
+| TS-386 | Public access configuration — Update AuthGate PUBLIC_PATHS to include `/`, `/help`, `/pricing` for non-authenticated visitor flow | TS-382; user request | `frontend/components/auth-gate.tsx` (updated) | done |
+| TS-387 | Landing page testimonials & social proof section — Add 4 contractor testimonials with real-world savings/efficiency quotes | TS-382; user request | `frontend/app/page.tsx` (updated) | done |
+| TS-388 | Public pages SEO & metadata — Add proper title tags, meta descriptions, structured data (schema.org) for Google indexing | TS-382; user request | Next priority |
+| TS-389 | Public terms of service, privacy policy, and DPDP compliance pages — Full legal + data protection documents | TS-382; compliance requirement | Next priority |
+| TS-390 | Analytics integration (Plausible/Fathom) on public pages — Track visitor flow, conversion rates, feature interest | TS-382; business intelligence | Next priority |

@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useSession } from "./session";
 
-const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password"];
+const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password", "/", "/help", "/pricing"];
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const { session, loading } = useSession();

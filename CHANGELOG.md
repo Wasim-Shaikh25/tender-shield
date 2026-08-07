@@ -279,16 +279,40 @@ All 24 application pages have been redesigned! The final polish phase includes:
   - Supports custom version dates and finding sets
   - Audit logging for comparison events
 
-**Phase 1 Complete** — All immediate exports implemented:
-✅ TS-367: Specification  
-✅ TS-368: PDF export (enhanced rendering)  
-✅ TS-369: Email summary export  
-✅ TS-370: Version comparison export  
+**Frontend Export UI Implementation:**
+- **TS-374** — Export menu dropdown on opportunities detail page:
+  - Integrated ExportMenu component into page header (conditionally shown when export_allowed)
+  - PDF, DOCX, XLSX export options with file download
+  - Email summary trigger within dropdown
+  - Consistent styling with existing design system
+  
+- **TS-375** — Email dialog component:
+  - Pre-generated email summary with subject and preview
+  - "Open Email Client" button (launches mailto: link)
+  - "Copy to Clipboard" button for email body
+  - Loading state while generating summary
+  - Error handling for failed requests
+  - Full accessibility with proper label associations
 
-**Next** — Frontend components and Phase 2 features:
-1. **TS-374–378** — Frontend UI components (export buttons, email dialog, comparison selector)
-2. **TS-371** — Stakeholder report generator (1-page executive summary, C-suite friendly)
-3. **TS-372–373** — Dynamic dashboard & knowledge graph exports (PDF, SVG, PNG, JSON-LD, GML)
+**Phase 1 Complete** — All immediate exports fully implemented end-to-end:
+✅ TS-367: Specification  
+✅ TS-368: PDF export (enhanced rendering with cover, summary, quotes)  
+✅ TS-369: Email summary export (backend + frontend)  
+✅ TS-370: Version comparison export  
+✅ TS-374: Export UI buttons and menu  
+✅ TS-375: Email dialog component  
+
+**Export Pipeline Complete** — Users can now:
+1. Run risk review to generate findings
+2. Accept/reject findings via review gate
+3. Export findings as PDF (professional format) or Word/Excel
+4. Share risk summary via email (with one-click compose)
+5. Track version changes between analyses
+
+**Next** — Phase 2 Optional Features:
+1. **TS-371** — Stakeholder report generator (1-page executive summary, C-suite friendly)
+2. **TS-372–373** — Dynamic dashboard & knowledge graph exports (PDF, SVG, PNG, JSON-LD, GML)
+3. **TS-376–378** — Version comparison UI selector + Dashboard/Graph export buttons
 4. **TS-379–381** — E2E testing, documentation, and performance optimization
 
 ### Next — PHASE 7: Polish & QA (Part 2 - Continued)

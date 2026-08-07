@@ -31,6 +31,7 @@ import { PricingTab } from "./pricing-tab";
 import { DrawingsTab } from "./drawings-tab";
 import { SubcontractsTab } from "./subcontracts-tab";
 import { RulepackSelector } from "./rulepack-selector";
+import { ExportMenu } from "@/components/ui/export-menu";
 
 export default function OpportunityDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -211,6 +212,14 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
               Upload file
             </Button>
           </label>
+          {session && gate?.export_allowed && (
+            <ExportMenu
+              opportunityId={id}
+              opportunityTitle={title}
+              token={session.token}
+              disabled={busy}
+            />
+          )}
           <Button
             variant="primary"
             size="md"

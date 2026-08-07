@@ -267,13 +267,29 @@ All 24 application pages have been redesigned! The final polish phase includes:
   - `POST /api/export/opportunities/{id}/email-summary` endpoint with audit logging
   - Full module integration into export pipeline (registry capabilities, soft dependencies)
 
-**Next** — Continue Phase 30 export enhancement:
-1. **TS-368** — PDF export for bid review pack (findings, assumptions, clarifications, metadata)
-2. **TS-370** — Version comparison export (before/after findings with delta tracking)
-3. **TS-371** — Stakeholder report generator (1-page executive summary, C-suite friendly)
-4. **TS-372–373** — Dynamic dashboard & knowledge graph exports (PDF, SVG, PNG, JSON-LD, GML)
-5. **TS-374–378** — Frontend UI components and buttons for export features
-6. **TS-379–381** — E2E testing, documentation, and performance optimization
+**Version Comparison Export:**
+- **TS-370** — Backend version comparison export module:
+  - New `backend/app/modules/export/version_comparison.py` with delta analysis:
+    - `generate_comparison_summary()` — compares two finding sets and identifies changes
+    - Change classification: new, resolved, escalated, de-escalated
+    - Statistics: counts of each change type
+    - Detailed summary suitable for email or report generation
+  - `ExportService.comparison_summary()` method for service-level comparison
+  - `POST /api/export/opportunities/{id}/comparison-summary` endpoint
+  - Supports custom version dates and finding sets
+  - Audit logging for comparison events
+
+**Phase 1 Complete** — All immediate exports implemented:
+✅ TS-367: Specification  
+✅ TS-368: PDF export (enhanced rendering)  
+✅ TS-369: Email summary export  
+✅ TS-370: Version comparison export  
+
+**Next** — Frontend components and Phase 2 features:
+1. **TS-374–378** — Frontend UI components (export buttons, email dialog, comparison selector)
+2. **TS-371** — Stakeholder report generator (1-page executive summary, C-suite friendly)
+3. **TS-372–373** — Dynamic dashboard & knowledge graph exports (PDF, SVG, PNG, JSON-LD, GML)
+4. **TS-379–381** — E2E testing, documentation, and performance optimization
 
 ### Next — PHASE 7: Polish & QA (Part 2 - Continued)
 

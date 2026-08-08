@@ -7,13 +7,21 @@ type InlineNode = { kind: "text" | "bold" | "italic" | "code" | "link"; text: st
 const URL_SCHEME_RE = /^([a-z][a-z0-9+.-]*):/i;
 const ALLOWED_SCHEMES = ["http", "https", "mailto", "tel", "sms", "callto"];
 
+function safeFromCodePoint(code: number): string {
+  try {
+    return String.fromCodePoint(code);
+  } catch {
+    return "\uFFFD";
+  }
+}
+
 function decodeFully(s: string): string {
   let prev = "";
   while (prev !== s) {
     prev = s;
     // Decode HTML numeric entities (decimal and hex).
-    s = s.replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)));
-    s = s.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)));
+    s = s.replace(/&#(\d+);/g, (_, code) => safeFromCodePoint(Number(code)));
+    s = s.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => safeFromCodePoint(parseInt(hex, 16)));
     try {
       s = decodeURIComponent(s);
     } catch {

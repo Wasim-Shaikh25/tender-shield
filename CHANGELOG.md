@@ -100,8 +100,20 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   the final `markdown.tsx` hardening against percent-encoded entities and Unicode
   whitespace before URL schemes.
 
+### Done — PR #129 Devin Review follow-up (TS-375)
+
+- **TS-375** — `frontend/app/login/page.tsx` now derives the email/mobile
+  verification code `required` state from the `SignupResponse`
+  `email_verified`/`mobile_verified` flags, so production sign-up (where tokens
+  are not echoed) no longer shows a disabled field as required. Added a
+  `safeFromCodePoint` guard to `frontend/components/markdown.tsx` so malformed
+  or out-of-range numeric HTML entities return the replacement character instead
+  of throwing a `RangeError` during link scheme validation.
+
 ### Next
 
+- **TS-376** — Pull PR #128 (`claude/ui-dev-tools-setup-r3sxpg`), resolve merge
+  conflicts with `main`, fix remaining CI failures, and re-run all checks.
 - **TS-SEC-02** — Sanitize or sandbox LLM-generated mermaid diagrams in the plan
   dashboard; update or replace `mermaid` 11.16.0 to resolve prototype-pollution
   and CSS-injection advisories.

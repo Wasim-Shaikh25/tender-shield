@@ -19,6 +19,7 @@ import {
 } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { SeverityBadge, SourceBadge } from "@/components/badges";
+import { KeyValueSummary } from "@/components/json-summary";
 import { artifactLabel, categoryLabel, deadlineLabel, statusLabel } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -567,9 +568,12 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
                       <p className="text-sm text-text-secondary">by {a.actor_email}</p>
                     )}
                     {Object.keys(a.meta).length > 0 && (
-                      <pre className="mt-2 rounded bg-bg-secondary p-2 text-xs text-text-secondary font-mono">
-                        {JSON.stringify(a.meta, null, 2)}
-                      </pre>
+                      <KeyValueSummary
+                        data={a.meta}
+                        title="Metadata"
+                        maxPreviewKeys={4}
+                        rawLabel="Raw metadata"
+                      />
                     )}
                   </CardContent>
                 </Card>

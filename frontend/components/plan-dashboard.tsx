@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -140,32 +140,98 @@ function ChartSection({ data }: { data: Record<string, unknown> }) {
   );
 }
 
+const MERMAID_ENABLED = process.env.NEXT_PUBLIC_ALLOW_MERMAID === "true";
+
+function sanitizeMermaidText(input: string): string {
+  // Remove Mermaid init/config directives that could lower securityLevel or
+  // load remote resources / execute callbacks.
+  return input
+    .replace(/%%\{[\s\S]*?\}%%/g, "")
+    .replace(/^%%.*$/gm, "")
+    .replace(/<\/?\s*script\s*[^>]*>/gi, "")
+    .replace(/\s*on\w+\s*=\s*["'][^"']*["']/gi, "");
+}
+
+function sanitizeSvg(svg: string): string {
+  // Defense in depth: strip any active content that Mermaid might have emitted.
+  return svg
+    .replace(/<\/?\s*script\s*[^>]*>/gi, "")
+    .replace(/\s*on\w+\s*=\s*["'][^"']*["']/gi, "")
+    .replace(/(href|xlink:href)\s*=\s*["'](javascript|data|vbscript):[^"']*["']/gi, "");
+}
+
 function MermaidSection({ data, id }: { data: Record<string, unknown>; id: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const diagram = (data.diagram as string) ?? "";
+  const diagram = sanitizeMermaidText((data.diagram as string) ?? "");
+  const [srcDoc, setSrcDoc] = useState<string | null>(null);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (!ref.current || !diagram) return;
+    if (!diagram) {
+      setSrcDoc(null);
+      setError(false);
+      return;
+    }
+
     let cancelled = false;
     import("mermaid")
       .then((m) => {
         if (cancelled) return;
-        const mod = (m as { default?: { initialize: (c: Record<string, unknown>) => void; run: (c?: { nodes?: Iterable<HTMLElement> }) => Promise<void> } }).default;
-        if (!mod) return;
-        mod.initialize({ startOnLoad: false, theme: "default" });
-        void mod.run({ nodes: [ref.current!] });
+        const mod = m as { initialize?: (c: Record<string, unknown>) => void; render?: (id: string, text: string) => Promise<{ svg: string }> };
+        if (!mod.render || !mod.initialize) {
+          setError(true);
+          return;
+        }
+        mod.initialize({ startOnLoad: false, securityLevel: "strict", theme: "default" });
+        return mod.render(id, diagram);
       })
-      .catch(() => {});
+      .then((result) => {
+        if (cancelled || !result) return;
+        const svg = sanitizeSvg(result.svg);
+        setSrcDoc(`<!DOCTYPE html><html><head><style>body{margin:0;overflow:auto}</style></head><body>${svg}</body></html>`);
+        setError(false);
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      });
+
     return () => {
       cancelled = true;
     };
   }, [diagram, id]);
 
+  if (!MERMAID_ENABLED) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
+        Mermaid diagrams are disabled in this environment.
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
+        Diagram could not be rendered safely.
+      </div>
+    );
+  }
+
+  if (!srcDoc) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-400">
+        Loading diagram…
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-4">
-      <div ref={ref} className="mermaid">
-        {diagram}
-      </div>
+      <iframe
+        id={id}
+        sandbox=""
+        srcDoc={srcDoc}
+        title="Mermaid diagram"
+        className="w-full min-h-[200px] border-0"
+      />
     </div>
   );
 }

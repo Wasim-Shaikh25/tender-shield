@@ -383,12 +383,22 @@ All 24 application pages have been redesigned! The final polish phase includes:
 4. Share risk summary via email (with one-click compose)
 5. Track version changes between analyses
 
+### Done — Round 13 Gap Closure Batch 1 (TS-380, TS-381, TS-383)
+
+- **TS-380** — `frontend/components/plan-dashboard.tsx` now sanitizes
+  LLM-generated Mermaid text, strips directives, renders to SVG with
+  `securityLevel: strict`, sanitizes the SVG, and displays it inside an
+  `<iframe sandbox="">` with no scripting privileges.
+- **TS-381** — `PlanDashboardAgent` and `RagSuggestionService` now reuse
+  `app.core.prompt_guard` (`looks_like_injection`, `sanitize_message`,
+  `delimit_untrusted`); prompt-injection queries return `400 prompt_injection_detected`.
+- **TS-383** — New `frontend/components/json-summary.tsx` `KeyValueSummary`
+  component replaces raw-JSON `<pre>` blocks on the opportunity audit tab,
+  rulepack RAG suggestions, and admin audit-log detail view.
+
 **Next** — Round 13 residual pre-launch items:
-1. **TS-380** — Sandbox or replace Mermaid rendering in the plan dashboard (TS-SEC-02)
-2. **TS-381** — Add prompt-injection guards (`sanitize_message` / `delimit_untrusted`) to `PlanDashboardAgent` and `RagSuggestionService` (TS-SEC-04)
-3. **TS-382** — Wire explicit Phase 1 backend-only routes into the redesigned UI or formally defer them (TS-UI-05)
-4. **TS-383** — Replace raw-JSON `<pre>` displays with typed summary cards/tables (TS-UI-06)
-5. **TS-E2E-01** — Re-run the Playwright golden path against the new landing/sidebar
+1. **TS-382** — Wire explicit Phase 1 backend-only routes into the redesigned UI or formally defer them (TS-UI-05)
+2. **TS-E2E-01** — Re-run the Playwright golden path against the new landing/sidebar
 
 ### Next — PHASE 7: Polish & QA (Part 2 - Continued)
 

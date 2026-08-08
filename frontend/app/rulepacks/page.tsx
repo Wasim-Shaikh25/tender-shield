@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type RulePackSummary, type RulePackFile, type RagSuggestion } from "@/lib/api";
 import { useSession } from "@/components/session";
+import { KeyValueSummary } from "@/components/json-summary";
 
 export default function RulepacksPage() {
   const { session } = useSession();
@@ -324,12 +325,14 @@ function RagPanel({ packs, onChange }: { packs: RulePackSummary[]; onChange: () 
                   {s.source_page ? ` (p. ${s.source_page})` : ""}
                 </p>
               )}
-              <details className="mb-3">
-                <summary className="cursor-pointer text-xs text-slate-500">Proposed YAML</summary>
-                <pre className="mt-2 max-h-40 overflow-auto rounded-md bg-slate-50 p-2 text-xs">
-                  {JSON.stringify(s.proposed_yaml, null, 2)}
-                </pre>
-              </details>
+              <div className="mb-3">
+                <KeyValueSummary
+                  data={s.proposed_yaml}
+                  title="Proposed YAML"
+                  maxPreviewKeys={6}
+                  rawLabel="Full YAML"
+                />
+              </div>
               {s.status === "proposed" && (
                 <div className="flex gap-2">
                   <button

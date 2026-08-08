@@ -61,6 +61,19 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   escape, preventing a partially-decoded `javascript:`-style href from
   bypassing the scheme whitelist.
 
+### Done — Round 13 Production-Readiness Re-audit (TS-379)
+
+- Updated `PRODUCTION_READINESS_AUDIT.md` with a Round 13 executive summary,
+  refreshed validation matrix, and a post-PR #128/#129 merge gap analysis.
+- Backend `pytest` 663 passed / 5 skipped; frontend `npm run lint`, `typecheck`,
+  and `build` pass with 33 generated routes; `npm audit --audit-level=high`
+  reports 0 vulnerabilities.
+- UI/API integration scan: `frontend/lib/api.ts` wraps 181 distinct endpoints;
+  337 backend routes are mounted; 156 backend routes have no frontend consumer.
+- Identified three remaining raw-JSON `<pre>` displays in the UI:
+  `frontend/app/opportunities/[id]/page.tsx`, `frontend/app/rulepacks/page.tsx`,
+  and `frontend/app/admin/audit-log/page.tsx`.
+
 ### Done — Complete UI/UX Redesign (Phase 1-6, 24/24 pages - 100% complete!)
 
 **PHASE 1: Design System Foundation**
@@ -364,11 +377,12 @@ All 24 application pages have been redesigned! The final polish phase includes:
 4. Share risk summary via email (with one-click compose)
 5. Track version changes between analyses
 
-**Next** — Phase 2 Optional Features:
-1. **TS-371** — Stakeholder report generator (1-page executive summary, C-suite friendly)
-2. **TS-372–373** — Dynamic dashboard & knowledge graph exports (PDF, SVG, PNG, JSON-LD, GML)
-3. **TS-376–378** — Version comparison UI selector + Dashboard/Graph export buttons
-4. **TS-379–381** — E2E testing, documentation, and performance optimization
+**Next** — Round 13 residual pre-launch items:
+1. **TS-380** — Sandbox or replace Mermaid rendering in the plan dashboard (TS-SEC-02)
+2. **TS-381** — Add prompt-injection guards (`sanitize_message` / `delimit_untrusted`) to `PlanDashboardAgent` and `RagSuggestionService` (TS-SEC-04)
+3. **TS-382** — Wire explicit Phase 1 backend-only routes into the redesigned UI or formally defer them (TS-UI-05)
+4. **TS-383** — Replace raw-JSON `<pre>` displays with typed summary cards/tables (TS-UI-06)
+5. **TS-E2E-01** — Re-run the Playwright golden path against the new landing/sidebar
 
 ### Next — PHASE 7: Polish & QA (Part 2 - Continued)
 

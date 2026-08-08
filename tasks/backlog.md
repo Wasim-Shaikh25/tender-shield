@@ -663,3 +663,13 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-376 | PR #128 integration: pull `claude/ui-dev-tools-setup-r3sxpg`, resolve merge conflicts with `main`, fix CI failures, and re-run checks | user request | `*` | done |
 | TS-377 | Ingestion Celery worker should use workspace rulepack loader instead of `lambda: None` for background document classification | Devin Review #129 | `backend/app/modules/ingestion/tasks.py` | done |
 | TS-378 | Markdown link scheme check should fail closed when `decodeURIComponent` encounters an invalid percent escape | Devin Review #129 | `frontend/components/markdown.tsx` | done |
+| TS-379 | Round 13 production-readiness re-audit after PR #128/#129 merge | user request | `PRODUCTION_READINESS_AUDIT.md` | in-progress |
+
+## Phase 31 — Round 13 residual pre-launch items
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-380 | Sandbox or replace Mermaid rendering of LLM-generated plan-dashboard diagrams | `PRODUCTION_READINESS_AUDIT.md` TS-SEC-02 | `frontend/components/plan-dashboard.tsx` | todo |
+| TS-381 | Apply `sanitize_message` and `delimit_untrusted` to `PlanDashboardAgent` and `RagSuggestionService` prompts | `PRODUCTION_READINESS_AUDIT.md` TS-SEC-04 | `backend/app/modules/analytics/plan_agent.py`, `backend/app/modules/rulepacks/rag_service.py` | todo |
+| TS-382 | Wire explicit Phase 1 backend-only routes into the redesigned UI or formally defer them (logout, MFA, BOQ upload, document text/stream, rulepack patterns) | `PRODUCTION_READINESS_AUDIT.md` TS-UI-05 | `frontend/lib/api.ts`, relevant `frontend/app/**/page.tsx` | todo |
+| TS-383 | Replace raw-JSON `<pre>` displays with typed summary cards/tables (audit tab, rulepacks, admin audit-log) | `PRODUCTION_READINESS_AUDIT.md` TS-UI-06 | `frontend/app/opportunities/[id]/page.tsx`, `frontend/app/rulepacks/page.tsx`, `frontend/app/admin/audit-log/page.tsx` | todo |

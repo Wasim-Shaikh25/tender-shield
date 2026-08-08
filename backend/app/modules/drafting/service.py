@@ -70,7 +70,11 @@ class DraftingService:
         weights = dict(_DEFAULT_WEIGHTS)
         if self._loader is not None:
             try:
-                pack = self._loader.get_pack("in-works")
+                pack = self._loader.get_pack(
+                    "in-works",
+                    session=self.s,
+                    workspace_id=workspace_id,
+                )
                 override = (
                     (pack.playbooks or {})
                     .get("default_contractor", {})

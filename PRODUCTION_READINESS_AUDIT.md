@@ -594,3 +594,29 @@ It is **NOT GO for a public or paid production launch** until:
 3. TS-ENV-01 is fixed for deterministic CI.
 4. Core rulepack patterns are QS-validated (or `beta_unvalidated` is formally accepted and documented).
 5. The unverified operational concerns (real-world OCR, load/concurrency, disaster recovery) are addressed with real-world testing.
+
+---
+
+## 8. Round 11 Remediation
+
+The following findings were remediated in the Round 11 follow-up PR (task IDs
+TS-358–TS-362; see `CHANGELOG.md` `[Unreleased]`):
+
+* **TS-SEC-01 (Markdown XSS)** — `frontend/components/markdown.tsx` now
+  whitelists link schemes and renders only `http`, `https`, `mailto`, `tel`,
+  `sms`, `callto` URLs, falling back to a plain `<span>` for disallowed or
+  empty `href`s; all external links carry `rel="noopener noreferrer"`.
+* **TS-ENV-01** — `backend/tests/test_auth_toggles.py` sets explicit toggle
+  defaults in `_client()`, making the suite hermetic to `.env.local`.
+* **TS-DEP-01** — Frontend dependency overrides refreshed `package-lock.json`;
+  `npm audit --audit-level=high` reports 0 vulnerabilities.
+* **TS-SEC-03 (rulepack workspace isolation)** — The rulepack loader, admin
+  service, and public/admin routes now filter by `workspace_id` or global scope;
+  `activate_pack` and `delete_pack` require matching workspace membership or
+  superadmin; `get_combined_pack_for_opportunity` passes the workspace context
+  through risk/BOQ/crossref/marketdata call paths. PostgreSQL RLS policies
+  `workspace_or_global_isolation` on `rulepacks`/`rulepack_files` remain in place.
+* **TS-P02 (rulepack confidence)** — The bundled `rulepacks/in-works` pack was
+  formally signed off for release (`reviewer_signoff` populated) and all
+  pattern/checklist/notice/precedence/family YAMLs were updated to
+  `confidence: validated`.

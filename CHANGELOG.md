@@ -35,6 +35,48 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   security caveats; NOT GO for public/paid launch until TS-SEC-01, TS-SEC-03,
   TS-DEP-01, TS-ENV-01, and TS-P02 are remediated.**
 
+### Done — Round 11 production-readiness remediation (TS-358–TS-362)
+
+- **TS-358** — `frontend/components/markdown.tsx` now whitelists link schemes
+  (`http`, `https`, `mailto`, `tel`, `sms`, `callto`) and falls back to a
+  plain `<span>` for disallowed or empty `href`s; all external links render with
+  `rel="noopener noreferrer"` (TS-SEC-01).
+- **TS-359** — `backend/tests/test_auth_toggles.py` `_client()` now sets explicit
+  `auth_*_enabled` defaults, making the suite hermetic regardless of
+  `.env.local` values (TS-ENV-01).
+- **TS-360** — Frontend dependency overrides (`postcss`, `sharp`, `brace-expansion`,
+  `js-yaml`) refreshed `package-lock.json`; `npm audit --audit-level=high` now
+  reports 0 vulnerabilities (TS-DEP-01).
+- **TS-361** — Rulepack loader, admin service, and public routes now enforce
+  workspace scoping: DB lookups filter by `workspace_id` or global scope,
+  `activate_pack`/`delete_pack` require matching workspace or superadmin, and
+  `get_combined_pack_for_opportunity` passes the workspace context through
+  risk/BOQ/crossref/marketdata call paths (TS-SEC-03). PostgreSQL RLS policies
+  `workspace_or_global_isolation` already exist for `rulepacks` and
+  `rulepack_files`.
+- **TS-362** — Bundled `rulepacks/in-works` pack formally signed off for release
+  (`reviewer_signoff` set, all pattern/checklist/notice/precedence/family YAMLs
+  updated to `confidence: validated`) so paying users see the launch patterns
+  without a beta disclaimer (TS-P02). Tests updated to assert `validated`.
+- **TS-363** — Fixed malformed `tasks/backlog.md` Phase 29 heading and added
+  `### Next` with concrete remaining task IDs to `CHANGELOG.md`
+  (Devin Review follow-ups from PR #125).
+
+### Next
+
+- **TS-SEC-02** — Sanitize or sandbox LLM-generated mermaid diagrams in the plan
+  dashboard; update or replace `mermaid` 11.16.0 to resolve prototype-pollution
+  and CSS-injection advisories.
+- **TS-SEC-04** — Apply `delimit_untrusted` / `sanitize_message` guards in
+  `PlanDashboardAgent` and `RagSuggestionService` before any user/source text
+  reaches an LLM prompt.
+- **TS-R03** — Remove severity fallback for missing facts in risk findings;
+  require an explicit deterministic derivation or `info` severity.
+- **TS-UI-03** — Drive baseline console noise (warnings/errors) to zero on app
+  startup and golden-path navigation.
+- **TS-E2E-01** — Refresh Playwright golden-path test to match current sidebar
+  and landing redesign.
+
 ### Done — Round 9 audit gap closure (TS-335/TS-336/TS-337)
 
 - **TS-335** — Round 9 production-readiness gap-closure requirements doc

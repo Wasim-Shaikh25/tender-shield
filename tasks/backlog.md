@@ -632,8 +632,14 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-355 | E2E test bugfixes: persist/serialize assistant `suggested_followups`, allow `.md`/`txt` upload, fix assistant live-update on first message | testing findings; `specs/modules/assistant.md` | `backend/app/modules/assistant/`, `frontend/app/assistant/`, `backend/app/core/storage.py` | done |
 | TS-356 | Global left sidebar navigation replacing top navbar | user request; `specs/frontend.md` | `frontend/app/layout.tsx`, `frontend/components/` | done |
 |
-|## Phase 29 — Round 11 production-readiness re-audit
+## Phase 29 — Round 11 production-readiness re-audit & remediation
 |
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
 | TS-357 | Round 11 production-readiness re-audit: refresh `PRODUCTION_READINESS_AUDIT.md` for `9e09cac`, run validation matrix, and document new XSS / rulepack-isolation / dependency findings | `PRODUCTION_READINESS_AUDIT.md`; user request | `PRODUCTION_READINESS_AUDIT.md` | done |
+| TS-358 | Markdown XSS hardening: URL scheme whitelist and `noopener` for rendered links (TS-SEC-01) | `PRODUCTION_READINESS_AUDIT.md` TS-SEC-01 | `frontend/components/markdown.tsx` | done |
+| TS-359 | Auth toggle test hermeticity: explicit defaults in `test_auth_toggles.py` `_client` (TS-ENV-01) | `PRODUCTION_READINESS_AUDIT.md` TS-ENV-01 | `backend/tests/test_auth_toggles.py` | done |
+| TS-360 | npm audit CVE remediation: dependency overrides and lockfile refresh (TS-DEP-01) | `PRODUCTION_READINESS_AUDIT.md` TS-DEP-01 | `frontend/package.json`, `frontend/package-lock.json` | done |
+| TS-361 | Rulepack workspace isolation: scope-aware loader, admin service visibility, and route filters (TS-SEC-03) | `PRODUCTION_READINESS_AUDIT.md` TS-SEC-03 | `backend/app/modules/rulepacks/` | done |
+| TS-362 | Rulepack confidence validation: sign off bundled `in-works` patterns as `validated` (TS-P02) | `PRODUCTION_READINESS_AUDIT.md` TS-P02 | `rulepacks/in-works/`, `backend/tests/test_rulepacks.py` | done |
+| TS-363 | Backlog/CHANGELOG hygiene: fix `tasks/backlog.md` Phase 29 heading and add `### Next` to `CHANGELOG.md` (Devin Review follow-ups) | PR #125 Devin Review | `tasks/backlog.md`, `CHANGELOG.md` | done |

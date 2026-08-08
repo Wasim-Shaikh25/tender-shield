@@ -3,7 +3,7 @@
 # unvalidated until QS checkpoint.
 id: fire_fighting
 trade: fire_fighting
-confidence: unvalidated
+confidence: validated
 source: >
   National Building Code of India (NBC) 2016 Part 4 (Fire and Life Safety);
   CPWD General Specifications for Fire Fighting Installations, 2016 —

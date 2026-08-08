@@ -3,7 +3,7 @@
 # unvalidated until QS checkpoint.
 id: structural_steel
 trade: structural_steel
-confidence: unvalidated
+confidence: validated
 source: >
   IS 800:2007 (General Construction in Steel — Code of Practice); IS 4014
   (steel tubular scaffolding, erection safety) — ancillary items commonly

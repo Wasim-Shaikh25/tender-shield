@@ -1,7 +1,7 @@
 id: liquidated_damages_uncapped
 category: ld
 title: LD rate high or cap absent
-confidence: unvalidated
+confidence: validated
 source: >
   CPWD GCC compensation-for-delay clause (typically 0.5%/week capped at 10%)
   as the normal baseline; Arcadis/CMAA 2025 — delay damages a leading claim
@@ -35,4 +35,4 @@ price_impact:
   basis: percent_of_contract_value
   formula: ld_exposure_cap
   inputs: [rate_percent_per_week, cap_percent, weeks_at_risk]
-  confidence: unvalidated
+  confidence: validated

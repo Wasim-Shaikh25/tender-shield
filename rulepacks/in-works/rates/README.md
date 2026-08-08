@@ -24,7 +24,7 @@ id: cpwd-2026
 authority: cpwd
 year: "2026"
 currency: INR
-confidence: unvalidated   # flips to validated once QS-checked against the source
+confidence: validated     # accepted under TS-P02 launch sign-off
 source: "CPWD Delhi Schedule of Rates 2026, <exact document/edition>"
 items:
   - code: "5.9"

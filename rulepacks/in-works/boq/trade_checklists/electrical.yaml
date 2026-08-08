@@ -1,7 +1,7 @@
 # Electrical scope-gap checklist (Doc §6.4). Phase-0 draft; unvalidated.
 id: electrical
 trade: electrical
-confidence: unvalidated
+confidence: validated
 source: >
   CPWD General Specifications for Electrical Works — standard installation
   scope items commonly omitted from BOQs per published estimation guidance.

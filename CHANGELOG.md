@@ -79,6 +79,27 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   bypass.
 - **TS-368** — This CHANGELOG entry and `tasks/backlog.md` status updates.
 
+### Done — UI/API integration gap analysis & residual fixes (TS-369–TS-374)
+
+- **TS-369** — Compared all 221 `frontend/lib/api.ts` endpoint wrappers against
+  346 FastAPI routes, scanned `frontend/app/**/page.tsx` for `api.*` usage, and
+  grepped for raw-JSON `<pre>` blocks. Findings appended to
+  `PRODUCTION_READINESS_AUDIT.md` (Round 12).
+- **TS-370** — Fixed claim API paths in `frontend/lib/api.ts` to include the
+  `/claims` module segment (`/claims/claims/{id}` and `/claims/drafts/{id}`).
+- **TS-371** — Fixed `frontend/lib/api.ts exportAccount` to call `POST /auth/export`,
+  matching the backend route.
+- **TS-372** — `frontend/app/login/page.tsx` no longer forces the mobile
+  verification code input to be `required` when the backend does not return a
+  mobile token.
+- **TS-373** — `GET /api/rulepacks/admin/packs/{id}/files` now returns `403` for
+  cross-workspace packs, consistent with `activate_pack`/`delete_pack`.
+- **TS-374** — Committed residual Devin Review #126 polish: call-time rulepack
+  loader resolution in the `export` module, a callable `loader_provider` in the
+  `ingestion` Celery task, `RulePackLoader.invalidate()` on activate/delete, and
+  the final `markdown.tsx` hardening against percent-encoded entities and Unicode
+  whitespace before URL schemes.
+
 ### Next
 
 - **TS-SEC-02** — Sanitize or sandbox LLM-generated mermaid diagrams in the plan
@@ -91,6 +112,14 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   require an explicit deterministic derivation or `info` severity.
 - **TS-UI-03** — Drive baseline console noise (warnings/errors) to zero on app
   startup and golden-path navigation.
+- **TS-UI-04** — Replace the three raw-JSON `<pre>` blocks in
+  `opportunities/[id]` audit tab, `rulepacks`, and `admin/audit-log` with typed
+  summary cards/tables.
+- **TS-UI-05** — Wire Phase 1 backend-only routes that have no UI: explicit
+  `POST /auth/logout`, TOTP MFA enrollment (`/auth/mfa/enroll` + `/verify`),
+  BOQ multipart upload (`/boq/opportunities/{id}/upload`), document raw-text
+  viewer (`/ingestion/documents/{id}/text` + `/stream`), and rulepack pattern
+  browsing / correction triage (`/rulepacks/{id}/patterns`, `/corrections`).
 - **TS-E2E-01** — Refresh Playwright golden-path test to match current sidebar
   and landing redesign.
 

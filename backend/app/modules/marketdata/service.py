@@ -29,7 +29,7 @@ class MarketDataService:
     def _families(self) -> dict | None:
         if self._loader is None:
             return None
-        data = self._loader.employer_families(self._default_pack_id)
+        data = self._loader.employer_families(self._default_pack_id, session=self.s)
         return data.model_dump() if data is not None else None
 
     def upsert_tender_resolved(self, *, ocid: str, buyer_name: str, **fields):

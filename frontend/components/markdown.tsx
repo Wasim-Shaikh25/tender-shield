@@ -4,6 +4,21 @@ import { useMemo, type JSX } from "react";
 
 type InlineNode = { kind: "text" | "bold" | "italic" | "code" | "link"; text: string; href?: string };
 
+const URL_SCHEME_RE = /^([a-z][a-z0-9+.-]*):/i;
+
+function isAllowedHref(href: string): boolean {
+  const trimmed = href.trim();
+  if (!trimmed) return false;
+  // Allow relative paths, anchors, and query-only URLs.
+  if (trimmed.startsWith("/") || trimmed.startsWith("#") || trimmed.startsWith("?")) {
+    return true;
+  }
+  const match = trimmed.match(URL_SCHEME_RE);
+  if (!match) return true; // no scheme, e.g. example.com/path
+  const scheme = match[1].toLowerCase();
+  return ["http", "https", "mailto", "tel", "sms", "callto"].includes(scheme);
+}
+
 function parseInline(text: string): InlineNode[] {
   const nodes: InlineNode[] = [];
   let i = 0;
@@ -43,7 +58,12 @@ function Inline({ nodes }: { nodes: InlineNode[] }) {
         if (n.kind === "bold") return <strong key={idx}>{n.text}</strong>;
         if (n.kind === "italic") return <em key={idx}>{n.text}</em>;
         if (n.kind === "code") return <code key={idx} className="rounded bg-slate-100 px-1 py-0.5 text-xs font-mono text-slate-700">{n.text}</code>;
-        if (n.kind === "link") return <a key={idx} href={n.href} className="text-blue-600 underline" target="_blank" rel="noreferrer">{n.text}</a>;
+        if (n.kind === "link") {
+          if (!n.href || !isAllowedHref(n.href)) {
+            return <span key={idx} className="text-slate-700" title={n.href}>{n.text}</span>;
+          }
+          return <a key={idx} href={n.href} className="text-blue-600 underline" target="_blank" rel="noopener noreferrer">{n.text}</a>;
+        }
         return <span key={idx}>{n.text}</span>;
       })}
     </>

@@ -2,7 +2,7 @@
 id: sae_split_delivery_erection_ld
 category: ld
 title: Split delivery vs erection liquidated damages
-confidence: unvalidated
+confidence: validated
 source: >
   NHAI/Indian EPC equipment-supply contracts commonly distinguish delivery and
   erection/commissioning milestones; HKA CRUX 2025 — delay damages on

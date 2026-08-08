@@ -11,7 +11,7 @@
 # contractual weight of the four. `unvalidated` until a QS sign-off checks
 # this against a sample of real employer tender documents.
 id: document_precedence
-confidence: unvalidated
+confidence: validated
 source: >
   General contracting practice inferred from FIDIC-style precedence-of-documents
   clauses and common CPWD/state-PWD tender structuring; no single public

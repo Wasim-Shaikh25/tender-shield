@@ -247,17 +247,29 @@ class RulePackAdminService:
             q = q.where(*filters)
         return self.s.execute(q.order_by(RulePack.created_at.desc())).scalars().all()
 
-    def activate_pack(self, rulepack_db_id: uuid.UUID | str, user_id: uuid.UUID | str) -> RulePack:
+    def activate_pack(
+        self,
+        rulepack_db_id: uuid.UUID | str,
+        user_id: uuid.UUID | str,
+        workspace_id: uuid.UUID | None = None,
+        is_superadmin: bool = False,
+    ) -> RulePack:
         row = self.s.execute(
             select(RulePack).where(RulePack.id == _to_uuid(rulepack_db_id))
         ).scalars().first()
         if row is None:
             raise RulePackAdminError("not_found")
-        # Deactivate other versions of the same pack.
+        if row.scope == "workspace" and row.workspace_id != _to_uuid(workspace_id):
+            raise RulePackAdminError("forbidden")
+        if row.scope == "global" and not is_superadmin:
+            raise RulePackAdminError("forbidden")
+        # Deactivate other versions of the same pack in the same scope/workspace.
         self.s.execute(
             RulePack.__table__.update()  # type: ignore[attr-defined]
             .where(RulePack.pack_id == row.pack_id)
             .where(RulePack.id != row.id)
+            .where(RulePack.scope == row.scope)
+            .where(RulePack.workspace_id == row.workspace_id)
             .values(is_active=False, status="deprecated")
         )
         row.is_active = True
@@ -266,18 +278,50 @@ class RulePackAdminService:
         self.s.commit()
         return row
 
-    def get_pack(self, rulepack_db_id: uuid.UUID | str) -> RulePack | None:
-        return self.s.execute(
+    def get_pack(
+        self,
+        rulepack_db_id: uuid.UUID | str,
+        workspace_id: uuid.UUID | None = None,
+        is_superadmin: bool = False,
+        for_mutation: bool = False,
+    ) -> RulePack | None:
+        row = self.s.execute(
             select(RulePack).where(RulePack.id == _to_uuid(rulepack_db_id))
         ).scalars().first()
+        if row is None:
+            return None
+        if row.scope == "workspace" and row.workspace_id != _to_uuid(workspace_id):
+            return None
+        if for_mutation and row.scope == "global" and not is_superadmin:
+            # Global rows are visible to all; only superadmins may mutate them.
+            return None
+        return row
 
-    def get_pack_files(self, rulepack_db_id: uuid.UUID | str) -> Sequence[RulePackFile]:
+    def get_pack_files(
+        self,
+        rulepack_db_id: uuid.UUID | str,
+        workspace_id: uuid.UUID | None = None,
+        is_superadmin: bool = False,
+    ) -> Sequence[RulePackFile]:
+        pack = self.get_pack(rulepack_db_id, workspace_id=workspace_id, is_superadmin=is_superadmin)
+        if pack is None:
+            return []
         return self.s.execute(
             select(RulePackFile).where(RulePackFile.rulepack_id == _to_uuid(rulepack_db_id))
         ).scalars().all()
 
-    def delete_pack(self, rulepack_db_id: uuid.UUID | str) -> None:
-        row = self.get_pack(rulepack_db_id)
+    def delete_pack(
+        self,
+        rulepack_db_id: uuid.UUID | str,
+        workspace_id: uuid.UUID | None = None,
+        is_superadmin: bool = False,
+    ) -> None:
+        row = self.get_pack(
+            rulepack_db_id,
+            workspace_id=workspace_id,
+            is_superadmin=is_superadmin,
+            for_mutation=True,
+        )
         if row is None:
             raise RulePackAdminError("not_found")
         self.s.delete(row)

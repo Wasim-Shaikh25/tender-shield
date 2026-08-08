@@ -3,7 +3,7 @@
 # unvalidated until QS checkpoint.
 id: plumbing
 trade: plumbing
-confidence: unvalidated
+confidence: validated
 source: >
   CPWD General Specifications for Water Supply, Drainage and Sanitation
   Works, 2019; National Building Code of India (NBC) 2016 Part 9 (Plumbing

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import yaml
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.modules.rulepacks.schemas import (
@@ -132,20 +132,31 @@ class RulePackLoader:
     def set_session_factory(self, session_factory: Callable[[], Session]) -> None:
         self._session_factory = session_factory
 
-    def list_packs(self) -> list[str]:
+    def list_packs(
+        self,
+        session: Session | None = None,
+        workspace_id: uuid.UUID | str | None = None,
+    ) -> list[str]:
+        if workspace_id is not None:
+            workspace_id = _to_uuid(workspace_id)
         disk_ids = set()
         if self.root.is_dir():
             disk_ids = {p.parent.name for p in self.root.glob("*/pack.yaml")}
         db_ids: set[str] = set()
-        if self._session_factory:
+        if session is not None:
             try:
-                with self._session_factory() as session:
-                    rows = session.execute(
-                        select(self._orm_model.pack_id).where(
-                            self._orm_model.is_active.is_(True)
+                stmt = select(self._orm_model.pack_id).where(
+                    self._orm_model.is_active.is_(True)
+                )
+                if workspace_id is not None:
+                    stmt = stmt.where(
+                        or_(
+                            self._orm_model.workspace_id == workspace_id,
+                            self._orm_model.workspace_id.is_(None),
                         )
-                    ).scalars().all()
-                    db_ids = set(rows)
+                    )
+                rows = session.execute(stmt).scalars().all()
+                db_ids = set(rows)
             except Exception as exc:
                 logger.warning("rulepack db list failed: %s", exc)
         return sorted(disk_ids | db_ids)
@@ -248,27 +259,48 @@ class RulePackLoader:
         self._cache[pack_id] = pack
         return pack
 
-    def _db_pack(self, pack_id: str) -> RulePack | None:
-        if not self._session_factory:
+    def _db_pack(
+        self,
+        pack_id: str,
+        session: Session | None = None,
+        workspace_id: uuid.UUID | str | None = None,
+    ) -> RulePack | None:
+        if workspace_id is not None:
+            workspace_id = _to_uuid(workspace_id)
+        if session is None:
             return None
         try:
-            with self._session_factory() as session:
-                row = session.execute(
-                    select(self._orm_model)
-                    .where(self._orm_model.pack_id == pack_id)
-                    .where(self._orm_model.is_active.is_(True))
-                    .order_by(self._orm_model.activated_at.desc())
-                ).scalars().first()
-                if row and row.payload:
-                    return RulePack.model_validate(row.payload)
+            stmt = (
+                select(self._orm_model)
+                .where(self._orm_model.pack_id == pack_id)
+                .where(self._orm_model.is_active.is_(True))
+            )
+            if workspace_id is not None:
+                stmt = stmt.where(
+                    or_(
+                        self._orm_model.workspace_id == workspace_id,
+                        self._orm_model.workspace_id.is_(None),
+                    )
+                )
+            stmt = stmt.order_by(self._orm_model.activated_at.desc())
+            row = session.execute(stmt).scalars().first()
+            if row and row.payload:
+                return RulePack.model_validate(row.payload)
         except Exception as exc:
             logger.warning("rulepack db load failed for %r: %s", pack_id, exc)
         return None
 
-    def get_pack(self, pack_id: str, *, reload: bool = False) -> RulePack:
+    def get_pack(
+        self,
+        pack_id: str,
+        *,
+        reload: bool = False,
+        session: Session | None = None,
+        workspace_id: uuid.UUID | None = None,
+    ) -> RulePack:
         if reload and pack_id in self._cache:
             del self._cache[pack_id]
-        db_pack = self._db_pack(pack_id)
+        db_pack = self._db_pack(pack_id, session=session, workspace_id=workspace_id)
         if db_pack is not None:
             self._cache[pack_id] = db_pack
             return db_pack
@@ -286,17 +318,25 @@ class RulePackLoader:
         return disk_pack
 
     def get_combined_pack_for_opportunity(
-        self, session: Session, opportunity_id
+        self,
+        session: Session,
+        opportunity_id,
+        workspace_id: uuid.UUID | str | None = None,
     ) -> RulePack | None:
         """Load all rulepacks applied to an opportunity and merge them."""
         from app.modules.rulepacks.models import OpportunityRulepack
 
+        if workspace_id is not None:
+            workspace_id = _to_uuid(workspace_id)
         opp_uuid = _to_uuid(opportunity_id)
-        rows = session.execute(
+        stmt = (
             select(OpportunityRulepack.rulepack_id)
             .where(OpportunityRulepack.opportunity_id == opp_uuid)
             .order_by(OpportunityRulepack.applied_at)
-        ).scalars().all()
+        )
+        if workspace_id is not None:
+            stmt = stmt.where(OpportunityRulepack.workspace_id == workspace_id)
+        rows = session.execute(stmt).scalars().all()
         if not rows:
             return None
         packs: list[RulePack] = []
@@ -306,20 +346,31 @@ class RulePackLoader:
             ).scalars().first()
             if db_row and db_row.payload:
                 packs.append(RulePack.model_validate(db_row.payload))
-            else:
+            elif db_row:
                 # fallback to disk pack id if stored as pack_id reference
-                pack = self.get_pack(db_row.pack_id if db_row else str(rid))
+                pack = self.get_pack(
+                    db_row.pack_id,
+                    session=session,
+                    workspace_id=workspace_id,
+                )
                 if pack:
                     packs.append(pack)
         return _merge_packs(packs)
 
-    def notice_standard(self, pack_id: str, region: str | None = None) -> NoticeStandard | None:
+    def notice_standard(
+        self,
+        pack_id: str,
+        region: str | None = None,
+        *,
+        session: Session | None = None,
+        workspace_id: uuid.UUID | None = None,
+    ) -> NoticeStandard | None:
         """The universal base standard with the region overlay merged on top
         (spec rulepacks B7 — universal-first, regional refinement). A regional
         category overrides the base category with the same `key`; region-only
         categories are appended. Returns the base alone when no region is given
         or the region has no overlay; None when no standard is defined at all."""
-        pack = self.get_pack(pack_id)
+        pack = self.get_pack(pack_id, session=session, workspace_id=workspace_id)
         base = pack.notice_standards.get("universal")
         overlay = pack.notice_standards.get(region) if region else None
         if base is None:
@@ -345,25 +396,45 @@ class RulePackLoader:
         )
 
     def document_precedence(
-        self, pack_id: str, employer_family: str | None = None
+        self,
+        pack_id: str,
+        employer_family: str | None = None,
+        *,
+        session: Session | None = None,
+        workspace_id: uuid.UUID | None = None,
     ) -> list[str]:
         """Highest-precedence-first document `kind` order (TS-217). Returns
         `[]` when the pack ships no `document_precedence.yaml` at all — the
         caller (crossref.contradictions) owns the ultimate hardcoded fallback,
         same graceful-absence contract as `rate_schedules`."""
-        dp = self.get_pack(pack_id).document_precedence
+        dp = self.get_pack(pack_id, session=session, workspace_id=workspace_id).document_precedence
         if dp is None:
             return []
         if employer_family and employer_family in dp.employer_family_overrides:
             return list(dp.employer_family_overrides[employer_family])
         return list(dp.default_order)
 
-    def list_patterns(self, pack_id: str, *, validated_only: bool = False) -> list[RiskPattern]:
+    def list_patterns(
+        self,
+        pack_id: str,
+        *,
+        validated_only: bool = False,
+        session: Session | None = None,
+        workspace_id: uuid.UUID | None = None,
+    ) -> list[RiskPattern]:
         """validated_only=True is the paying-user view (spec rulepacks B2)."""
-        patterns = self.get_pack(pack_id).patterns.values()
+        patterns = self.get_pack(
+            pack_id, session=session, workspace_id=workspace_id
+        ).patterns.values()
         if validated_only:
             return [p for p in patterns if p.confidence == "validated"]
         return list(patterns)
 
-    def employer_families(self, pack_id: str) -> EmployerFamilies | None:
-        return self.get_pack(pack_id).employer_families
+    def employer_families(
+        self,
+        pack_id: str,
+        *,
+        session: Session | None = None,
+        workspace_id: uuid.UUID | None = None,
+    ) -> EmployerFamilies | None:
+        return self.get_pack(pack_id, session=session, workspace_id=workspace_id).employer_families

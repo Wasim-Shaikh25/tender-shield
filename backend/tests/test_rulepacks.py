@@ -29,14 +29,14 @@ SAE_PATTERN_IDS = {
 ALL_IN_WORKS_PATTERN_IDS = PHASE0_PATTERN_IDS | SAE_PATTERN_IDS
 
 
-def test_in_works_pack_loads_with_five_unvalidated_sourced_patterns():
+def test_in_works_pack_loads_with_five_validated_sourced_patterns():
     loader = RulePackLoader()
     pack = loader.get_pack("in-works")
     assert pack.version_tag.startswith("in-works@")
     assert PHASE0_PATTERN_IDS <= set(pack.patterns)
     assert pack.load_errors == {}
     for pattern in pack.patterns.values():
-        assert pattern.confidence == "unvalidated"  # Doc §14.1: pre-QS state
+        assert pattern.confidence == "validated"  # TS-P02 launch sign-off
         assert pattern.source.strip()
 
 
@@ -46,7 +46,7 @@ def test_sae_rung2_patterns_load_yaml_only():
     assert SAE_PATTERN_IDS <= set(pack.patterns)
     for pid in SAE_PATTERN_IDS:
         pattern = pack.patterns[pid]
-        assert pattern.confidence == "unvalidated"
+        assert pattern.confidence == "validated"  # TS-P02 launch sign-off
         assert pattern.source.strip()
         assert pattern.affected_trades
 
@@ -59,10 +59,11 @@ def test_unit_canon_normalizes_indian_boq_chaos():
     assert pack.unit_canon["rmt"] == "m"
 
 
-def test_validated_only_hides_unvalidated_patterns():
+def test_validated_only_returns_all_in_works_patterns():
     loader = RulePackLoader()
-    assert loader.list_patterns("in-works", validated_only=True) == []
-    assert len(loader.list_patterns("in-works")) == len(ALL_IN_WORKS_PATTERN_IDS)
+    all_patterns = loader.list_patterns("in-works")
+    assert loader.list_patterns("in-works", validated_only=True) == all_patterns
+    assert len(all_patterns) == len(ALL_IN_WORKS_PATTERN_IDS)
 
 
 def test_notice_standard_universal_base_and_india_overlay():
@@ -217,7 +218,7 @@ def test_trade_checklists_load_with_dewatering_gap_knowledge():
         "lifts",
     }
     civil = pack.trade_checklists["civil_structure"]
-    assert civil.confidence == "unvalidated"
+    assert civil.confidence == "validated"
     dewatering = next(i for i in civil.items if i.key == "dewatering")
     assert "basement" in dewatering.triggers
     assert dewatering.severity == "high"

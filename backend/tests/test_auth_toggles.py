@@ -18,13 +18,16 @@ TEST_PASSWORD = "Hunter2!Hunter2"
 
 
 def _client(**settings_overrides):
-    application = create_app(
-        Settings(
-            enabled_modules="health,auth",
-            database_url="sqlite:///:memory:",
-            **settings_overrides,
-        )
-    )
+    settings = {
+        "enabled_modules": "health,auth",
+        "database_url": "sqlite:///:memory:",
+        "auth_mobile_verification_enabled": False,
+        "auth_login_otp_enabled": True,
+        "auth_email_otp_enabled": True,
+        "auth_sms_otp_enabled": False,
+    }
+    settings.update(settings_overrides)
+    application = create_app(Settings(**settings))
     engine = application.state.ctx.registry.require("db.engine")
     Base.metadata.create_all(engine)
     return TestClient(application)

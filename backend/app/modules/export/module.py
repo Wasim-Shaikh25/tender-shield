@@ -5,18 +5,27 @@ from app.modules.export.service import ExportService
 
 def setup(ctx: AppContext) -> None:
     reg = ctx.registry
+    loader = reg.get("rulepacks.loader")
+
+    def _pack_version(session, workspace_id):
+        if loader is None:
+            return "in-works"
+        return loader.get_pack(
+            "in-works",
+            session=session,
+            workspace_id=workspace_id,
+        ).version_tag
+
     reg.provide(
         "export.service_factory",
-        lambda session: ExportService(
+        lambda session, workspace_id=None: ExportService(
             session,
             review_factory=reg.get("review.service_factory"),
             findings_factory=reg.get("findings.store_factory"),
             drafting_factory=reg.get("drafting.service_factory"),
             ingestion_factory=reg.get("ingestion.service_factory"),
             workspace_factory=reg.get("auth.workspace_factory"),
-            pack_version=reg.get("rulepacks.loader").get_pack("in-works").version_tag
-            if reg.get("rulepacks.loader")
-            else "in-works",
+            pack_version=_pack_version,
             document_class_permitted_fn=reg.get("auth.document_class_permitted"),
         ),
     )

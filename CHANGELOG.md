@@ -62,6 +62,23 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   `### Next` with concrete remaining task IDs to `CHANGELOG.md`
   (Devin Review follow-ups from PR #125).
 
+### Done — PR #126 Devin Review follow-up (TS-364–TS-368)
+
+- **TS-364** — `RulePackLoader` cache is now keyed by `(source, pack_id,
+  workspace_id)` so DB-loaded workspace rulepacks cannot be served to other
+  tenants from the process-wide cache.
+- **TS-365** — Rulepack loader read paths now fall back to the configured
+  session factory when no session is supplied, and ingestion/pricing/export/
+  drafting/assistant/BOQ/marketdata call sites propagate `session` and
+  `workspace_id` so workspace-specific activated rulepacks are honored.
+- **TS-366** — `RulePackAdminService.delete_pack`/`activate_pack` now raise a
+  distinct `forbidden` code and `_raise_admin` maps it to HTTP 403 (previously
+  400/404).
+- **TS-367** — `frontend/components/markdown.tsx` rejects URLs containing ASCII
+  control characters before the scheme whitelist, closing the `` `jav\tascript:` ``
+  bypass.
+- **TS-368** — This CHANGELOG entry and `tasks/backlog.md` status updates.
+
 ### Next
 
 - **TS-SEC-02** — Sanitize or sandbox LLM-generated mermaid diagrams in the plan

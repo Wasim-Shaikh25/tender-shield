@@ -38,7 +38,12 @@ def _corrections(request: Request, session: Session) -> CorrectionService:
 
 
 def _raise_admin(exc: RulePackAdminError):
-    status = 404 if exc.code == "not_found" else 400
+    if exc.code == "not_found":
+        status = 404
+    elif exc.code == "forbidden":
+        status = 403
+    else:
+        status = 400
     raise HTTPException(status, exc.code) from exc
 
 

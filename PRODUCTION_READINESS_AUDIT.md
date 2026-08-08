@@ -620,3 +620,28 @@ TS-358–TS-362; see `CHANGELOG.md` `[Unreleased]`):
   formally signed off for release (`reviewer_signoff` populated) and all
   pattern/checklist/notice/precedence/family YAMLs were updated to
   `confidence: validated`.
+
+### Post-merge Devin Review follow-up (TS-364–TS-368)
+
+A second Devin Review of the merged remediation PR identified that the initial
+fixes still left three correctness/security gaps, addressed in the follow-up PR:
+
+* **TS-364 (cross-tenant rulepack cache)** — `RulePackLoader` now keys the
+  process-wide cache by `(source, pack_id, workspace_id)` (`source` = `db` or
+  `disk`) so a DB-loaded workspace rulepack can never be returned to a different
+  tenant from `_disk_pack` or a cache hit.
+* **TS-365 (DB rulepacks ignored by feature modules)** — The loader's read
+  paths now fall back to the configured `session_factory` and bind the workspace
+  for RLS when no session is supplied. Callers in `ingestion`, `pricing`, `export`,
+  `drafting`, `assistant/tools`, `boq`, and `marketdata` now propagate
+  `session` and `workspace_id` to `get_pack` / `list_patterns` /
+  `employer_families` / `document_precedence` so workspace-activated rulepacks
+  are honored instead of silently falling back to disk.
+* **TS-366 (forbidden rulepack operations misreported as 400/404)** —
+  `RulePackAdminService.delete_pack`/`activate_pack` now raise a distinct
+  `forbidden` code and the router maps it to HTTP 403.
+* **TS-367 (Markdown XSS control-character bypass)** —
+  `frontend/components/markdown.tsx` rejects any `href` containing ASCII
+  control characters before the scheme whitelist, closing the `` `jav\\tascript:` ``
+  style bypass.
+* **TS-368** — `CHANGELOG.md` and `tasks/backlog.md` updated.

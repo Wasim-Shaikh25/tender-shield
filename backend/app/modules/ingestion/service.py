@@ -80,21 +80,29 @@ class IngestionService:
         self._pack_id = pack_id
 
     # ---- rule-pack config (soft dep, graceful fallback) -------------------
-    def _anchors(self) -> dict[str, list[str]]:
+    def _anchors(self, workspace_id=None) -> dict[str, list[str]]:
         loader = self._loader_provider()
         if not loader:
             return _FALLBACK_ANCHORS
-        pack = loader.get_pack(self._pack_id)
+        pack = loader.get_pack(
+            self._pack_id,
+            session=self.s,
+            workspace_id=workspace_id,
+        )
         return {name: dt.anchors for name, dt in pack.doc_types.items()}
 
-    def _expected(self) -> list[str]:
+    def _expected(self, workspace_id=None) -> list[str]:
         loader = self._loader_provider()
         if not loader:
             return _FALLBACK_EXPECTED
-        return loader.get_pack(self._pack_id).expected_documents or _FALLBACK_EXPECTED
+        return loader.get_pack(
+            self._pack_id,
+            session=self.s,
+            workspace_id=workspace_id,
+        ).expected_documents or _FALLBACK_EXPECTED
 
-    def classify_document_kind(self, text: str) -> str:
-        return classify_text(text, self._anchors()) or "other"
+    def classify_document_kind(self, text: str, workspace_id=None) -> str:
+        return classify_text(text, self._anchors(workspace_id)) or "other"
 
     # ---- opportunities ----------------------------------------------------
     def create_opportunity(self, workspace_id, title: str, **fields) -> Opportunity:
@@ -132,7 +140,7 @@ class IngestionService:
         self, workspace_id, opportunity_id, filename: str, sample_text: str = "", **fields
     ) -> Document:
         """Classify (rules-first), detect duplicates/addenda, and persist a document."""
-        kind = classify_text(sample_text, self._anchors()) or "other"
+        kind = classify_text(sample_text, self._anchors(workspace_id)) or "other"
         sha256 = fields.pop("sha256", "") or ""
         if not sha256 and sample_text:
             sha256 = hashlib.sha256(sample_text.encode("utf-8")).hexdigest()
@@ -170,16 +178,27 @@ class IngestionService:
         self.s.commit()
         self._publish("document.classified", {"document_id": str(doc.id), "kind": kind})
         if sample_text.strip():
-            self.process_text(doc, sample_text, ocr_status=fields.get("ocr_status") or "done")
+            self.process_text(
+                doc,
+                sample_text,
+                ocr_status=fields.get("ocr_status") or "done",
+                workspace_id=workspace_id,
+            )
             if is_addendum and doc.supersedes:
                 changes = self._addendum_changes(doc, doc.supersedes)
                 doc.meta = {**doc.meta, "addendum_changes": changes}
                 self.s.commit()
         return doc
 
-    def process_text(self, doc: Document, text: str, ocr_status: str = "done") -> None:
+    def process_text(
+        self,
+        doc: Document,
+        text: str,
+        ocr_status: str = "done",
+        workspace_id=None,
+    ) -> None:
         """Segment clauses, extract deadlines, persist chunks, glossary, and update metadata."""
-        doc.kind = classify_text(text, self._anchors()) or doc.kind
+        doc.kind = classify_text(text, self._anchors(workspace_id or doc.workspace_id)) or doc.kind
         doc.ocr_status = ocr_status
         self._segment(doc, text)
         self._extract_deadlines(doc, text)
@@ -472,8 +491,9 @@ class IngestionService:
 
     def missing_doc_report(self, workspace_id, opportunity_id) -> dict:
         present = [d.kind for d in self.list_documents(workspace_id, opportunity_id)]
-        missing = missing_documents(present, self._expected())
-        return {"present": sorted(set(present)), "missing": missing, "expected": self._expected()}
+        missing = missing_documents(present, self._expected(workspace_id))
+        expected = self._expected(workspace_id)
+        return {"present": sorted(set(present)), "missing": missing, "expected": expected}
 
     def get_doc_text(self, workspace_id, document_id, page: int | None = None):
         """Page-level text access used by crossref, assistant, and search."""

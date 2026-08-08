@@ -283,7 +283,6 @@ class RulePackAdminService:
         rulepack_db_id: uuid.UUID | str,
         workspace_id: uuid.UUID | None = None,
         is_superadmin: bool = False,
-        for_mutation: bool = False,
     ) -> RulePack | None:
         row = self.s.execute(
             select(RulePack).where(RulePack.id == _to_uuid(rulepack_db_id))
@@ -291,9 +290,6 @@ class RulePackAdminService:
         if row is None:
             return None
         if row.scope == "workspace" and row.workspace_id != _to_uuid(workspace_id):
-            return None
-        if for_mutation and row.scope == "global" and not is_superadmin:
-            # Global rows are visible to all; only superadmins may mutate them.
             return None
         return row
 
@@ -316,14 +312,15 @@ class RulePackAdminService:
         workspace_id: uuid.UUID | None = None,
         is_superadmin: bool = False,
     ) -> None:
-        row = self.get_pack(
-            rulepack_db_id,
-            workspace_id=workspace_id,
-            is_superadmin=is_superadmin,
-            for_mutation=True,
-        )
+        row = self.s.execute(
+            select(RulePack).where(RulePack.id == _to_uuid(rulepack_db_id))
+        ).scalars().first()
         if row is None:
             raise RulePackAdminError("not_found")
+        if row.scope == "workspace" and row.workspace_id != _to_uuid(workspace_id):
+            raise RulePackAdminError("forbidden")
+        if row.scope == "global" and not is_superadmin:
+            raise RulePackAdminError("forbidden")
         self.s.delete(row)
         self.s.commit()
 

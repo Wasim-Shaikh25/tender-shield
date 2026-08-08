@@ -78,12 +78,20 @@ def missing_docs(ingestion_factory, session, workspace_id, opportunity_id) -> di
     return {"present": sorted(set(present_unique)), "missing": missing, "expected": expected}
 
 
-def rulepack_lookup(loader, topic: str, pack_id: str = "in-works") -> list[dict]:
+def rulepack_lookup(
+    loader,
+    topic: str,
+    pack_id: str = "in-works",
+    session=None,
+    workspace_id=None,
+) -> list[dict]:
     if not loader:
         return []
     topic_l = topic.lower()
     out = []
-    for p in loader.list_patterns(pack_id):
+    for p in loader.list_patterns(
+        pack_id, session=session, workspace_id=workspace_id
+    ):
         if topic_l in p.category.lower() or topic_l in p.title.lower():
             out.append({"pattern_id": p.id, "category": p.category, "title": p.title})
     return out

@@ -643,3 +643,8 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-361 | Rulepack workspace isolation: scope-aware loader, admin service visibility, and route filters (TS-SEC-03) | `PRODUCTION_READINESS_AUDIT.md` TS-SEC-03 | `backend/app/modules/rulepacks/` | done |
 | TS-362 | Rulepack confidence validation: sign off bundled `in-works` patterns as `validated` (TS-P02) | `PRODUCTION_READINESS_AUDIT.md` TS-P02 | `rulepacks/in-works/`, `backend/tests/test_rulepacks.py` | done |
 | TS-363 | Backlog/CHANGELOG hygiene: fix `tasks/backlog.md` Phase 29 heading and add `### Next` to `CHANGELOG.md` (Devin Review follow-ups) | PR #125 Devin Review | `tasks/backlog.md`, `CHANGELOG.md` | done |
+| TS-364 | Rulepack loader cache should not leak workspace DB packs across tenants (Devin Review #126) | PR #126 Devin Review | `backend/app/modules/rulepacks/loader.py` | done |
+| TS-365 | Propagate rulepack loader session/workspace to ingestion/pricing/export/drafting/assistant/boq callers (Devin Review #126) | PR #126 Devin Review | `backend/app/modules/*` | done |
+| TS-366 | Rulepack admin endpoints should return 403 for forbidden operations (Devin Review #126) | PR #126 Devin Review | `backend/app/modules/rulepacks/admin_service.py`, `router.py` | done |
+| TS-367 | Markdown link scheme whitelist should reject URLs with embedded control characters (Devin Review #126) | PR #126 Devin Review | `frontend/components/markdown.tsx` | done |
+| TS-368 | Devin Review #126 follow-up: CHANGELOG entry for post-merge fixes | PR #126 Devin Review | `CHANGELOG.md` | done |

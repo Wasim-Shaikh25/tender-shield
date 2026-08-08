@@ -396,9 +396,30 @@ All 24 application pages have been redesigned! The final polish phase includes:
   component replaces raw-JSON `<pre>` blocks on the opportunity audit tab,
   rulepack RAG suggestions, and admin audit-log detail view.
 
+### Done — Round 13 Gap Closure Batch 2 (TS-382)
+
+- **TS-382** — All 18 explicit Phase 1 backend-only routes now have typed
+  wrappers in `frontend/lib/api.ts` and are called from redesigned UI pages:
+  - `logout` via `SessionProvider.signOut`
+  - `mfaEnroll` / `mfaVerify` on the Settings MFA card
+  - `uploadBoq` on the opportunity BOQ tab
+  - `getDocumentText` / `getAddendum` / `streamDocument` in a new Document
+    Tools card on the opportunity overview
+  - `getApprovalMatrix` / `updateApprovalMatrix` on the Team page
+  - `listWorkspaceProjects` / `createWorkspaceProject` / `listProjectMembers` /
+    `addProjectMember` on the Team page
+  - `adminCreateUser` on the Admin Users page
+  - `getBillingProjectStatus` on the Billing page
+  - `listRulepackPatterns` / `listCorrectionProposals` / `scanCorrections` /
+    `dismissCorrectionProposal` on the Rulepacks RAG panel
+  - `getSubcontractStatus` on the Subcontracts tab
+- `scripts/validate_ui_api_coverage.py` was rewritten to parse
+  `frontend/lib/api.ts` with the TypeScript compiler, so nested generics and
+  template-literal query parameters are handled correctly; Phase 1 missing list
+  is now empty in `--strict` mode.
+
 **Next** — Round 13 residual pre-launch items:
-1. **TS-382** — Wire explicit Phase 1 backend-only routes into the redesigned UI or formally defer them (TS-UI-05)
-2. **TS-E2E-01** — Re-run the Playwright golden path against the new landing/sidebar
+1. **TS-E2E-01** — Re-run the Playwright golden path against the new landing/sidebar
 
 ### Next — PHASE 7: Polish & QA (Part 2 - Continued)
 

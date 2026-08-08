@@ -18,6 +18,9 @@ export default function AdminUsersPage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createEmail, setCreateEmail] = useState("");
+  const [createPassword, setCreatePassword] = useState("");
+  const [createMessage, setCreateMessage] = useState<string | null>(null);
 
   const load = async () => {
     if (!session) return;
@@ -46,6 +49,25 @@ export default function AdminUsersPage() {
   if (!session.is_superadmin) {
     return <Alert variant="error" title="Access Denied">Superadmin access required.</Alert>;
   }
+
+  const createUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session) return;
+    setLoading(true);
+    setError(null);
+    setCreateMessage(null);
+    try {
+      await api.adminCreateUser(session.token, { email: createEmail, password: createPassword });
+      setCreateMessage("Superadmin created successfully.");
+      setCreateEmail("");
+      setCreatePassword("");
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create user");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const suspend = async (id: string) => {
     if (!session) return;
@@ -110,6 +132,36 @@ export default function AdminUsersPage() {
               {loading ? "Searching..." : "Search"}
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      {/* Create superadmin */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Create Superadmin</CardTitle>
+          <CardDescription>Create a new application-level superadmin user.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={createUser} className="flex flex-wrap gap-2">
+            <input
+              type="email"
+              placeholder="Email"
+              value={createEmail}
+              onChange={(e) => setCreateEmail(e.target.value)}
+              className="flex-1 min-w-[200px] rounded-md border border-border-default px-3 py-2 text-sm"
+              required
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              value={createPassword}
+              onChange={(e) => setCreatePassword(e.target.value)}
+              className="flex-1 min-w-[200px] rounded-md border border-border-default px-3 py-2 text-sm"
+              required
+            />
+            <Button variant="primary" size="md" type="submit" disabled={loading}>Create</Button>
+          </form>
+          {createMessage && <p className="mt-2 text-sm text-emerald-600">{createMessage}</p>}
         </CardContent>
       </Card>
 

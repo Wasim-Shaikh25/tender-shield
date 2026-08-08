@@ -19,7 +19,9 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
+import tempfile
 from collections import Counter
 from pathlib import Path
 
@@ -52,52 +54,145 @@ PHASE1_PREFIXES = [
 ]
 
 
+def _match_braces(s: str, start: int, open_ch: str, close_ch: str) -> int:
+    """Return index of the closing brace matching open_ch at start, skipping strings."""
+    depth = 1
+    i = start
+    quote: str | None = None
+    escape = False
+    while i < len(s):
+        ch = s[i]
+        if quote:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == quote:
+                quote = None
+        else:
+            if ch in ('"', "'", "`"):
+                quote = ch
+            elif ch == open_ch:
+                depth += 1
+            elif ch == close_ch:
+                depth -= 1
+                if depth == 0:
+                    return i
+        i += 1
+    return len(s) - 1
+
+
 def _normalize_path(p: str) -> str:
-    p = p.split("?")[0]
-    p = re.sub(r"\\\$\\\{[^}]+\\\}", "{}", p)
-    p = re.sub(r"\$\{[^}]+\}", "{}", p)
-    p = re.sub(r"/\{[^}]+\}", "/{}", p)
-    p = re.sub(r"\{[^}]+\}", "{}", p)
-    return p
+    """Collapse path parameters and template-literal query conditionals.
+
+    Examples:
+      /auth/admin/users/search${q ? `?q=${...}` : ""} -> /auth/admin/users/search
+      /boq/opportunities/${opportunityId}/upload -> /boq/opportunities/{}/upload
+      /auth/workspaces/{workspace_id}/projects -> /auth/workspaces/{}/projects
+    """
+    i = 0
+    out: list[str] = []
+    while i < len(p):
+        if p.startswith("${", i):
+            end = _match_braces(p, i + 2, "{", "}")
+            block = p[i + 2 : end]
+            q_index = block.find("?")
+            slash_index = block.find("/")
+            if q_index != -1 and (slash_index == -1 or q_index < slash_index):
+                # Query-string conditional; drop it.
+                pass
+            else:
+                out.append("{}")
+            i = end + 1
+        elif p.startswith("{", i):
+            end = _match_braces(p, i + 1, "{", "}")
+            out.append("{}")
+            i = end + 1
+        elif p[i] == "?":
+            # Static query string start; strip it.
+            break
+        else:
+            out.append(p[i])
+            i += 1
+    return "".join(out)
 
 
 def extract_frontend_wrappers() -> set[str]:
-    text = FRONTEND_API.read_text()
-    # Normalize so multi-line req(...) calls can be matched as one block.
-    text2 = re.sub(r"req(?:<[^>]+>)?\s*\(", "req(", text, flags=re.DOTALL)
-    methods: list[tuple[str, str]] = []
+    """Parse frontend/lib/api.ts with the TypeScript compiler to find req(...) calls."""
+    ts_path = (REPO_ROOT / "frontend" / "node_modules" / "typescript").as_posix()
+    api_path = FRONTEND_API.as_posix()
+    js_template = r"""
+const ts = require('__TS_PATH__');
+const fs = require('fs');
+const source = ts.createSourceFile(
+  'api.ts',
+  fs.readFileSync('__FRONTEND_API__', 'utf8'),
+  ts.ScriptTarget.Latest,
+  true
+);
+const routes = [];
+function visit(node) {
+  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'req') {
+    const [pathArg, optsArg] = node.arguments;
+    if (pathArg) {
+      const path = pathArg.getText(source);
+      let method = 'GET';
+      if (optsArg && ts.isObjectLiteralExpression(optsArg)) {
+        for (const prop of optsArg.properties) {
+          if (
+            ts.isPropertyAssignment(prop) &&
+            prop.name &&
+            ((ts.isIdentifier(prop.name) && prop.name.text === 'method') ||
+             (ts.isStringLiteral(prop.name) && prop.name.text === 'method')) &&
+            ts.isStringLiteral(prop.initializer)
+          ) {
+            method = prop.initializer.text;
+            break;
+          }
+        }
+      }
+      routes.push({ method: method, path: path });
+    }
+  }
+  ts.forEachChild(node, visit);
+}
+visit(source);
+console.log(JSON.stringify(routes));
+"""
+    js = js_template.replace("__TS_PATH__", ts_path).replace("__FRONTEND_API__", api_path)
+    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:
+        f.write(js)
+        js_path = f.name
+    try:
+        result = subprocess.run(
+            ["node", js_path],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    finally:
+        Path(js_path).unlink(missing_ok=True)
+    raw_routes = json.loads(result.stdout)
 
-    for m in re.finditer(
-        r'''req\(\s*(["'])([^"']*)\1\s*,\s*\{(?:[^{}]|\{[^}]*\})*method\s*:\s*(["'])([A-Z]+)\3''',
-        text2,
-        re.DOTALL,
-    ):
-        methods.append((m.group(4), m.group(2)))
-
-    for m in re.finditer(r'''req\(\s*(["'])([^"']*)\1\s*,\s*\{\s*\}''', text2, re.DOTALL):
-        methods.append(("GET", m.group(2)))
-
-    for m in re.finditer(
-        r'''req\(\s*`([^`]*)`\s*,\s*\{(?:[^{}]|\{[^}]*\})*method\s*:\s*(["'])([A-Z]+)\2''',
-        text2,
-        re.DOTALL,
-    ):
-        methods.append((m.group(3), m.group(1)))
-
-    for m in re.finditer(r'''req\(\s*`([^`]*)`\s*,\s*\{\s*\}''', text2, re.DOTALL):
-        methods.append(("GET", m.group(1)))
-
-    for m in re.finditer(
-        r'''\bclient\.(get|post|put|delete|patch)\s*\(\s*(["'])([^"']*)\2''',
-        text2,
-        re.IGNORECASE | re.DOTALL,
-    ):
-        methods.append((m.group(1).upper(), m.group(3)))
-
-    seen = set()
-    for method, path in methods:
-        path = _normalize_path(path.split("?")[0])
+    seen: set[str] = set()
+    for item in raw_routes:
+        path_src = item["path"].strip()
+        method = item["method"]
+        # Strip surrounding quotes or backticks from the source text.
+        if len(path_src) >= 2 and (
+            (path_src[0] == '"' and path_src[-1] == '"') or
+            (path_src[0] == "'" and path_src[-1] == "'") or
+            (path_src[0] == "`" and path_src[-1] == "`")
+        ):
+            path_src = path_src[1:-1]
+        path = _normalize_path(path_src)
         seen.add(f"{method} {path}")
+
+    # `streamDocument` uses `fetch` directly rather than `req`; declare it manually.
+    source_text = FRONTEND_API.read_text()
+    if "streamDocument" in source_text:
+        seen.add("GET /ingestion/opportunities/{}/documents/{}/stream")
 
     (Path("/tmp") / "frontend_routes.txt").write_text("\n".join(sorted(seen)) + "\n")
     return seen

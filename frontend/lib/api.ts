@@ -489,6 +489,13 @@ async function req<T>(path: string, opts: RequestInit = {}, token?: string): Pro
   return res.json() as Promise<T>;
 }
 
+export type ApprovalMatrixEntry = { action: string; threshold_minor: number; currency: string; required_roles?: string[] };
+export type WorkspaceProject = { id: string; name: string; status: string; created_at?: string | null };
+export type ProjectMember = { user_id: string; email: string; role: string };
+export type BoqFinding = { category: string; severity: string; kind: string; title: string; detail: string };
+export type RulePackPattern = { id: string; category: string; title: string; confidence: string; source: string };
+export type CorrectionProposal = { id: string; kind: string; description: string; status: string; created_at?: string | null };
+
 export const api = {
   signup: (body: {
     email: string;
@@ -1147,6 +1154,76 @@ export const api = {
     req<ProjectState>(`/project_state/opportunities/${opportunityId}/state`, {}, token),
   listWorkspaceStateSummaries: (token: string) =>
     req<{ workspaces: WorkspaceStateSummary[] }>("/project_state/workspaces/me/opportunities/state", {}, token),
+  // Phase 1 backend-only route wrappers (TS-382)
+  logout: (token: string) =>
+    req<OkResponse>("/auth/logout", { method: "POST" }, token),
+  mfaEnroll: (token: string, body: { method: string; phone?: string }) =>
+    req<{ mfa_token: string; uri: string; backup_codes: string[] }>("/auth/mfa/enroll", { method: "POST", body: JSON.stringify(body) }, token),
+  mfaVerify: (token: string, code: string) =>
+    req<OkResponse>("/auth/mfa/verify", { method: "POST", body: JSON.stringify({ code }) }, token),
+  getApprovalMatrix: (token: string, workspaceId: string) =>
+    req<{ actions: string[]; limits: ApprovalMatrixEntry[] }>(`/auth/workspaces/${workspaceId}/approval-matrix`, {}, token),
+  updateApprovalMatrix: (token: string, workspaceId: string, body: { limits: ApprovalMatrixEntry[] }) =>
+    req<{ limits: ApprovalMatrixEntry[] }>(`/auth/workspaces/${workspaceId}/approval-matrix`, { method: "PUT", body: JSON.stringify(body) }, token),
+  listWorkspaceProjects: (token: string, workspaceId: string) =>
+    req<{ items: WorkspaceProject[]; total: number }>(`/auth/workspaces/${workspaceId}/projects`, {}, token),
+  createWorkspaceProject: (token: string, workspaceId: string, body: { name: string; status?: string }) =>
+    req<WorkspaceProject>(`/auth/workspaces/${workspaceId}/projects`, { method: "POST", body: JSON.stringify(body) }, token),
+  listProjectMembers: (token: string, projectId: string) =>
+    req<{ items: ProjectMember[]; total: number }>(`/auth/projects/${projectId}/members`, {}, token),
+  addProjectMember: (token: string, projectId: string, body: { email: string; role: string }) =>
+    req<ProjectMember>(`/auth/projects/${projectId}/members`, { method: "POST", body: JSON.stringify(body) }, token),
+  adminCreateUser: (token: string, body: { email: string; password: string }) =>
+    req<Tokens>("/auth/admin/users", { method: "POST", body: JSON.stringify(body) }, token),
+  getBillingProjectStatus: (token: string, opportunityId: string) =>
+    req<{ opportunity_id: string; active: boolean; activation_fee_minor: number; currency: string }>(`/billing/projects/${opportunityId}/status`, {}, token),
+  uploadBoq: (token: string, opportunityId: string, file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    return req<{ count: number; findings: BoqFinding[] }>(`/boq/opportunities/${opportunityId}/upload`, { method: "POST", body, headers: {} }, token);
+  },
+  getDocumentText: (token: string, documentId: string, page?: number) =>
+    req<{ text: string }>(`/ingestion/documents/${documentId}/text${page !== undefined ? `?page=${page}` : ""}`, {}, token),
+  listCorrectionProposals: (token: string, status?: string) =>
+    req<{ proposals: CorrectionProposal[] }>(`/rulepacks/corrections/proposals${status ? `?status=${encodeURIComponent(status)}` : ""}`, {}, token),
+  scanCorrections: (token: string) =>
+    req<{ count: number }>("/rulepacks/corrections/scan", { method: "POST" }, token),
+  dismissCorrectionProposal: (token: string, proposalId: string) =>
+    req<{ id: string; status: string }>(`/rulepacks/corrections/proposals/${proposalId}/dismiss`, { method: "POST" }, token),
+  listRulepackPatterns: (token: string, packId: string, validatedOnly?: boolean) =>
+    req<{ pack: string; patterns: RulePackPattern[] }>(`/rulepacks/${packId}/patterns${validatedOnly ? "?validated_only=true" : ""}`, {}, token),
+  getSubcontractStatus: (token: string) =>
+    req<{ module: string; status: string }>("/subcontract/status", {}, token),
+  streamDocument: (token: string, opportunityId: string, documentId: string, taskId: string, onEvent: (event: string, data: unknown) => void): (() => void) => {
+    const url = `${API_BASE}/ingestion/opportunities/${opportunityId}/documents/${documentId}/stream?task_id=${encodeURIComponent(taskId)}`;
+    const controller = new AbortController();
+    fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok || !res.body) return;
+        const reader = res.body.getReader();
+        let buffer = "";
+        const decoder = new TextDecoder();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop() ?? "";
+          for (const part of parts) {
+            const lines = part.split("\n");
+            const eventLine = lines.find((l) => l.startsWith("event: "));
+            const dataLine = lines.find((l) => l.startsWith("data: "));
+            if (dataLine) {
+              const event = eventLine ? eventLine.slice(7) : "";
+              const data = JSON.parse(dataLine.slice(6));
+              onEvent(event, data);
+            }
+          }
+        }
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  },
 };
 
 export type PlanSnapshot = {

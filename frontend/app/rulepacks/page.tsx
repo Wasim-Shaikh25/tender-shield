@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, type RulePackSummary, type RulePackFile, type RagSuggestion } from "@/lib/api";
+import { api, type RulePackSummary, type RulePackFile, type RagSuggestion, type RulePackPattern, type CorrectionProposal } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { KeyValueSummary } from "@/components/json-summary";
 
@@ -175,6 +175,9 @@ function RagPanel({ packs, onChange }: { packs: RulePackSummary[]; onChange: () 
   const [files, setFiles] = useState<RulePackFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<string>("");
   const [suggestions, setSuggestions] = useState<RagSuggestion[]>([]);
+  const [patterns, setPatterns] = useState<RulePackPattern[]>([]);
+  const [corrections, setCorrections] = useState<CorrectionProposal[]>([]);
+  const [correctionFilter, setCorrectionFilter] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
@@ -199,15 +202,38 @@ function RagPanel({ packs, onChange }: { packs: RulePackSummary[]; onChange: () 
     }
   }, [session]);
 
+  const loadPatterns = useCallback(async (packId: string) => {
+    if (!session || !packId) return;
+    try {
+      const res = await api.listRulepackPatterns(session.token, packId);
+      setPatterns(res.patterns);
+    } catch (err) {
+      setPatterns([]);
+    }
+  }, [session]);
+
+  const loadCorrections = useCallback(async (status?: string) => {
+    if (!session) return;
+    try {
+      const res = await api.listCorrectionProposals(session.token, status || undefined);
+      setCorrections(res.proposals);
+    } catch (err) {
+      setCorrections([]);
+    }
+  }, [session]);
+
   useEffect(() => {
     setFiles([]);
     setSelectedFile("");
     setSuggestions([]);
+    setPatterns([]);
+    loadCorrections();
     if (selectedPack) {
       loadFiles(selectedPack);
       loadSuggestions(selectedPack);
+      loadPatterns(selectedPack);
     }
-  }, [selectedPack, loadFiles, loadSuggestions]);
+  }, [selectedPack, loadFiles, loadSuggestions, loadPatterns, loadCorrections]);
 
   async function generate() {
     if (!session || !selectedPack || !selectedFile) return;
@@ -247,6 +273,33 @@ function RagPanel({ packs, onChange }: { packs: RulePackSummary[]; onChange: () 
       if (selectedPack) loadSuggestions(selectedPack);
     } catch (err) {
       setNote(err instanceof Error ? err.message : "Reject failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function scanCorrections() {
+    if (!session) return;
+    setBusy(true);
+    try {
+      const res = await api.scanCorrections(session.token);
+      setNote(`Scanned ${res.count} correction(s).`);
+      loadCorrections(correctionFilter || undefined);
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : "Scan failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function dismissCorrection(id: string) {
+    if (!session) return;
+    setBusy(true);
+    try {
+      await api.dismissCorrectionProposal(session.token, id);
+      loadCorrections(correctionFilter || undefined);
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : "Dismiss failed");
     } finally {
       setBusy(false);
     }
@@ -355,6 +408,64 @@ function RagPanel({ packs, onChange }: { packs: RulePackSummary[]; onChange: () 
           ))}
         </div>
       )}
+
+      {selectedPack && (
+        <div className="mt-6">
+          <h4 className="mb-3 font-semibold text-ink">Patterns</h4>
+          {patterns.length === 0 ? (
+            <p className="text-sm text-slate-500">No patterns available for this pack.</p>
+          ) : (
+            <ul className="space-y-2">
+              {patterns.map((p) => (
+                <li key={p.id} className="rounded-md border border-slate-200 p-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{p.title}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs ${p.confidence === "validated" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>{p.confidence}</span>
+                  </div>
+                  <p className="text-xs text-slate-500">{p.category} · {p.source}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      <div className="mt-6">
+        <div className="mb-3 flex items-center justify-between">
+          <h4 className="font-semibold text-ink">Correction Proposals</h4>
+          <div className="flex gap-2">
+            <select
+              value={correctionFilter}
+              onChange={(e) => { setCorrectionFilter(e.target.value); loadCorrections(e.target.value || undefined); }}
+              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+            >
+              <option value="">All</option>
+              <option value="pending">Pending</option>
+              <option value="accepted">Accepted</option>
+              <option value="dismissed">Dismissed</option>
+            </select>
+            <button onClick={scanCorrections} disabled={busy} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:border-ink disabled:opacity-50">Scan</button>
+          </div>
+        </div>
+        {corrections.length === 0 ? (
+          <p className="text-sm text-slate-500">No correction proposals.</p>
+        ) : (
+          <ul className="space-y-2">
+            {corrections.map((c) => (
+              <li key={c.id} className="rounded-md border border-slate-200 p-3 text-sm flex items-center justify-between">
+                <div>
+                  <span className="font-medium capitalize">{c.kind}</span>
+                  <p className="text-slate-600">{c.description}</p>
+                  <p className="text-xs text-slate-500">{c.status} · {c.created_at}</p>
+                </div>
+                {c.status === "pending" && (
+                  <button onClick={() => dismissCorrection(c.id)} disabled={busy} className="rounded-md border border-slate-300 px-2 py-1 text-xs text-red-600 hover:border-red-600 disabled:opacity-50">Dismiss</button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

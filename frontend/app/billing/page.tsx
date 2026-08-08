@@ -22,6 +22,8 @@ export default function BillingPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [projectOpportunityId, setProjectOpportunityId] = useState("");
+  const [projectStatus, setProjectStatus] = useState<{ opportunity_id: string; active: boolean; activation_fee_minor: number; currency: string } | null>(null);
 
   useEffect(() => {
     if (!session) return;
@@ -69,6 +71,18 @@ export default function BillingPage() {
       setError(e instanceof Error ? e.message : "Plan change failed");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function fetchProjectStatus() {
+    if (!session || !projectOpportunityId) return;
+    setError(null);
+    try {
+      const r = await api.getBillingProjectStatus(session.token, projectOpportunityId);
+      setProjectStatus(r);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load project status");
+      setProjectStatus(null);
     }
   }
 
@@ -127,6 +141,32 @@ export default function BillingPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Project Activation Status */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Project Activation Status</CardTitle>
+          <CardDescription>Check whether an opportunity has been activated for billing.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <input
+              type="text"
+              placeholder="Opportunity ID"
+              value={projectOpportunityId}
+              onChange={(e) => setProjectOpportunityId(e.target.value)}
+              className="flex-1 min-w-[200px] rounded-md border border-border-default px-3 py-2 text-sm"
+            />
+            <Button variant="secondary" size="md" onClick={fetchProjectStatus}>Check status</Button>
+          </div>
+          {projectStatus && (
+            <div className="text-sm">
+              <p><strong>Active:</strong> {projectStatus.active ? "Yes" : "No"}</p>
+              <p><strong>Activation fee:</strong> {projectStatus.activation_fee_minor / 100} {projectStatus.currency}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Quick Actions */}
       <div className="flex flex-wrap gap-2">

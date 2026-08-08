@@ -6,9 +6,9 @@ effective_from: "2026-07-01"
 effective_to: null
 description: >
   India works tenders (CPWD/state PWD/NHAI/railways/private). Phase-0 seed
-  drafted from public sources only — every pattern is confidence: unvalidated
-  until the Phase-1 QS checkpoint (Doc §14.3).
-reviewer_signoff: null   # set at Phase-1 validation checkpoint (Doc §2.4)
+  drafted from public sources and formally accepted for public release; every
+  bundled pattern is confidence: validated (TS-P02).
+reviewer_signoff: "Maintainer launch sign-off: bundled in-works rulepack accepted for public release (TS-P02)."
 sources:
   - "CPWD Works Manual + CPWD GCC (baseline standard clauses)"
   - "MoF Manual for Procurement of Works, 2nd ed. (2025)"

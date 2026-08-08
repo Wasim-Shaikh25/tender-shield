@@ -1,7 +1,7 @@
 id: price_escalation_barred
 category: escalation
 title: Price escalation barred / firm price on long-duration works
-confidence: unvalidated
+confidence: validated
 source: >
   Derived from CPWD GCC clause 10CA (escalation formula) + HKA CRUX 2025
   (price volatility a top-5 dispute driver).
@@ -39,4 +39,4 @@ price_impact:
   basis: percent_of_contract_value
   formula: escalation_unhedged
   inputs: [project_duration_months, index_series]
-  confidence: unvalidated
+  confidence: validated

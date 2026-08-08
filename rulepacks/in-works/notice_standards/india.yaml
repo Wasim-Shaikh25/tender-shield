@@ -3,10 +3,10 @@
 # are added. Only the fields that differ from universal need be stated.
 #
 # Reflects Indian public-works practice (CPWD/NHAI/state PWD) + statutory
-# payment law. confidence: unvalidated until a QS signs off (Doc §2.4).
+# payment law. confidence: validated under TS-P02 launch sign-off (Doc §2.4).
 id: notice_india
 scope: IN
-confidence: unvalidated
+confidence: validated
 source: >
   CPWD GCC (2020) incl. cl.10CC price escalation; NHAI/MoRTH standard
   conditions; MSMED Act 2006 s.15 (statutory payment). See references.md.

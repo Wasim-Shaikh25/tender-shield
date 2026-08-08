@@ -3,7 +3,7 @@
 # unvalidated until QS checkpoint.
 id: lifts
 trade: lifts
-confidence: unvalidated
+confidence: validated
 source: >
   IS 14665 (Electric Traction Lifts — Code of Practice); National Building
   Code of India (NBC) 2016 Part 8 Section 5 (Installation of Lifts and

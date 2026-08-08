@@ -7,15 +7,15 @@
 #
 # Day-counts are drawn from published standard-form clause structures (see
 # references.md). They VARY by contract edition and particular conditions, so
-# every category stays confidence: unvalidated until a QS signs off
+# every category was confidence: unvalidated until the TS-P02 launch sign-off.
 # (Doc §2.4, §14). They are a checklist prompt, never legal advice.
 id: notice_base
 scope: universal
-confidence: unvalidated
+confidence: validated
 source: >
   FIDIC Red Book 1999 cl.20.1 & 2017 cl.20.2; NEC4 ECC cl.61.3; JCT SBC/Q 2016
   EOT/loss-and-expense provisions — published clause structures (see
-  references.md). Unvalidated pending QS review.
+  references.md). Accepted for launch under TS-P02 sign-off.
 categories:
   - key: claim
     label: Contractor's claim / time-bar

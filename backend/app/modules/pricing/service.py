@@ -49,9 +49,15 @@ class PricingService:
         self._boq_engine_provider = boq_engine_provider
         self._review_factory = review_factory
 
-    def _pack(self):
+    def _pack(self, workspace_id=None):
         loader = self._rulepacks_loader_provider() if self._rulepacks_loader_provider else None
-        return loader.get_pack(self.PACK_ID) if loader else None
+        if not loader:
+            return None
+        return loader.get_pack(
+            self.PACK_ID,
+            session=self.s,
+            workspace_id=workspace_id,
+        )
 
     def _opportunity(self, workspace_id, opportunity_id):
         if self._ingestion_factory is None:
@@ -82,7 +88,7 @@ class PricingService:
         facts_by_finding: dict[str, dict[str, Any]] | None = None,
     ) -> list[dict]:
         self._require_review_gate(workspace_id, opportunity_id)
-        pack = self._pack()
+        pack = self._pack(workspace_id=workspace_id)
         patterns = pack.patterns if pack else {}
         rulepack_version = pack.version_tag if pack else "unknown"
 
@@ -167,13 +173,13 @@ class PricingService:
         year: str | None = None,
     ) -> dict:
         self._require_review_gate(workspace_id, opportunity_id)
-        pack = self._pack()
+        pack = self._pack(workspace_id=workspace_id)
         boq_engine = self._boq_engine_provider() if self._boq_engine_provider else None
         if boq_engine is None:
             raise PricingError("boq_unavailable")
 
         df = pd.read_csv(io.StringIO(csv_text))
-        normalized = boq_engine.normalize_dataframe(df)
+        normalized = boq_engine.normalize_dataframe(df, pack=pack)
         boq_rows = normalized.to_dict("records")
 
         schedule = None
@@ -260,12 +266,13 @@ class PricingService:
         profit_pct: float = 0.10,
     ) -> dict:
         self._require_review_gate(workspace_id, opportunity_id)
+        pack = self._pack(workspace_id=workspace_id)
         boq_engine = self._boq_engine_provider() if self._boq_engine_provider else None
         if boq_engine is None:
             raise PricingError("boq_unavailable")
 
         df = pd.read_csv(io.StringIO(csv_text))
-        normalized = boq_engine.normalize_dataframe(df)
+        normalized = boq_engine.normalize_dataframe(df, pack=pack)
         return rate_buildup(
             normalized,
             currency=currency,
@@ -286,12 +293,13 @@ class PricingService:
         scenarios: list[dict] | None = None,
     ) -> dict:
         self._require_review_gate(workspace_id, opportunity_id)
+        pack = self._pack(workspace_id=workspace_id)
         boq_engine = self._boq_engine_provider() if self._boq_engine_provider else None
         if boq_engine is None:
             raise PricingError("boq_unavailable")
 
         df = pd.read_csv(io.StringIO(csv_text))
-        normalized = boq_engine.normalize_dataframe(df)
+        normalized = boq_engine.normalize_dataframe(df, pack=pack)
         return sensitivity(normalized, currency=currency, scenarios=scenarios).to_dict()
 
     def list_loadings(self, workspace_id, opportunity_id) -> list[PiLoading]:

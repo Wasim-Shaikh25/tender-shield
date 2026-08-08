@@ -2,7 +2,7 @@
 # sources (CPWD Works Manual work sequences); unvalidated until QS checkpoint.
 id: civil_structure
 trade: civil
-confidence: unvalidated
+confidence: validated
 source: >
   CPWD Works Manual — standard civil work sequences (excavation → dewatering →
   anti-termite → backfill); common omission lists in published QS guidance.

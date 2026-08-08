@@ -59,8 +59,8 @@ def generate_comparison_summary(
     v2_by_title = {f.get("title"): f for f in version_2_findings}
 
     # Track changes
-    new_findings = []
-    resolved_findings = []
+    new_findings: list[dict[str, Any]] = []
+    resolved_findings: list[dict[str, Any]] = []
     escalated_findings = []
     de_escalated_findings = []
     unchanged_findings = []

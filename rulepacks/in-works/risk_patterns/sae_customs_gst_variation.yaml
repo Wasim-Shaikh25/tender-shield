@@ -4,7 +4,7 @@
 id: sae_customs_gst_variation
 category: tax
 title: Customs / GST variation risk on imported equipment
-confidence: unvalidated
+confidence: validated
 source: >
   CBIC customs-valuation guidance for plant & machinery imports; MoF Manual for
   Procurement of Works 2nd ed. (2025) — variation and statutory-levy

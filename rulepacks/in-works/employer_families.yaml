@@ -1,5 +1,5 @@
 id: employer_families
-confidence: unvalidated
+confidence: validated
 source: "Manual curation for TS-198 — public employer identity aliases"
 families:
   CPWD:

@@ -1,7 +1,7 @@
 # HVAC scope-gap checklist (Doc §6.4). Phase-0 draft; unvalidated.
 id: hvac
 trade: hvac
-confidence: unvalidated
+confidence: validated
 source: >
   ISHRAE/CPWD HVAC specification structure — ancillary items commonly missed
   in HVAC BOQs per published estimation guidance.

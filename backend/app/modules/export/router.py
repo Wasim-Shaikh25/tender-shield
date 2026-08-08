@@ -23,13 +23,22 @@ class ReportTemplateBody(BaseModel):
     is_default: bool = Field(default=False)
 
 
-def _service(request: Request, session: Session) -> ExportService:
+def _service(request: Request, session: Session, workspace_id) -> ExportService:
     reg = request.app.state.ctx.registry
     factory = reg.get("export.service_factory")
     if factory:
-        return factory(session)
+        return factory(session, workspace_id)
     loader = reg.get("rulepacks.loader")
-    pack_version = loader.get_pack("in-works").version_tag if loader else "in-works"
+
+    def _pack_version(session, workspace_id):
+        if loader is None:
+            return "in-works"
+        return loader.get_pack(
+            "in-works",
+            session=session,
+            workspace_id=workspace_id,
+        ).version_tag
+
     return ExportService(
         session,
         review_factory=reg.get("review.service_factory"),
@@ -37,7 +46,7 @@ def _service(request: Request, session: Session) -> ExportService:
         drafting_factory=reg.get("drafting.service_factory"),
         ingestion_factory=reg.get("ingestion.service_factory"),
         workspace_factory=reg.get("auth.workspace_factory"),
-        pack_version=pack_version,
+        pack_version=_pack_version,
         document_class_permitted_fn=reg.get("auth.document_class_permitted"),
     )
 
@@ -52,7 +61,7 @@ def export_pack(
     principal: Any = Depends(require("estimator")),
 ):
     try:
-        filename, media_type, data = _service(request, session).export(
+        filename, media_type, data = _service(request, session, principal.workspace_id).export(
             principal.workspace_id,
             opportunity_id,
             format,
@@ -86,7 +95,8 @@ def list_report_templates(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("admin")),
 ):
-    return {"templates": _service(request, session).list_templates(principal.workspace_id)}
+    svc = _service(request, session, principal.workspace_id)
+    return {"templates": svc.list_templates(principal.workspace_id)}
 
 
 @router.post("/templates")
@@ -96,7 +106,7 @@ def create_report_template(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("admin")),
 ):
-    return _service(request, session).create_template(
+    return _service(request, session, principal.workspace_id).create_template(
         principal.workspace_id, body.model_dump(exclude_unset=True)
     )
 
@@ -109,7 +119,7 @@ def update_report_template(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("admin")),
 ):
-    result = _service(request, session).update_template(
+    result = _service(request, session, principal.workspace_id).update_template(
         principal.workspace_id, template_id, body.model_dump(exclude_unset=True)
     )
     if result is None:
@@ -124,7 +134,8 @@ def delete_report_template(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("admin")),
 ):
-    if not _service(request, session).delete_template(principal.workspace_id, template_id):
+    svc = _service(request, session, principal.workspace_id)
+    if not svc.delete_template(principal.workspace_id, template_id):
         raise HTTPException(404, "not_found")
     return {"deleted": True}
 
@@ -136,7 +147,8 @@ def set_default_report_template(
     session: Session = Depends(get_session),
     principal: Any = Depends(require("admin")),
 ):
-    result = _service(request, session).set_default_template(principal.workspace_id, template_id)
+    svc = _service(request, session, principal.workspace_id)
+    result = svc.set_default_template(principal.workspace_id, template_id)
     if result is None:
         raise HTTPException(404, "not_found")
     return result
@@ -154,7 +166,7 @@ def export_email_summary(
     Returns JSON with subject, body (plaintext + HTML), mailto link, and preview.
     """
     try:
-        email_data = _service(request, session).email_summary(
+        email_data = _service(request, session, principal.workspace_id).email_summary(
             principal.workspace_id, opportunity_id, role=principal.role
         )
     except ExportError as exc:
@@ -193,7 +205,7 @@ def export_comparison_summary(
     If version_2_findings not provided, uses current findings.
     """
     try:
-        comparison_data = _service(request, session).comparison_summary(
+        comparison_data = _service(request, session, principal.workspace_id).comparison_summary(
             principal.workspace_id,
             opportunity_id,
             body.version_1_date,

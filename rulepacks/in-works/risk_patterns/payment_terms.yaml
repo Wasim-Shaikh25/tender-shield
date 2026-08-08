@@ -1,7 +1,7 @@
 id: payment_terms_extended
 category: payment
 title: Extended payment period / pay-when-paid
-confidence: unvalidated
+confidence: validated
 source: >
   MoF Manual for Procurement of Works 2nd ed. (2025) — standard RA-bill payment
   timelines; HKA CRUX 2025 — payment a top dispute driver.

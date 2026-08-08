@@ -2,7 +2,7 @@
 id: sae_performance_guarantee_tests
 category: performance
 title: Performance guarantee / PG test obligations
-confidence: unvalidated
+confidence: validated
 source: >
   CPWD GCC performance-security and defect-liability provisions; typical Indian
   BTG/BOP and process-plant supply contracts — performance guarantee tests

@@ -34,32 +34,62 @@ class BoqEngine:
         self._loader_provider = loader_provider
         self._pack_id = pack_id
 
-    def _pack(self, pack: object | None = None):
+    def _pack(
+        self,
+        pack: object | None = None,
+        workspace_id=None,
+        session=None,
+    ):
         if pack is not None:
             return pack
         loader = self._loader_provider()
-        return loader.get_pack(self._pack_id) if loader else None
+        if not loader:
+            return None
+        return loader.get_pack(
+            self._pack_id, session=session, workspace_id=workspace_id
+        )
 
-    def pack_for_opportunity(self, session, opportunity_id) -> object | None:
+    def pack_for_opportunity(self, session, opportunity_id, workspace_id=None) -> object | None:
         loader = self._loader_provider()
         if not loader:
-            return self._pack()
-        combined = loader.get_combined_pack_for_opportunity(session, opportunity_id)
-        return combined or self._pack()
+            return self._pack(workspace_id=workspace_id, session=session)
+        combined = loader.get_combined_pack_for_opportunity(
+            session, opportunity_id, workspace_id=workspace_id
+        )
+        return combined or self._pack(workspace_id=workspace_id, session=session)
 
-    def normalize_dataframe(self, df: pd.DataFrame, *, pack: object | None = None) -> pd.DataFrame:
+    def normalize_dataframe(
+        self,
+        df: pd.DataFrame,
+        *,
+        pack: object | None = None,
+        workspace_id=None,
+        session=None,
+    ) -> pd.DataFrame:
         """The canonical-schema normalization step alone, for consumers (e.g.
         `pricing`'s rate benchmarking) that need normalized rows rather
         than defect findings. Exposed on the already-published `boq.engine`
         capability so no new registry entry is needed."""
-        pack = self._pack(pack)
+        pack = self._pack(pack, workspace_id=workspace_id, session=session)
         unit_canon = pack.unit_canon if pack else _FALLBACK_UNIT_CANON
         return normalize(df, unit_canon)
 
-    def check_dataframe(self, df: pd.DataFrame, *, pack: object | None = None) -> list[Finding]:
-        pack = self._pack(pack)
+    def check_dataframe(
+        self,
+        df: pd.DataFrame,
+        *,
+        pack: object | None = None,
+        workspace_id=None,
+        session=None,
+    ) -> list[Finding]:
+        pack = self._pack(pack, workspace_id=workspace_id, session=session)
         cfg = pack.boq_checks if pack else None
-        normalized = self.normalize_dataframe(df, pack=pack)
+        normalized = self.normalize_dataframe(
+            df,
+            pack=pack,
+            workspace_id=workspace_id,
+            session=session,
+        )
         return run_checks(
             normalized,
             tolerance=cfg.arithmetic_tolerance if cfg else 1.0,
@@ -74,14 +104,22 @@ class BoqEngine:
         checklist_id: str,
         *,
         pack: object | None = None,
+        workspace_id=None,
+        session=None,
     ) -> list[Finding]:
-        pack = self._pack(pack)
+        pack = self._pack(pack, workspace_id=workspace_id, session=session)
         if not pack or checklist_id not in pack.trade_checklists:
             return []  # degrade: no checklist available
         return scope_gaps(df, SpecTextIndex(spec_text), pack.trade_checklists[checklist_id])
 
-    def available_checklists(self, *, pack: object | None = None) -> list[str]:
-        pack = self._pack(pack)
+    def available_checklists(
+        self,
+        *,
+        pack: object | None = None,
+        workspace_id=None,
+        session=None,
+    ) -> list[str]:
+        pack = self._pack(pack, workspace_id=workspace_id, session=session)
         return sorted(pack.trade_checklists) if pack else []
 
     def cross_check_schedule(self, df: pd.DataFrame, activities: list[dict]) -> list[Finding]:
@@ -151,7 +189,7 @@ class BoqRunner:
         return document_set_hash(digests)
 
     def _provenance_stamp(self, workspace_id, opportunity_id, csv_text: str) -> ProvenanceStamp:
-        pack = self._engine.pack_for_opportunity(self.s, opportunity_id)
+        pack = self._engine.pack_for_opportunity(self.s, opportunity_id, workspace_id=workspace_id)
         return ProvenanceStamp(
             rulepack_version=pack.meta.version if pack else "unknown",
             model_id="none",
@@ -160,7 +198,7 @@ class BoqRunner:
 
     def run_csv(self, workspace_id, opportunity_id, csv_text: str) -> list[Finding]:
         df = pd.read_csv(io.StringIO(csv_text))
-        pack = self._engine.pack_for_opportunity(self.s, opportunity_id)
+        pack = self._engine.pack_for_opportunity(self.s, opportunity_id, workspace_id=workspace_id)
         findings = self._engine.check_dataframe(df, pack=pack)
         spec_text = self._spec_text(workspace_id, opportunity_id)
         for checklist_id in self._engine.available_checklists(pack=pack):

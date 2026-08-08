@@ -5,6 +5,7 @@ findings, drafting, ingestion, rulepacks purely via registry capabilities."""
 from __future__ import annotations
 
 import hashlib
+import logging
 import uuid
 from datetime import date
 
@@ -21,6 +22,8 @@ from app.modules.export.render import (
     verify_unreviewed_watermark,
 )
 from app.modules.export.version_comparison import generate_comparison_summary
+
+logger = logging.getLogger(__name__)
 
 FORMATS = {
     "xlsx": ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"),
@@ -65,6 +68,15 @@ class ExportService:
         self._workspace_factory = workspace_factory
         self._pack_version = pack_version
         self._document_class_permitted_fn = document_class_permitted_fn
+
+    def _pack_version_label(self, workspace_id) -> str:
+        if callable(self._pack_version):
+            try:
+                return self._pack_version(self.s, workspace_id)
+            except Exception:
+                logger.exception("pack_version lookup failed")
+                return "in-works"
+        return self._pack_version
 
     def _gate_ok(self, workspace_id, opportunity_id) -> bool:
         if self._review_factory is None:
@@ -210,7 +222,7 @@ class ExportService:
         title = self._title(workspace_id, opportunity_id)
         meta = {
             "date": date.today().isoformat(),
-            "pack": self._pack_version,
+            "pack": self._pack_version_label(workspace_id),
         }
         meta.update(self._reviewer_meta(workspace_id, opportunity_id))
         template = self._template(workspace_id, template_id)
@@ -247,7 +259,7 @@ class ExportService:
         title = self._title(workspace_id, opportunity_id)
         meta = {
             "date": date.today().isoformat(),
-            "pack": self._pack_version,
+            "pack": self._pack_version_label(workspace_id),
             "variant": UNREVIEWED_VARIANT,
         }
         template = self._template(workspace_id, template_id)
@@ -282,7 +294,7 @@ class ExportService:
         title = handover.get("opportunity", {}).get("title") or "this tender"
         meta = {
             "date": date.today().isoformat(),
-            "pack": self._pack_version,
+            "pack": self._pack_version_label(workspace_id),
             "integrity_hash": handover.get("sealed_hash", ""),
             "view": view,
         }

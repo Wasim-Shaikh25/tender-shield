@@ -631,58 +631,20 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-354 | All-projects / workspace filter dashboard: spec for a global opportunity board with filters by workspace, jurisdiction, status, deadline | user request; `specs/frontend.md` | `specs/project-state-dashboard.md` | done |
 | TS-355 | E2E test bugfixes: persist/serialize assistant `suggested_followups`, allow `.md`/`txt` upload, fix assistant live-update on first message | testing findings; `specs/modules/assistant.md` | `backend/app/modules/assistant/`, `frontend/app/assistant/`, `backend/app/core/storage.py` | done |
 | TS-356 | Global left sidebar navigation replacing top navbar | user request; `specs/frontend.md` | `frontend/app/layout.tsx`, `frontend/components/` | done |
-
-## Phase 29 — UI/UX Redesign (Master initiative)
-
-Master requirement: comprehensive end-to-end SaaS UI/UX transformation. Seven phases: 1) Design System (complete), 2) Global Shell (complete), 3) Core Pages (complete), 4) Advanced Pages (complete), 5) Additional Pages (in progress), 6) Admin Pages (pending), 7) Polish & QA (pending).
-
+|
+## Phase 29 — Round 11 production-readiness re-audit & remediation
+|
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
-| TS-357 | **PARENT TASK: Master UI/UX redesign initiative** — Establish modern, premium, cohesive design system + redesign 20+ application pages across 7 phases; branches: `claude/ui-dev-tools-setup-r3sxpg` | user request (Master UI/UX prompt); `specs/frontend.md` | `specs/frontend.md`, `UI_REDESIGN_STATUS.md` | in-progress |
-| TS-358 | **PHASE 1: Design System Foundation** — Tailwind config + 40+ semantic tokens, global CSS with focus states, 6 core UI components (Button, Input, Card, Badge, Alert, utilities) | TS-357; user request | `specs/frontend.md` | done |
-| TS-359 | **PHASE 2: Global Application Shell** — Modern sidebar, workspace selector dropdown, nav hierarchy, mobile drawer, responsive behavior | TS-357; user request | `specs/frontend.md` | done |
-| TS-360 | **PHASE 3: Core Page Redesigns** — `/login`, `/`, `/opportunities`, `/dashboard/state`, `/projects`, `/team` (6 pages, all business logic preserved) | TS-357; user request | `specs/frontend.md` | done |
-| TS-361 | **PHASE 4: Advanced Page Redesigns** — `/opportunities/[id]`, `/billing`, `/plan` (3 pages, complex layouts, tables, dashboards) | TS-357; user request | `specs/frontend.md` | done |
-| TS-362 | **PHASE 5: Additional Page Redesigns** — `/settings`, `/settings/notifications`, `/settings/api-keys`, `/settings/integrations`, `/billing/settings`, `/projects/[id]/state`, `/support/tickets`, `/support/tickets/[id]` (8 pages, medium priority) | TS-357; user request | `specs/frontend.md` | done |
-| TS-363 | **PHASE 6: Admin Page Redesigns** — `/admin`, `/admin/users`, `/admin/users/[id]`, `/admin/workspaces`, `/admin/audit-log`, `/admin/support`, `/admin/coupons` (7 pages, lower priority) | TS-357; user request | `specs/frontend.md` | done |
-| TS-364 | **PHASE 7: Polish & QA** — ✅ 8 components created + animations; ✅ WCAG AA audit complete; Next: a11y fixes, integration, responsive/visual/functional QA, performance | TS-357; user request | `specs/frontend.md`, `ACCESSIBILITY_AUDIT.md` | in-progress |
-| TS-365 | Create comprehensive specs for UI redesign in `specs/frontend-ui-redesign.md` documenting design system, component library, page coverage, and acceptance criteria | TS-357; CLAUDE.md §3 | `specs/frontend-ui-redesign.md` (new) | done |
-
-## Phase 30 — Export Enhancement (Business Critical)
-
-Enhance export functionality to become integral to contractor workflows. Current exports (DOCX, XLSX) support basic archival. New exports support collaboration, stakeholder communication, and AI-generated asset distribution.
-
-**Business Impact**: Increases product stickiness, enables audit trails, creates workflow lock-in.
-
-| ID | Title | Req ref | Spec | Status |
-|---|---|---|---|---|
-| TS-366 | **PARENT TASK: Export Enhancement Initiative** — Comprehensive export system including PDF, email summaries, version comparison, and AI dashboard/knowledge graph exports; branches: `claude/export-enhancement-*` | user request (business critical); `specs/export-enhancement.md` | `specs/export-enhancement.md` | in-progress |
-| TS-367 | Create export enhancement specification documenting all export types (PDF, email, comparison, stakeholder reports) with user stories, technical requirements, and success metrics | TS-366; user request | `specs/export-enhancement.md` (new) | done |
-| TS-368 | Backend: PDF export for bid review pack (findings + assumptions + clarifications + metadata) using pdfkit or puppeteer | TS-366; `specs/export-enhancement.md` | `backend/app/modules/export/render.py` (enhanced) | done |
-| TS-369 | Backend: Email summary export (mailto template + PDF attachment) with pre-filled risk summary and stakeholder-friendly formatting | TS-366; `specs/export-enhancement.md` | `backend/app/modules/export/email_export.py` (new) | done |
-| TS-370 | Backend: Version comparison export (DOCX/XLSX/PDF showing before/after findings with delta tracking) | TS-366; `specs/export-enhancement.md` | `backend/app/modules/export/version_comparison.py` (new) | done |
-| TS-371 | Backend: Stakeholder report generator (1-page executive summary PDF, C-suite friendly, plain English, no jargon) | TS-366; `specs/export-enhancement.md` | `backend/app/modules/drafting/stakeholder_report.py` (new) | todo |
-| TS-372 | Backend: Dynamic dashboard export (PDF, SVG, JSON) with chart rendering and metadata | TS-366; `specs/export-enhancement.md` | `backend/app/modules/dashboards/export.py` (new) | todo |
-| TS-373 | Backend: Knowledge graph/risk network export (PDF, SVG, PNG, JSON-LD, GML) with graph visualization and linked data | TS-366; `specs/export-enhancement.md` | `backend/app/modules/knowledge_graph/export.py` (new) | todo |
-| TS-374 | Frontend: Add export UI buttons to opportunities detail page (PDF, email, comparison, stakeholder report) with export menu dropdown | TS-366; `specs/export-enhancement.md` | `frontend/app/opportunities/[id]/page.tsx` (updated) | done |
-| TS-375 | Frontend: Email dialog component (pre-fill + recipient selection + send via mailto) | TS-366; `specs/export-enhancement.md` | `frontend/components/ui/email-dialog.tsx` (new) | done |
-| TS-376 | Frontend: Version comparison selector (pick two versions to compare + export format selection) | TS-366; `specs/export-enhancement.md` | `frontend/components/ui/comparison-selector.tsx` (new) | todo |
-| TS-377 | Frontend: Dashboard export buttons (PDF, SVG, JSON) on dashboard/analytics pages | TS-366; `specs/export-enhancement.md` | `frontend/app/dashboard/page.tsx` (updated) | todo |
-| TS-378 | Frontend: Knowledge graph export buttons (PDF, SVG, PNG, JSON-LD, GML) on knowledge graph visualization page | TS-366; `specs/export-enhancement.md` | `frontend/app/knowledge-graph/page.tsx` (if exists) | todo |
-| TS-379 | Testing: E2E tests for all export formats (PDF, DOCX, XLSX, email, comparison, stakeholder report, dashboard exports) | TS-366; `specs/export-enhancement.md` | `backend/tests/test_export_*.py`, `frontend/e2e/export.spec.ts` (new) | todo |
-| TS-380 | Documentation: User guide for export features (how to use, best practices, format guidance) | TS-366; `specs/export-enhancement.md` | `docs/USER_GUIDE_EXPORTS.md` (new) | todo |
-| TS-381 | Performance optimization: Ensure exports complete in <5 seconds for large analyses; benchmark and optimize chart rendering for PDF | TS-366; `specs/export-enhancement.md` | Performance validation in E2E tests | todo |
-
-## Public-Facing Pages & Marketing
-
-| ID | Title | Req ref | Spec | Status |
-|---|---|---|---|---|
-| TS-382 | **PARENT TASK: Public-Facing Pages Initiative** — Landing page, help/documentation, and pricing pages for non-technical contractor audience; branches: public-pages-ready | user request (market positioning); `specs/public-pages.md` (new) | `specs/public-pages.md` | done |
-| TS-383 | Landing page (`/`) enhancement — Add comprehensive feature explanations, value propositions, benefits section, pricing preview, testimonials, and improved copy for non-technical audience | TS-382; user request | `frontend/app/page.tsx` (updated) | done |
-| TS-384 | Help/Documentation page (`/help`) — Comprehensive non-technical guide with getting started, features, concepts explained, 20 FAQs, and privacy/data assurances | TS-382; user request | `frontend/app/help/page.tsx` (new) | done |
-| TS-385 | Pricing page (`/pricing`) — Four-tier subscription model (Free, Pay-Per-Tender, Pro, Scale) with monthly/annual toggle, detailed comparison table, and billing FAQs | TS-382; user request | `frontend/app/pricing/page.tsx` (new) | done |
-| TS-386 | Public access configuration — Update AuthGate PUBLIC_PATHS to include `/`, `/help`, `/pricing` for non-authenticated visitor flow | TS-382; user request | `frontend/components/auth-gate.tsx` (updated) | done |
-| TS-387 | Landing page testimonials & social proof section — Add 4 contractor testimonials with real-world savings/efficiency quotes | TS-382; user request | `frontend/app/page.tsx` (updated) | done |
-| TS-388 | Public pages SEO & metadata — Add proper title tags, meta descriptions, structured data (schema.org) for Google indexing | TS-382; user request | `frontend/app/(pages)` | todo |
-| TS-389 | Public terms of service, privacy policy, and DPDP compliance pages — Full legal + data protection documents | TS-382; compliance requirement | `frontend/app/(pages)` | todo |
-| TS-390 | Analytics integration (Plausible/Fathom) on public pages — Track visitor flow, conversion rates, feature interest | TS-382; business intelligence | `frontend/app/(pages)` | todo |
+| TS-357 | Round 11 production-readiness re-audit: refresh `PRODUCTION_READINESS_AUDIT.md` for `9e09cac`, run validation matrix, and document new XSS / rulepack-isolation / dependency findings | `PRODUCTION_READINESS_AUDIT.md`; user request | `PRODUCTION_READINESS_AUDIT.md` | done |
+| TS-358 | Markdown XSS hardening: URL scheme whitelist and `noopener` for rendered links (TS-SEC-01) | `PRODUCTION_READINESS_AUDIT.md` TS-SEC-01 | `frontend/components/markdown.tsx` | done |
+| TS-359 | Auth toggle test hermeticity: explicit defaults in `test_auth_toggles.py` `_client` (TS-ENV-01) | `PRODUCTION_READINESS_AUDIT.md` TS-ENV-01 | `backend/tests/test_auth_toggles.py` | done |
+| TS-360 | npm audit CVE remediation: dependency overrides and lockfile refresh (TS-DEP-01) | `PRODUCTION_READINESS_AUDIT.md` TS-DEP-01 | `frontend/package.json`, `frontend/package-lock.json` | done |
+| TS-361 | Rulepack workspace isolation: scope-aware loader, admin service visibility, and route filters (TS-SEC-03) | `PRODUCTION_READINESS_AUDIT.md` TS-SEC-03 | `backend/app/modules/rulepacks/` | done |
+| TS-362 | Rulepack confidence validation: sign off bundled `in-works` patterns as `validated` (TS-P02) | `PRODUCTION_READINESS_AUDIT.md` TS-P02 | `rulepacks/in-works/`, `backend/tests/test_rulepacks.py` | done |
+| TS-363 | Backlog/CHANGELOG hygiene: fix `tasks/backlog.md` Phase 29 heading and add `### Next` to `CHANGELOG.md` (Devin Review follow-ups) | PR #125 Devin Review | `tasks/backlog.md`, `CHANGELOG.md` | done |
+| TS-364 | Rulepack loader cache should not leak workspace DB packs across tenants (Devin Review #126) | PR #126 Devin Review | `backend/app/modules/rulepacks/loader.py` | done |
+| TS-365 | Propagate rulepack loader session/workspace to ingestion/pricing/export/drafting/assistant/boq callers (Devin Review #126) | PR #126 Devin Review | `backend/app/modules/*` | done |
+| TS-366 | Rulepack admin endpoints should return 403 for forbidden operations (Devin Review #126) | PR #126 Devin Review | `backend/app/modules/rulepacks/admin_service.py`, `router.py` | done |
+| TS-367 | Markdown link scheme whitelist should reject URLs with embedded control characters (Devin Review #126) | PR #126 Devin Review | `frontend/components/markdown.tsx` | done |
+| TS-368 | Devin Review #126 follow-up: CHANGELOG entry for post-merge fixes | PR #126 Devin Review | `CHANGELOG.md` | done |

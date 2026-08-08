@@ -26,17 +26,25 @@ class MarketDataService:
         self._ingestion_factory = ingestion_factory
         self._default_pack_id = default_pack_id
 
-    def _families(self) -> dict | None:
+    def _families(self, workspace_id=None) -> dict | None:
         if self._loader is None:
             return None
-        data = self._loader.employer_families(self._default_pack_id)
+        data = self._loader.employer_families(
+            self._default_pack_id,
+            session=self.s if workspace_id is not None else None,
+            workspace_id=workspace_id,
+        )
         return data.model_dump() if data is not None else None
 
-    def upsert_tender_resolved(self, *, ocid: str, buyer_name: str, **fields):
+    def upsert_tender_resolved(
+        self, *, ocid: str, buyer_name: str, workspace_id=None, **fields
+    ):
         if self._store is None:
             return None
         tender = self._store.upsert_tender(ocid=ocid, buyer_name=buyer_name, **fields)
-        result = self._store.resolve_tender_buyer(tender, self._families())
+        result = self._store.resolve_tender_buyer(
+            tender, self._families(workspace_id=workspace_id)
+        )
         if result.family:
             self._store.refresh_profile(result.family)
         return tender
@@ -142,10 +150,10 @@ class MarketDataService:
             return None
         return self._store.award_prefill(tender_ref)
 
-    def resolve_buyer(self, buyer_name: str):
+    def resolve_buyer(self, buyer_name: str, workspace_id=None):
         from app.modules.marketdata.resolution import resolve_buyer
 
-        return resolve_buyer(buyer_name, self._families())
+        return resolve_buyer(buyer_name, self._families(workspace_id=workspace_id))
 
     def _family_for_opportunity(self, workspace_id, opportunity_id) -> str | None:
         if self._ingestion_factory is None or workspace_id is None:

@@ -67,7 +67,12 @@ description: |
    user is signed out. This is **not** a PR regression.
 3. **No OpenRouter key** means risk review returns `count:0, findings:[]`.
    Deterministic BOQ checks still work.
-4. **Environment variables must be exported.** Use `set -a` before `source .env.local`
+4. **E2E golden-path spec is aligned with the redesigned UI.**
+   `frontend/e2e/fixtures.ts` creates and switches to a workspace via the API and
+   lands the authenticated page on `/opportunities`. `frontend/e2e/golden-path.spec.ts`
+   creates a new opportunity, opens its workbench, sets the file input, and asserts
+   the upload completes.
+5. **Environment variables must be exported.** Use `set -a` before `source .env.local`
    so `TS_*` vars are visible to the server process:
    ```bash
    cd /home/ubuntu/repos/tender-shield/backend

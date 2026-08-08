@@ -6,22 +6,19 @@ const FIXTURES = path.resolve(__dirname, "../../evals/e2e/fixtures");
 
 test.describe("TenderShield golden path", () => {
   test("account sign-up, workspace creation, opportunity and document upload", async ({ authenticatedPage: page }) => {
-    await page.goto("/");
-    await page.waitForSelector("text=Create workspace", { timeout: 10000 });
-    await page.click("text=Create workspace");
-    await page.fill('input[placeholder*="Workspace name"], input[name="name"]', "E2E Workspace");
-    await page.click('button:has-text("Create")');
+    // Fixture pre-creates a workspace and lands on /opportunities.
     await expect(page.locator("text=E2E Workspace")).toBeVisible({ timeout: 10000 });
 
-    await page.click('a:has-text("Opportunities"), button:has-text("New opportunity")');
     await page.fill('input[placeholder*="title"], input[name="title"]', "Test Tender");
     await page.click('button:has-text("Create")');
 
+    // The opportunity is created and listed; open it to reach the upload page.
+    await expect(page.locator("text=Test Tender")).toBeVisible({ timeout: 15000 });
+    await page.click('text=Open workbench');
     await page.waitForURL(/\/opportunities\/.+/, { timeout: 15000 });
 
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(path.join(FIXTURES, "sample_nit.md"));
-    await page.click('button:has-text("Upload")');
     await expect(page.locator("text=Uploaded")).toBeVisible({ timeout: 30000 });
   });
 

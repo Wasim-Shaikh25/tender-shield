@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
+import { KeyValueSummary } from "@/components/json-summary";
 
 export default function AdminAuditLogPage() {
   const { session } = useSession();
@@ -115,9 +116,12 @@ export default function AdminAuditLogPage() {
                     <span>{l.at ?? "—"}</span>
                   </div>
                   {l.detail && (
-                    <pre className="mt-2 text-xs bg-bg-secondary p-2 rounded overflow-x-auto max-w-full text-text-primary">
-                      {JSON.stringify(l.detail).slice(0, 200)}…
-                    </pre>
+                    <KeyValueSummary
+                      data={l.detail}
+                      title="Details"
+                      maxPreviewKeys={4}
+                      rawLabel="Raw detail"
+                    />
                   )}
                 </div>
               ))}

@@ -45,8 +45,27 @@ export const test = base.extend<{ authenticatedPage: Page }>({
     const ctx = await browser.newContext();
     const apiContext = ctx.request;
     const ts = Date.now();
-    await createAccount(apiContext, `e2e-${ts}@example.com`, `+9198765432${ts % 100}`.slice(0, 13));
+    const account = await createAccount(
+      apiContext,
+      `e2e-${ts}@example.com`,
+      `+9198765432${ts % 100}`.slice(0, 13)
+    );
+
+    // Create a workspace via API so the UI has an active workspace.
+    const ws = await apiContext.post(`${API}/auth/workspaces`, {
+      data: { name: "E2E Workspace", country: "IN" },
+      headers: { Authorization: `Bearer ${account.token}` },
+    });
+    if (!ws.ok()) throw new Error(`create workspace failed: ${await ws.text()}`);
+    const { workspace_id } = await ws.json();
+
+    // Switch to the new workspace so the session token/workspace are active.
+    await apiContext.post(`${API}/auth/workspaces/${workspace_id}/switch`, {
+      headers: { Authorization: `Bearer ${account.token}` },
+    });
+
     const page = await ctx.newPage();
+    await page.goto("/opportunities");
     await use(page);
     await ctx.close();
   },

@@ -19,6 +19,7 @@ import {
 } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { SeverityBadge, SourceBadge } from "@/components/badges";
+import { KeyValueSummary } from "@/components/json-summary";
 import { artifactLabel, categoryLabel, deadlineLabel, statusLabel } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,6 +58,12 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
   const [auditLog, setAuditLog] = useState<{ id: string; action: string; actor_email: string | null; created_at: string; meta: Record<string, unknown> }[]>([]);
   const [events, setEvents] = useState<ChangeEvent[]>([]);
   const [claims, setClaims] = useState<Claim[]>([]);
+  const [docToolId, setDocToolId] = useState("");
+  const [docToolText, setDocToolText] = useState<string | null>(null);
+  const [docToolAddendum, setDocToolAddendum] = useState<Record<string, unknown> | null>(null);
+  const [docToolTaskId, setDocToolTaskId] = useState("");
+  const [docToolStream, setDocToolStream] = useState<{ event: string; data: unknown }[]>([]);
+  const [docToolAbort, setDocToolAbort] = useState<(() => void) | null>(null);
 
   const refresh = useCallback(async () => {
     if (!session) return;
@@ -165,6 +172,55 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
     } finally {
       setBusy(false);
     }
+  }
+
+  async function uploadBoqFile(file: File) {
+    setBusy(true);
+    setNote(null);
+    try {
+      const r = await api.uploadBoq(session!.token, id, file);
+      await refresh();
+      setNote(`BOQ uploaded — ${r.count} findings added.`);
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "BOQ upload failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function fetchDocText() {
+    if (!docToolId) return;
+    try {
+      const r = await api.getDocumentText(session!.token, docToolId);
+      setDocToolText(r.text);
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "Failed to load document text");
+    }
+  }
+
+  async function fetchDocAddendum() {
+    if (!docToolId) return;
+    try {
+      const r = await api.getAddendum(session!.token, id, docToolId);
+      setDocToolAddendum(r as unknown as Record<string, unknown>);
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "Failed to load addendum");
+    }
+  }
+
+  function startDocStream() {
+    if (!docToolId || !docToolTaskId) return;
+    setDocToolStream([]);
+    docToolAbort?.();
+    const abort = api.streamDocument(session!.token, id, docToolId, docToolTaskId, (event, data) => {
+      setDocToolStream((prev) => [...prev, { event, data }]);
+    });
+    setDocToolAbort(() => abort);
+  }
+
+  function stopDocStream() {
+    docToolAbort?.();
+    setDocToolAbort(null);
   }
 
   async function freeze(source: "tender" | "award") {
@@ -285,6 +341,50 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
               )}
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Document Tools</CardTitle>
+              <CardDescription>View text, addendum, or stream async processing for a document ID.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                <input
+                  type="text"
+                  placeholder="Document ID"
+                  value={docToolId}
+                  onChange={(e) => setDocToolId(e.target.value)}
+                  className="flex-1 min-w-[160px] rounded-md border border-border-default px-3 py-2 text-sm"
+                />
+                <Button variant="secondary" size="md" onClick={fetchDocText}>Get text</Button>
+                <Button variant="secondary" size="md" onClick={fetchDocAddendum}>Addendum</Button>
+              </div>
+              {docToolText !== null && (
+                <div className="max-h-48 overflow-auto rounded-md bg-slate-50 p-3 text-xs whitespace-pre-wrap">{docToolText}</div>
+              )}
+              {docToolAddendum !== null && (
+                <KeyValueSummary data={docToolAddendum} title="Addendum" maxPreviewKeys={6} rawLabel="Raw addendum" />
+              )}
+              <div className="flex flex-wrap gap-2">
+                <input
+                  type="text"
+                  placeholder="Task ID"
+                  value={docToolTaskId}
+                  onChange={(e) => setDocToolTaskId(e.target.value)}
+                  className="flex-1 min-w-[160px] rounded-md border border-border-default px-3 py-2 text-sm"
+                />
+                <Button variant="secondary" size="md" onClick={startDocStream} disabled={!docToolId || !docToolTaskId}>Stream</Button>
+                <Button variant="outline" size="md" onClick={stopDocStream}>Stop</Button>
+              </div>
+              {docToolStream.length > 0 && (
+                <div className="max-h-48 overflow-auto rounded-md bg-slate-50 p-3 text-xs space-y-1">
+                  {docToolStream.map((s, i) => (
+                    <div key={i}><strong>{s.event}</strong>: {JSON.stringify(s.data)}</div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -398,6 +498,18 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
               >
                 {busy ? "Checking…" : "Check BOQ"}
               </Button>
+              <div>
+                <p className="text-sm text-text-secondary mb-2">Or upload a BOQ file (PDF / XLSX / CSV).</p>
+                <input
+                  type="file"
+                  accept=".pdf,.xlsx,.xls,.csv"
+                  disabled={busy}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) uploadBoqFile(file);
+                  }}
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -567,9 +679,12 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
                       <p className="text-sm text-text-secondary">by {a.actor_email}</p>
                     )}
                     {Object.keys(a.meta).length > 0 && (
-                      <pre className="mt-2 rounded bg-bg-secondary p-2 text-xs text-text-secondary font-mono">
-                        {JSON.stringify(a.meta, null, 2)}
-                      </pre>
+                      <KeyValueSummary
+                        data={a.meta}
+                        title="Metadata"
+                        maxPreviewKeys={4}
+                        rawLabel="Raw metadata"
+                      />
                     )}
                   </CardContent>
                 </Card>

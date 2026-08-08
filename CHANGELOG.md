@@ -50,6 +50,17 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   `--audit-level=high` vulnerabilities: `brace-expansion` → `5.0.9`,
   `js-yaml` → `4.3.1`, and `nanoid` → `3.3.17`.
 
+### Done — Devin Review Follow-up (TS-377, TS-378)
+
+- **TS-377** — `backend/app/modules/ingestion/tasks.py` now resolves the
+  `rulepacks.loader` dynamically in the Celery worker and passes a real
+  `RulePackLoader` to `IngestionService`, so background documents are classified
+  with the workspace's active rule pack instead of the fallback anchors.
+- **TS-378** — `frontend/components/markdown.tsx` now fails closed and returns
+  an empty decoded URL when `decodeURIComponent` hits an invalid percent
+  escape, preventing a partially-decoded `javascript:`-style href from
+  bypassing the scheme whitelist.
+
 ### Done — Complete UI/UX Redesign (Phase 1-6, 24/24 pages - 100% complete!)
 
 **PHASE 1: Design System Foundation**

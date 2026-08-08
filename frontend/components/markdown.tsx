@@ -25,7 +25,10 @@ function decodeFully(s: string): string {
     try {
       s = decodeURIComponent(s);
     } catch {
-      break;
+      // Malformed percent escapes (e.g. a trailing lone '%') make the URL
+      // unparseable. Fail closed rather than returning a partially-decoded
+      // value that could hide a disallowed scheme.
+      return "";
     }
   }
   return s;

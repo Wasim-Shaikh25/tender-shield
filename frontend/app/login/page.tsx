@@ -199,7 +199,13 @@ export default function LoginPage() {
         {step === "verify" && (
           <form onSubmit={handleVerify} className="mt-6 space-y-4">
             <Field label="Email verification code" value={emailToken} onChange={setEmailToken} placeholder="Paste email code" required />
-            <Field label="Mobile verification code" value={mobileToken} onChange={setMobileToken} placeholder="Paste mobile code" required />
+            <Field
+              label="Mobile verification code"
+              value={mobileToken}
+              onChange={setMobileToken}
+              placeholder={mobileToken ? "Paste mobile code" : "Mobile verification disabled"}
+              required={!!mobileToken}
+            />
             {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
             <button disabled={busy} className="w-full rounded-md bg-ink py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-50">
               {busy ? "Verifying…" : "Verify and continue"}

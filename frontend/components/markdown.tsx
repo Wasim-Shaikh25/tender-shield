@@ -6,9 +6,15 @@ type InlineNode = { kind: "text" | "bold" | "italic" | "code" | "link"; text: st
 
 const URL_SCHEME_RE = /^([a-z][a-z0-9+.-]*):/i;
 
+const CONTROL_CHAR_RE = /[\x00-\x1F\x7F]/;
+
 function isAllowedHref(href: string): boolean {
   const trimmed = href.trim();
   if (!trimmed) return false;
+  // Reject URLs containing control characters. Browsers strip common ones like
+  // tab/CR/LF before navigation, which lets an attacker hide a dangerous
+  // scheme (e.g. "jav\tascript:") from a simple prefix regex.
+  if (CONTROL_CHAR_RE.test(trimmed)) return false;
   // Allow relative paths, anchors, and query-only URLs.
   if (trimmed.startsWith("/") || trimmed.startsWith("#") || trimmed.startsWith("?")) {
     return true;

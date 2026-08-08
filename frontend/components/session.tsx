@@ -97,11 +97,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    const token = tokenRef.current;
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api"}/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
+      if (token) {
+        await api.logout(token);
+      } else {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api"}/auth/logout`, {
+          method: "POST",
+          credentials: "include",
+        });
+      }
     } catch {
       // ignore
     }

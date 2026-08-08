@@ -33,6 +33,11 @@ export default function SettingsPage() {
   const [retentionCandidates, setRetentionCandidates] = useState<{ id: string; filename: string; kind: string; opportunity_id: string; created_at: string }[]>([]);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
+  const [mfaMethod, setMfaMethod] = useState("totp");
+  const [mfaPhone, setMfaPhone] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaUri, setMfaUri] = useState<string | null>(null);
+  const [mfaBackupCodes, setMfaBackupCodes] = useState<string[]>([]);
 
   useEffect(() => {
     if (!session) return;
@@ -310,6 +315,42 @@ export default function SettingsPage() {
       setRetentionCandidates(c.candidates);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save governance settings");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const enrollMfa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session) return;
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const body = mfaMethod === "sms" ? { method: mfaMethod, phone: mfaPhone } : { method: mfaMethod };
+      const r = await api.mfaEnroll(session.token, body);
+      setMfaUri(r.uri);
+      setMfaBackupCodes(r.backup_codes);
+      setMessage("MFA enrollment started. Verify the code to complete.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "MFA enrollment failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyMfa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session || !mfaCode) return;
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await api.mfaVerify(session.token, mfaCode);
+      setMessage("MFA enabled.");
+      setMfaCode("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "MFA verification failed");
     } finally {
       setLoading(false);
     }
@@ -717,6 +758,66 @@ export default function SettingsPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* MFA Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Multi-Factor Authentication</CardTitle>
+          <CardDescription>Enroll and verify a second factor for your account.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <form onSubmit={enrollMfa} className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <select
+                value={mfaMethod}
+                onChange={(e) => setMfaMethod(e.target.value)}
+                className="w-full rounded-md border border-border-default px-3 py-2 text-sm"
+              >
+                <option value="totp">TOTP app</option>
+                <option value="sms">SMS</option>
+                <option value="email">Email</option>
+              </select>
+              {mfaMethod === "sms" && (
+                <input
+                  type="tel"
+                  placeholder="Phone number"
+                  value={mfaPhone}
+                  onChange={(e) => setMfaPhone(e.target.value)}
+                  className="w-full rounded-md border border-border-default px-3 py-2 text-sm"
+                  required
+                />
+              )}
+            </div>
+            <Button type="submit" variant="primary" size="md" disabled={loading}>Enroll MFA</Button>
+          </form>
+          {mfaUri && (
+            <div className="space-y-2">
+              <p className="text-sm text-text-muted">Scan the URI into your authenticator app:</p>
+              <code className="block break-all rounded-md bg-bg-secondary p-2 text-xs">{mfaUri}</code>
+              {mfaBackupCodes.length > 0 && (
+                <div>
+                  <p className="text-sm text-text-muted">Backup codes:</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {mfaBackupCodes.map((c, i) => <code key={i} className="rounded-md bg-bg-secondary p-1 text-xs text-center">{c}</code>)}
+                  </div>
+                </div>
+              )}
+              <form onSubmit={verifyMfa} className="flex gap-2 pt-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Verification code"
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value)}
+                  className="flex-1 rounded-md border border-border-default px-3 py-2 text-sm"
+                  required
+                />
+                <Button type="submit" variant="primary" size="md" disabled={loading}>Verify</Button>
+              </form>
             </div>
           )}
         </CardContent>

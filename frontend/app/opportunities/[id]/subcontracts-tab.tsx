@@ -20,6 +20,7 @@ export function SubcontractsTab({ token, opportunityId, isEstimator }: { token: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [moduleStatus, setModuleStatus] = useState<string | null>(null);
   const [detail, setDetail] = useState<{ flowdown?: { matched: { id: string; title: string }[]; missing: { id: string; title: string }[] }; scope?: { uncovered: { id: string; item_text: string; source_event_id?: string | null }[]; covered: { id: string; item_text: string }[] }; calendar?: { events: { kind: string; due_date: string; buffer_date: string; status: string }[] }; exposure?: { currency: string; total_certified_minor: number; total_paid_minor: number; pending_minor: number; pay_when_paid_exposed_minor: number; age_days_max: number } }>({});
   const [clauseForm, setClauseForm] = useState({ title: "", source_quote: "", present: false, status: "unchecked" });
   const [scopeForm, setScopeForm] = useState({ item_text: "", covered: false, source_event_id: "" });
@@ -33,6 +34,9 @@ export function SubcontractsTab({ token, opportunityId, isEstimator }: { token: 
 
   useEffect(() => {
     load();
+    api.getSubcontractStatus(token)
+      .then((s) => setModuleStatus(s.status))
+      .catch(() => setModuleStatus(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, opportunityId]);
 
@@ -138,6 +142,7 @@ export function SubcontractsTab({ token, opportunityId, isEstimator }: { token: 
     <div className="space-y-6">
       {error && <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>}
       {message && <div className="rounded-md bg-green-50 p-3 text-sm text-green-700">{message}</div>}
+      {moduleStatus && <div className="text-xs text-slate-500">Subcontract module: {moduleStatus}</div>}
 
       {isEstimator && (
         <form onSubmit={create} className="rounded-xl border border-slate-200 bg-white p-4 grid gap-3 md:grid-cols-2">

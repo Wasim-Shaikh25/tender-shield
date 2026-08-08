@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.analytics.export import PlanDashboardExporter
 from app.modules.analytics.models import PlanSnapshot
-from app.modules.analytics.plan_agent import PlanDashboardAgent
+from app.modules.analytics.plan_agent import PlanDashboardAgent, PlanDashboardAgentError
 
 _STATUSES = {"proposed", "accepted", "edited", "rejected", "false_positive", "needs_clarification"}
 
@@ -298,7 +298,10 @@ class AnalyticsService:
                 ],
                 "citations": [],
             }
-        return agent.generate(query, context, identity=identity)
+        try:
+            return agent.generate(query, context, identity=identity)
+        except PlanDashboardAgentError as exc:
+            raise AnalyticsError(str(exc)) from exc
 
     def _plan_context(self, workspace_id, opportunity_id) -> dict | None:
         opp = None

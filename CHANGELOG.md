@@ -6,6 +6,27 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — UI Render + Billing Coupon Hardening (TS-384, TS-385)
+
+- **TS-384** — Eliminated synchronous `router.replace("/login")` calls during
+  render across 19 authenticated pages. `AuthGate` already redirects
+  unauthenticated users in a `useEffect`, so pages now return `null` or guard
+  `useEffect` fetches instead. This removes React "setState during render"
+  warnings and blank-page stalls on `/plan`, `/projects`, `/dashboard/state`,
+  `/assistant`, `/controltower`, and other app routes.
+- **TS-385** — Hardened billing against 100%-off coupon edge cases:
+  - `POST /api/billing/checkout` and `POST /api/billing/change-plan` now reject
+    a coupon that makes the amount zero or negative with `400
+    coupon_makes_amount_zero`.
+  - Webhook `_valid_amount` now rejects `amount_minor <= 0` before coupon
+    re-validation, so a forged signed webhook cannot activate a paid plan with
+    a zero-amount 100%-coupon note.
+  - Fixed a currency-case bug in `_valid_amount` where uppercase webhook
+    currencies caused `SUBSCRIPTION_PRICES` lookups to miss, bypassing
+    subscription amount checks.
+  - Added `backend/tests/test_billing.py` coverage for 100% `percent`/oversized
+    `fixed` coupons and a zero-amount 100%-coupon webhook.
+
 ### Done — Public-Facing Pages & Pricing (Marketing & Onboarding)
 
 **Public Landing Page** (`/`) — Enhanced with comprehensive feature explanations:

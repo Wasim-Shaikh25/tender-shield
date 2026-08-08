@@ -679,5 +679,5 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 
 | ID | Title | Req ref | Spec | Status |
 |---|---|---|---|---|
-| TS-384 | Fix synchronous `router.replace` during render in authenticated pages to eliminate React setState-during-render warnings and blank-page stalls | UI audit; Doc §9; `specs/frontend.md` B7, B11 | `specs/frontend.md`, `frontend/app/**/page.tsx` | todo |
-| TS-385 | Harden billing webhook against zero-amount 100%-coupon events and add a 100% coupon checkout test | UI audit; Doc §7, §15; `specs/modules/billing.md` B20, B11 | `specs/modules/billing.md`, `backend/app/modules/billing/service.py`, `backend/tests/test_billing.py` | todo |
+| TS-384 | Fix synchronous `router.replace` during render in authenticated pages to eliminate React setState-during-render warnings and blank-page stalls | UI audit; Doc §9; `specs/frontend.md` B7, B11 | `specs/frontend.md`, `frontend/app/**/page.tsx` | done |
+| TS-385 | Harden billing webhook against zero-amount 100%-coupon events and add a 100% coupon checkout test | UI audit; Doc §7, §15; `specs/modules/billing.md` B20, B11 | `specs/modules/billing.md`, `backend/app/modules/billing/service.py`, `backend/tests/test_billing.py` | done |

@@ -645,3 +645,109 @@ fixes still left three correctness/security gaps, addressed in the follow-up PR:
   control characters before the scheme whitelist, closing the `` `jav\\tascript:` ``
   style bypass.
 * **TS-368** — `CHANGELOG.md` and `tasks/backlog.md` updated.
+
+### Round 12 — UI/API integration gap analysis (TS-369)
+
+A focused pass compared the frontend `api` client (`frontend/lib/api.ts`) against the
+FastAPI route surface to find pages with no backend integration, backend routes that
+have no UI consumer, and places where raw JSON is rendered to users.
+
+**Methodology**
+
+* Parsed `frontend/lib/api.ts` with the TypeScript AST: **221** distinct endpoint
+  wrappers (method + normalized path) after the fixes below.
+* Dumped the FastAPI `app.routes` tree: **346** distinct backend routes.
+* Normalized both sets by stripping the `/api` prefix, collapsing `{param}` and
+  `${...}` placeholders to `{}`, and removing optional query-string suffixes.
+* Scanned every `frontend/app/**/page.tsx` for `api.<name>` calls.
+* Grepped `frontend/app` and `frontend/components` for `JSON.stringify` rendered
+  inside `<pre>` tags.
+
+**Coverage result**
+
+| Metric | Count |
+|---|---|
+| Frontend endpoint wrappers | 221 |
+| Backend routes | 346 |
+| Frontend endpoints with a matching backend route | 221 (100%) |
+| Backend routes not called by `frontend/lib/api.ts` | 125 |
+| Frontend pages with no `api.*` call | 2 (`/` and `/help`) |
+
+**Backend routes not consumed by the UI — grouped by module**
+
+| Module | Unconsumed routes | Representative examples |
+|---|---|---|
+| `auth` | 11 | `POST /auth/logout`, `POST /auth/mfa/enroll`, `POST /auth/mfa/verify`, `GET/PUT /auth/workspaces/{id}/approval-matrix`, `GET/POST /auth/workspaces/{id}/projects`, `GET/POST /auth/projects/{id}/members` |
+| `advisor` | 10 | `GET /advisor/status`, `POST/GET /advisor/clients`, `POST /advisor/review-queue/items`, `POST/GET /advisor/templates` |
+| `baseline` | 10 | `POST /baseline/opportunities/{id}/freeze`, `GET /baseline/opportunities/{id}/diff`, `POST /baseline/opportunities/{id}/restore` |
+| `express` | 9 | Bid-package APIs (`/express/...`) |
+| `change` | 7 | `POST /change/opportunities/{id}/signals`, `POST /change/opportunities/{id}/delay-analysis`, `POST /change/opportunities/{id}/notice-deadline` |
+| `integrations` | 7 | `GET /integrations/adapters`, `GET /integrations/connectors`, `POST/PUT /integrations/dynamic-connectors`, webhooks/poll |
+| `analytics` | 5 | `GET /analytics/accuracy`, `GET /analytics/baseline-adoption`, `GET /analytics/risk-summary`, `GET /analytics/deadline-dashboard`, `GET /analytics/claim-metrics` |
+| `billing` | 5 | `POST /billing/cancel`, `GET /billing/invoices/{id}` |
+| `claims` | 5 | `POST /claims/opportunities/{id}/claims` (extra lifecycle endpoints beyond the opportunity tab), `GET/POST /claims/claims/{id}/...` |
+| `controltower` | 5 | `GET /controltower/portfolio`, `GET /controltower/exposure`, `GET /controltower/executive-summary` |
+| `marketdata` | 5 | `GET/POST /marketdata/rate-lookup`, `GET /marketdata/cashflow` |
+| `rulepacks` | 5 | `GET /rulepacks` (public list), `GET /rulepacks/{id}/patterns`, `POST /rulepacks/corrections/scan`, `GET /rulepacks/corrections/proposals`, `POST /rulepacks/corrections/proposals/{id}/dismiss` |
+| `evidence` | 4 | Evidence-board routes |
+| `outcomes` | 4 | Outcome tracking routes |
+| `public_api` | 4 | `GET/POST /public_api/keys`, `POST /public_api/events` |
+| `standards` | 4 | `GET/POST/PUT /standards/notice`, `DELETE /standards/notice` |
+| `assistant` | 3 | `POST /assistant/chat` (single-turn), `POST /assistant/admin/chat`, `POST /assistant/sessions/{id}/stream` |
+| `crossref` | 3 | `GET/POST /crossref/opportunities/{id}/...` |
+| `boq` | 2 | `GET /boq` (health/list), `POST /boq/opportunities/{id}/upload` |
+| `ingestion` | 2 | `GET /ingestion/documents/{id}/text`, `GET /ingestion/opportunities/{id}/documents/{id}/stream` |
+| `qualification`, `timeline`, `docs` | 2 each | Qualification scoring, timeline, docs storage |
+| `drafting`, `drawings`, `export`, `review`, `subcontract`, `support` | 1 each | `GET /export/templates/{id}/render`, drawing routes, `POST /review/opportunities/{id}/audit`, subcontract/support endpoints |
+| `health`, `openapi.json`, `redoc`, `files` | 6 | Health checks, OpenAPI docs, static file endpoints |
+
+Most of these are Phase 2+ capabilities (baseline, change, advisor, analytics,
+control tower, claims, drawings, market data) and are not expected to be wired yet.
+Phase 1 routes that are backend-ready but still lack UI:
+
+* `POST /auth/logout` — no explicit logout API call; session is dropped client-side.
+* `POST /auth/mfa/enroll` and `POST /auth/mfa/verify` — TOTP enrollment UI not built.
+* `GET/PUT /auth/workspaces/{id}/approval-matrix` and workspace project APIs.
+* `POST /boq/opportunities/{id}/upload` — UI uses `/boq/opportunities/{id}/run` with a CSV string instead of multipart upload.
+* `GET /ingestion/documents/{id}/text` and `GET .../stream` — document viewer does not fetch raw text.
+* `GET /rulepacks/{id}/patterns` and correction/proposal endpoints — the rulepack UI lists files and suggestions but does not expose pattern browsing or correction triage.
+
+**Raw JSON rendered in the UI**
+
+Three screens dump structured data into `<pre>` tags instead of rendering typed UI:
+
+* `frontend/app/opportunities/[id]/page.tsx` (audit tab) — `<pre>{JSON.stringify(a.meta, null, 2)}</pre>`.
+* `frontend/app/rulepacks/page.tsx` — `<pre>{JSON.stringify(s.proposed_yaml, null, 2)}</pre>` for RAG "Proposed YAML".
+* `frontend/app/admin/audit-log/page.tsx` — `<pre>{JSON.stringify(l.detail).slice(0, 120)}</pre>`.
+
+`frontend/app/settings/page.tsx` uses `JSON.stringify(data, null, 2)` to build a
+downloadable JSON blob, not for on-screen display.
+`frontend/app/settings/integrations/page.tsx` uses `JSON.stringify(...)` to pre-fill
+connector JSON textareas, not for display.
+
+**Integration mismatches fixed in this round**
+
+* `frontend/lib/api.ts` claim-specific and draft routes were missing the extra
+  `/claims` module path segment. The backend mounts the claims router under
+  `/api/claims`, so the correct paths are `/claims/claims/{id}` and
+  `/claims/drafts/{id}`. Fixed.
+* `frontend/lib/api.ts exportAccount` called `GET /auth/export`; the backend route
+  is `POST /auth/export`. Fixed.
+* `frontend/app/login/page.tsx` made the mobile verification code input `required`
+  even when `TS_AUTH_MOBILE_VERIFICATION_ENABLED=false` and the backend returned no
+  mobile token. The verify form now requires the mobile code only when a mobile
+  token was actually returned.
+* `GET /api/rulepacks/admin/packs/{id}/files` returned `200 {"files":[]}` for a
+  cross-workspace pack instead of `403`. The admin service now raises `forbidden`
+  consistently with `activate_pack` and `delete_pack`.
+
+**Verdict**
+
+All core golden-path pages (`/login`, `/opportunities`, `/opportunities/[id]`,
+`/assistant`, `/plan`, `/billing`, `/settings`, `/rulepacks`, `/admin/*`) are wired to
+real backend endpoints and behave correctly in end-to-end testing. The 125
+unconsumed backend routes are largely Phase 2+ scaffolding. The remaining Phase 1 gaps
+(logout API, MFA enrollment, BOQ multipart upload, raw-text document viewer, rulepack
+pattern/correction UIs) are documented above and should be prioritized before a public
+launch. The three raw-JSON `<pre>` blocks should be replaced with typed summary cards
+or tables.

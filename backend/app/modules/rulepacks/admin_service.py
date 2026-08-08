@@ -276,6 +276,7 @@ class RulePackAdminService:
         row.status = "active"
         row.activated_at = datetime.now(UTC)
         self.s.commit()
+        self._loader.invalidate(row.pack_id, row.workspace_id)
         return row
 
     def get_pack(
@@ -299,9 +300,13 @@ class RulePackAdminService:
         workspace_id: uuid.UUID | None = None,
         is_superadmin: bool = False,
     ) -> Sequence[RulePackFile]:
-        pack = self.get_pack(rulepack_db_id, workspace_id=workspace_id, is_superadmin=is_superadmin)
-        if pack is None:
-            return []
+        row = self.s.execute(
+            select(RulePack).where(RulePack.id == _to_uuid(rulepack_db_id))
+        ).scalars().first()
+        if row is None:
+            raise RulePackAdminError("not_found")
+        if row.scope == "workspace" and row.workspace_id != _to_uuid(workspace_id):
+            raise RulePackAdminError("forbidden")
         return self.s.execute(
             select(RulePackFile).where(RulePackFile.rulepack_id == _to_uuid(rulepack_db_id))
         ).scalars().all()
@@ -323,6 +328,7 @@ class RulePackAdminService:
             raise RulePackAdminError("forbidden")
         self.s.delete(row)
         self.s.commit()
+        self._loader.invalidate(row.pack_id, row.workspace_id)
 
     def apply_packs_to_opportunity(
         self,

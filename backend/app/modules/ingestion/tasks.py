@@ -86,7 +86,7 @@ def process_document(self, document_id: str, workspace_id: str, opportunity_id: 
 
             # Re-classify, segment clauses, extract deadlines, persist chunks, and update
             # the opportunity submission_due using the same service logic as the sync path.
-            svc = IngestionService(session, loader_provider=None)
+            svc = IngestionService(session, loader_provider=lambda: None)
             svc.process_text(doc, text, ocr_status=ocr_status, workspace_id=workspace_id)
             record_worker_seconds(time.monotonic() - started)
 

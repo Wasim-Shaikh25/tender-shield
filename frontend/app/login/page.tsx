@@ -5,10 +5,6 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { useSession, isNoWorkspace } from "@/components/session";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Alert } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 type Mode = "login" | "signup";
 type Step = "credentials" | "verify" | "otp" | "workspace";
@@ -29,6 +25,9 @@ export default function LoginPage() {
 
   const [emailToken, setEmailToken] = useState("");
   const [mobileToken, setMobileToken] = useState("");
+
+  const [emailVerificationRequired, setEmailVerificationRequired] = useState(true);
+  const [mobileVerificationRequired, setMobileVerificationRequired] = useState(false);
 
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
@@ -60,6 +59,8 @@ export default function LoginPage() {
         });
         if (data.email_verification_token) setEmailToken(data.email_verification_token);
         if (data.mobile_verification_token) setMobileToken(data.mobile_verification_token);
+        setEmailVerificationRequired(!data.email_verified);
+        setMobileVerificationRequired(!data.mobile_verified);
         setStep("verify");
       } else {
         const login = await api.login(email, password);
@@ -67,6 +68,7 @@ export default function LoginPage() {
           setMfaToken(login.mfa_token);
           setStep("otp");
         } else if (login.access_token) {
+          // OTP/MFA disabled — the backend returned tokens directly.
           const all = await signIn(login as import("@/lib/api").Tokens);
           if (all.length === 0) {
             setStep("workspace");
@@ -96,6 +98,7 @@ export default function LoginPage() {
       if (mobileToken) await api.verifyMobile(mobileToken);
       setMode("login");
       setStep("credentials");
+      // Stay on credentials so the user enters password for login.
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verification failed");
     } finally {
@@ -116,6 +119,8 @@ export default function LoginPage() {
       } else if (tokens.workspace_id && !isNoWorkspace(tokens.workspace_id)) {
         router.push("/opportunities");
       } else {
+        // MFA challenge returns the sentinel account workspace; switch to the
+        // first available workspace so workspace-scoped pages work immediately.
         await switchWorkspace(all[0].workspace_id);
         router.push("/opportunities");
       }
@@ -140,209 +145,151 @@ export default function LoginPage() {
     }
   };
 
-  const getTitle = () => {
-    if (step === "verify") return "Verify your account";
-    if (step === "otp") return "Enter login code";
-    if (step === "workspace") return "Create your workspace";
-    if (mode === "signup") return "Create your account";
-    return "Welcome back";
-  };
-
-  const getDescription = () => {
-    if (step === "verify") return "Enter the verification codes sent to your email and mobile.";
-    if (step === "otp") return "We sent a 6-digit code to your registered email/mobile.";
-    if (step === "workspace") return "Your account is ready. Start by creating a workspace for your projects.";
-    if (mode === "signup") return "One account. Multiple workspaces. Multiple projects per workspace.";
-    return "Sign in to your account to continue.";
-  };
-
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-bg-primary">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>{getTitle()}</CardTitle>
-          <CardDescription>{getDescription()}</CardDescription>
-        </CardHeader>
+    <div className="mx-auto max-w-md">
+      <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
+        <h1 className="text-2xl font-bold text-ink">
+          {step === "verify"
+            ? "Verify your account"
+            : step === "otp"
+            ? "Enter login code"
+            : step === "workspace"
+            ? "Create your workspace"
+            : mode === "signup"
+            ? "Create your account"
+            : "Welcome back"}
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          {step === "verify"
+            ? "Enter the verification codes sent to your email and mobile."
+            : step === "otp"
+            ? "We sent a 6-digit code to your registered email/mobile."
+            : step === "workspace"
+            ? "Your account is ready. Start by creating a workspace for your projects."
+            : mode === "signup"
+            ? "One account. Multiple workspaces. Multiple projects per workspace."
+            : "Sign in to your account."}
+        </p>
 
-        <CardContent className="space-y-6">
-          {error && (
-            <Alert variant="error" title="Error">
-              {error}
-            </Alert>
-          )}
+        {step === "credentials" && (
+          <form onSubmit={handleCredentials} className="mt-6 space-y-4">
+            {mode === "signup" && (
+              <>
+                <Field label="Organisation / Firm name" value={orgName} onChange={setOrgName} placeholder="Acme Infra Pvt Ltd" required />
+                <Field label="Email" type="email" value={email} onChange={setEmail} placeholder="you@firm.com" required />
+                <Field label="Mobile" type="tel" value={phone} onChange={setPhone} placeholder="+91 99999 99999" required />
+                <Field label="City" value={city} onChange={setCity} placeholder="Mumbai" required />
+                <Field label="Date of birth" type="date" value={dob} onChange={setDob} />
+              </>
+            )}
+            {mode === "login" && (
+              <Field label="Email" type="email" value={email} onChange={setEmail} placeholder="you@firm.com" required />
+            )}
+            <Field label="Password" type="password" value={password} onChange={setPassword} placeholder="••••••••" required />
+            {mode === "signup" && (
+              <Field label="Re-enter password" type="password" value={confirmPassword} onChange={setConfirmPassword} placeholder="••••••••" required />
+            )}
 
-          {step === "credentials" && (
-            <form onSubmit={handleCredentials} className="space-y-4">
-              {mode === "signup" && (
-                <>
-                  <Input
-                    label="Organisation / Firm name"
-                    value={orgName}
-                    onChange={(e) => setOrgName(e.target.value)}
-                    placeholder="Acme Infra Pvt Ltd"
-                    required
-                  />
-                  <Input
-                    label="Email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@firm.com"
-                    required
-                  />
-                  <Input
-                    label="Mobile"
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+91 99999 99999"
-                    required
-                  />
-                  <Input
-                    label="City"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    placeholder="Mumbai"
-                    required
-                  />
-                  <Input
-                    label="Date of birth"
-                    type="date"
-                    value={dob}
-                    onChange={(e) => setDob(e.target.value)}
-                  />
-                </>
-              )}
-              {mode === "login" && (
-                <Input
-                  label="Email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@firm.com"
-                  required
-                />
-              )}
-              <Input
-                label="Password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-              />
-              {mode === "signup" && (
-                <Input
-                  label="Re-enter password"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                />
-              )}
+            {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-              <Button
-                type="submit"
-                variant="primary"
-                size="md"
-                loading={busy}
-                className="w-full"
-              >
-                {mode === "signup" ? "Create account" : "Sign in"}
-              </Button>
-            </form>
-          )}
+            <button
+              disabled={busy}
+              className="w-full rounded-md bg-ink py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
+            </button>
+          </form>
+        )}
 
-          {step === "verify" && (
-            <form onSubmit={handleVerify} className="space-y-4">
-              <Input
-                label="Email verification code"
-                value={emailToken}
-                onChange={(e) => setEmailToken(e.target.value)}
-                placeholder="Paste email code"
-                required
-              />
-              <Input
-                label="Mobile verification code"
-                value={mobileToken}
-                onChange={(e) => setMobileToken(e.target.value)}
-                placeholder="Paste mobile code"
-                required
-              />
-              <Button
-                type="submit"
-                variant="primary"
-                size="md"
-                loading={busy}
-                className="w-full"
-              >
-                Verify and continue
-              </Button>
-            </form>
-          )}
+        {step === "verify" && (
+          <form onSubmit={handleVerify} className="mt-6 space-y-4">
+            <Field
+              label="Email verification code"
+              value={emailToken}
+              onChange={setEmailToken}
+              placeholder={emailVerificationRequired ? "Paste email code" : "Email verification disabled"}
+              required={emailVerificationRequired}
+            />
+            <Field
+              label="Mobile verification code"
+              value={mobileToken}
+              onChange={setMobileToken}
+              placeholder={mobileVerificationRequired ? "Paste mobile code" : "Mobile verification disabled"}
+              required={mobileVerificationRequired}
+            />
+            {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+            <button disabled={busy} className="w-full rounded-md bg-ink py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-50">
+              {busy ? "Verifying…" : "Verify and continue"}
+            </button>
+          </form>
+        )}
 
-          {step === "otp" && (
-            <form onSubmit={handleOtp} className="space-y-4">
-              <Input
-                label="6-digit login code"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                placeholder="123456"
-                required
-              />
-              <Button
-                type="submit"
-                variant="primary"
-                size="md"
-                loading={busy}
-                className="w-full"
-              >
-                Verify
-              </Button>
-            </form>
-          )}
+        {step === "otp" && (
+          <form onSubmit={handleOtp} className="mt-6 space-y-4">
+            <Field label="6-digit login code" value={otp} onChange={setOtp} placeholder="123456" required />
+            {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+            <button disabled={busy} className="w-full rounded-md bg-ink py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-50">
+              {busy ? "Verifying…" : "Verify"}
+            </button>
+          </form>
+        )}
 
-          {step === "workspace" && (
-            <form onSubmit={handleWorkspace} className="space-y-4">
-              <Input
-                label="Workspace name"
-                value={workspaceName}
-                onChange={(e) => setWorkspaceName(e.target.value)}
-                placeholder="Acme Infra"
-                required
-              />
-              <Button
-                type="submit"
-                variant="primary"
-                size="md"
-                loading={busy}
-                className="w-full"
-              >
-                Create workspace
-              </Button>
-            </form>
-          )}
+        {step === "workspace" && (
+          <form onSubmit={handleWorkspace} className="mt-6 space-y-4">
+            <Field label="Workspace name" value={workspaceName} onChange={setWorkspaceName} placeholder="Acme Infra" required />
+            {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+            <button disabled={busy} className="w-full rounded-md bg-ink py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-50">
+              {busy ? "Creating…" : "Create workspace"}
+            </button>
+          </form>
+        )}
 
-          {step === "credentials" && (
-            <div className="space-y-2 text-center text-sm">
-              <button
-                type="button"
-                onClick={() => setMode(mode === "signup" ? "login" : "signup")}
-                className="text-text-muted hover:text-text-secondary transition-colors"
-              >
-                {mode === "signup" ? "Already have an account? Sign in" : "New here? Create an account"}
-              </button>
-              <Link
-                href="/forgot-password"
-                className="block text-text-muted hover:text-text-secondary transition-colors"
-              >
-                Forgot your password?
-              </Link>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        {step === "credentials" && (
+          <button
+            onClick={() => setMode(mode === "signup" ? "login" : "signup")}
+            className="mt-4 w-full text-sm text-slate-500 hover:text-ink"
+          >
+            {mode === "signup" ? "Already have an account? Sign in" : "New here? Create an account"}
+          </button>
+        )}
+
+        <Link
+          href="/forgot-password"
+          className="mt-2 block w-full text-center text-sm text-slate-500 hover:text-ink"
+        >
+          Forgot your password?
+        </Link>
+      </div>
     </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder,
+  required,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  placeholder?: string;
+  required?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
+      <input
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        required={required}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+      />
+    </label>
   );
 }

@@ -204,6 +204,13 @@ class RulePackLoader:
             if key[1] == pack_id:
                 del self._cache[key]
 
+    def invalidate(self, pack_id: str, workspace_id: uuid.UUID | None = None) -> None:
+        """Remove a pack from the in-memory cache so activation/deletion changes
+        are visible without a server restart."""
+        if workspace_id is not None:
+            workspace_id = _to_uuid(workspace_id)
+        self._clear_pack_cache(pack_id)
+
     def _disk_pack(self, pack_id: str) -> RulePack | None:
         cache_key = self._cache_key(pack_id, "disk")
         if cache_key in self._cache:

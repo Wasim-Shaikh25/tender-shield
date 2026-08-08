@@ -648,3 +648,16 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-366 | Rulepack admin endpoints should return 403 for forbidden operations (Devin Review #126) | PR #126 Devin Review | `backend/app/modules/rulepacks/admin_service.py`, `router.py` | done |
 | TS-367 | Markdown link scheme whitelist should reject URLs with embedded control characters (Devin Review #126) | PR #126 Devin Review | `frontend/components/markdown.tsx` | done |
 | TS-368 | Devin Review #126 follow-up: CHANGELOG entry for post-merge fixes | PR #126 Devin Review | `CHANGELOG.md` | done |
+
+## Phase 30 — UI/API integration gap analysis & residual fixes
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-369 | UI/API integration gap analysis: compare `frontend/lib/api.ts` to FastAPI routes, scan pages and raw-JSON `<pre>` renders, document in `PRODUCTION_READINESS_AUDIT.md` | user request | `PRODUCTION_READINESS_AUDIT.md` | done |
+| TS-370 | Claims API path fix: add the missing `/claims` module segment to claim and draft routes in `frontend/lib/api.ts` | testing findings; integration gap | `frontend/lib/api.ts` | done |
+| TS-371 | Auth export method fix: call `POST /auth/export` from `frontend/lib/api.ts exportAccount` to match backend route | testing findings; integration gap | `frontend/lib/api.ts` | done |
+| TS-372 | Login mobile verification code should not be `required` when `mobileToken` is empty (mobile verification disabled) | testing findings; integration gap | `frontend/app/login/page.tsx` | done |
+| TS-373 | Rulepack admin file list should return 403 for cross-workspace packs, consistent with activate/delete | testing findings; security | `backend/app/modules/rulepacks/admin_service.py` | done |
+| TS-374 | Devin Review #126 residual polish: call-time loader resolution in export module, callable `loader_provider` in ingestion Celery task, `RulePackLoader.invalidate`, and markdown entity/Unicode-whitespace hardening | PR #126 Devin Review | `backend/app/modules/export/module.py`, `backend/app/modules/ingestion/tasks.py`, `backend/app/modules/rulepacks/loader.py`, `frontend/components/markdown.tsx` | done |
+| TS-375 | Devin Review #129 follow-ups: login mobile verification required flag and markdown numeric entity range check | PR #129 Devin Review | `frontend/app/login/page.tsx`, `frontend/components/markdown.tsx` | done |
+| TS-376 | PR #128 integration: pull `claude/ui-dev-tools-setup-r3sxpg`, resolve merge conflicts with `main`, fix CI failures, and re-run checks | user request | `*` | done |

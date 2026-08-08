@@ -18,6 +18,9 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
   - `POST /api/billing/checkout` and `POST /api/billing/change-plan` now reject
     a coupon that makes the amount zero or negative with `400
     coupon_makes_amount_zero`.
+  - `BillingService.apply_coupon()` no longer consumes a coupon use when the
+    discounted amount is zero, so a rejected 100%-off coupon cannot exhaust a
+    limited-use code.
   - Webhook `_valid_amount` now rejects `amount_minor <= 0` before coupon
     re-validation, so a forged signed webhook cannot activate a paid plan with
     a zero-amount 100%-coupon note.
@@ -25,7 +28,8 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
     currencies caused `SUBSCRIPTION_PRICES` lookups to miss, bypassing
     subscription amount checks.
   - Added `backend/tests/test_billing.py` coverage for 100% `percent`/oversized
-    `fixed` coupons and a zero-amount 100%-coupon webhook.
+    `fixed` coupons, zero-amount 100%-coupon webhooks, and non-consumption on
+    rejected coupons.
 
 ### Done — Public-Facing Pages & Pricing (Marketing & Onboarding)
 

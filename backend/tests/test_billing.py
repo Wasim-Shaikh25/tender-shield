@@ -219,6 +219,7 @@ def _create_coupon(
     discount_type: str,
     discount_value: int,
     currency: str = "INR",
+    max_uses: int | None = None,
 ):
     """Create a coupon directly via BillingService so integration tests can exercise coupons."""
     from sqlalchemy.orm import Session
@@ -234,6 +235,7 @@ def _create_coupon(
                 "discount_type": discount_type,
                 "discount_value": discount_value,
                 "currency": currency,
+                "max_uses": max_uses,
             }
         )
 
@@ -272,6 +274,27 @@ def test_checkout_rejects_oversized_fixed_coupon(client):
     )
     assert r.status_code == 400
     assert r.json()["detail"] == "coupon_makes_amount_zero"
+
+
+def test_rejected_100_percent_coupon_does_not_consume_use(client):
+    headers, _ = _auth(client)
+    _create_coupon(client, "FREE100ONCE", "percent", 100, max_uses=1)
+    r = client.post(
+        "/api/billing/checkout",
+        json={"kind": "subscription", "plan": "pro", "coupon_code": "FREE100ONCE"},
+        headers=headers,
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"] == "coupon_makes_amount_zero"
+    engine = client.app.state.ctx.registry.require("db.engine")
+    from sqlalchemy.orm import Session
+
+    from app.modules.billing.service import BillingService
+
+    with Session(engine) as session:
+        svc = BillingService(session)
+        coupon = svc.get_coupon("FREE100ONCE")
+        assert coupon.uses_count == 0
 
 
 def test_webhook_accepts_50_percent_coupon_amount(client):

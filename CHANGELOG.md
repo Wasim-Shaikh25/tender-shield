@@ -418,8 +418,14 @@ All 24 application pages have been redesigned! The final polish phase includes:
   template-literal query parameters are handled correctly; Phase 1 missing list
   is now empty in `--strict` mode.
 
-**Next** — Round 13 residual pre-launch items:
-1. **TS-E2E-01** — Re-run the Playwright golden path against the new landing/sidebar
+### Done — Round 13 E2E Realignment (TS-E2E-01)
+
+- `frontend/e2e/fixtures.ts` creates and switches to a workspace via the API
+  and lands the authenticated page on `/opportunities`.
+- `frontend/e2e/golden-path.spec.ts` aligns with the redesigned UI: it
+  creates a tender, opens the workbench, sets the file input, and asserts the
+  upload completes.
+- `npm run test:e2e` passes both golden-path tests on `main`.
 
 ### Next — PHASE 7: Polish & QA (Part 2 - Continued)
 

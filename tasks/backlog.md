@@ -663,7 +663,7 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-376 | PR #128 integration: pull `claude/ui-dev-tools-setup-r3sxpg`, resolve merge conflicts with `main`, fix CI failures, and re-run checks | user request | `*` | done |
 | TS-377 | Ingestion Celery worker should use workspace rulepack loader instead of `lambda: None` for background document classification | Devin Review #129 | `backend/app/modules/ingestion/tasks.py` | done |
 | TS-378 | Markdown link scheme check should fail closed when `decodeURIComponent` encounters an invalid percent escape | Devin Review #129 | `frontend/components/markdown.tsx` | done |
-| TS-379 | Round 13 production-readiness re-audit after PR #128/#129 merge | user request | `PRODUCTION_READINESS_AUDIT.md` | in-progress |
+| TS-379 | Round 13 production-readiness re-audit after PR #128/#129 merge | user request | `PRODUCTION_READINESS_AUDIT.md` | done |
 
 ## Phase 31 — Round 13 residual pre-launch items
 

@@ -1,3 +1,4 @@
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -60,12 +61,16 @@ def _raise_rag(exc: RagSuggestionError):
 
 
 @router.get("")
-def list_packs(request: Request, principal: Any = Depends(require("viewer"))) -> dict:
-    _ = principal
+def list_packs(
+    request: Request,
+    session: Session = Depends(get_session),
+    principal: Any = Depends(require("viewer")),
+) -> dict:
     loader = _loader(request)
     packs = []
-    for pack_id in loader.list_packs():
-        pack = loader.get_pack(pack_id)
+    workspace = uuid.UUID(str(principal.workspace_id))
+    for pack_id in loader.list_packs(session=session, workspace_id=workspace):
+        pack = loader.get_pack(pack_id, session=session, workspace_id=workspace)
         packs.append(
             {
                 "id": pack.meta.id,
@@ -83,15 +88,18 @@ def list_patterns(
     pack_id: str,
     request: Request,
     validated_only: bool = False,
+    session: Session = Depends(get_session),
     principal: Any = Depends(require("viewer")),
 ) -> dict:
-    _ = principal
     loader = _loader(request)
-    if pack_id not in loader.list_packs():
+    workspace = uuid.UUID(str(principal.workspace_id))
+    if pack_id not in loader.list_packs(session=session, workspace_id=workspace):
         raise HTTPException(404, "unknown pack")
-    patterns = loader.list_patterns(pack_id, validated_only=validated_only)
+    patterns = loader.list_patterns(
+        pack_id, validated_only=validated_only, session=session, workspace_id=workspace
+    )
     return {
-        "pack": loader.get_pack(pack_id).version_tag,
+        "pack": loader.get_pack(pack_id, session=session, workspace_id=workspace).version_tag,
         "patterns": [
             {
                 "id": p.id,
@@ -150,7 +158,12 @@ def activate_pack(
     principal: Any = Depends(require("admin")),
 ):
     try:
-        row = _admin(request, session).activate_pack(rulepack_id, principal.user_id)
+        row = _admin(request, session).activate_pack(
+            rulepack_id,
+            principal.user_id,
+            workspace_id=uuid.UUID(str(principal.workspace_id)),
+            is_superadmin=principal.is_superadmin,
+        )
     except RulePackAdminError as exc:
         _raise_admin(exc)
     return _admin(request, session).to_summary(row)
@@ -164,7 +177,11 @@ def delete_pack(
     principal: Any = Depends(require("admin")),
 ):
     try:
-        _admin(request, session).delete_pack(rulepack_id)
+        _admin(request, session).delete_pack(
+            rulepack_id,
+            workspace_id=uuid.UUID(str(principal.workspace_id)),
+            is_superadmin=principal.is_superadmin,
+        )
     except RulePackAdminError as exc:
         _raise_admin(exc)
     return {"ok": True}
@@ -178,7 +195,11 @@ def list_pack_files(
     principal: Any = Depends(require("viewer")),
 ):
     try:
-        files = _admin(request, session).get_pack_files(rulepack_id)
+        files = _admin(request, session).get_pack_files(
+            rulepack_id,
+            workspace_id=uuid.UUID(str(principal.workspace_id)),
+            is_superadmin=principal.is_superadmin,
+        )
     except RulePackAdminError as exc:
         _raise_admin(exc)
     return {

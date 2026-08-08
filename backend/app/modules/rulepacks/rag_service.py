@@ -280,6 +280,8 @@ class RagSuggestionService:
         ).scalars().first()
         if pack is None:
             raise RagSuggestionError("rulepack_not_found")
+        if pack.scope == "workspace" and pack.workspace_id != ws_uuid:
+            raise RagSuggestionError("forbidden_rulepack")
 
         new_version = bump_version(
             self.s, pack.pack_id, pack.version, pack.scope, pack.workspace_id

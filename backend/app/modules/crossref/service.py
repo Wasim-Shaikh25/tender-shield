@@ -178,7 +178,12 @@ class CrossRefService:
         if svc is not None:
             opp = svc.get_opportunity(workspace_id, opportunity_id)
             employer_family = opp.employer_family if opp else None
-        order = loader.document_precedence(self._pack_id, employer_family)
+        order = loader.document_precedence(
+            self._pack_id,
+            employer_family,
+            session=self.s,
+            workspace_id=workspace_id,
+        )
         return tuple(order) if order else DEFAULT_PRECEDENCE
 
     def contradictions(self, workspace_id, opportunity_id) -> dict:

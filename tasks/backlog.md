@@ -631,3 +631,9 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-354 | All-projects / workspace filter dashboard: spec for a global opportunity board with filters by workspace, jurisdiction, status, deadline | user request; `specs/frontend.md` | `specs/project-state-dashboard.md` | done |
 | TS-355 | E2E test bugfixes: persist/serialize assistant `suggested_followups`, allow `.md`/`txt` upload, fix assistant live-update on first message | testing findings; `specs/modules/assistant.md` | `backend/app/modules/assistant/`, `frontend/app/assistant/`, `backend/app/core/storage.py` | done |
 | TS-356 | Global left sidebar navigation replacing top navbar | user request; `specs/frontend.md` | `frontend/app/layout.tsx`, `frontend/components/` | done |
+|
+|## Phase 29 — Round 11 production-readiness re-audit
+|
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-357 | Round 11 production-readiness re-audit: refresh `PRODUCTION_READINESS_AUDIT.md` for `9e09cac`, run validation matrix, and document new XSS / rulepack-isolation / dependency findings | `PRODUCTION_READINESS_AUDIT.md`; user request | `PRODUCTION_READINESS_AUDIT.md` | done |

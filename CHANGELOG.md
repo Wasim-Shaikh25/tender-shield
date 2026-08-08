@@ -6,6 +6,35 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 ## [Unreleased]
 
+### Done — Round 11 production-readiness re-audit (TS-357)
+
+- **TS-357** — Refreshed `PRODUCTION_READINESS_AUDIT.md` for `main` commit
+  `9e09cacbf2abd59fe83c6d4550c2911effde96d1`; re-ran lint/type checks, backend
+  tests (663 passed, 5 skipped with clean env), Postgres RLS (non-superuser) and
+  core smoke, frontend build (31 routes), a11y (29 routes), `npm audit` (7
+  vulnerabilities), `pip-audit`, Alembic up/down, `eval_ci_smoke.py`
+  (deadline/tender-value match 100%), and `validate_full_pipeline.py` (5/5 full
+  lifecycle pass). Added four new High/Medium security findings:
+  - **TS-SEC-01** — `frontend/components/markdown.tsx` renders links without
+    URL-scheme whitelisting, creating an XSS vector in assistant/plan output.
+  - **TS-SEC-02** — plan dashboard renders LLM-generated mermaid diagrams without
+    sanitization or sandboxing; `mermaid` 11.16.0 carries prototype-pollution and
+    CSS-injection advisories.
+  - **TS-SEC-03** — `rulepacks`/`rulepack_files` tables do not inherit
+    `WorkspaceScopedMixin`; `activate_pack` and pattern/file loaders can cross
+    workspace boundaries.
+  - **TS-SEC-04** — `PlanDashboardAgent` and `RagSuggestionService` insert
+    untrusted user/source text into LLM prompts without `delimit_untrusted` /
+    `sanitize_message` guards.
+- Retained Round 10 findings: TS-ENV-01 (`test_auth_toggles.py` non-hermetic to
+  `.env.local`), TS-P02 (rulepack patterns still `unvalidated`), TS-R03
+  (severity fallback for missing facts), TS-UI-03 (baseline console noise), and
+  added TS-E2E-01 (Playwright golden-path test stale after sidebar/landing
+  redesign).
+- **Recommendation: GO for controlled internal or single-customer pilot with
+  security caveats; NOT GO for public/paid launch until TS-SEC-01, TS-SEC-03,
+  TS-DEP-01, TS-ENV-01, and TS-P02 are remediated.**
+
 ### Done — Round 9 audit gap closure (TS-335/TS-336/TS-337)
 
 - **TS-335** — Round 9 production-readiness gap-closure requirements doc

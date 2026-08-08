@@ -40,7 +40,6 @@ def generate_email_summary(
     # Categorize findings by severity
     high_risk = [f for f in findings if f.get("severity") in ("critical", "high")]
     medium_risk = [f for f in findings if f.get("severity") == "medium"]
-    warnings = [f for f in findings if f.get("severity") in ("low", "info")]
     boq_issues = [f for f in findings if f.get("category") == "boq"]
 
     # Build email subject
@@ -87,7 +86,7 @@ def generate_email_summary(
     if deadline_info:
         deadline_date = deadline_info.get("date")
         days_left = deadline_info.get("days_left", "?")
-        lines.append(f"### 📅 DEADLINE\n")
+        lines.append("### 📅 DEADLINE\n")
         lines.append(f"**{deadline_date}** ({days_left} days away)\n")
 
     # Recommendation
@@ -98,7 +97,7 @@ def generate_email_summary(
     else:
         recommendation = "✓ RECOMMEND: Proceed with bid (low risk)"
 
-    lines.append(f"### RECOMMENDATION\n")
+    lines.append("### RECOMMENDATION\n")
     lines.append(f"{recommendation}\n")
 
     # Footer

@@ -5,7 +5,6 @@ Shows changes between two analysis runs: new risks, resolved risks, severity cha
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 
@@ -94,7 +93,7 @@ def generate_comparison_summary(
     lines.append(f"Comparison of risk analyses: {version_1_date} vs {version_2_date}\n")
     lines.append("---\n")
 
-    lines.append(f"**SUMMARY**")
+    lines.append("**SUMMARY**")
     lines.append(f"- New risks: {len(new_findings)}")
     lines.append(f"- Resolved risks: {len(resolved_findings)}")
     lines.append(f"- Escalated: {len(escalated_findings)}")

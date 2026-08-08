@@ -38,6 +38,18 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 - These pages now accessible without authentication
 - Support non-technical visitor flow: Landing → Help → Pricing → Login
 
+### Done — PR #128 CI & Merge Readiness Fixes (TS-376)
+
+- Fixed `backend/app/modules/export/` ruff failures: removed unused `datetime`
+  imports, reordered imports in `service.py`, removed an unused `warnings`
+  variable in `email_export.py`, and wrapped long `Paragraph` calls in
+  `render.py`.
+- Added `tasks/backlog.md` missing Spec/status columns for TS-388–TS-390 and
+  corrected statuses to the allowed set (`todo`).
+- Updated `frontend/package.json` overrides to resolve `npm audit`
+  `--audit-level=high` vulnerabilities: `brace-expansion` → `5.0.9`,
+  `js-yaml` → `4.3.1`, and `nanoid` → `3.3.17`.
+
 ### Done — Complete UI/UX Redesign (Phase 1-6, 24/24 pages - 100% complete!)
 
 **PHASE 1: Design System Foundation**

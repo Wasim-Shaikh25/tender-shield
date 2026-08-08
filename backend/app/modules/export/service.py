@@ -6,13 +6,12 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from datetime import date, datetime
+from datetime import date
 
 from sqlalchemy import select
 
-from app.modules.export.models import ReportTemplate
 from app.modules.export.email_export import generate_email_template_for_api
-from app.modules.export.version_comparison import generate_comparison_summary
+from app.modules.export.models import ReportTemplate
 from app.modules.export.render import (
     UNREVIEWED_VARIANT,
     render_docx,
@@ -21,6 +20,7 @@ from app.modules.export.render import (
     render_xlsx,
     verify_unreviewed_watermark,
 )
+from app.modules.export.version_comparison import generate_comparison_summary
 
 FORMATS = {
     "xlsx": ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"),

@@ -683,6 +683,6 @@ Enhance export functionality to become integral to contractor workflows. Current
 | TS-385 | Pricing page (`/pricing`) — Four-tier subscription model (Free, Pay-Per-Tender, Pro, Scale) with monthly/annual toggle, detailed comparison table, and billing FAQs | TS-382; user request | `frontend/app/pricing/page.tsx` (new) | done |
 | TS-386 | Public access configuration — Update AuthGate PUBLIC_PATHS to include `/`, `/help`, `/pricing` for non-authenticated visitor flow | TS-382; user request | `frontend/components/auth-gate.tsx` (updated) | done |
 | TS-387 | Landing page testimonials & social proof section — Add 4 contractor testimonials with real-world savings/efficiency quotes | TS-382; user request | `frontend/app/page.tsx` (updated) | done |
-| TS-388 | Public pages SEO & metadata — Add proper title tags, meta descriptions, structured data (schema.org) for Google indexing | TS-382; user request | Next priority |
-| TS-389 | Public terms of service, privacy policy, and DPDP compliance pages — Full legal + data protection documents | TS-382; compliance requirement | Next priority |
-| TS-390 | Analytics integration (Plausible/Fathom) on public pages — Track visitor flow, conversion rates, feature interest | TS-382; business intelligence | Next priority |
+| TS-388 | Public pages SEO & metadata — Add proper title tags, meta descriptions, structured data (schema.org) for Google indexing | TS-382; user request | `frontend/app/(pages)` | todo |
+| TS-389 | Public terms of service, privacy policy, and DPDP compliance pages — Full legal + data protection documents | TS-382; compliance requirement | `frontend/app/(pages)` | todo |
+| TS-390 | Analytics integration (Plausible/Fathom) on public pages — Track visitor flow, conversion rates, feature interest | TS-382; business intelligence | `frontend/app/(pages)` | todo |

@@ -177,12 +177,14 @@ def render_pdf(
 ) -> bytes:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, PageBreak
+    from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer
 
     styles = getSampleStyleSheet()
     normal = styles["Normal"]
     small = ParagraphStyle("stamp", parent=normal, fontSize=8, textColor="#666666")
-    quote_style = ParagraphStyle("quote", parent=normal, fontSize=9, textColor="#555555", leftIndent=20, italic=True)
+    quote_style = ParagraphStyle(
+        "quote", parent=normal, fontSize=9, textColor="#555555", leftIndent=20, italic=True
+    )
 
     buf = io.BytesIO()
     unreviewed = meta.get("variant") == UNREVIEWED_VARIANT
@@ -233,12 +235,12 @@ def render_pdf(
         for severity_level in ("critical", "high", "medium", "low", "info"):
             severity_findings = [f for f in accepted if f.get("severity") == severity_level]
             if severity_findings:
-                flow.append(Paragraph(f"<b>{severity_level.upper()} SEVERITY</b>", styles["Heading2"]))
+                severity_label = f"<b>{severity_level.upper()} SEVERITY</b>"
+                flow.append(Paragraph(severity_label, styles["Heading2"]))
                 for f in severity_findings:
-                    flow.append(Paragraph(
-                        f"<b>{f.get('category', 'unknown').upper()}</b> -- {f.get('title', 'Untitled')}",
-                        normal
-                    ))
+                    category = f.get("category", "unknown").upper()
+                    title = f.get("title", "Untitled")
+                    flow.append(Paragraph(f"<b>{category}</b> -- {title}", normal))
                     quote = f.get("source_quote")
                     if quote:
                         page_ref = f.get("source_page")
@@ -254,7 +256,8 @@ def render_pdf(
     # Artifacts: Assumptions & Clarifications
     for art in artifacts:
         b = art.get("body", {})
-        flow.append(Paragraph(b.get("title", art.get("kind", "Artifact")).upper(), styles["Heading1"]))
+        artifact_title = b.get("title", art.get("kind", "Artifact")).upper()
+        flow.append(Paragraph(artifact_title, styles["Heading1"]))
         if b.get("preamble"):
             flow.append(Paragraph(b["preamble"], normal))
             flow.append(Spacer(1, 10))

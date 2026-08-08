@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useSession } from "@/components/session";
 
@@ -62,7 +61,6 @@ function Distribution({ title, data }: { title: string; data: Record<string, num
 
 export default function AnalyticsPage() {
   const { session } = useSession();
-  const router = useRouter();
   const [risk, setRisk] = useState<RiskSummary | null>(null);
   const [deadline, setDeadline] = useState<DeadlineDashboard | null>(null);
   const [boq, setBoq] = useState<BoqSummary | null>(null);
@@ -77,7 +75,6 @@ export default function AnalyticsPage() {
   }, [session]);
 
   if (!session) {
-    if (typeof window !== "undefined") router.replace("/login");
     return null;
   }
 

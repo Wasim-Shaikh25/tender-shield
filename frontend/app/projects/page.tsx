@@ -2,7 +2,6 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { api, type ProjectState, type Workspace } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { Button } from "@/components/ui/button";
@@ -28,7 +27,6 @@ const HEALTH_LABEL: Record<string, string> = {
 
 export default function ProjectsPage() {
   const { session } = useSession();
-  const router = useRouter();
   const [projects, setProjects] = useState<ProjectState[]>([]);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -70,7 +68,6 @@ export default function ProjectsPage() {
   }
 
   if (!session) {
-    if (typeof window !== "undefined") router.replace("/login");
     return null;
   }
 

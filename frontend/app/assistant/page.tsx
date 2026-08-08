@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { api, type AssistantSession, type AssistantMessage, type PlanDashboard } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { Markdown } from "@/components/markdown";
@@ -25,7 +24,6 @@ const SOURCE_CLASS: Record<string, string> = {
 
 export default function AssistantPage() {
   const { session } = useSession();
-  const router = useRouter();
   const [sessions, setSessions] = useState<AssistantSession[]>([]);
   const [activeSession, setActiveSession] = useState<AssistantSession | null>(null);
   const [messages, setMessages] = useState<UIMessage[]>([]);
@@ -64,7 +62,6 @@ export default function AssistantPage() {
   }, [session, activeSession]);
 
   if (!session) {
-    if (typeof window !== "undefined") router.replace("/login");
     return null;
   }
 

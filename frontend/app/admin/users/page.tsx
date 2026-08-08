@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { api, type User } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { Button } from "@/components/ui/button";
@@ -13,7 +12,6 @@ import { Dropdown, DropdownItem, DropdownSeparator } from "@/components/ui/dropd
 
 export default function AdminUsersPage() {
   const { session } = useSession();
-  const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -43,7 +41,6 @@ export default function AdminUsersPage() {
   }, [session]);
 
   if (!session) {
-    if (typeof window !== "undefined") router.replace("/login");
     return null;
   }
   if (!session.is_superadmin) {

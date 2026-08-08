@@ -13,7 +13,12 @@ import app.modules.billing.models  # noqa: F401
 from app.core.config import Settings
 from app.core.db import Base
 from app.main import create_app
-from app.modules.billing.plans import PAYGO_PRICE_INR_PAISE, PaywallError, authorize
+from app.modules.billing.plans import (
+    PAYGO_PRICE_INR_PAISE,
+    SUBSCRIPTION_PRICES,
+    PaywallError,
+    authorize,
+)
 from app.modules.billing.webhook import verify_signature
 from tests.helpers import auth_headers_and_workspace
 
@@ -206,3 +211,151 @@ def test_change_plan_rejects_invalid_and_same_plan(client):
     # free is the default plan after signup
     r2 = client.post("/api/billing/change-plan", json={"plan": "free"}, headers=headers)
     assert r2.status_code == 400
+
+
+def _create_coupon(
+    client,
+    code: str,
+    discount_type: str,
+    discount_value: int,
+    currency: str = "INR",
+    max_uses: int | None = None,
+):
+    """Create a coupon directly via BillingService so integration tests can exercise coupons."""
+    from sqlalchemy.orm import Session
+
+    from app.modules.billing.service import BillingService
+
+    engine = client.app.state.ctx.registry.require("db.engine")
+    with Session(engine) as session:
+        svc = BillingService(session)
+        svc.create_coupon(
+            {
+                "code": code,
+                "discount_type": discount_type,
+                "discount_value": discount_value,
+                "currency": currency,
+                "max_uses": max_uses,
+            }
+        )
+
+
+def test_checkout_rejects_100_percent_coupon(client):
+    headers, _ = _auth(client)
+    _create_coupon(client, "FREE100UI", "percent", 100)
+    r = client.post(
+        "/api/billing/checkout",
+        json={"kind": "subscription", "plan": "pro", "coupon_code": "FREE100UI"},
+        headers=headers,
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"] == "coupon_makes_amount_zero"
+
+
+def test_change_plan_rejects_100_percent_coupon(client):
+    headers, _ = _auth(client)
+    _create_coupon(client, "FREE100PLAN", "percent", 100)
+    r = client.post(
+        "/api/billing/change-plan",
+        json={"plan": "pro", "coupon_code": "FREE100PLAN"},
+        headers=headers,
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"] == "coupon_makes_amount_zero"
+
+
+def test_checkout_rejects_oversized_fixed_coupon(client):
+    headers, _ = _auth(client)
+    _create_coupon(client, "FREE999FIX", "fixed", 9_999_999)
+    r = client.post(
+        "/api/billing/checkout",
+        json={"kind": "paygo", "coupon_code": "FREE999FIX"},
+        headers=headers,
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"] == "coupon_makes_amount_zero"
+
+
+def test_rejected_100_percent_coupon_does_not_consume_use(client):
+    headers, _ = _auth(client)
+    _create_coupon(client, "FREE100ONCE", "percent", 100, max_uses=1)
+    r = client.post(
+        "/api/billing/checkout",
+        json={"kind": "subscription", "plan": "pro", "coupon_code": "FREE100ONCE"},
+        headers=headers,
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"] == "coupon_makes_amount_zero"
+    engine = client.app.state.ctx.registry.require("db.engine")
+    from sqlalchemy.orm import Session
+
+    from app.modules.billing.service import BillingService
+
+    with Session(engine) as session:
+        svc = BillingService(session)
+        coupon = svc.get_coupon("FREE100ONCE")
+        assert coupon.uses_count == 0
+
+
+def test_webhook_accepts_50_percent_coupon_amount(client):
+    headers, workspace_id = _auth(client)
+    _create_coupon(client, "HALF50", "percent", 50)
+    amount = SUBSCRIPTION_PRICES["inr"]["pro"] // 2
+    body = {
+        "id": "evt_half_1",
+        "event": "order.paid",
+        "payload": {
+            "payment": {
+                "entity": {
+                    "id": "pay_half",
+                    "amount": amount,
+                    "currency": "INR",
+                    "notes": {
+                        "workspace_id": workspace_id,
+                        "kind": "subscription",
+                        "plan": "pro",
+                        "coupon_code": "HALF50",
+                    },
+                }
+            }
+        },
+    }
+    raw, sig = _signed(body)
+    r = client.post(
+        "/api/billing/webhooks/razorpay",
+        content=raw,
+        headers={"X-Razorpay-Signature": sig},
+    )
+    assert r.json().get("applied") == "order.paid"
+
+
+def test_webhook_rejects_zero_amount_with_100_percent_coupon(client):
+    headers, workspace_id = _auth(client)
+    _create_coupon(client, "FREE100WEB", "percent", 100)
+    body = {
+        "id": "evt_zero_1",
+        "event": "order.paid",
+        "payload": {
+            "payment": {
+                "entity": {
+                    "id": "pay_zero",
+                    "amount": 0,
+                    "currency": "INR",
+                    "notes": {
+                        "workspace_id": workspace_id,
+                        "kind": "subscription",
+                        "plan": "pro",
+                        "coupon_code": "FREE100WEB",
+                    },
+                }
+            }
+        },
+    }
+    raw, sig = _signed(body)
+    r = client.post(
+        "/api/billing/webhooks/razorpay",
+        content=raw,
+        headers={"X-Razorpay-Signature": sig},
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"] == "amount_mismatch"

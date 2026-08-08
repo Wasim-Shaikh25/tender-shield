@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { api, type AuditLogEntry } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,6 @@ import { KeyValueSummary } from "@/components/json-summary";
 
 export default function AdminAuditLogPage() {
   const { session } = useSession();
-  const router = useRouter();
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [workspaceId, setWorkspaceId] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,7 +37,6 @@ export default function AdminAuditLogPage() {
   }, [session]);
 
   if (!session) {
-    if (typeof window !== "undefined") router.replace("/login");
     return null;
   }
   if (!session.is_superadmin) {

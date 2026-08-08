@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useSession } from "@/components/session";
 import { api, type DynamicConnectorConfig } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -52,7 +51,6 @@ const emptyForm: FormState = {
 
 export default function IntegrationsSettingsPage() {
   const { session } = useSession();
-  const router = useRouter();
   const [connectors, setConnectors] = useState<DynamicConnectorConfig[]>([]);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [editing, setEditing] = useState<string | null>(null);
@@ -65,7 +63,6 @@ export default function IntegrationsSettingsPage() {
 
   useEffect(() => {
     if (!session) {
-      if (typeof window !== "undefined") router.replace("/login");
       return;
     }
     api.listDynamicConnectors(session.token)

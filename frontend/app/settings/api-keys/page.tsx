@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useSession } from "@/components/session";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -13,7 +12,6 @@ const SCOPES = ["read", "write", "signature"];
 
 export default function ApiKeysSettingsPage() {
   const { session } = useSession();
-  const router = useRouter();
   const [keys, setKeys] = useState<{ id: string; name: string; scopes: string[] }[]>([]);
   const [name, setName] = useState("");
   const [selectedScopes, setSelectedScopes] = useState<string[]>(["read"]);
@@ -33,7 +31,6 @@ export default function ApiKeysSettingsPage() {
 
   useEffect(() => {
     if (!session) {
-      if (typeof window !== "undefined") router.replace("/login");
       return;
     }
     load();

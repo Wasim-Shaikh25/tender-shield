@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { api, type SupportTicket, type SupportTicketReply } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,6 @@ import { Alert } from "@/components/ui/alert";
 
 export default function SupportTicketDetailPage() {
   const { session } = useSession();
-  const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const [ticket, setTicket] = useState<SupportTicket | null>(null);
   const [reply, setReply] = useState("");
@@ -27,7 +26,6 @@ export default function SupportTicketDetailPage() {
   }, [session, id]);
 
   if (!session) {
-    if (typeof window !== "undefined") router.replace("/login");
     return null;
   }
 

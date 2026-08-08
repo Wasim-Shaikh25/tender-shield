@@ -235,11 +235,13 @@ class BillingService:
         if kind == "paygo":
             expected = PAYGO_PRICE_INR_PAISE
         elif kind == "subscription" and plan:
-            expected = SUBSCRIPTION_PRICES.get(currency, {}).get(plan)
+            expected = SUBSCRIPTION_PRICES.get(currency.lower(), {}).get(plan)
         else:
             return True
         if expected is None:
             return True
+        if amount <= 0:
+            return False
         coupon_code = notes.get("coupon_code")
         if coupon_code:
             try:
@@ -380,11 +382,17 @@ class BillingService:
         return self._validate_coupon(coupon, amount_minor, currency)
 
     def apply_coupon(self, code: str, amount_minor: int, currency: str) -> tuple[int, Coupon]:
-        """Return discounted amount and consume one coupon use."""
+        """Return discounted amount and consume one coupon use.
+
+        Raises ValueError without consuming a use if the coupon makes the amount
+        zero or negative, so rejected checkouts do not exhaust limited-use codes.
+        """
         coupon = self.get_coupon(code)
         if coupon is None:
             raise ValueError("invalid_coupon")
         discounted = self._validate_coupon(coupon, amount_minor, currency)
+        if discounted <= 0:
+            raise ValueError("coupon_makes_amount_zero")
         coupon.uses_count += 1
         self.s.commit()
         return discounted, coupon

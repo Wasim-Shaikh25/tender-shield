@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, type WorkspaceStateSummary } from "@/lib/api";
 import { useSession } from "@/components/session";
@@ -11,7 +10,6 @@ import { Alert } from "@/components/ui/alert";
 
 export default function DashboardStatePage() {
   const { session } = useSession();
-  const router = useRouter();
   const [summaries, setSummaries] = useState<WorkspaceStateSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +24,6 @@ export default function DashboardStatePage() {
   }, [session]);
 
   if (!session) {
-    if (typeof window !== "undefined") router.replace("/login");
     return null;
   }
 

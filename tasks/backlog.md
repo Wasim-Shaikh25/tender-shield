@@ -674,3 +674,10 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-382 | Wire explicit Phase 1 backend-only routes into the redesigned UI or formally defer them (logout, MFA, BOQ upload, document text/stream, rulepack patterns) | `docs/ROUND13_GAP_CLOSURE_REQUIREMENTS.md` R3; `PRODUCTION_READINESS_AUDIT.md` TS-UI-05 | `specs/904-round13-gap-closure.md` (B3); `frontend/lib/api.ts`, relevant `frontend/app/**/page.tsx` | done |
 | TS-383 | Replace raw-JSON `<pre>` displays with typed summary cards/tables (audit tab, rulepacks, admin audit-log) | `docs/ROUND13_GAP_CLOSURE_REQUIREMENTS.md` R4; `PRODUCTION_READINESS_AUDIT.md` TS-UI-06 | `specs/904-round13-gap-closure.md` (B4); `frontend/app/opportunities/[id]/page.tsx`, `frontend/app/rulepacks/page.tsx`, `frontend/app/admin/audit-log/page.tsx` | done |
 | TS-E2E-01 | Re-run the Playwright golden path against the redesigned landing/workspaces UI and realign the E2E spec | user request; `PRODUCTION_READINESS_AUDIT.md` | `frontend/e2e/golden-path.spec.ts`, `frontend/e2e/fixtures.ts` | done |
+
+## Phase 32 — UI render + 100% coupon hardening
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-384 | Fix synchronous `router.replace` during render in authenticated pages to eliminate React setState-during-render warnings and blank-page stalls | UI audit; Doc §9; `specs/frontend.md` B7, B11 | `specs/frontend.md`, `frontend/app/**/page.tsx` | done |
+| TS-385 | Harden billing webhook against zero-amount 100%-coupon events and add a 100% coupon checkout test | UI audit; Doc §7, §15; `specs/modules/billing.md` B20, B11 | `specs/modules/billing.md`, `backend/app/modules/billing/service.py`, `backend/tests/test_billing.py` | done |

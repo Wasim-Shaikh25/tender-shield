@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { api, type WorkspaceProject, type ProjectMember, type ApprovalMatrixEntry } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { Button } from "@/components/ui/button";
@@ -24,7 +23,6 @@ type Invitation = { invitation_id: string; email: string; role: string; project_
 
 export default function TeamPage() {
   const { session } = useSession();
-  const router = useRouter();
   const [members, setMembers] = useState<Member[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [invite, setInvite] = useState({ email: "", role: "viewer" });
@@ -79,7 +77,6 @@ export default function TeamPage() {
   }, [session, selectedProjectId]);
 
   if (!session) {
-    if (typeof window !== "undefined") router.replace("/login");
     return null;
   }
 

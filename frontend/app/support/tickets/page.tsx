@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { api, type SupportTicket } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,6 @@ import { Alert } from "@/components/ui/alert";
 
 export default function SupportTicketsPage() {
   const { session } = useSession();
-  const router = useRouter();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [newTicket, setNewTicket] = useState({ title: "", body: "", category: "technical" });
   const [loading, setLoading] = useState(false);
@@ -36,7 +34,6 @@ export default function SupportTicketsPage() {
   }, [session]);
 
   if (!session) {
-    if (typeof window !== "undefined") router.replace("/login");
     return null;
   }
 

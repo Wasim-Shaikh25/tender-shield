@@ -124,6 +124,10 @@ without affecting their subscription or financial history).
   rejects checkout if the discounted amount is zero or the code is invalid/expired/
   exhausted/currency-mismatched. Coupon codes are passed to the provider in notes
   and re-validated on the webhook before plan activation.
+- **B20a (Webhook zero-amount guard):** webhook validation rejects `amount_minor`
+  values that are zero or negative, regardless of whether a 100% coupon note would
+  make the discounted amount zero. A payment event must represent a positive
+  transfer of funds to activate a paid plan or project.
 - **B21 (Payment history):** `GET /api/billing/payments` lists all `payment_log`
   rows for the current user account so account owners can trace every transaction
   regardless of which workspace triggered the payment.
@@ -166,7 +170,12 @@ without affecting their subscription or financial history).
   the expected rows after a webhook.
 - A12: Super-admin can `POST /api/billing/coupons`, list them, and disable one via
   `DELETE /api/billing/coupons/{code}`.
-- A13: Webhook re-validation fails when a tampered `coupon_code` or amount is sent.
+- A13: Webhook re-validation fails when a tampered `coupon_code` or amount is sent,
+  and also fails when the webhook amount is zero or negative (even if a 100% coupon
+  would validate the zero amount).
+- A14: `POST /api/billing/checkout` and `POST /api/billing/change-plan` with a
+  100%-off coupon return `400 coupon_makes_amount_zero`, and a test covers this
+  for both `percent` and oversized `fixed` discounts.
 
 ## Out of scope
 

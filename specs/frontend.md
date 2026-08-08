@@ -76,6 +76,11 @@ one repo (`apps/web` later; starts as `frontend/`).
   lets `admin`+ roles invite new members, change member roles, remove members,
   and revoke pending invitations. The invite form shows a dev/test token fallback
   when email is not configured.
+- **B11:** authenticated pages must not call `router.replace` during render.
+  `AuthGate` already redirects unauthenticated users in a `useEffect`, so pages
+  should either return `null` while the session is loading or guard `useEffect`
+  data fetches with `if (!session) return;`. This avoids React
+  "setState during render" warnings and blank-page stalls.
 - **B8:** the Help page (`/help`) is a static server component: an 8-step
   how-to-use walkthrough, the never-broken safety rules, a three-bucket
   QS-lifecycle coverage table (**Covered now** = Phase-1 pre-bid slice;
@@ -107,6 +112,9 @@ one repo (`apps/web` later; starts as `frontend/`).
 - A12: `npm run a11y` audits every server-rendered route in `.next/server/app`
   against WCAG 2.1 AA using `axe-core` and `jsdom`; the CI job fails on any
   critical or serious violation.
+- A13: `npm run build` and `npm run lint` are clean; a Playwright smoke run over
+  authenticated routes does not log "Cannot update a component (`Router`) while
+  rendering a different component" warnings.
 
 ## Out of scope
 

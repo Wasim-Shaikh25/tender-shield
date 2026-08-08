@@ -235,11 +235,13 @@ class BillingService:
         if kind == "paygo":
             expected = PAYGO_PRICE_INR_PAISE
         elif kind == "subscription" and plan:
-            expected = SUBSCRIPTION_PRICES.get(currency, {}).get(plan)
+            expected = SUBSCRIPTION_PRICES.get(currency.lower(), {}).get(plan)
         else:
             return True
         if expected is None:
             return True
+        if amount <= 0:
+            return False
         coupon_code = notes.get("coupon_code")
         if coupon_code:
             try:

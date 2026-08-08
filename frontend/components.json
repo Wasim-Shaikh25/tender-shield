@@ -1,0 +1,14 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "new-york",
+  "rsc": true,
+  "tsx": true,
+  "aliasPrefix": "@",
+  "baseColor": "slate",
+  "components": {
+    "default": {
+      "registry": "https://shadcn-ui.com/registry",
+      "baseColor": "slate"
+    }
+  }
+}

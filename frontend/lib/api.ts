@@ -775,7 +775,7 @@ export const api = {
   deleteAccount: (token: string, body: { password: string; confirm: boolean }) =>
     req<OkResponse>("/auth/account", { method: "DELETE", body: JSON.stringify(body) }, token),
   exportAccount: (token: string) =>
-    req<Record<string, unknown>>("/auth/export", {}, token),
+    req<Record<string, unknown>>("/auth/export", { method: "POST" }, token),
   requestEmailChange: (token: string, new_email: string) =>
     req<{ ok: boolean; token: string }>("/auth/settings/email", { method: "POST", body: JSON.stringify({ new_email }) }, token),
   verifyEmailChange: (token: string, code: string) =>
@@ -913,17 +913,17 @@ export const api = {
   }) =>
     req<Claim>(`/claims/opportunities/${opportunityId}/claims`, { method: "POST", body: JSON.stringify(body) }, token),
   getClaim: (token: string, claimId: string) =>
-    req<Claim>(`/claims/${claimId}`, {}, token),
+    req<Claim>(`/claims/claims/${claimId}`, {}, token),
   submitClaim: (token: string, claimId: string) =>
-    req<Claim>(`/claims/${claimId}/submit`, { method: "POST" }, token),
+    req<Claim>(`/claims/claims/${claimId}/submit`, { method: "POST" }, token),
   getClaimChronology: (token: string, claimId: string) =>
-    req<{ entries: ClaimChronologyEntry[] }>(`/claims/${claimId}/chronology`, {}, token),
+    req<{ entries: ClaimChronologyEntry[] }>(`/claims/claims/${claimId}/chronology`, {}, token),
   getClaimChecklist: (token: string, claimId: string) =>
-    req<{ items: ClaimChecklistItem[] }>(`/claims/${claimId}/checklist`, {}, token),
+    req<{ items: ClaimChecklistItem[] }>(`/claims/claims/${claimId}/checklist`, {}, token),
   overrideChecklistItem: (token: string, claimId: string, itemId: string, override_note: string) =>
-    req<ClaimChecklistItem>(`/claims/${claimId}/checklist/${itemId}/override`, { method: "POST", body: JSON.stringify({ override_note }) }, token),
+    req<ClaimChecklistItem>(`/claims/claims/${claimId}/checklist/${itemId}/override`, { method: "POST", body: JSON.stringify({ override_note }) }, token),
   getClaimQuantum: (token: string, claimId: string) =>
-    req<ClaimQuantum>(`/claims/${claimId}/quantum`, {}, token),
+    req<ClaimQuantum>(`/claims/claims/${claimId}/quantum`, {}, token),
   addClaimLineItem: (token: string, claimId: string, body: {
     description: string;
     quantity: string;
@@ -934,7 +934,7 @@ export const api = {
     cost_code_id?: string;
     currency?: string;
   }) =>
-    req<ClaimLineItem>(`/claims/${claimId}/quantum/line-items`, { method: "POST", body: JSON.stringify(body) }, token),
+    req<ClaimLineItem>(`/claims/claims/${claimId}/quantum/line-items`, { method: "POST", body: JSON.stringify(body) }, token),
   updateClaimLineItem: (token: string, claimId: string, lineId: string, body: Partial<{
     description: string;
     quantity: string;
@@ -943,9 +943,9 @@ export const api = {
     daywork_days?: number;
     daywork_rate_minor?: number;
   }>) =>
-    req<ClaimLineItem>(`/claims/${claimId}/quantum/line-items/${lineId}`, { method: "PUT", body: JSON.stringify(body) }, token),
+    req<ClaimLineItem>(`/claims/claims/${claimId}/quantum/line-items/${lineId}`, { method: "PUT", body: JSON.stringify(body) }, token),
   deleteClaimLineItem: (token: string, claimId: string, lineId: string) =>
-    req<{ ok: boolean }>(`/claims/${claimId}/quantum/line-items/${lineId}`, { method: "DELETE" }, token),
+    req<{ ok: boolean }>(`/claims/claims/${claimId}/quantum/line-items/${lineId}`, { method: "DELETE" }, token),
   recordClaimResponse: (token: string, claimId: string, body: {
     response_kind: string;
     received_at: string;
@@ -954,29 +954,29 @@ export const api = {
     notes?: string;
     document_id?: string;
   }) =>
-    req<ClaimResponse>(`/claims/${claimId}/responses`, { method: "POST", body: JSON.stringify(body) }, token),
+    req<ClaimResponse>(`/claims/claims/${claimId}/responses`, { method: "POST", body: JSON.stringify(body) }, token),
   recordClaimNegotiation: (token: string, claimId: string, body: {
     offered_amount_minor: number;
     counter_amount_minor?: number;
     status?: string;
   }) =>
-    req<ClaimNegotiation>(`/claims/${claimId}/negotiations`, { method: "POST", body: JSON.stringify(body) }, token),
+    req<ClaimNegotiation>(`/claims/claims/${claimId}/negotiations`, { method: "POST", body: JSON.stringify(body) }, token),
   recordClaimSettlement: (token: string, claimId: string, body: {
     outcome: string;
     settled_amount_minor: number;
     notes?: string;
   }) =>
-    req<ClaimSettlement>(`/claims/${claimId}/settlement`, { method: "POST", body: JSON.stringify(body) }, token),
+    req<ClaimSettlement>(`/claims/claims/${claimId}/settlement`, { method: "POST", body: JSON.stringify(body) }, token),
   listClaimDrafts: (token: string, claimId: string) =>
-    req<{ drafts: ClaimDraft[] }>(`/claims/${claimId}/drafts`, {}, token),
+    req<{ drafts: ClaimDraft[] }>(`/claims/claims/${claimId}/drafts`, {}, token),
   generateClaimDraft: (token: string, claimId: string, kind: string) =>
-    req<ClaimDraft>(`/claims/${claimId}/drafts/${kind}`, { method: "POST" }, token),
+    req<ClaimDraft>(`/claims/claims/${claimId}/drafts/${kind}`, { method: "POST" }, token),
   getClaimDraft: (token: string, draftId: string) =>
-    req<ClaimDraft>(`/drafts/${draftId}`, {}, token),
+    req<ClaimDraft>(`/claims/drafts/${draftId}`, {}, token),
   approveClaimDraft: (token: string, draftId: string) =>
-    req<ClaimDraft>(`/drafts/${draftId}/approve`, { method: "POST" }, token),
+    req<ClaimDraft>(`/claims/drafts/${draftId}/approve`, { method: "POST" }, token),
   getClaimChainIntegrity: (token: string, claimId: string) =>
-    req<{ status: string; missing_link?: string }>(`/claims/${claimId}/chain-integrity`, {}, token),
+    req<{ status: string; missing_link?: string }>(`/claims/claims/${claimId}/chain-integrity`, {}, token),
   getClaimMetrics: (token: string, opportunityId: string) =>
     req<Record<string, unknown>>(`/claims/opportunities/${opportunityId}/claim-metrics`, {}, token),
   // Control tower dashboards (Phase 20)

@@ -86,7 +86,24 @@ def process_document(self, document_id: str, workspace_id: str, opportunity_id: 
 
             # Re-classify, segment clauses, extract deadlines, persist chunks, and update
             # the opportunity submission_due using the same service logic as the sync path.
-            svc = IngestionService(session, loader_provider=None)
+            # Build a worker-scoped rulepack loader so background documents use the
+            # workspace's active pack, matching the synchronous request path.
+            # The loader is a soft dependency: resolve it dynamically so ingestion does
+            # not acquire a static dependency on the rulepacks module.
+            loader: object | None = None
+            try:
+                import importlib
+
+                rulepacks_loader = importlib.import_module("app.modules.rulepacks.loader")
+                LoaderClass = rulepacks_loader.RulePackLoader
+                loader = LoaderClass()
+            except Exception:
+                pass
+
+            def loader_provider():
+                return loader
+
+            svc = IngestionService(session, loader_provider=loader_provider)
             svc.process_text(doc, text, ocr_status=ocr_status, workspace_id=workspace_id)
             record_worker_seconds(time.monotonic() - started)
 

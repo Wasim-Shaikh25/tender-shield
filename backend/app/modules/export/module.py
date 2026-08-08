@@ -5,9 +5,11 @@ from app.modules.export.service import ExportService
 
 def setup(ctx: AppContext) -> None:
     reg = ctx.registry
-    loader = reg.get("rulepacks.loader")
 
     def _pack_version(session, workspace_id):
+        # Resolve the loader at call time so that startup ordering between
+        # export and rulepacks modules does not matter.
+        loader = reg.get("rulepacks.loader")
         if loader is None:
             return "in-works"
         return loader.get_pack(

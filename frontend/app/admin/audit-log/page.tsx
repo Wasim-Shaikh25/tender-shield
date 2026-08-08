@@ -4,21 +4,30 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, type AuditLogEntry } from "@/lib/api";
 import { useSession } from "@/components/session";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
 
 export default function AdminAuditLogPage() {
   const { session } = useSession();
   const router = useRouter();
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [workspaceId, setWorkspaceId] = useState("");
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
     if (!session) return;
+    setLoading(true);
     try {
       const r = await api.adminAuditLog(session.token, workspaceId || "00000000-0000-0000-0000-000000000000");
       setLogs(r);
+      setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load logs");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -33,46 +42,89 @@ export default function AdminAuditLogPage() {
     return null;
   }
   if (!session.is_superadmin) {
-    return <p className="p-6 text-sm text-red-600">Superadmin access required.</p>;
+    return <Alert variant="error" title="Access Denied">Superadmin access required.</Alert>;
   }
 
+  const getActionColor = (action: string): "info" | "warning" | "error" | "success" | "secondary" => {
+    if (action.includes("delete") || action.includes("remove")) return "error";
+    if (action.includes("create") || action.includes("add")) return "success";
+    if (action.includes("update") || action.includes("change")) return "info";
+    return "secondary";
+  };
+
   return (
-    <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold text-ink">Audit log</h1>
-      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-heading-lg text-text-primary">Audit Log</h1>
+        <p className="text-sm text-text-muted mt-2">View system activity and user actions</p>
+      </div>
 
-      <form onSubmit={(e) => { e.preventDefault(); load(); }} className="flex gap-2">
-        <input
-          value={workspaceId}
-          onChange={(e) => setWorkspaceId(e.target.value)}
-          placeholder="Workspace ID (empty for global)"
-          className="w-full max-w-md rounded-md border border-slate-300 px-3 py-2 text-sm"
-        />
-        <button type="submit" className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white">Search</button>
-      </form>
+      {/* Alerts */}
+      {error && <Alert variant="error" title="Error">{error}</Alert>}
 
-      <table className="w-full text-sm">
-        <thead className="border-b border-slate-200 text-left text-slate-500">
-          <tr>
-            <th className="py-2">Time</th>
-            <th className="py-2">Actor</th>
-            <th className="py-2">Action</th>
-            <th className="py-2">Object</th>
-            <th className="py-2">Detail</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {logs.map((l) => (
-            <tr key={l.id}>
-              <td className="py-2">{l.at ?? "—"}</td>
-              <td className="py-2">{l.actor_user_id ?? "system"}</td>
-              <td className="py-2">{l.action}</td>
-              <td className="py-2">{l.object_type}:{l.object_id}</td>
-              <td className="py-2"><pre className="text-xs">{JSON.stringify(l.detail).slice(0, 120)}</pre></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* Search/Filter */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Filter Logs</CardTitle>
+          <CardDescription>Search logs by workspace ID (leave empty for global logs)</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={(e) => { e.preventDefault(); load(); }} className="flex gap-2">
+            <input
+              value={workspaceId}
+              onChange={(e) => setWorkspaceId(e.target.value)}
+              placeholder="Workspace ID (optional)"
+              className="flex-1 rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+              disabled={loading}
+            />
+            <Button variant="primary" size="md" type="submit" disabled={loading}>
+              {loading ? "Searching..." : "Search"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Audit Log Entries */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Activity Log</CardTitle>
+          <CardDescription>{logs.length} log entr{logs.length !== 1 ? "ies" : "y"}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {logs.length === 0 ? (
+            <p className="text-sm text-text-muted py-4">No audit log entries found.</p>
+          ) : (
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {logs.map((l) => (
+                <div key={l.id} className="p-3 rounded-lg border border-border-default hover:bg-bg-secondary transition-colors">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-text-primary">{l.action}</p>
+                      <p className="text-xs text-text-muted mt-1">
+                        {l.object_type}:{l.object_id ? l.object_id.slice(0, 8) : "unknown"}…
+                      </p>
+                    </div>
+                    <Badge variant={getActionColor(l.action)} size="sm" className="capitalize">
+                      {l.action.replace(/_/g, " ")}
+                    </Badge>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-text-muted">
+                    <span>Actor: {l.actor_user_id ?? "system"}</span>
+                    <span>•</span>
+                    <span>{l.at ?? "—"}</span>
+                  </div>
+                  {l.detail && (
+                    <pre className="mt-2 text-xs bg-bg-secondary p-2 rounded overflow-x-auto max-w-full text-text-primary">
+                      {JSON.stringify(l.detail).slice(0, 200)}…
+                    </pre>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

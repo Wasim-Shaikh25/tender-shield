@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, type WorkspaceStateSummary } from "@/lib/api";
 import { useSession } from "@/components/session";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
 
 export default function DashboardStatePage() {
   const { session } = useSession();
@@ -15,7 +18,8 @@ export default function DashboardStatePage() {
 
   useEffect(() => {
     if (!session) return;
-    api.listWorkspaceStateSummaries(session.token)
+    api
+      .listWorkspaceStateSummaries(session.token)
       .then((res) => setSummaries(res.workspaces))
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load summaries"))
       .finally(() => setLoading(false));
@@ -26,59 +30,138 @@ export default function DashboardStatePage() {
     return null;
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Loading…</p>;
-  if (error) return <p className="text-sm text-red-600">{error}</p>;
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-ink">State dashboard</h1>
-        <p className="text-sm text-slate-600">Opportunity counts and upcoming deadlines per workspace.</p>
+    <div className="space-y-8">
+      {/* Page Header */}
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold text-text-primary">Dashboard</h1>
+        <p className="text-text-secondary">
+          View opportunity counts, states, and upcoming deadlines across all workspaces.
+        </p>
       </div>
 
-      {summaries.length === 0 && (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
-          No workspaces found.
+      {/* Error Alert */}
+      {error && (
+        <Alert variant="error" title="Failed to load dashboard">
+          {error}
+        </Alert>
+      )}
+
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center space-y-3">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-border-default border-t-ink" />
+            <p className="text-sm text-text-muted">Loading dashboard…</p>
+          </div>
         </div>
       )}
 
-      {summaries.map((ws) => (
-        <div key={ws.workspace_id} className="rounded-xl border border-slate-200 bg-white p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-ink">{ws.workspace_name || "Workspace"}</h2>
-            <span className="text-sm text-slate-500">{ws.opportunity_count} projects</span>
-          </div>
+      {/* Empty State */}
+      {!loading && summaries.length === 0 && (
+        <Card className="border-dashed">
+          <CardContent className="py-12 text-center">
+            <h3 className="text-lg font-semibold text-text-primary mb-2">No workspaces found</h3>
+            <p className="text-text-secondary mb-4">
+              Create your first workspace to get started tracking opportunities.
+            </p>
+            <Link href="/settings" className="text-ink hover:underline font-medium">
+              Go to Settings →
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
-            {Object.entries(ws.state_counts).map(([state, count]) =>
-              count > 0 ? (
-                <div key={state} className="rounded-lg bg-slate-50 p-3">
-                  <p className="text-xl font-bold text-ink">{count}</p>
-                  <p className="text-xs capitalize text-slate-500">{state.replace(/_/g, " ")}</p>
+      {/* Workspace Cards */}
+      {!loading && summaries.length > 0 && (
+        <div className="space-y-6">
+          {summaries.map((ws) => (
+            <div key={ws.workspace_id} className="space-y-4">
+              {/* Workspace Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-text-primary">
+                    {ws.workspace_name || "Workspace"}
+                  </h2>
+                  <p className="text-sm text-text-muted mt-1">
+                    {ws.opportunity_count} {ws.opportunity_count === 1 ? "project" : "projects"}
+                  </p>
                 </div>
-              ) : null
-            )}
-          </div>
+              </div>
 
-          {ws.upcoming_deadlines.length > 0 && (
-            <div className="mt-4">
-              <h3 className="text-sm font-semibold text-slate-700">Upcoming deadlines (≤7 days)</h3>
-              <ul className="mt-2 space-y-2">
-                {ws.upcoming_deadlines.map((d) => (
-                  <li key={d.opportunity_id} className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-sm">
-                    <Link href={`/opportunities/${d.opportunity_id}`} className="font-medium text-ink hover:text-blue-600">
-                      {d.title}
-                    </Link>
-                    <span className="text-xs text-slate-500">
-                      {d.submission_due ? `${new Date(d.submission_due).toLocaleDateString()} (${d.days_to_deadline}d)` : "No date"} · {d.state}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              {/* State Metrics */}
+              {Object.entries(ws.state_counts).some(([_, count]) => count > 0) && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                  {Object.entries(ws.state_counts).map(([state, count]) =>
+                    count > 0 ? (
+                      <Card key={state} variant="outlined" className="text-center">
+                        <CardContent className="py-4">
+                          <p className="text-2xl font-bold text-ink">{count}</p>
+                          <p className="text-xs text-text-muted mt-1 capitalize">
+                            {state.replace(/_/g, " ")}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ) : null
+                  )}
+                </div>
+              )}
+
+              {/* Upcoming Deadlines */}
+              {ws.upcoming_deadlines.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Upcoming Deadlines</CardTitle>
+                    <CardDescription>
+                      Opportunities with submission deadlines in the next 7 days
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {ws.upcoming_deadlines.map((d) => {
+                        const daysLeft = d.days_to_deadline ?? 0;
+                        let urgencyVariant: "error" | "warning" | "info" = "info";
+                        if (daysLeft <= 3) urgencyVariant = "error";
+                        else if (daysLeft <= 7) urgencyVariant = "warning";
+
+                        return (
+                          <Link
+                            key={d.opportunity_id}
+                            href={`/opportunities/${d.opportunity_id}`}
+                            className="flex items-center justify-between p-3 rounded-lg border border-border-default hover:bg-bg-secondary transition-colors duration-base group"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <h4 className="font-medium text-text-primary group-hover:text-ink truncate">
+                                {d.title}
+                              </h4>
+                              <p className="text-xs text-text-muted mt-1">
+                                {d.submission_due
+                                  ? new Date(d.submission_due).toLocaleDateString("en-IN", {
+                                    year: "numeric",
+                                    month: "short",
+                                    day: "numeric",
+                                  })
+                                  : "No date"}{" "}
+                                · {d.state}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                              <Badge variant={urgencyVariant} size="sm">
+                                {daysLeft}d left
+                              </Badge>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
-          )}
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }

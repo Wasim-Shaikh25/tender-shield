@@ -6,8 +6,13 @@ import { api, type Opportunity } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { CountdownBadge } from "@/components/badges";
 import { statusLabel } from "@/lib/labels";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
 
-export default function BoardPage() {
+export default function OpportunitiesPage() {
   const { session } = useSession();
   const [opps, setOpps] = useState<Opportunity[]>([]);
   const [title, setTitle] = useState("");
@@ -21,9 +26,16 @@ export default function BoardPage() {
   }
 
   useEffect(() => {
-    if (session) refresh();
-    else setLoading(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    async function load() {
+      if (session) {
+        const { opportunities } = await api.listOpportunities(session.token);
+        setOpps(opportunities);
+        setLoading(false);
+      } else {
+        setLoading(false);
+      }
+    }
+    load();
   }, [session]);
 
   async function create(e: React.FormEvent) {
@@ -36,40 +48,62 @@ export default function BoardPage() {
 
   if (!session) {
     return (
-      <EmptyState
-        title="Sign in to see your board"
-        body="The opportunity board is your countdown wall — every live tender, days to submission, review status."
-        cta={{ href: "/login", label: "Sign in" }}
-      />
+      <div className="space-y-6">
+        <EmptyState
+          title="Sign in to see your opportunities"
+          body="Your opportunity board is your countdown wall — every live tender, days to submission, and review status at a glance."
+          cta={{ href: "/login", label: "Sign in to continue" }}
+        />
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-ink">Opportunities</h1>
-          <p className="text-sm text-slate-500">Red &lt; 3 days to submission · amber &lt; 7.</p>
-        </div>
-        <form onSubmit={create} className="flex gap-2">
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="New tender title…"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-ink"
-          />
-          <button className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:opacity-90">
-            Create
-          </button>
-        </form>
+    <div className="space-y-8">
+      {/* Page Header */}
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold text-text-primary">Opportunities</h1>
+        <p className="text-text-secondary">
+          Track all your active tenders. Red indicates &lt; 3 days to submission, amber &lt; 7 days.
+        </p>
       </div>
 
+      {/* Create Opportunity Form */}
+      <Card>
+        <CardContent className="pt-6">
+          <form onSubmit={create} className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1">
+              <Input
+                placeholder="New tender title…"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                help="Enter the tender name or reference number"
+              />
+            </div>
+            <Button
+              type="submit"
+              variant="primary"
+              size="md"
+              className="sm:mt-6"
+            >
+              Create
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Opportunities Grid */}
       {loading ? (
-        <p className="text-sm text-slate-500">Loading…</p>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center text-text-muted">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-border-default border-t-ink mb-3" />
+            <p className="text-sm">Loading opportunities…</p>
+          </div>
+        </div>
       ) : opps.length === 0 ? (
         <EmptyState
           title="No opportunities yet"
-          body="Create one above, then upload the GCC too — 60% of traps live in the conditions, not the NIT."
+          body="Create your first tender above, then upload the GCC as well — 60% of traps live in the conditions, not just the NIT."
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -77,16 +111,35 @@ export default function BoardPage() {
             <Link
               key={o.id}
               href={`/opportunities/${o.id}`}
-              className="rounded-xl border border-slate-200 bg-white p-5 transition hover:border-ink hover:shadow-sm"
             >
-              <div className="mb-3 flex items-center justify-between">
-                <CountdownBadge due={o.submission_due} />
-                <span className="text-xs uppercase tracking-wide text-slate-400">
-                  {statusLabel(o.status)}
-                </span>
-              </div>
-              <h3 className="font-semibold text-ink">{o.title}</h3>
-              <p className="mt-2 text-sm text-slate-500">Open workbench →</p>
+              <Card className="h-full hover:shadow-md hover:border-ink transition-all duration-base cursor-pointer">
+                <CardContent className="pt-6 space-y-4">
+                  {/* Header */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-text-primary truncate text-base">
+                        {o.title}
+                      </h3>
+                    </div>
+                    <Badge variant="secondary" size="sm" className="flex-shrink-0">
+                      {statusLabel(o.status)}
+                    </Badge>
+                  </div>
+
+                  {/* Deadline */}
+                  <div>
+                    <div className="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">
+                      Submission Deadline
+                    </div>
+                    <CountdownBadge due={o.submission_due} />
+                  </div>
+
+                  {/* CTA */}
+                  <div className="pt-2 text-sm text-ink font-medium hover:underline">
+                    Open workbench →
+                  </div>
+                </CardContent>
+              </Card>
             </Link>
           ))}
         </div>
@@ -105,14 +158,22 @@ function EmptyState({
   cta?: { href: string; label: string };
 }) {
   return (
-    <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center">
-      <h2 className="text-lg font-semibold text-ink">{title}</h2>
-      <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">{body}</p>
-      {cta && (
-        <Link href={cta.href} className="mt-4 inline-block rounded-md bg-ink px-4 py-2 text-sm font-medium text-white">
-          {cta.label}
-        </Link>
-      )}
-    </div>
+    <Card className="border-dashed">
+      <CardContent className="py-12 text-center space-y-4">
+        <div className="space-y-2">
+          <h2 className="text-xl font-semibold text-text-primary">{title}</h2>
+          <p className="text-text-secondary max-w-md mx-auto">{body}</p>
+        </div>
+        {cta && (
+          <div className="pt-2">
+            <Link href={cta.href}>
+              <Button variant="primary" size="md">
+                {cta.label}
+              </Button>
+            </Link>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

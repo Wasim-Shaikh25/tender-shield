@@ -648,3 +648,28 @@ Requirement source: Research Doc §4.I, §8.3, §13.
 | TS-366 | Rulepack admin endpoints should return 403 for forbidden operations (Devin Review #126) | PR #126 Devin Review | `backend/app/modules/rulepacks/admin_service.py`, `router.py` | done |
 | TS-367 | Markdown link scheme whitelist should reject URLs with embedded control characters (Devin Review #126) | PR #126 Devin Review | `frontend/components/markdown.tsx` | done |
 | TS-368 | Devin Review #126 follow-up: CHANGELOG entry for post-merge fixes | PR #126 Devin Review | `CHANGELOG.md` | done |
+
+## Phase 30 — UI/API integration gap analysis & residual fixes
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-369 | UI/API integration gap analysis: compare `frontend/lib/api.ts` to FastAPI routes, scan pages and raw-JSON `<pre>` renders, document in `PRODUCTION_READINESS_AUDIT.md` | user request | `PRODUCTION_READINESS_AUDIT.md` | done |
+| TS-370 | Claims API path fix: add the missing `/claims` module segment to claim and draft routes in `frontend/lib/api.ts` | testing findings; integration gap | `frontend/lib/api.ts` | done |
+| TS-371 | Auth export method fix: call `POST /auth/export` from `frontend/lib/api.ts exportAccount` to match backend route | testing findings; integration gap | `frontend/lib/api.ts` | done |
+| TS-372 | Login mobile verification code should not be `required` when `mobileToken` is empty (mobile verification disabled) | testing findings; integration gap | `frontend/app/login/page.tsx` | done |
+| TS-373 | Rulepack admin file list should return 403 for cross-workspace packs, consistent with activate/delete | testing findings; security | `backend/app/modules/rulepacks/admin_service.py` | done |
+| TS-374 | Devin Review #126 residual polish: call-time loader resolution in export module, callable `loader_provider` in ingestion Celery task, `RulePackLoader.invalidate`, and markdown entity/Unicode-whitespace hardening | PR #126 Devin Review | `backend/app/modules/export/module.py`, `backend/app/modules/ingestion/tasks.py`, `backend/app/modules/rulepacks/loader.py`, `frontend/components/markdown.tsx` | done |
+| TS-375 | Devin Review #129 follow-ups: login mobile verification required flag and markdown numeric entity range check | PR #129 Devin Review | `frontend/app/login/page.tsx`, `frontend/components/markdown.tsx` | done |
+| TS-376 | PR #128 integration: pull `claude/ui-dev-tools-setup-r3sxpg`, resolve merge conflicts with `main`, fix CI failures, and re-run checks | user request | `*` | done |
+| TS-377 | Ingestion Celery worker should use workspace rulepack loader instead of `lambda: None` for background document classification | Devin Review #129 | `backend/app/modules/ingestion/tasks.py` | done |
+| TS-378 | Markdown link scheme check should fail closed when `decodeURIComponent` encounters an invalid percent escape | Devin Review #129 | `frontend/components/markdown.tsx` | done |
+| TS-379 | Round 13 production-readiness re-audit after PR #128/#129 merge | user request | `PRODUCTION_READINESS_AUDIT.md` | done |
+
+## Phase 31 — Round 13 residual pre-launch items
+
+| ID | Title | Req ref | Spec | Status |
+|---|---|---|---|---|
+| TS-380 | Sandbox or replace Mermaid rendering of LLM-generated plan-dashboard diagrams | `docs/ROUND13_GAP_CLOSURE_REQUIREMENTS.md` R1; `PRODUCTION_READINESS_AUDIT.md` TS-SEC-02 | `specs/904-round13-gap-closure.md` (B1); `frontend/components/plan-dashboard.tsx` | todo |
+| TS-381 | Apply `sanitize_message` and `delimit_untrusted` to `PlanDashboardAgent` and `RagSuggestionService` prompts | `docs/ROUND13_GAP_CLOSURE_REQUIREMENTS.md` R2; `PRODUCTION_READINESS_AUDIT.md` TS-SEC-04 | `specs/904-round13-gap-closure.md` (B2); `backend/app/modules/analytics/plan_agent.py`, `backend/app/modules/rulepacks/rag_service.py` | todo |
+| TS-382 | Wire explicit Phase 1 backend-only routes into the redesigned UI or formally defer them (logout, MFA, BOQ upload, document text/stream, rulepack patterns) | `docs/ROUND13_GAP_CLOSURE_REQUIREMENTS.md` R3; `PRODUCTION_READINESS_AUDIT.md` TS-UI-05 | `specs/904-round13-gap-closure.md` (B3); `frontend/lib/api.ts`, relevant `frontend/app/**/page.tsx` | todo |
+| TS-383 | Replace raw-JSON `<pre>` displays with typed summary cards/tables (audit tab, rulepacks, admin audit-log) | `docs/ROUND13_GAP_CLOSURE_REQUIREMENTS.md` R4; `PRODUCTION_READINESS_AUDIT.md` TS-UI-06 | `specs/904-round13-gap-closure.md` (B4); `frontend/app/opportunities/[id]/page.tsx`, `frontend/app/rulepacks/page.tsx`, `frontend/app/admin/audit-log/page.tsx` | todo |

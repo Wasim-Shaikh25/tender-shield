@@ -5,24 +5,56 @@ import { useMemo, type JSX } from "react";
 type InlineNode = { kind: "text" | "bold" | "italic" | "code" | "link"; text: string; href?: string };
 
 const URL_SCHEME_RE = /^([a-z][a-z0-9+.-]*):/i;
+const ALLOWED_SCHEMES = ["http", "https", "mailto", "tel", "sms", "callto"];
 
-const CONTROL_CHAR_RE = /[\x00-\x1F\x7F]/;
+function safeFromCodePoint(code: number): string {
+  try {
+    return String.fromCodePoint(code);
+  } catch {
+    return "\uFFFD";
+  }
+}
+
+function decodeFully(s: string): string {
+  let prev = "";
+  while (prev !== s) {
+    prev = s;
+    // Decode HTML numeric entities (decimal and hex).
+    s = s.replace(/&#(\d+);/g, (_, code) => safeFromCodePoint(Number(code)));
+    s = s.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => safeFromCodePoint(parseInt(hex, 16)));
+    try {
+      s = decodeURIComponent(s);
+    } catch {
+      // Malformed percent escapes (e.g. a trailing lone '%') make the URL
+      // unparseable. Fail closed rather than returning a partially-decoded
+      // value that could hide a disallowed scheme.
+      return "";
+    }
+  }
+  return s;
+}
 
 function isAllowedHref(href: string): boolean {
-  const trimmed = href.trim();
+  let trimmed = href.trim();
   if (!trimmed) return false;
-  // Reject URLs containing control characters. Browsers strip common ones like
-  // tab/CR/LF before navigation, which lets an attacker hide a dangerous
-  // scheme (e.g. "jav\tascript:") from a simple prefix regex.
-  if (CONTROL_CHAR_RE.test(trimmed)) return false;
   // Allow relative paths, anchors, and query-only URLs.
+  if (trimmed.startsWith("/") || trimmed.startsWith("#") || trimmed.startsWith("?")) {
+    return true;
+  }
+  // Browsers decode percent escapes and HTML entities in hrefs, then strip
+  // control and whitespace characters before parsing the scheme. Apply the
+  // same normalization so attackers cannot hide javascript: etc. with
+  // jav%09ascript:, jav&#9;ascript:, or zero-width spaces.
+  trimmed = decodeFully(trimmed);
+  trimmed = trimmed.replace(/[\p{C}\p{Z}]/gu, "");
+  if (!trimmed) return false;
   if (trimmed.startsWith("/") || trimmed.startsWith("#") || trimmed.startsWith("?")) {
     return true;
   }
   const match = trimmed.match(URL_SCHEME_RE);
   if (!match) return true; // no scheme, e.g. example.com/path
   const scheme = match[1].toLowerCase();
-  return ["http", "https", "mailto", "tel", "sms", "callto"].includes(scheme);
+  return ALLOWED_SCHEMES.includes(scheme);
 }
 
 function parseInline(text: string): InlineNode[] {

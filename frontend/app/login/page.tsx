@@ -26,6 +26,9 @@ export default function LoginPage() {
   const [emailToken, setEmailToken] = useState("");
   const [mobileToken, setMobileToken] = useState("");
 
+  const [emailVerificationRequired, setEmailVerificationRequired] = useState(true);
+  const [mobileVerificationRequired, setMobileVerificationRequired] = useState(false);
+
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
@@ -56,6 +59,8 @@ export default function LoginPage() {
         });
         if (data.email_verification_token) setEmailToken(data.email_verification_token);
         if (data.mobile_verification_token) setMobileToken(data.mobile_verification_token);
+        setEmailVerificationRequired(!data.email_verified);
+        setMobileVerificationRequired(!data.mobile_verified);
         setStep("verify");
       } else {
         const login = await api.login(email, password);
@@ -198,8 +203,20 @@ export default function LoginPage() {
 
         {step === "verify" && (
           <form onSubmit={handleVerify} className="mt-6 space-y-4">
-            <Field label="Email verification code" value={emailToken} onChange={setEmailToken} placeholder="Paste email code" required />
-            <Field label="Mobile verification code" value={mobileToken} onChange={setMobileToken} placeholder="Paste mobile code" required />
+            <Field
+              label="Email verification code"
+              value={emailToken}
+              onChange={setEmailToken}
+              placeholder={emailVerificationRequired ? "Paste email code" : "Email verification disabled"}
+              required={emailVerificationRequired}
+            />
+            <Field
+              label="Mobile verification code"
+              value={mobileToken}
+              onChange={setMobileToken}
+              placeholder={mobileVerificationRequired ? "Paste mobile code" : "Mobile verification disabled"}
+              required={mobileVerificationRequired}
+            />
             {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
             <button disabled={busy} className="w-full rounded-md bg-ink py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-50">
               {busy ? "Verifying…" : "Verify and continue"}

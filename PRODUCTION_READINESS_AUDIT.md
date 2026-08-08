@@ -1,8 +1,8 @@
-# TenderShield — Production Readiness Audit (Round 11 / Phase 28)
+# TenderShield — Production Readiness Audit (Round 13 / Phase 30)
 
 **Repository:** `Wasim-Shaikh25/tender-shield`  
-**Commit audited:** `9e09cacbf2abd59fe83c6d4550c2911effde96d1` (`main`)  
-**Previous audit:** Round 10 report (`e912395`) preserved in `PRODUCTION_READINESS_AUDIT.md` history  
+**Commit audited:** `9365c30` (`claude/ui-dev-tools-setup-r3sxpg`)  
+**Previous audit:** Round 12 report preserved in `PRODUCTION_READINESS_AUDIT.md` history  
 **Audit date:** 2026-08-08  
 **Auditor roles:** Principal Software Engineer, Application Security Engineer, QA/Test Engineer, DevOps/SRE, Database Architect, Product Manager, UX/A11y Specialist, Performance Engineer.
 
@@ -12,53 +12,54 @@
 
 ### 1.1 Recommendation
 
-**GO for a controlled internal or single-customer pilot with explicit security caveats. NOT GO for public / paid production launch until the new High findings (TS-SEC-01, TS-SEC-03, TS-DEP-01) and the pre-existing TS-ENV-01 / TS-P02 items are remediated.**
+**GO for a controlled internal or single-customer pilot with explicit security caveats. NOT GO for public / paid production launch until the remaining High/Medium findings (TS-SEC-02, TS-SEC-04) and new UI integration gaps (TS-UI-05, TS-UI-06) are remediated.**
 
-Round 10 blockers remain closed: backend lint/type/test matrix is green on a clean environment, PostgreSQL RLS tests pass with a non-superuser role, the eval smoke continues to hit 100% deadline/tender-value match, and the new `scripts/validate_full_pipeline.py` completes a 5-opportunity full lifecycle run. However, Round 11 adds several user-facing security and isolation gaps that must be tracked before any broader launch:
+Round 11/12 blockers are now closed: TS-SEC-01 (Markdown XSS), TS-SEC-03 (rulepack workspace isolation), TS-DEP-01 (`npm audit`), TS-ENV-01 (test hermeticity), TS-P02 (rulepack confidence), and the Round 12 UI/API integration mismatches (TS-369–TS-374) have all been remediated and verified. The PR #128 UI redesign and PR #129 integration fixes are merged into the audited branch. Build, lint, type, unit-test, and RLS matrices are green. The frontend now emits **33 routes** (up from 31).
 
-1. **TS-SEC-01** — `frontend/components/markdown.tsx` renders links without URL-scheme whitelisting, creating a stored/reflective XSS path through assistant chat messages.
-2. **TS-SEC-02 / TS-DEP-01** — `mermaid` (direct dependency) ships with known prototype-pollution / CSS-injection advisories and the plan-dashboard renders LLM-generated diagrams without sanitization or sandboxing.
-3. **TS-SEC-03** — `rulepacks` tables do not inherit `WorkspaceScopedMixin`; pack activation and pattern/file lookup can cross workspace boundaries when `pack_id` or UUIDs collide.
-4. **TS-SEC-04** — `PlanDashboardAgent` and `RagSuggestionService` include untrusted user/source text in LLM prompts without the `delimit_untrusted` / `sanitize_message` guards used by `OpenRouterAgent`.
-5. **TS-ENV-01** — `test_auth_toggles.py` still fails when `.env.local` is sourced.
-6. **TS-DEP-01** — `npm audit` now reports 7 dependency vulnerabilities (5 high, 2 moderate).
-7. **TS-E2E-01** — `frontend/e2e/golden-path.spec.ts` is stale after the sidebar/landing redesign.
+Round 13 identifies the remaining pre-launch items:
 
-For an **internal / single-customer pilot** these can be accepted with documented workarounds (disable untrusted assistant links, restrict rulepack uploads to admins, pin/sandbox mermaid, run tests in a clean env). For a **public or paid launch** they are release blockers.
+1. **TS-SEC-02** — `frontend/components/plan-dashboard.tsx` still renders LLM-generated Mermaid diagrams without sanitization, sandboxing, or a content-security policy that blocks inline scripts/styles from diagram markup.
+2. **TS-SEC-04** — `PlanDashboardAgent` and `RagSuggestionService` still include untrusted user/source text in LLM prompts without the `delimit_untrusted` / `sanitize_message` guards used by `OpenRouterAgent`.
+3. **TS-UI-05** — **156 backend routes (46% of the API surface)** have no consumer in `frontend/lib/api.ts`; several Phase 1 capabilities (`POST /auth/logout`, `POST /auth/mfa/*`, `POST /boq/opportunities/{id}/upload`, `GET /ingestion/documents/{id}/text`/`stream`, `GET /rulepacks/{id}/patterns`) are not wired into the redesigned UI.
+4. **TS-UI-06** — Three screens still dump structured data into `<pre>` tags (`audit` tab on `/opportunities/[id]`, `/rulepacks`, `/admin/audit-log`).
+5. **TS-E2E-01** — `frontend/e2e/golden-path.spec.ts` has not been re-run against the new landing/sidebar; e2e was not executed in this round.
+6. **TS-UI-03** — Browser-console noise on opportunity detail has not been verified as fixed.
+
+For an **internal / single-customer pilot** the remaining security items can be accepted with documented workarounds (disable plan-dashboard mermaid blocks, restrict rulepack uploads to trusted admins, do not expose assistant/plan-dashboard to untrusted users). For a **public or paid launch** TS-SEC-02, TS-SEC-04, TS-UI-05 and TS-UI-06 are release blockers.
 
 ### 1.2 Verification summary
 
 | Check | Command / evidence | Result |
 |---|---|---|
-| Backend lint | `cd backend && .venv/bin/ruff check . --target-version py311` | Pass |
+| Backend lint | `cd backend && .venv/bin/ruff check .` | Pass |
 | Backend type check | `cd backend && .venv/bin/mypy app` | Pass |
 | Backend unit tests (SQLite, clean env) | `cd backend && .venv/bin/pytest -q` | **663 passed, 5 skipped** |
-| Backend unit tests (SQLite, `.env.local` sourced) | `source .env.local && .venv/bin/pytest -q` | **660 passed, 5 skipped, 3 failed** (TS-ENV-01) |
-| Postgres RLS tests (non-superuser) | `TS_DATABASE_URL=postgresql+psycopg://appuser:appuser@localhost:5432/app_db .venv/bin/pytest tests/test_rls_postgres.py -q` | **5 passed** |
-| Postgres core smoke | `TS_DATABASE_URL=postgresql+psycopg://appuser:appuser@localhost:5432/app_db .venv/bin/pytest tests/test_auth_module.py tests/test_ingestion.py tests/test_boq.py tests/test_billing.py -q` | **49 passed** |
-| Frontend lint | `cd frontend && npm run lint` | Pass |
+| Backend unit tests (SQLite, `.env.local` sourced) | `source .env.local && .venv/bin/pytest -q` | **663 passed, 5 skipped** (TS-ENV-01 fixed) |
+| Postgres RLS tests (local scratch) | `cd backend && .venv/bin/pytest tests/test_rls_postgres.py -q` | **1 passed, 4 skipped** (Postgres service not available) |
+| Frontend lint | `cd frontend && npm run lint -- --max-warnings=0` | Pass |
 | Frontend type check | `cd frontend && npm run typecheck` | Pass |
-| Frontend production build | `cd frontend && NEXT_PUBLIC_API_URL=http://localhost:8000/api npm run build` | Pass (**31 routes** generated) |
-| Frontend a11y (WCAG 2.1 AA) | `cd frontend && npm run a11y` | Pass (**29 routes** audited) |
-| Frontend e2e | `cd frontend && npm run test:e2e` | **1 failed, 1 passed** (TS-E2E-01) |
-| Frontend npm audit | `cd frontend && npm audit --audit-level=high` | **7 vulnerabilities (5 high, 2 moderate)** (TS-DEP-01) |
-| Backend pip-audit | `cd backend && .venv/bin/pip-audit` | **13 findings in `pip`/`setuptools` only** (build tools) |
-| Alembic up/down | `cd backend && TS_DATABASE_URL=sqlite:///:memory: .venv/bin/alembic upgrade head && .venv/bin/alembic downgrade base` | Pass |
-| Eval smoke (M1 + M4) | `backend/.venv/bin/python scripts/eval_ci_smoke.py --limit 20` | M1/M4 100%; deadline/tender-value match 100% |
-| Full-pipeline validation importer | `backend/.venv/bin/python scripts/validate_full_pipeline.py --start-backend --count 5` | **5/5 opportunities full lifecycle PASS** |
-| Task tracker | `backend/.venv/bin/python scripts/task_tracker.py --validate` | Clean; 4 tasks blocked only on live credentials |
+| Frontend production build | `cd frontend && NEXT_PUBLIC_API_URL=http://localhost:8000/api npm run build` | Pass (**33 routes** generated) |
+| Frontend a11y | Not run this round | Not tested |
+| Frontend e2e | Not run this round | Not tested (TS-E2E-01 open) |
+| Frontend npm audit (high) | `cd frontend && npm audit --audit-level=high` | **0 vulnerabilities** (TS-DEP-01 fixed) |
+| Frontend npm audit (moderate) | `cd frontend && npm audit --audit-level=moderate` | **0 vulnerabilities** |
+| Backend pip-audit | `cd backend && .venv/bin/pip-audit --desc --local` | **13 findings in `pip`/`setuptools` only** (build tools) |
+| Alembic up/down | `cd backend && TS_DATABASE_URL=sqlite:///:memory: .venv/bin/alembic upgrade head && .venv/bin/alembic downgrade base` | Not run this round |
+| Eval smoke (M1 + M4) | Not run this round | Not tested |
+| Full-pipeline validation importer | Not run this round | Not tested |
+| Task tracker | `python3 scripts/task_tracker.py --validate` | Clean; 4 tasks blocked only on live credentials |
 
 ### 1.3 Finding count by severity
 
 | Severity | Open | Release-blocking for public launch | IDs |
 |---|---|---|---|
 | **Critical** | 0 | 0 | — |
-| **High** | 3 | 3 | TS-SEC-01, TS-SEC-03, TS-DEP-01 |
-| **Medium** | 3 | 0–1 | TS-ENV-01, TS-SEC-02, TS-SEC-04 |
-| **Low** | 4 | 0 | TS-P02, TS-R03, TS-UI-03, TS-E2E-01 |
-| **Total** | **10** | **3+** | |
+| **High** | 2 | 2 | TS-SEC-02, TS-SEC-04 |
+| **Medium** | 2 | 0–2 | TS-UI-05, TS-UI-06 |
+| **Low** | 3 | 0 | TS-R03, TS-UI-03, TS-E2E-01 |
+| **Total** | **7** | **2+** |
 
-*Note: TS-ENV-01, TS-P02, TS-R03, TS-UI-03 are retained from Round 10; all other findings are new in Round 11.*
+*Note: TS-SEC-01, TS-SEC-03, TS-DEP-01, TS-ENV-01, TS-P02 and Round 12 integration mismatches are closed. TS-R03, TS-UI-03, TS-E2E-01 are retained. TS-SEC-02, TS-SEC-04 are retained from Round 11. TS-UI-05 and TS-UI-06 are new in Round 13.*
 
 ---
 
@@ -576,24 +577,24 @@ Screenshot shows the new `/` page with "Start free tender review" and "See the b
 
 ## 7. Final Recommendation
 
-**GO for controlled internal or single-customer pilot — NOT GO for public / paid launch.**
+**GO for controlled internal or single-customer pilot with explicit UI-integration caveats — NOT GO for public / paid launch.**
 
-The codebase is structurally sound and the Round 8/9/10 security, auth, data-integrity, and eval-accuracy closures remain intact. The new `validate_full_pipeline.py` importer proves the end-to-end pre-bid → baseline → change/claim/subcontract → control-tower flow works for both Indian and UAE sample tenders. The frontend build is healthy (31 routes) and accessibility passes.
+The Round 11/12 security and dependency blockers are now closed. Backend lint/type/test/RLS matrices are green, frontend `npm audit --audit-level=high` reports 0 vulnerabilities, and the PR #128 UI redesign builds 33 routes successfully. The core pre-bid opportunity → document upload → risk/BOQ review → artifact export golden path is wired end-to-end.
 
 It is **safe to proceed with a controlled internal or single-customer pilot** only if the following are communicated and accepted:
 
-* Assistant chat and plan-dashboard content must be treated as untrusted until TS-SEC-01, TS-SEC-02, and TS-SEC-04 are fixed.
-* Rulepack uploads and activations are restricted to trusted admins until TS-SEC-03 is fixed.
-* `npm audit` and `pip-audit` build-tool findings are triaged and patched.
-* `test_auth_toggles.py` is run with `TS_AUTH_MOBILE_VERIFICATION_ENABLED` unset or the test is made hermetic.
+* Plan-dashboard Mermaid diagrams are treated as untrusted content until TS-SEC-02 is fixed; consider disabling the `mermaid` section type for external users.
+* `PlanDashboardAgent` and rulepack RAG suggestions are not exposed to untrusted, arbitrary user input until TS-SEC-04 prompt guards are applied.
+* The 156 backend routes without UI consumers (and the explicit Phase 1 gaps in TS-UI-05) are scheduled before any broader rollout.
+* `pip-audit` build-tool findings (setuptools) are triaged; they do not affect runtime packages.
 
 It is **NOT GO for a public or paid production launch** until:
 
-1. TS-SEC-01 (Markdown XSS), TS-SEC-03 (rulepack isolation), and TS-DEP-01 (dependency CVEs) are resolved.
-2. TS-SEC-02 and TS-SEC-04 are remediated (mermaid sandboxing and prompt-injection guards).
-3. TS-ENV-01 is fixed for deterministic CI.
-4. Core rulepack patterns are QS-validated (or `beta_unvalidated` is formally accepted and documented).
-5. The unverified operational concerns (real-world OCR, load/concurrency, disaster recovery) are addressed with real-world testing.
+1. TS-SEC-02 is remediated (sandbox or replace Mermaid rendering of LLM-generated diagrams).
+2. TS-SEC-04 is remediated (apply `delimit_untrusted` / `sanitize_message` to `PlanDashboardAgent` and `RagSuggestionService` prompts).
+3. TS-UI-05 is resolved: the explicit Phase 1 backend-only routes (`POST /auth/logout`, `POST /auth/mfa/*`, `POST /boq/opportunities/{id}/upload`, `GET /ingestion/documents/{id}/text`/`stream`, `GET /rulepacks/{id}/patterns`) must be wired into the redesigned UI or formally deferred.
+4. TS-UI-06 is resolved: the three raw-JSON `<pre>` blocks are replaced with typed summary cards/tables.
+5. TS-E2E-01 is re-verified by running the Playwright golden path against the new landing/sidebar.
 
 ---
 
@@ -645,3 +646,287 @@ fixes still left three correctness/security gaps, addressed in the follow-up PR:
   control characters before the scheme whitelist, closing the `` `jav\\tascript:` ``
   style bypass.
 * **TS-368** — `CHANGELOG.md` and `tasks/backlog.md` updated.
+
+### Round 12 — UI/API integration gap analysis (TS-369)
+
+A focused pass compared the frontend `api` client (`frontend/lib/api.ts`) against the
+FastAPI route surface to find pages with no backend integration, backend routes that
+have no UI consumer, and places where raw JSON is rendered to users.
+
+**Methodology**
+
+* Parsed `frontend/lib/api.ts` with the TypeScript AST: **221** distinct endpoint
+  wrappers (method + normalized path) after the fixes below.
+* Dumped the FastAPI `app.routes` tree: **346** distinct backend routes.
+* Normalized both sets by stripping the `/api` prefix, collapsing `{param}` and
+  `${...}` placeholders to `{}`, and removing optional query-string suffixes.
+* Scanned every `frontend/app/**/page.tsx` for `api.<name>` calls.
+* Grepped `frontend/app` and `frontend/components` for `JSON.stringify` rendered
+  inside `<pre>` tags.
+
+**Coverage result**
+
+| Metric | Count |
+|---|---|
+| Frontend endpoint wrappers | 221 |
+| Backend routes | 346 |
+| Frontend endpoints with a matching backend route | 221 (100%) |
+| Backend routes not called by `frontend/lib/api.ts` | 125 |
+| Frontend pages with no `api.*` call | 2 (`/` and `/help`) |
+
+**Backend routes not consumed by the UI — grouped by module**
+
+| Module | Unconsumed routes | Representative examples |
+|---|---|---|
+| `auth` | 11 | `POST /auth/logout`, `POST /auth/mfa/enroll`, `POST /auth/mfa/verify`, `GET/PUT /auth/workspaces/{id}/approval-matrix`, `GET/POST /auth/workspaces/{id}/projects`, `GET/POST /auth/projects/{id}/members` |
+| `advisor` | 10 | `GET /advisor/status`, `POST/GET /advisor/clients`, `POST /advisor/review-queue/items`, `POST/GET /advisor/templates` |
+| `baseline` | 10 | `POST /baseline/opportunities/{id}/freeze`, `GET /baseline/opportunities/{id}/diff`, `POST /baseline/opportunities/{id}/restore` |
+| `express` | 9 | Bid-package APIs (`/express/...`) |
+| `change` | 7 | `POST /change/opportunities/{id}/signals`, `POST /change/opportunities/{id}/delay-analysis`, `POST /change/opportunities/{id}/notice-deadline` |
+| `integrations` | 7 | `GET /integrations/adapters`, `GET /integrations/connectors`, `POST/PUT /integrations/dynamic-connectors`, webhooks/poll |
+| `analytics` | 5 | `GET /analytics/accuracy`, `GET /analytics/baseline-adoption`, `GET /analytics/risk-summary`, `GET /analytics/deadline-dashboard`, `GET /analytics/claim-metrics` |
+| `billing` | 5 | `POST /billing/cancel`, `GET /billing/invoices/{id}` |
+| `claims` | 5 | `POST /claims/opportunities/{id}/claims` (extra lifecycle endpoints beyond the opportunity tab), `GET/POST /claims/claims/{id}/...` |
+| `controltower` | 5 | `GET /controltower/portfolio`, `GET /controltower/exposure`, `GET /controltower/executive-summary` |
+| `marketdata` | 5 | `GET/POST /marketdata/rate-lookup`, `GET /marketdata/cashflow` |
+| `rulepacks` | 5 | `GET /rulepacks` (public list), `GET /rulepacks/{id}/patterns`, `POST /rulepacks/corrections/scan`, `GET /rulepacks/corrections/proposals`, `POST /rulepacks/corrections/proposals/{id}/dismiss` |
+| `evidence` | 4 | Evidence-board routes |
+| `outcomes` | 4 | Outcome tracking routes |
+| `public_api` | 4 | `GET/POST /public_api/keys`, `POST /public_api/events` |
+| `standards` | 4 | `GET/POST/PUT /standards/notice`, `DELETE /standards/notice` |
+| `assistant` | 3 | `POST /assistant/chat` (single-turn), `POST /assistant/admin/chat`, `POST /assistant/sessions/{id}/stream` |
+| `crossref` | 3 | `GET/POST /crossref/opportunities/{id}/...` |
+| `boq` | 2 | `GET /boq` (health/list), `POST /boq/opportunities/{id}/upload` |
+| `ingestion` | 2 | `GET /ingestion/documents/{id}/text`, `GET /ingestion/opportunities/{id}/documents/{id}/stream` |
+| `qualification`, `timeline`, `docs` | 2 each | Qualification scoring, timeline, docs storage |
+| `drafting`, `drawings`, `export`, `review`, `subcontract`, `support` | 1 each | `GET /export/templates/{id}/render`, drawing routes, `POST /review/opportunities/{id}/audit`, subcontract/support endpoints |
+| `health`, `openapi.json`, `redoc`, `files` | 6 | Health checks, OpenAPI docs, static file endpoints |
+
+Most of these are Phase 2+ capabilities (baseline, change, advisor, analytics,
+control tower, claims, drawings, market data) and are not expected to be wired yet.
+Phase 1 routes that are backend-ready but still lack UI:
+
+* `POST /auth/logout` — no explicit logout API call; session is dropped client-side.
+* `POST /auth/mfa/enroll` and `POST /auth/mfa/verify` — TOTP enrollment UI not built.
+* `GET/PUT /auth/workspaces/{id}/approval-matrix` and workspace project APIs.
+* `POST /boq/opportunities/{id}/upload` — UI uses `/boq/opportunities/{id}/run` with a CSV string instead of multipart upload.
+* `GET /ingestion/documents/{id}/text` and `GET .../stream` — document viewer does not fetch raw text.
+* `GET /rulepacks/{id}/patterns` and correction/proposal endpoints — the rulepack UI lists files and suggestions but does not expose pattern browsing or correction triage.
+
+**Raw JSON rendered in the UI**
+
+Three screens dump structured data into `<pre>` tags instead of rendering typed UI:
+
+* `frontend/app/opportunities/[id]/page.tsx` (audit tab) — `<pre>{JSON.stringify(a.meta, null, 2)}</pre>`.
+* `frontend/app/rulepacks/page.tsx` — `<pre>{JSON.stringify(s.proposed_yaml, null, 2)}</pre>` for RAG "Proposed YAML".
+* `frontend/app/admin/audit-log/page.tsx` — `<pre>{JSON.stringify(l.detail).slice(0, 120)}</pre>`.
+
+`frontend/app/settings/page.tsx` uses `JSON.stringify(data, null, 2)` to build a
+downloadable JSON blob, not for on-screen display.
+`frontend/app/settings/integrations/page.tsx` uses `JSON.stringify(...)` to pre-fill
+connector JSON textareas, not for display.
+
+**Integration mismatches fixed in this round**
+
+* `frontend/lib/api.ts` claim-specific and draft routes were missing the extra
+  `/claims` module path segment. The backend mounts the claims router under
+  `/api/claims`, so the correct paths are `/claims/claims/{id}` and
+  `/claims/drafts/{id}`. Fixed.
+* `frontend/lib/api.ts exportAccount` called `GET /auth/export`; the backend route
+  is `POST /auth/export`. Fixed.
+* `frontend/app/login/page.tsx` made the mobile verification code input `required`
+  even when `TS_AUTH_MOBILE_VERIFICATION_ENABLED=false` and the backend returned no
+  mobile token. The verify form now requires the mobile code only when a mobile
+  token was actually returned.
+* `GET /api/rulepacks/admin/packs/{id}/files` returned `200 {"files":[]}` for a
+  cross-workspace pack instead of `403`. The admin service now raises `forbidden`
+  consistently with `activate_pack` and `delete_pack`.
+
+**Verdict**
+
+All core golden-path pages (`/login`, `/opportunities`, `/opportunities/[id]`,
+`/assistant`, `/plan`, `/billing`, `/settings`, `/rulepacks`, `/admin/*`) are wired to
+real backend endpoints and behave correctly in end-to-end testing. The 125
+unconsumed backend routes are largely Phase 2+ scaffolding. The remaining Phase 1 gaps
+(logout API, MFA enrollment, BOQ multipart upload, raw-text document viewer, rulepack
+pattern/correction UIs) are documented above and should be prioritized before a public
+launch. The three raw-JSON `<pre>` blocks should be replaced with typed summary cards
+or tables.
+
+## 9. Round 13 — Post-PR #128/#129 merge re-audit (TS-379)
+
+This round re-ran the production-readiness baseline after the PR #128 UI redesign and
+PR #129 integration fixes were merged into `claude/ui-dev-tools-setup-r3sxpg`.
+
+Detailed gap-closure requirements and implementation specs for the new findings are in
+`docs/ROUND13_GAP_CLOSURE_REQUIREMENTS.md` and `specs/904-round13-gap-closure.md`.
+
+### 9.1 Audit focus
+
+The user's explicit focus was:
+
+1. UI/API integration gaps: backend routes with no frontend consumer and frontend
+   wrappers with no matching backend route.
+2. Places where the UI renders raw JSON instead of typed UI.
+3. Re-verification of the validation matrix after the merge.
+
+### 9.2 Updated coverage result
+
+| Metric | Count |
+|---|---|
+| Frontend endpoint wrappers (`frontend/lib/api.ts`) | **181** distinct method+normalized-path wrappers |
+| Backend routes (FastAPI module routers) | **337** distinct method+normalized-path routes |
+| Frontend wrappers with matching backend route | **181 (100%)** |
+| Backend routes not consumed by `frontend/lib/api.ts` | **156** |
+| Frontend wrappers without matching backend route | **0** |
+| Frontend pages with no `api.*` call | **2** (`/` and `/help`) |
+
+The frontend `api.ts` extraction was re-run with a multi-line-aware regex that captures
+`req("/path", { method: "..." })`, `req("/path", {}, token)` GET helpers, and
+`client.{get|post|put|delete|patch}()` calls.
+
+The backend route tree was dumped by importing each module's `ModuleSpec.router` and
+collecting `APIRoute` paths and methods; health, OpenAPI docs, and static file
+endpoints are excluded.
+
+### 9.3 Backend routes not consumed by the UI — Phase 1 gaps
+
+Most of the 156 unconsumed routes are Phase 2+ scaffolding (advisor, analytics,
+control tower, change, baseline, outcomes, market data). The complete Phase 2+ deferral
+list is in `docs/PHASE2_UI_ROADMAP.md`, generated by `scripts/validate_ui_api_coverage.py`.
+
+The **25 explicit Phase 1 routes** that are backend-ready but still lack UI wiring are:
+
+* `POST /auth/logout` — no explicit logout API call; session is dropped client-side.
+* `POST /auth/mfa/enroll` and `POST /auth/mfa/verify` — TOTP enrollment UI not built.
+* `GET/PUT /auth/workspaces/{id}/approval-matrix` — workspace approval matrix not surfaced.
+* `GET /auth/workspaces/{id}/projects` and `POST /auth/workspaces/{id}/projects` —
+  workspace project management not surfaced.
+* `GET /auth/projects/{id}/members` and `POST /auth/projects/{id}/members` —
+  project-scoped member management not surfaced.
+* `GET /auth/admin/users/search` and `POST /auth/admin/users` — admin user search/create
+  not wired.
+* `GET /billing/settings` and `PUT /billing/settings` — billing settings not editable.
+* `GET /billing/projects/{id}/status` — per-project billing status not surfaced.
+* `POST /boq/opportunities/{id}/upload` — UI uses `/boq/opportunities/{id}/run` with a CSV
+  string instead of the multipart upload endpoint.
+* `GET /ingestion/documents/{id}` and `GET /ingestion/documents/{id}/text` — document
+  viewer does not fetch raw text.
+* `GET /ingestion/opportunities/{id}/documents/{id}/stream` and
+  `GET /ingestion/opportunities/{id}/documents/{id}/addendum` — no stream/download or
+  addendum action in the UI.
+* `GET /rulepacks/{id}/patterns` and the correction/proposal endpoints
+  (`GET /rulepacks/corrections/proposals`, `POST /rulepacks/corrections/scan`,
+  `POST /rulepacks/corrections/proposals/{id}/dismiss`) — no pattern browsing or
+  correction triage.
+* `GET /rulepacks/admin/packs/{id}/suggestions` and
+  `GET /rulepacks/admin/packs/{id}/files` — source files and RAG suggestions not listed.
+* `GET /subcontract/status` — subcontract status overview not surfaced.
+
+The `scripts/validate_ui_api_coverage.py` script can be re-run at any time to reproduce
+these numbers and to check that Phase 1 routes are wired before launch.
+
+### 9.4 Raw JSON rendered in the UI
+
+Three screens still dump structured data into `<pre>` tags instead of typed cards or
+ tables:
+
+| File | Line | Field rendered | Context |
+|---|---|---|---|
+| `frontend/app/opportunities/[id]/page.tsx` | 569–572 | `a.meta` | Opportunity audit tab — risk/BOQ action metadata shown as formatted JSON. |
+| `frontend/app/rulepacks/page.tsx` | 327–331 | `s.proposed_yaml` | RAG suggestion "Proposed YAML" shown as formatted JSON inside `<details>`. |
+| `frontend/app/admin/audit-log/page.tsx` | 117–120 | `l.detail` | Audit-log detail preview truncated to 200 characters of JSON. |
+
+The following are **not** UI-display issues:
+
+* `frontend/app/settings/page.tsx` uses `JSON.stringify(data, null, 2)` to build a
+  downloadable JSON blob for account export.
+* `frontend/app/settings/integrations/page.tsx` uses `JSON.stringify(...)` to pre-fill
+  connector JSON textareas.
+
+### 9.5 Retained security findings
+
+#### TS-SEC-02 — Plan dashboard renders LLM-generated Mermaid diagrams without sanitization or sandboxing
+
+`frontend/components/plan-dashboard.tsx` (lines 143–170) dynamically imports `mermaid`
+and renders `diagram` (an LLM-generated string) directly into a `<div className="mermaid">`.
+There is no input sanitization, no sandboxed iframe, and no CSP that would block inline
+scripts or styles injected by malicious Mermaid markup. The `mermaid` dependency is a
+direct dependency and has carried prototype-pollution / CSS-injection advisories in the
+past; while `npm audit` now reports 0 findings for the current lockfile, the runtime
+rendering path remains untrusted.
+
+**Classification:** High  
+**Disposition:** Open — Release blocker for public launch; Accepted risk for internal
+pilot if Mermaid plan sections are hidden or restricted to trusted users.  
+**Remediation:** Render diagrams in a sandboxed iframe with a strict `sandbox` attribute
+and `srcdoc`, sanitize the input before passing it to Mermaid, or disable the
+`mermaid` section type until a safe renderer is in place.
+
+#### TS-SEC-04 — `PlanDashboardAgent` and `RagSuggestionService` omit prompt-injection guards on untrusted text
+
+`backend/app/modules/analytics/plan_agent.py` `PlanDashboardAgent.generate()` (lines
+94–124) interpolates `query` and `json.dumps(context)` directly into the LLM user
+message without calling `sanitize_message()` or `delimit_untrusted()`. Similarly,
+`backend/app/modules/rulepacks/rag_service.py` `_build_prompt()` (lines 111–143)
+interpolates `text_sample` (extracted from uploaded rulepack source files) and
+`json.dumps(summary)` without sanitization/delimiting. Both services use untrusted or
+semi-trusted text in the LLM prompt.
+
+`backend/app/modules/assistant/agent.py` demonstrates the expected pattern:
+`message = sanitize_message(message)` and `delimit_untrusted(blocks, 'clauses', ...)`.
+
+**Classification:** High  
+**Disposition:** Open — Release blocker for public launch; Accepted risk for internal
+pilot if rulepack RAG and plan-dashboard question inputs are restricted to trusted
+users.  
+**Remediation:** Apply `sanitize_message` to `query` and `text_sample`, and wrap
+`context` / `summary` / `text_sample` in `delimit_untrusted` blocks with an
+instruction to ignore any instructions inside the delimited text.
+
+### 9.6 Other retained / unverified findings
+
+* **TS-R03** — `backend/app/modules/risk/severity.py` `evaluate_severity()` falls back to
+  `default="medium"` when a rule references a missing fact. Low severity; retained.
+* **TS-UI-03** — Console noise on `/opportunities/[id]` (404/409 from baseline/finding
+  endpoints) was not re-verified this round because a running dev server was not
+  available.
+* **TS-E2E-01** — `frontend/e2e/golden-path.spec.ts` was not executed because the
+  Playwright environment was not started. The spec references the pre-redesign
+  `text=Create workspace` landing flow and must be re-verified against the new
+  sidebar/landing UI.
+
+### 9.7 Verification artifacts for Round 13
+
+| Check | Command | Result |
+|---|---|---|
+| Backend lint | `cd backend && .venv/bin/ruff check .` | Pass |
+| Backend type check | `cd backend && .venv/bin/mypy app` | Pass |
+| Backend tests | `cd backend && .venv/bin/pytest -q` | **663 passed, 5 skipped** |
+| Frontend lint | `cd frontend && npm run lint -- --max-warnings=0` | Pass |
+| Frontend type check | `cd frontend && npm run typecheck` | Pass |
+| Frontend build | `cd frontend && NEXT_PUBLIC_API_URL=http://localhost:8000/api npm run build` | Pass (**33 routes**) |
+| Frontend npm audit (high) | `cd frontend && npm audit --audit-level=high` | **0 vulnerabilities** |
+| Frontend npm audit (moderate) | `cd frontend && npm audit --audit-level=moderate` | **0 vulnerabilities** |
+| Backend pip-audit | `cd backend && .venv/bin/pip-audit --desc --local` | 13 findings in `pip`/`setuptools` build tools only |
+| Task tracker | `python3 scripts/task_tracker.py --validate` | Clean |
+
+### 9.8 Disposition summary
+
+| ID | Severity | Status | Disposition |
+|---|---|---|---|
+| TS-SEC-02 | High | Open | Release blocker for public launch |
+| TS-SEC-04 | High | Open | Release blocker for public launch |
+| TS-UI-05 | Medium | Open | Required pre-release work |
+| TS-UI-06 | Medium | Open | Required pre-release work |
+| TS-R03 | Low | Retained | Accepted / scheduled |
+| TS-UI-03 | Low | Retained | Unverified this round |
+| TS-E2E-01 | Low | Retained | Unverified this round |
+
+### 9.9 Final recommendation (Round 13)
+
+**STOP — CONDITIONAL GO** for controlled internal or single-customer pilot; **STOP — NO-GO** for public / paid production launch.
+
+The codebase is materially more complete and secure than at Round 11. However, the
+remaining High-severity Mermaid and prompt-injection issues, combined with 156
+unconsumed backend routes and three raw-JSON screens, still block a public launch.

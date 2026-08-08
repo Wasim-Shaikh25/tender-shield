@@ -20,12 +20,18 @@ import {
 import { useSession } from "@/components/session";
 import { SeverityBadge, SourceBadge } from "@/components/badges";
 import { artifactLabel, categoryLabel, deadlineLabel, statusLabel } from "@/lib/labels";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 import { ChangesTab } from "./changes-tab";
 import { ClaimsTab } from "./claims-tab";
 import { PricingTab } from "./pricing-tab";
 import { DrawingsTab } from "./drawings-tab";
 import { SubcontractsTab } from "./subcontracts-tab";
 import { RulepackSelector } from "./rulepack-selector";
+import { ExportMenu } from "@/components/ui/export-menu";
 
 export default function OpportunityDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -181,11 +187,15 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-ink">{title}</h1>
-        <div className="flex gap-2">
+        <div>
+          <h1 className="text-heading-lg text-text-primary">{title}</h1>
+          <p className="text-sm text-text-muted mt-1">Review this tender opportunity</p>
+        </div>
+        <div className="flex items-center gap-3">
           {session && <RulepackSelector token={session.token} opportunityId={id} />}
-          <label className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-white disabled:opacity-50">
+          <label className="cursor-pointer">
             <input
               type="file"
               className="hidden"
@@ -196,28 +206,50 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
               }}
               disabled={busy}
             />
-            Upload tender file
+            <Button variant="secondary" size="md" disabled={busy} onClick={(e) => {
+              (e.currentTarget.previousElementSibling as HTMLInputElement)?.click();
+            }}>
+              Upload file
+            </Button>
           </label>
-          <button
+          {session && gate?.export_allowed && (
+            <ExportMenu
+              opportunityId={id}
+              opportunityTitle={title}
+              token={session.token}
+              disabled={busy}
+            />
+          )}
+          <Button
+            variant="primary"
+            size="md"
             onClick={runRisk}
             disabled={busy}
-            className="rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
             {busy ? "Working…" : "Run risk review"}
-          </button>
+          </Button>
         </div>
       </div>
 
-      {note && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{note}</p>}
+      {/* Status Messages */}
+      {note && (
+        <Alert variant="success" title="Success">
+          {note}
+        </Alert>
+      )}
 
-      <div className="flex gap-1 border-b border-slate-200">
+      {/* Tab Navigation */}
+      <div className="flex gap-1 border-b border-border-default overflow-x-auto">
         {(["overview", "risks", "boq", "artifacts", "handover", "audit", "changes", "claims", "pricing", "drawings", "subcontracts"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm font-medium capitalize ${
-              tab === t ? "border-b-2 border-ink text-ink" : "text-slate-500 hover:text-ink"
-            }`}
+            className={cn(
+              "px-4 py-2.5 text-sm font-medium capitalize whitespace-nowrap transition-colors duration-base",
+              tab === t
+                ? "border-b-2 border-ink text-text-primary"
+                : "text-text-secondary hover:text-text-primary"
+            )}
           >
             {t === "boq" ? "BOQ" : t}
           </button>
@@ -227,213 +259,271 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
       {tab === "overview" && (
         <div className="space-y-6">
           <DeadlineWall deadlines={deadlines} onConfirm={confirm} />
-          <div className="rounded-xl border border-slate-200 bg-white p-6">
-            <h3 className="mb-3 font-semibold text-ink">Document checklist</h3>
-            {missing ? (
-              <div className="flex flex-wrap gap-2">
-                {missing.expected.map((k) => {
-                  const present = missing.present.includes(k);
-                  return (
-                    <span
-                      key={k}
-                      className={`rounded-full px-3 py-1 text-sm ${
-                        present ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"
-                      }`}
-                    >
-                      {present ? "✓" : "!"} {k.toUpperCase()}
-                    </span>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-slate-500">Loading checklist…</p>
-            )}
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Document Checklist</CardTitle>
+              <CardDescription>Verify all required documents are present</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {missing ? (
+                <div className="flex flex-wrap gap-2">
+                  {missing.expected.map((k) => {
+                    const present = missing.present.includes(k);
+                    return (
+                      <Badge
+                        key={k}
+                        variant={present ? "success" : "warning"}
+                        size="sm"
+                      >
+                        {present ? "✓" : "!"} {k.toUpperCase()}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-text-muted">Loading checklist...</p>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
 
       {tab === "risks" && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {gate && gate.total > 0 && (
-            <div
-              className={`rounded-md px-4 py-3 text-sm ${
-                gate.export_allowed
-                  ? "bg-emerald-50 text-emerald-800"
-                  : "bg-amber-50 text-amber-800"
-              }`}
+            <Alert
+              variant={gate.export_allowed ? "success" : "warning"}
+              title={gate.export_allowed ? "Review Complete" : "Action Required"}
             >
               {gate.export_allowed
-                ? "✓ Review complete — export unlocked."
-                : `Export blocked — ${gate.pending} of ${gate.total} findings still need review (accept/reject each).`}
-            </div>
+                ? "All findings reviewed - export unlocked."
+                : `${gate.pending} of ${gate.total} findings still need review (accept/reject each).`}
+            </Alert>
           )}
           {!findings ? (
-            <p className="text-sm text-slate-500">
-              Run the risk review to populate the register. Absence findings appear even without an
-              LLM key; clause judgments need <code>TS_OPENROUTER_API_KEY</code> on the server.
-            </p>
+            <Alert variant="info" title="Run Risk Review">
+              Upload the tender pack and run the risk review to see findings.
+            </Alert>
           ) : riskFindings.length === 0 ? (
-            <p className="text-sm text-slate-500">No risk findings yet — upload the tender and run again.</p>
+            <Card>
+              <CardContent className="py-8 text-center">
+                <p className="text-text-secondary">No risk findings yet — upload the tender and run again.</p>
+              </CardContent>
+            </Card>
           ) : (
             riskFindings.map((f, i) => (
-              <div key={f.id ?? i} className="rounded-xl border border-slate-200 bg-white p-5">
-                <div className="mb-2 flex items-center gap-2">
-                  <SeverityBadge severity={f.severity} />
-                  <span className="text-xs uppercase tracking-wide text-slate-400">{categoryLabel(f.category)}</span>
-                  <SourceBadge source={f.source ?? "ai_suggestion"} />
-                  {f.source_page && <span className="text-xs text-slate-400">p{f.source_page}</span>}
-                  {f.review_status && f.review_status !== "proposed" && (
-                    <span
-                      className={`ml-auto text-xs font-medium ${
-                        f.review_status === "rejected" ? "text-slate-400" : "text-emerald-600"
-                      }`}
-                    >
-                      {statusLabel(f.review_status)}
-                    </span>
-                  )}
-                </div>
-                <h4 className="font-semibold text-ink">{f.title}</h4>
-                <p className="mt-1 text-sm text-slate-600">{f.detail}</p>
-                {f.source_quote && (
-                  <blockquote className="mt-2 border-l-2 border-slate-300 pl-3 text-sm italic text-slate-500">
-                    “{f.source_quote}”
-                  </blockquote>
-                )}
-                {f.id && f.review_status === "proposed" && (
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      onClick={() => review(f.id!, "accepted")}
-                      className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:opacity-90"
-                    >
-                      Accept
-                    </button>
-                    <button
-                      onClick={() => review(f.id!, "rejected")}
-                      className="rounded-md border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:border-ink hover:text-ink"
-                    >
-                      Reject
-                    </button>
+              <Card key={f.id ?? i}>
+                <CardContent className="pt-6">
+                  <div className="mb-3 flex items-start justify-between">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <SeverityBadge severity={f.severity} />
+                      <Badge variant="secondary" size="sm">
+                        {categoryLabel(f.category)}
+                      </Badge>
+                      <SourceBadge source={f.source ?? "ai_suggestion"} />
+                      {f.source_page && (
+                        <span className="text-xs text-text-muted">p{f.source_page}</span>
+                      )}
+                    </div>
+                    {f.review_status && f.review_status !== "proposed" && (
+                      <Badge
+                        variant={f.review_status === "rejected" ? "secondary" : "success"}
+                        size="sm"
+                      >
+                        {statusLabel(f.review_status)}
+                      </Badge>
+                    )}
                   </div>
-                )}
-              </div>
+                  <h4 className="font-semibold text-text-primary text-base">{f.title}</h4>
+                  <p className="mt-2 text-sm text-text-secondary">{f.detail}</p>
+                  {f.source_quote && (
+                    <blockquote className="mt-3 border-l-2 border-border-default pl-3 text-sm italic text-text-tertiary">
+                      {`"${f.source_quote}"`}
+                    </blockquote>
+                  )}
+                  {f.id && f.review_status === "proposed" && (
+                    <div className="mt-4 flex gap-2">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => review(f.id!, "accepted")}
+                      >
+                        Accept
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => review(f.id!, "rejected")}
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             ))
           )}
         </div>
       )}
 
       {tab === "boq" && (
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <p className="text-sm text-slate-500">
-              Deterministic BOQ checks — arithmetic, duplicates, blank rates, scope gaps. Paste a
-              CSV with columns src_sheet,src_row,item_code,description,unit_raw,qty,rate,amount.
-            </p>
-            <textarea
-              value={boqCsv}
-              onChange={(e) => setBoqCsv(e.target.value)}
-              rows={6}
-              placeholder="src_sheet,src_row,item_code,description,unit_raw,qty,rate,amount"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono outline-none focus:border-ink"
-            />
-            <button
-              onClick={runBoq}
-              disabled={busy || !boqCsv.trim()}
-              className="rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-            >
-              {busy ? "Checking…" : "Check BOQ"}
-            </button>
-          </div>
-          {boqFindings.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              No BOQ defects yet — paste a CSV and run a check (defects also feed the export register).
-            </p>
-          ) : (
-            boqFindings.map((f, i) => (
-              <div key={f.id ?? i} className="rounded-xl border border-slate-200 bg-white p-5">
-                <div className="mb-1 flex items-center gap-2">
-                  <SeverityBadge severity={f.severity} />
-                  <span className="text-xs uppercase tracking-wide text-slate-400">{categoryLabel(f.category)}</span>
-                  <SourceBadge source="deterministic_check" />
-                </div>
-                <h4 className="font-semibold text-ink">{f.title}</h4>
-                <p className="mt-1 text-sm text-slate-600">{f.detail}</p>
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>BOQ Checker</CardTitle>
+              <CardDescription>Verify Bill of Quantities for arithmetic, duplicates, and scope gaps</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label htmlFor="boq-csv" className="block text-sm font-medium text-text-primary mb-2">
+                  CSV Format
+                </label>
+                <p className="text-sm text-text-secondary mb-3">
+                  Columns: src_sheet, src_row, item_code, description, unit_raw, qty, rate, amount
+                </p>
+                <textarea
+                  id="boq-csv"
+                  value={boqCsv}
+                  onChange={(e) => setBoqCsv(e.target.value)}
+                  rows={6}
+                  placeholder="src_sheet,src_row,item_code,description,unit_raw,qty,rate,amount"
+                  className="w-full rounded-md border border-border-default px-3 py-2 text-sm font-mono outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                />
               </div>
-            ))
+              <Button
+                variant="primary"
+                size="md"
+                onClick={runBoq}
+                disabled={busy || !boqCsv.trim()}
+              >
+                {busy ? "Checking…" : "Check BOQ"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {boqFindings.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <p className="text-text-secondary">No BOQ defects yet — paste a CSV and run a check.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {boqFindings.map((f, i) => (
+                <Card key={f.id ?? i}>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-2 mb-2">
+                      <SeverityBadge severity={f.severity} />
+                      <Badge variant="secondary" size="sm">
+                        {categoryLabel(f.category)}
+                      </Badge>
+                      <SourceBadge source="deterministic_check" />
+                    </div>
+                    <h4 className="font-semibold text-text-primary">{f.title}</h4>
+                    <p className="mt-1 text-sm text-text-secondary">{f.detail}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           )}
         </div>
       )}
 
       {tab === "artifacts" && (
         <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => generate("clarification_letter")}
-              disabled={busy || !gate?.export_allowed}
-              className="rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40"
-            >
-              Generate clarification letter
-            </button>
-            <button
-              onClick={() => generate("assumptions_register")}
-              disabled={busy || !gate?.export_allowed}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-white disabled:opacity-40"
-            >
-              Generate assumptions register
-            </button>
-            <span className="mx-1 w-px self-stretch bg-slate-200" />
-            <button
-              onClick={() => downloadExport("docx")}
-              disabled={!gate?.export_allowed}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-white disabled:opacity-40"
-            >
-              Export .docx
-            </button>
-            <button
-              onClick={() => downloadExport("xlsx")}
-              disabled={!gate?.export_allowed}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-white disabled:opacity-40"
-            >
-              Export .xlsx
-            </button>
-          </div>
-          {!gate?.export_allowed && (
-            <p className="text-xs text-amber-700">
-              Accept/reject all findings on the Risks tab first — generation needs a completed review.
-            </p>
-          )}
-          {artifacts.length === 0 ? (
-            <p className="text-sm text-slate-500">No artifacts generated yet.</p>
-          ) : (
-            artifacts.map((a) => (
-              <div key={a.id} className="rounded-xl border border-slate-200 bg-white p-5">
-                <div className="mb-2 flex items-center justify-between">
-                  <h4 className="font-semibold text-ink">{a.body.title}</h4>
-                  <span className="text-xs text-slate-400">
-                    {artifactLabel(a.kind)} · v{a.version}
-                  </span>
-                </div>
-                {a.body.preamble && <p className="mb-3 text-sm text-slate-600">{a.body.preamble}</p>}
-                <ol className="space-y-2 text-sm">
-                  {a.body.items.map((item, i) => (
-                    <li key={i} className="border-l-2 border-slate-200 pl-3">
-                      <div className="font-medium text-slate-800">
-                        {(item.heading as string) ??
-                          `[${item.category as string}] ${item.assumption as string}`}
-                      </div>
-                      {typeof item.quote === "string" && (
-                        <div className="italic text-slate-500">“{item.quote}”</div>
-                      )}
-                      {typeof item.ask === "string" && (
-                        <div className="text-slate-600">{item.ask}</div>
-                      )}
-                      {typeof item.source_page === "number" && (
-                        <span className="text-xs text-slate-400">p{item.source_page}</span>
-                      )}
-                    </li>
-                  ))}
-                </ol>
+          <Card>
+            <CardHeader>
+              <CardTitle>Generate & Export</CardTitle>
+              <CardDescription>Create artifacts and export your bid review</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={() => generate("clarification_letter")}
+                  disabled={busy || !gate?.export_allowed}
+                >
+                  Generate clarification letter
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={() => generate("assumptions_register")}
+                  disabled={busy || !gate?.export_allowed}
+                >
+                  Generate assumptions register
+                </Button>
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={() => downloadExport("docx")}
+                  disabled={!gate?.export_allowed}
+                >
+                  Export .docx
+                </Button>
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={() => downloadExport("xlsx")}
+                  disabled={!gate?.export_allowed}
+                >
+                  Export .xlsx
+                </Button>
               </div>
-            ))
+              {!gate?.export_allowed && (
+                <Alert variant="warning" title="Complete Review First">
+                  Accept/reject all findings on the Risks tab to unlock generation and export.
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+
+          {artifacts.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <p className="text-text-secondary">No artifacts generated yet.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {artifacts.map((a) => (
+                <Card key={a.id}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <CardTitle>{a.body.title}</CardTitle>
+                      <Badge variant="secondary" size="sm">
+                        {artifactLabel(a.kind)} v{a.version}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {a.body.preamble && (
+                      <p className="text-sm text-text-secondary">{a.body.preamble}</p>
+                    )}
+                    <ol className="space-y-2 text-sm">
+                      {a.body.items.map((item, i) => (
+                        <li key={i} className="border-l-2 border-border-default pl-3">
+                          <div className="font-medium text-text-primary">
+                            {(item.heading as string) ??
+                              `[${item.category as string}] ${item.assumption as string}`}
+                          </div>
+                          {typeof item.quote === "string" && (
+                            <div className="italic text-text-muted text-sm">{`"${item.quote}"`}</div>
+                          )}
+                          {typeof item.ask === "string" && (
+                            <div className="text-text-secondary text-sm">{item.ask}</div>
+                          )}
+                          {typeof item.source_page === "number" && (
+                            <span className="text-xs text-text-muted">p{item.source_page}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ol>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -455,22 +545,36 @@ export default function OpportunityDetail({ params }: { params: Promise<{ id: st
       {tab === "audit" && (
         <div className="space-y-3">
           {auditLog.length === 0 ? (
-            <p className="text-sm text-slate-500">No audit entries yet.</p>
+            <Card>
+              <CardContent className="py-8 text-center">
+                <p className="text-text-secondary">No audit entries yet.</p>
+              </CardContent>
+            </Card>
           ) : (
-            <ul className="space-y-2 text-sm">
+            <div className="space-y-3">
               {auditLog.map((a) => (
-                <li key={a.id} className="rounded-xl border border-slate-200 bg-white p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium capitalize text-ink">{a.action.replace(/_/g, " ")}</span>
-                    <span className="text-xs text-slate-400">{new Date(a.created_at).toLocaleString()}</span>
-                  </div>
-                  {a.actor_email && <p className="text-slate-500">by {a.actor_email}</p>}
-                  {Object.keys(a.meta).length > 0 && (
-                    <pre className="mt-2 rounded bg-slate-50 p-2 text-xs text-slate-600">{JSON.stringify(a.meta, null, 2)}</pre>
-                  )}
-                </li>
+                <Card key={a.id}>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium capitalize text-text-primary">
+                        {a.action.replace(/_/g, " ")}
+                      </span>
+                      <span className="text-xs text-text-muted">
+                        {new Date(a.created_at).toLocaleString()}
+                      </span>
+                    </div>
+                    {a.actor_email && (
+                      <p className="text-sm text-text-secondary">by {a.actor_email}</p>
+                    )}
+                    {Object.keys(a.meta).length > 0 && (
+                      <pre className="mt-2 rounded bg-bg-secondary p-2 text-xs text-text-secondary font-mono">
+                        {JSON.stringify(a.meta, null, 2)}
+                      </pre>
+                    )}
+                  </CardContent>
+                </Card>
               ))}
-            </ul>
+            </div>
           )}
         </div>
       )}
@@ -522,186 +626,210 @@ function HandoverTab({
   const canFreeze = !!gate?.export_allowed;
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-slate-200 bg-white p-6">
-        <h3 className="font-semibold text-ink">Baseline lock</h3>
-        <p className="mt-1 text-sm text-slate-600">
-          At award, freeze the reviewed commercial state into an immutable, hash-sealed record so
-          tender knowledge survives handover. Freezing needs a completed review.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            onClick={() => onFreeze("tender")}
-            disabled={busy || !canFreeze}
-            className="rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40"
-          >
-            Freeze tender baseline
-          </button>
-          <button
-            onClick={() => onFreeze("award")}
-            disabled={busy || !canFreeze}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-white disabled:opacity-40"
-          >
-            Freeze award baseline
-          </button>
-        </div>
-        {!canFreeze && (
-          <p className="mt-2 text-xs text-amber-700">
-            Accept/reject all findings on the Risks tab first — the freeze is gated on review.
-          </p>
-        )}
-        {baselines.length > 0 && (
-          <ul className="mt-4 divide-y divide-slate-100 border-t border-slate-100">
-            {baselines.map((b) => (
-              <li key={b.id} className="flex items-center justify-between py-2 text-sm">
-                <span className="font-medium text-ink capitalize">
-                  v{b.version} · {b.source}
-                </span>
-                <span className="font-mono text-xs text-slate-400">
-                  {b.content_sha256.slice(0, 16)}…
-                </span>
-                <span className="text-xs text-slate-500">
-                  {b.counts.findings ?? 0} findings · {b.counts.notice_rules ?? 0} notices
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      <div className="rounded-xl border border-slate-200 bg-white p-6">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-ink">Notice-rule register</h3>
-          {noticeRegion && (
-            <span className="rounded-full bg-ink/5 px-2.5 py-1 text-xs font-semibold text-ink">
-              standard: universal + {noticeRegion}
-            </span>
-          )}
-        </div>
-        <p className="mt-1 text-xs text-slate-500">
-          Contractual time windows extracted deterministically — the traps that become time-bar
-          countdowns. Each carries its page citation.
-        </p>
-        {notices.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-500">
-            No notice windows detected in the reviewed findings yet.
-          </p>
-        ) : (
-          <ul className="mt-3 space-y-2">
-            {notices.map((n, i) => (
-              <li key={i} className="rounded-lg border border-slate-200 p-3 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="rounded bg-ink px-2 py-0.5 text-xs font-bold text-white">
-                    {n.days}d
-                  </span>
-                  <span className="uppercase tracking-wide text-xs text-slate-400">
-                    {categoryLabel(n.category)}
-                  </span>
-                  {n.source_page && <span className="text-xs text-slate-400">p{n.source_page}</span>}
-                </div>
-                <p className="mt-1 text-slate-600">{n.trigger}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-        {noticeGaps.length > 0 && (
-          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
-            <h4 className="text-sm font-semibold text-amber-900">
-              Expected notice regimes not found in this contract
-            </h4>
-            <p className="mt-1 text-xs text-amber-800">
-              The standard expects these; the pack has no explicit window. Confirm against the
-              originals — an absent regime can itself be a trap.
-            </p>
-            <ul className="mt-2 flex flex-wrap gap-2">
-              {noticeGaps.map((g) => (
-                <li
-                  key={g.key}
-                  className="rounded-full bg-white px-2.5 py-1 text-xs text-amber-800 ring-1 ring-amber-200"
-                  title={g.note ?? undefined}
-                >
-                  {g.label}
-                  {g.typical_days != null && (
-                    <span className="ml-1 text-amber-500">(usually {g.typical_days}d)</span>
-                  )}
-                  {g.origin === "org" && (
-                    <span className="ml-1 rounded bg-ink px-1 text-[10px] font-bold uppercase text-white">
-                      your standard
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
+      <Card>
+        <CardHeader>
+          <CardTitle>Baseline Lock</CardTitle>
+          <CardDescription>
+            Freeze the reviewed commercial state into an immutable, hash-sealed record
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => onFreeze("tender")}
+              disabled={busy || !canFreeze}
+            >
+              Freeze tender baseline
+            </Button>
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => onFreeze("award")}
+              disabled={busy || !canFreeze}
+            >
+              Freeze award baseline
+            </Button>
           </div>
-        )}
-      </div>
+          {!canFreeze && (
+            <Alert variant="warning" title="Complete Review First">
+              Accept/reject all findings on the Risks tab to enable freezing.
+            </Alert>
+          )}
+          {baselines.length > 0 && (
+            <div className="space-y-2 border-t border-border-default pt-4">
+              <p className="text-sm font-medium text-text-primary">Sealed Baselines</p>
+              {baselines.map((b) => (
+                <div
+                  key={b.id}
+                  className="flex items-center justify-between p-3 rounded-lg border border-border-default"
+                >
+                  <span className="font-medium text-text-primary capitalize">
+                    v{b.version} · {b.source}
+                  </span>
+                  <div className="flex items-center gap-4">
+                    <span className="font-mono text-xs text-text-muted">
+                      {b.content_sha256.slice(0, 16)}…
+                    </span>
+                    <span className="text-xs text-text-secondary">
+                      {b.counts.findings ?? 0} findings · {b.counts.notice_rules ?? 0} notices
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between">
+            <div>
+              <CardTitle>Notice-Rule Register</CardTitle>
+              <CardDescription>Contractual time windows and deadline triggers</CardDescription>
+            </div>
+            {noticeRegion && (
+              <Badge variant="secondary" size="sm">
+                {noticeRegion}
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {notices.length === 0 ? (
+            <p className="text-sm text-text-secondary">
+              No notice windows detected in the reviewed findings yet.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {notices.map((n, i) => (
+                <div key={i} className="rounded-lg border border-border-default p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="primary" size="sm">
+                      {n.days}d
+                    </Badge>
+                    <Badge variant="secondary" size="sm">
+                      {categoryLabel(n.category)}
+                    </Badge>
+                    {n.source_page && (
+                      <span className="text-xs text-text-muted">p{n.source_page}</span>
+                    )}
+                  </div>
+                  <p className="text-sm text-text-secondary">{n.trigger}</p>
+                </div>
+              ))}
+            </div>
+          )}
+          {noticeGaps.length > 0 && (
+            <Alert variant="warning" title="Missing Notice Regimes">
+              <div className="text-sm space-y-2">
+                <p>
+                  The standard expects these windows, but the contract has no explicit language.
+                  Confirm against the originals — absence can itself be a trap.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {noticeGaps.map((g) => (
+                    <Badge
+                      key={g.key}
+                      variant="warning"
+                      size="sm"
+                      title={g.note ?? undefined}
+                    >
+                      {g.label}
+                      {g.typical_days != null && ` (${g.typical_days}d)`}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
 
       {compare && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6">
-          <h3 className="font-semibold text-ink">Award vs tender</h3>
-          <p className="mt-1 text-xs text-slate-500">
-            Delta between the sealed tender baseline (v{compare.tender_version}) and the award
-            baseline (v{compare.award_version}).
-          </p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-3 text-sm">
-            <DeltaCol title="Added at award" items={compare.added.map((f) => f.title)} tone="emerald" />
-            <DeltaCol title="Dropped at award" items={compare.removed.map((f) => f.title)} tone="slate" />
-            <DeltaCol title="Changed" items={compare.changed.map((c) => c.title)} tone="amber" />
-          </div>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Award vs Tender Comparison</CardTitle>
+            <CardDescription>
+              Delta between sealed tender v{compare.tender_version} and award v{compare.award_version}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <DeltaCol title="Added at award" items={compare.added.map((f) => f.title)} variant="success" />
+              <DeltaCol title="Dropped at award" items={compare.removed.map((f) => f.title)} variant="secondary" />
+              <DeltaCol title="Changed" items={compare.changed.map((c) => c.title)} variant="warning" />
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {pack && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-ink">Commercial handover pack</h3>
-            <span className="font-mono text-xs text-slate-400">
-              sealed {pack.sealed_hash.slice(0, 16)}…
-            </span>
-          </div>
-          <p className="mt-1 text-xs text-slate-500">
-            v{pack.version} ({pack.source}) · {pack.counts.findings ?? 0} findings,{" "}
-            {pack.counts.deadlines ?? 0} deadlines, {pack.counts.notice_rules ?? 0} notice rules.
-          </p>
-          <h4 className="mt-4 text-sm font-semibold text-ink">Key obligations</h4>
-          {pack.key_obligations.length === 0 ? (
-            <p className="text-sm text-slate-500">No critical/high obligations frozen.</p>
-          ) : (
-            <ul className="mt-2 space-y-2">
-              {pack.key_obligations.map((f, i) => (
-                <li key={i} className="border-l-2 border-slate-200 pl-3 text-sm">
-                  <div className="flex items-center gap-2">
-                    <SeverityBadge severity={f.severity} />
-                    <span className="font-medium text-slate-800">{f.title}</span>
-                  </div>
-                  {f.source_quote && (
-                    <div className="mt-0.5 italic text-slate-500">“{f.source_quote}”</div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <Card>
+          <CardHeader>
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle>Commercial Handover Pack</CardTitle>
+                <CardDescription>
+                  v{pack.version} ({pack.source}) · {pack.counts.findings ?? 0} findings,{" "}
+                  {pack.counts.deadlines ?? 0} deadlines, {pack.counts.notice_rules ?? 0} notice rules
+                </CardDescription>
+              </div>
+              <span className="font-mono text-xs text-text-muted">
+                {pack.sealed_hash.slice(0, 16)}…
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <h4 className="text-sm font-semibold text-text-primary mb-3">Key Obligations</h4>
+              {pack.key_obligations.length === 0 ? (
+                <p className="text-sm text-text-secondary">No critical/high obligations frozen.</p>
+              ) : (
+                <div className="space-y-2">
+                  {pack.key_obligations.map((f, i) => (
+                    <div key={i} className="border-l-2 border-border-default pl-3">
+                      <div className="flex items-center gap-2">
+                        <SeverityBadge severity={f.severity} />
+                        <span className="font-medium text-text-primary">{f.title}</span>
+                      </div>
+                      {f.source_quote && (
+                        <div className="mt-1 italic text-text-muted text-sm">
+                          {`"${f.source_quote}"`}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
 }
 
-function DeltaCol({ title, items, tone }: { title: string; items: string[]; tone: string }) {
-  const cls =
-    tone === "emerald"
-      ? "text-emerald-700"
-      : tone === "amber"
-        ? "text-amber-700"
-        : "text-slate-500";
+function DeltaCol({ title, items, variant }: { title: string; items: string[]; variant: "success" | "warning" | "secondary" }) {
+  const colorClass = {
+    success: "text-success",
+    warning: "text-warning",
+    secondary: "text-text-secondary",
+  }[variant];
+
   return (
-    <div className="rounded-lg border border-slate-200 p-3">
-      <div className={`text-xs font-semibold uppercase tracking-wide ${cls}`}>{title}</div>
+    <div className="rounded-lg border border-border-default p-3">
+      <div className={`text-xs font-semibold uppercase tracking-wide ${colorClass}`}>
+        {title}
+      </div>
       {items.length === 0 ? (
-        <p className="mt-1 text-xs text-slate-400">none</p>
+        <p className="mt-1 text-xs text-text-muted">none</p>
       ) : (
-        <ul className="mt-1 space-y-1">
+        <ul className="mt-2 space-y-1">
           {items.map((t, i) => (
-            <li key={i} className="text-slate-700">
+            <li key={i} className="text-sm text-text-primary">
               {t}
             </li>
           ))}
@@ -719,60 +847,65 @@ function DeadlineWall({
   onConfirm: (id: string) => void;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-6">
-      <h3 className="mb-1 font-semibold text-ink">Deadline wall</h3>
-      <p className="mb-4 text-xs text-slate-500">
-        Extracted deterministically with page citations — confirm each before you rely on it.
-      </p>
-      {deadlines.length === 0 ? (
-        <p className="text-sm text-slate-500">
-          No deadlines yet — upload the tender (its NIT dates are extracted automatically).
-        </p>
-      ) : (
-        <ul className="divide-y divide-slate-100">
-          {deadlines.map((d) => {
-            const days = d.due_at
-              ? Math.ceil((new Date(d.due_at).getTime() - Date.now()) / 86_400_000)
-              : null;
-            const tone =
-              days === null
-                ? "text-slate-400"
-                : days < 3
-                  ? "text-red-600"
-                  : days < 7
-                    ? "text-amber-600"
-                    : "text-emerald-600";
-            return (
-              <li key={d.id} className="flex items-center justify-between py-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-ink">{deadlineLabel(d.kind)}</span>
-                    {d.source_page && (
-                      <span className="text-xs text-slate-400">p{d.source_page}</span>
-                    )}
+    <Card>
+      <CardHeader>
+        <CardTitle>Deadline Wall</CardTitle>
+        <CardDescription>Key deadlines extracted from the tender pack</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {deadlines.length === 0 ? (
+          <p className="text-sm text-text-secondary">
+            No deadlines yet — upload the tender to extract dates automatically.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {deadlines.map((d) => {
+              const days = d.due_at
+                ? Math.ceil((new Date(d.due_at).getTime() - Date.now()) / 86_400_000)
+                : null;
+              const urgencyVariant: "error" | "warning" | "info" =
+                days === null ? "info" : days < 3 ? "error" : days < 7 ? "warning" : "info";
+
+              return (
+                <div
+                  key={d.id}
+                  className="flex items-center justify-between p-3 rounded-lg border border-border-default hover:bg-bg-secondary transition-colors"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-text-primary">
+                        {deadlineLabel(d.kind)}
+                      </span>
+                      {d.source_page && (
+                        <span className="text-xs text-text-muted">p{d.source_page}</span>
+                      )}
+                    </div>
+                    <div className="text-sm text-text-secondary mt-1">
+                      {d.due_at ? new Date(d.due_at).toLocaleDateString("en-IN") : "date not parsed"}
+                      {days !== null && (
+                        <span className="ml-2 font-semibold">({days}d)</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-sm text-slate-500">
-                    {d.due_at ? new Date(d.due_at).toLocaleDateString() : "date not parsed"}
-                    {days !== null && <span className={`ml-2 font-semibold ${tone}`}>({days}d)</span>}
-                  </div>
+                  {d.confirmed ? (
+                    <Badge variant="success" size="sm">
+                      ✓ confirmed
+                    </Badge>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onConfirm(d.id)}
+                    >
+                      Confirm
+                    </Button>
+                  )}
                 </div>
-                {d.confirmed ? (
-                  <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                    ✓ confirmed
-                  </span>
-                ) : (
-                  <button
-                    onClick={() => onConfirm(d.id)}
-                    className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:border-ink hover:text-ink"
-                  >
-                    Confirm
-                  </button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

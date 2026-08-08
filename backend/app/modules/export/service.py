@@ -11,6 +11,7 @@ from datetime import date
 
 from sqlalchemy import select
 
+from app.modules.export.email_export import generate_email_template_for_api
 from app.modules.export.models import ReportTemplate
 from app.modules.export.render import (
     UNREVIEWED_VARIANT,
@@ -20,6 +21,7 @@ from app.modules.export.render import (
     render_xlsx,
     verify_unreviewed_watermark,
 )
+from app.modules.export.version_comparison import generate_comparison_summary
 
 logger = logging.getLogger(__name__)
 
@@ -234,7 +236,9 @@ class ExportService:
             fmt, title, workspace_id, opportunity_id, meta, template=template
         )
 
-        filename = f"bid-review-pack-{opportunity_id}.{ext}"
+        # Format: bid-review-[opportunityId]-[date].[ext]
+        export_date = meta["date"].replace("-", "")  # YYYYMMDD format
+        filename = f"bid-review-{opportunity_id}-{export_date}.{ext}"
         return filename, media_type, data
 
     def export_unreviewed(
@@ -381,3 +385,80 @@ class ExportService:
         row.is_default = True
         self.s.commit()
         return self._template_row_to_dict(row)
+
+    # ---- email export (TS-369) -----------------------------------------------
+    def email_summary(
+        self,
+        workspace_id,
+        opportunity_id,
+        *,
+        role: str | None = None,
+    ) -> dict:
+        """Generate email-ready summary with findings.
+
+        Returns dict with subject, body, body_html, mailto_link, preview.
+        """
+        if not self._gate_ok(workspace_id, opportunity_id):
+            raise ExportError("review_incomplete")
+
+        title = self._title(workspace_id, opportunity_id)
+        findings = self._findings(workspace_id, opportunity_id)
+
+        # Prepare reviewer email for attribution
+        reviewer_email = None
+        reviewer_meta = self._reviewer_meta(workspace_id, opportunity_id)
+        if reviewer_meta.get("reviewed_by_email"):
+            reviewer_email = reviewer_meta["reviewed_by_email"]
+
+        # For now, deadline_info is optional — can be populated from opportunity/project data
+        deadline_info = None
+        if self._ingestion_factory:
+            opp = self._ingestion_factory(self.s).get_opportunity(workspace_id, opportunity_id)
+            if opp and hasattr(opp, "deadline"):
+                deadline_date = opp.deadline
+                if deadline_date:
+                    days_left = (deadline_date.date() - date.today()).days
+                    deadline_info = {
+                        "date": deadline_date.isoformat(),
+                        "days_left": max(0, days_left),
+                    }
+
+        return generate_email_template_for_api(
+            title, findings, deadline_info=deadline_info, reviewer_email=reviewer_email
+        )
+
+    # ---- version comparison (TS-370) -----------------------------------------------
+    def comparison_summary(
+        self,
+        workspace_id,
+        opportunity_id,
+        version_1_date: str,
+        version_1_findings: list[dict] | None = None,
+        version_2_date: str | None = None,
+        version_2_findings: list[dict] | None = None,
+    ) -> dict:
+        """Generate comparison summary between two analysis versions.
+
+        If versions not provided, uses current findings and compares against
+        proposed vs accepted findings (before/after review).
+
+        Returns dict with subject, body, and detailed change statistics.
+        """
+        title = self._title(workspace_id, opportunity_id)
+
+        # If version_2 not specified, use current state (all findings)
+        if version_2_findings is None:
+            version_2_findings = self._findings(workspace_id, opportunity_id)
+            version_2_date = date.today().isoformat()
+
+        # If version_1 not provided, use current state (this shouldn't normally happen)
+        if version_1_findings is None:
+            version_1_findings = self._findings(workspace_id, opportunity_id)
+
+        return generate_comparison_summary(
+            title,
+            version_1_date,
+            version_1_findings,
+            version_2_date or date.today().isoformat(),
+            version_2_findings,
+        )

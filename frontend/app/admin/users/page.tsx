@@ -5,21 +5,31 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, type User } from "@/lib/api";
 import { useSession } from "@/components/session";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
+import { Dropdown, DropdownItem, DropdownSeparator } from "@/components/ui/dropdown";
 
 export default function AdminUsersPage() {
   const { session } = useSession();
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
     if (!session) return;
+    setLoading(true);
     try {
       const r = await api.adminSearchUsers(session.token, query || undefined);
       setUsers(r.items);
+      setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load users");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -34,71 +44,120 @@ export default function AdminUsersPage() {
     return null;
   }
   if (!session.is_superadmin) {
-    return <p className="p-6 text-sm text-red-600">Superadmin access required.</p>;
+    return <Alert variant="error" title="Access Denied">Superadmin access required.</Alert>;
   }
 
   const suspend = async (id: string) => {
     if (!session) return;
-    await api.adminSuspendUser(session.token, id);
-    load();
+    setLoading(true);
+    try {
+      await api.adminSuspendUser(session.token, id);
+      await load();
+    } finally {
+      setLoading(false);
+    }
   };
 
   const unsuspend = async (id: string) => {
     if (!session) return;
-    await api.adminUnsuspendUser(session.token, id);
-    load();
+    setLoading(true);
+    try {
+      await api.adminUnsuspendUser(session.token, id);
+      await load();
+    } finally {
+      setLoading(false);
+    }
   };
 
   const deleteUser = async (id: string) => {
     if (!session || !confirm("Delete this user and all owned workspaces?")) return;
-    await api.adminDeleteUser(session.token, id);
-    load();
+    setLoading(true);
+    try {
+      await api.adminDeleteUser(session.token, id);
+      await load();
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold text-ink">Users</h1>
-      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-heading-lg text-text-primary">User Management</h1>
+        <p className="text-sm text-text-muted mt-2">Search and manage all users in the system</p>
+      </div>
 
-      <form onSubmit={(e) => { e.preventDefault(); load(); }} className="flex gap-2">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by email, phone, org, workspace"
-          className="w-full max-w-md rounded-md border border-slate-300 px-3 py-2 text-sm"
-        />
-        <button type="submit" className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white">Search</button>
-      </form>
+      {/* Alerts */}
+      {error && <Alert variant="error" title="Error">{error}</Alert>}
 
-      <table className="w-full text-sm">
-        <thead className="border-b border-slate-200 text-left text-slate-500">
-          <tr>
-            <th className="py-2">Email</th>
-            <th className="py-2">Org</th>
-            <th className="py-2">Verified</th>
-            <th className="py-2">Status</th>
-            <th className="py-2">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {users.map((u) => (
-            <tr key={u.user_id}>
-              <td className="py-2"><Link href={`/admin/users/${u.user_id}`} className="text-indigo-600 hover:underline">{u.email}</Link></td>
-              <td className="py-2">{u.org_name || "—"}</td>
-              <td className="py-2">{u.email_verified ? "E" : "—"}/{u.mobile_verified ? "M" : "—"}</td>
-              <td className="py-2">{u.suspended_at ? "Suspended" : "Active"}</td>
-              <td className="py-2 space-x-2">
-                {u.suspended_at ? (
-                  <button onClick={() => unsuspend(u.user_id)} className="text-indigo-600 hover:underline">Unsuspend</button>
-                ) : (
-                  <button onClick={() => suspend(u.user_id)} className="text-amber-600 hover:underline">Suspend</button>
-                )}
-                <button onClick={() => deleteUser(u.user_id)} className="text-red-600 hover:underline">Delete</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* Search */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Search Users</CardTitle>
+          <CardDescription>Find users by email, phone, organization, or workspace</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={(e) => { e.preventDefault(); load(); }} className="flex gap-2">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by email, phone, org, workspace"
+              className="flex-1 rounded-md border border-border-default px-3 py-2 text-sm text-text-primary outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+              disabled={loading}
+            />
+            <Button variant="primary" size="md" type="submit" disabled={loading}>
+              {loading ? "Searching..." : "Search"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Users List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Users</CardTitle>
+          <CardDescription>{users.length} user{users.length !== 1 ? "s" : ""} found</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {users.length === 0 ? (
+            <p className="text-sm text-text-muted py-4">No users found. Try adjusting your search.</p>
+          ) : (
+            <div className="space-y-3">
+              {users.map((u) => (
+                <div key={u.user_id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border border-border-default hover:bg-bg-secondary transition-colors">
+                  <div className="flex-1">
+                    <Link href={`/admin/users/${u.user_id}`} className="font-medium text-ink hover:underline">
+                      {u.email}
+                    </Link>
+                    <p className="text-sm text-text-muted mt-1">{u.org_name || "No organization"}</p>
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      {u.email_verified && <Badge variant="success" size="sm">Email verified</Badge>}
+                      {u.mobile_verified && <Badge variant="success" size="sm">Mobile verified</Badge>}
+                      {u.suspended_at && <Badge variant="warning" size="sm">Suspended</Badge>}
+                    </div>
+                  </div>
+                  <Dropdown trigger={<Button variant="outline" size="sm">Actions ▼</Button>} align="right">
+                    {u.suspended_at ? (
+                      <DropdownItem onClick={() => unsuspend(u.user_id)} disabled={loading}>
+                        Unsuspend
+                      </DropdownItem>
+                    ) : (
+                      <DropdownItem onClick={() => suspend(u.user_id)} disabled={loading}>
+                        Suspend
+                      </DropdownItem>
+                    )}
+                    <DropdownSeparator />
+                    <DropdownItem destructive onClick={() => deleteUser(u.user_id)} disabled={loading}>
+                      Delete
+                    </DropdownItem>
+                  </Dropdown>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

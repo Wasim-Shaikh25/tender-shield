@@ -45,6 +45,7 @@ change (`CLAUDE.md` §1.2).
 | `900-production-readiness-audit-fixes.md` | Cross-cutting hardening and product completeness from audit | `PRODUCTION_READINESS_AUDIT.md` |
 | `901-post-audit-remaining-fixes.md` | Second batch of audit fixes after TS-083–TS-092 | `PRODUCTION_READINESS_AUDIT.md` |
 | `902-changelog-check.md` | CI gate enforcing `CHANGELOG.md` updates on code-changing PRs | `CLAUDE.md` §1.5 |
+| `904-round13-gap-closure.md` | Round 13 audit gap closure: Mermaid sandboxing, prompt-injection guards, Phase 1 UI/API wiring, raw-JSON UX fixes | `PRODUCTION_READINESS_AUDIT.md`, `docs/ROUND13_GAP_CLOSURE_REQUIREMENTS.md` |
 
 ## Template (use for every new spec)
 

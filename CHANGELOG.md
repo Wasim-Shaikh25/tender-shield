@@ -65,11 +65,17 @@ done and what comes next (see `CLAUDE.md` §1.5). Format loosely follows
 
 - Updated `PRODUCTION_READINESS_AUDIT.md` with a Round 13 executive summary,
   refreshed validation matrix, and a post-PR #128/#129 merge gap analysis.
+- Created `docs/ROUND13_GAP_CLOSURE_REQUIREMENTS.md` and
+  `specs/904-round13-gap-closure.md` with detailed requirements, public
+  interfaces, behavior, acceptance criteria, and task refs for TS-380–TS-383.
 - Backend `pytest` 663 passed / 5 skipped; frontend `npm run lint`, `typecheck`,
   and `build` pass with 33 generated routes; `npm audit --audit-level=high`
   reports 0 vulnerabilities.
 - UI/API integration scan: `frontend/lib/api.ts` wraps 181 distinct endpoints;
-  337 backend routes are mounted; 156 backend routes have no frontend consumer.
+  337 backend routes are mounted; 156 backend routes have no frontend consumer
+  (25 Phase 1 gaps, 131 Phase 2+ deferrals).
+- Added `scripts/validate_ui_api_coverage.py` and generated `docs/PHASE2_UI_ROADMAP.md`
+  to track deferred Phase 2+ routes and to gate Phase 1 wiring in CI.
 - Identified three remaining raw-JSON `<pre>` displays in the UI:
   `frontend/app/opportunities/[id]/page.tsx`, `frontend/app/rulepacks/page.tsx`,
   and `frontend/app/admin/audit-log/page.tsx`.

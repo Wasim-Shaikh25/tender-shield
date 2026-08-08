@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { api, Opportunity, PlanDashboard, PlanSnapshot } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { DashboardView } from "@/components/plan-dashboard";
@@ -14,7 +13,6 @@ type PlanTemplate = { id: string; name: string; query: string };
 
 export default function PlanPage() {
   const { session } = useSession();
-  const router = useRouter();
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [opportunityId, setOpportunityId] = useState("");
   const [query, setQuery] = useState("");
@@ -43,7 +41,6 @@ export default function PlanPage() {
   }, [session, loadSnapshots]);
 
   if (!session) {
-    if (typeof window !== "undefined") router.replace("/login");
     return null;
   }
 

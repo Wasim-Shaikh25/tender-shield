@@ -15,7 +15,6 @@ export default function AdvisorPage() {
 
   useEffect(() => {
     if (!session) {
-      if (typeof window !== "undefined") router.replace("/login");
       return;
     }
     api.listWorkspaces(session.token)

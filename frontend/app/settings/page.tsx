@@ -75,7 +75,6 @@ export default function SettingsPage() {
   }, [session]);
 
   if (!session) {
-    if (typeof window !== "undefined") router.replace("/login");
     return null;
   }
 

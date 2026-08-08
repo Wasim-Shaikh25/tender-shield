@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { api, type AdminDashboard, type User, type Workspace } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,6 @@ import { Alert } from "@/components/ui/alert";
 
 export default function AdminDashboardPage() {
   const { session } = useSession();
-  const router = useRouter();
   const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -27,7 +25,6 @@ export default function AdminDashboardPage() {
   }, [session]);
 
   if (!session) {
-    if (typeof window !== "undefined") router.replace("/login");
     return null;
   }
   if (!session.is_superadmin) {

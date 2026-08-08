@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { api, type SupportTicket } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,6 @@ import { Alert } from "@/components/ui/alert";
 
 export default function AdminSupportPage() {
   const { session } = useSession();
-  const router = useRouter();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [workspaceId, setWorkspaceId] = useState("");
   const [category, setCategory] = useState("");
@@ -45,7 +43,6 @@ export default function AdminSupportPage() {
   }, [session]);
 
   if (!session) {
-    if (typeof window !== "undefined") router.replace("/login");
     return null;
   }
   if (!session.is_superadmin) {

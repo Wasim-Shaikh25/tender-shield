@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { api, type ProjectState } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,6 @@ const HEALTH_LABEL: Record<string, string> = {
 
 export default function ProjectStatePage() {
   const { session } = useSession();
-  const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params.id;
   const [state, setState] = useState<ProjectState | null>(null);
@@ -42,7 +41,6 @@ export default function ProjectStatePage() {
   }, [session, id]);
 
   if (!session) {
-    if (typeof window !== "undefined") router.replace("/login");
     return null;
   }
 

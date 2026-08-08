@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,6 @@ import { Alert } from "@/components/ui/alert";
 
 export default function BillingSettingsPage() {
   const { session } = useSession();
-  const router = useRouter();
   const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
   const [status, setStatus] = useState<{ plan: string } | null>(null);
   const [form, setForm] = useState({
@@ -45,7 +43,6 @@ export default function BillingSettingsPage() {
   }, [session]);
 
   if (!session) {
-    if (typeof window !== "undefined") router.replace("/login");
     return null;
   }
 

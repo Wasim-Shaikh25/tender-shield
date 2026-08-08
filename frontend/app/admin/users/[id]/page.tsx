@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { api, type UserDetail } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import { Alert } from "@/components/ui/alert";
 
 export default function AdminUserDetailPage() {
   const { session } = useSession();
-  const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const [user, setUser] = useState<UserDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -27,7 +26,6 @@ export default function AdminUserDetailPage() {
   }, [session, id]);
 
   if (!session) {
-    if (typeof window !== "undefined") router.replace("/login");
     return null;
   }
   if (!session.is_superadmin) {

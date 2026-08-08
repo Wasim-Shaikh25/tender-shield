@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { api, type NotificationPreferences } from "@/lib/api";
 import { useSession } from "@/components/session";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +8,6 @@ import { Alert } from "@/components/ui/alert";
 
 export default function NotificationSettingsPage() {
   const { session } = useSession();
-  const router = useRouter();
   const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +21,6 @@ export default function NotificationSettingsPage() {
   }, [session]);
 
   if (!session) {
-    if (typeof window !== "undefined") router.replace("/login");
     return null;
   }
 

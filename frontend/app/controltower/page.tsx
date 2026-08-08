@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { api, type Opportunity } from "@/lib/api";
 import { useSession } from "@/components/session";
 
@@ -36,7 +35,6 @@ function MetricCard({ label, value }: { label: string; value: React.ReactNode })
 
 export default function ControlTowerPage() {
   const { session } = useSession();
-  const router = useRouter();
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [selected, setSelected] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -135,7 +133,6 @@ export default function ControlTowerPage() {
   }
 
   if (!session) {
-    if (typeof window !== "undefined") router.replace("/login");
     return null;
   }
 

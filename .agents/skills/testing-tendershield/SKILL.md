@@ -372,3 +372,19 @@ Expected local baseline:
 - Project-state pages are `/projects` (list + filters), `/projects/{id}/state`
   (single card), and `/dashboard/state` (workspace summary). They derive state,
   health, blockers, and next actions from ingestion / findings / baselines.
+
+## UI recording and Playwright gotchas
+
+- To produce a screen recording of Playwright, run with `--headed` and use the
+  `recording_start` / `recording_stop` tools. `test.use({ video: "on" })` is not
+  reliable here because the `authenticatedPage` fixture creates its own
+  `browser.newContext()` context, which may not inherit the `video` option.
+- If `golden-path.spec.ts` fails with `phone_taken` after repeated runs, the
+  fixture generates the phone number from `Date.now() % 100` and can collide
+  within the same minute. Clear previous test users from `users` (emails
+  matching `e2e-%`, `admin-%`, or `smoke-%`) before the run, or temporarily edit
+  the fixture to use a fully unique phone suffix.
+- **Billing coupon behaviour (TS-385):** `BillingService.apply_coupon()` now
+  validates the discounted amount and raises `ValueError("coupon_makes_amount_zero")`
+  *before* incrementing `coupon.uses_count`, so a rejected 100%-off coupon does
+  not exhaust a limited-use code.

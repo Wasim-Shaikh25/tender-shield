@@ -13,9 +13,9 @@
 ### 1.1 Recommendation
 
 **STOP — CONDITIONAL GO** for a controlled internal or single-customer pilot.  
-**STOP — NO-GO** for a public / paid production launch until the two new CI/tooling findings (`TS-CI-01`, `TS-A11Y-01`) and the operational unverified items in §6 are resolved or formally accepted.
+**STOP — CONDITIONAL GO** for a public / paid production launch until the operational unverified items in §6.3 are resolved or formally accepted.
 
-Round 14 re-audits the repository after the merge of PR #131 (`devin/ts-384-ts-385-ui-coupon`). All of the Round 13 release-blocking findings have been remediated and verified:
+Round 14 re-audits the repository after the merge of PR #131 (`devin/ts-384-ts-385-ui-coupon`). All of the Round 13 release-blocking findings have been remediated and verified, and the PR's CI checks are green:
 
 - `TS-SEC-02` (Mermaid XSS/injection) — fixed and verified.
 - `TS-SEC-04` (prompt-injection in `PlanDashboardAgent` and `RagSuggestionService`) — fixed and verified.
@@ -26,7 +26,7 @@ Round 14 re-audits the repository after the merge of PR #131 (`devin/ts-384-ts-3
 - `TS-DEP-01` (frontend `npm audit` findings) — clean on both `--audit-level=high` and `moderate`.
 - `TS-ENV-01` (backend test hermeticity) — `pytest` passes with `.env.local` sourced.
 
-The remaining blockers for a broad public launch are now tooling/CI reliability (`mypy` with current `numpy` stubs; the `npm run a11y` script is incompatible with Next.js 15 output) and the usual pre-launch operational verification (real payment/OTP providers, load/pen tests, OCR reliability, disaster-recovery drills). These are not core product defects, but they prevent the existing CI quality gates from passing on a fresh environment.
+The remaining blockers for a broad public launch are the usual pre-launch operational verification items (real payment/OTP providers, load/pen tests, OCR reliability, disaster-recovery drills). The two local-environment reproducibility issues (`mypy` with Python 3.12 + current `numpy` stubs; `npm run a11y` when the local Next.js build does not emit `.html` files) were observed locally but did not fail in CI. They are tracked as Low-risk improvement items (`TS-CI-01`, `TS-A11Y-01`).
 
 ### 1.2 Verification summary
 
@@ -34,14 +34,14 @@ The remaining blockers for a broad public launch are now tooling/CI reliability 
 |---|---|---|
 | Backend lint | `cd backend && .venv/bin/ruff check . --target-version py311` | Pass |
 | Backend type check (Python 3.12 target) | `cd backend && .venv/bin/mypy app --python-version 3.12` | Pass |
-| Backend type check (project target) | `cd backend && .venv/bin/mypy app` | **FAIL** (`numpy` 2.5 stubs declare Python 3.12 `type` statements; see `TS-CI-01`) |
+| Backend type check (project target) | `cd backend && .venv/bin/mypy app` | **Pass in CI** (Python 3.11); **FAIL locally** with Python 3.12 + `numpy` 2.5 stubs; see `TS-CI-01` |
 | Backend unit tests (clean env) | `cd backend && .venv/bin/pytest -q` | 672 passed, 5 skipped |
 | Backend unit tests (`.env.local` sourced) | `source .env.local && .venv/bin/pytest -q` | 672 passed, 5 skipped (`TS-ENV-01` verified fixed) |
 | Postgres RLS tests | Not run this round | Not tested (Postgres service not available) |
 | Frontend lint | `cd frontend && npm run lint -- --max-warnings=0` | Pass |
 | Frontend type check | `cd frontend && npm run typecheck` | Pass |
 | Frontend production build | `cd frontend && NEXT_PUBLIC_API_URL=http://localhost:8000/api npm run build` | Pass (35 app routes) |
-| Frontend a11y | `cd frontend && npm run a11y` | **FAIL** — `scripts/axe-ci.mjs` cannot find `.next/server/app/*.html` (Next.js 15); see `TS-A11Y-01` |
+| Frontend a11y | `cd frontend && npm run a11y` | **Pass in CI** (31 routes audited against WCAG 2.1 AA); **FAIL locally** when the local build does not emit `.next/server/app/*.html`; see `TS-A11Y-01` |
 | Frontend npm audit (high) | `npm audit --audit-level=high` | 0 vulnerabilities |
 | Frontend npm audit (moderate) | `npm audit --audit-level=moderate` | 0 vulnerabilities (`TS-DEP-01` verified fixed) |
 | Backend pip-audit | `cd backend && .venv/bin/pip-audit --desc --local` | No known vulnerabilities |
@@ -58,8 +58,8 @@ The remaining blockers for a broad public launch are now tooling/CI reliability 
 |---|---|---|---|---|
 | **Critical** | 0 | 0 | 0 | — |
 | **High** | 0 | 2 | 0 | — |
-| **Medium** | 2 | 2 | 2 | `TS-CI-01`, `TS-A11Y-01` |
-| **Low** | 2 | 2 | 0 | `TS-R03`, `TS-UI-03` |
+| **Medium** | 0 | 2 | 0 | — |
+| **Low** | 4 | 2 | 2 | `TS-CI-01`, `TS-A11Y-01`, `TS-R03`, `TS-UI-03` |
 
 *Closed this round: `TS-SEC-02`, `TS-SEC-04`, `TS-UI-05`, `TS-UI-06`, `TS-E2E-01`, `TS-P02`, `TS-ENV-01`, `TS-DEP-01`.*  
 *Retained unchanged: `TS-R03`, `TS-UI-03`.*  
@@ -107,7 +107,7 @@ This round re-audited `main` at `56a2aa1`, which contains the Phase 32 hardening
 * **Real scanned-table OCR** (RapidOCR ONNX model download) was not run.
 * **Penetration testing / load testing / disaster-recovery drills** were not performed.
 * **Advisor multi-client workflows** and live connector OAuth handshakes require staging credentials.
-* **Accessibility deep audit** was blocked by `TS-A11Y-01`; only automated axe-ci is impacted.
+* **Accessibility deep audit** was not run independently; automated `axe-ci` passed in CI.
 
 ---
 
@@ -176,8 +176,8 @@ This round re-audited `main` at `56a2aa1`, which contains the Phase 32 hardening
 | Load / concurrency | Multi-tenant BOQ runs, file uploads, Postgres RLS under load not tested | Unverified Concern | Pre-public launch |
 | Disaster recovery | Backup/restore of Postgres + object storage not validated | Unverified Concern | Pre-public launch |
 | Penetration testing | No third-party pen test or fuzzing run | Unverified Concern | Pre-public launch |
-| Accessibility CI | `TS-A11Y-01` blocks automated WCAG 2.1 AA gate | Confirmed Defect | Required before public launch |
-| Type-check reproducibility | `TS-CI-01` makes `mypy app` fail on current `numpy` stubs | Confirmed Defect | Required before CI reliability |
+| Accessibility CI | `TS-A11Y-01` passed in CI; local `npm run a11y` reproducibility issue | Low / Improvement | Pre-public launch |
+| Type-check reproducibility | `TS-CI-01` `mypy app` passes in CI (Python 3.11); fails locally with Python 3.12 + `numpy` 2.5 | Low / Improvement | Pre-public launch |
 
 ---
 
@@ -201,13 +201,13 @@ This round re-audited `main` at `56a2aa1`, which contains the Phase 32 hardening
 
 ### 4.2 Round 14 new / updated findings
 
-#### TS-CI-01 — `mypy app` fails with current `numpy` 2.5 type stubs
+#### TS-CI-01 — `mypy app` fails with current `numpy` 2.5 type stubs on Python 3.12
 
-* **Classification:** Confirmed Defect.
-* **Severity:** Medium.
-* **Category:** Tooling / CI reliability.
-* **Disposition:** Open — Required Before Release (for CI gate reliability).
-* **Release impact:** The backend type-check gate fails on a fresh environment using Python 3.12 and the latest `numpy` (2.5.1). This breaks the local developer workflow and will break CI if/when the same `numpy` version is resolved there.
+* **Classification:** Reproducibility / Improvement Opportunity.
+* **Severity:** Low.
+* **Category:** Tooling / developer environment.
+* **Disposition:** Open — Improvement Opportunity.
+* **Release impact:** Not a CI or release blocker. The PR's `backend` CI job (`mypy app`, Python 3.11) passes: `Success: no issues found in 329 source files`. The failure was reproduced locally with Python 3.12 + `numpy` 2.5 because those stubs use Python 3.12 `type` statements while `pyproject.toml` targets Python 3.11.
 * **Affected files / endpoints:**
   * `backend/pyproject.toml` (`[tool.mypy] python_version = "3.11"`)
   * `backend/.venv/lib/python3.12/site-packages/numpy/__init__.pyi:737`
@@ -227,8 +227,8 @@ cd backend && .venv/bin/mypy app --python-version 3.12
 ```
 
 * **Root cause:** `numpy` 2.5 ships `.pyi` stubs that use the Python 3.12 `type` statement syntax. `pyproject.toml` sets `tool.mypy.python_version = "3.11"`, so `mypy` parses those stubs as 3.11 and errors.
-* **Impact:** Local type-checking and potentially CI are blocked unless `numpy` is pinned or the `mypy` target is bumped.
-* **Likelihood:** High on fresh installs; depends on resolver picking `numpy >= 2.5`.
+* **Impact:** Local type-checking with Python 3.12 is blocked unless `numpy` is pinned, the `mypy` target is bumped, or `mypy app --python-version 3.12` is used. CI is unaffected.
+* **Likelihood:** High when a developer bootstraps with Python 3.12 and the latest `numpy`.
 * **Recommended solution:**
   1. Pin an upper bound for `numpy` in dev/tests (e.g., `numpy<2.5`) until `mypy` and `numpy` stubs agree on the target version, **or**
   2. Bump `tool.mypy.python_version` to `"3.12"` (the Dockerfile already uses `python:3.12-slim` and the source uses `datetime.UTC`, so 3.12 is safe), **or**
@@ -239,13 +239,13 @@ cd backend && .venv/bin/mypy app --python-version 3.12
 
 ---
 
-#### TS-A11Y-01 — `npm run a11y` fails because `scripts/axe-ci.mjs` expects Next.js `.html` files
+#### TS-A11Y-01 — `npm run a11y` reproducibility when local Next.js build does not emit `.html` files
 
-* **Classification:** Confirmed Defect.
-* **Severity:** Medium.
-* **Category:** Accessibility / CI reliability.
-* **Disposition:** Open — Required Before Release (for public launch and WCAG 2.1 AA gate).
-* **Release impact:** The automated accessibility gate in `.github/workflows/ci.yml` cannot run against a Next.js 15 App Router build. It exits with `No server-rendered HTML files found in .next/server/app.`, so the CI job fails and no WCAG 2.1 AA coverage is produced.
+* **Classification:** Reproducibility / Improvement Opportunity.
+* **Severity:** Low.
+* **Category:** Accessibility / developer environment.
+* **Disposition:** Open — Improvement Opportunity.
+* **Release impact:** Not a CI or release blocker. The PR's `frontend` CI job (`npm run build && npm run a11y`) passed: `Accessibility check passed: 31 route(s) audited against WCAG 2.1 AA`. Locally the build did not emit `.html` files into `.next/server/app`, so `scripts/axe-ci.mjs` found 0 files and exited.
 * **Affected files / endpoints:**
   * `frontend/scripts/axe-ci.mjs`
   * `frontend/scripts/axe-one.mjs`
@@ -259,11 +259,11 @@ cd frontend && npm run a11y
 No server-rendered HTML files found in .next/server/app.
 ```
 
-The `.next/server/app` directory produced by `next build` now contains `.js` RSC/server files, not `.html` files.
+The `.next/server/app` directory produced by the local `next build` contained `.js` RSC/server files but no `.html` files.
 
-* **Root cause:** The script was written for an older Next.js output layout. Next.js 15 App Router does not emit per-route `.html` files in `.next/server/app`.
-* **Impact:** CI fails; no automated a11y coverage; public-launch accessibility compliance cannot be verified automatically.
-* **Likelihood:** Certain on current `main`.
+* **Root cause:** The local build layout differed from CI, likely due to the local Node 20 environment or the `NEXT_PUBLIC_API_URL=http://localhost:8000/api` build variable causing routes to be treated as dynamic. CI (Node 22, no explicit `NEXT_PUBLIC_API_URL`) emitted 31 static `.html` files and the script audited them successfully.
+* **Impact:** Local `npm run a11y` fails; CI is unaffected.
+* **Likelihood:** Reproduced locally; depends on build environment.
 * **Recommended solution:**
   1. Update `scripts/axe-ci.mjs` to run an HTTP dev server and use Playwright + `@axe-core/playwright` (or `axe-core` in JSDOM) to audit each route, **or**
   2. Configure `next.config.js` with `output: 'export'` for the a11y job only and run `axe-one.mjs` against the exported `.html` files, **or**
@@ -339,12 +339,12 @@ The `.next/server/app` directory produced by `next build` now contains `.js` RSC
 
 ## 5. Remediation Plan
 
-### 5.1 Immediate release blockers for public / paid launch
+### 5.1 Developer-environment hardening
 
 | ID | Work | Tests required | Verification |
 |---|---|---|---|
-| `TS-A11Y-01` | Replace or update `scripts/axe-ci.mjs` to work with Next.js 15 output | `npm run a11y` against production build | 0 critical/serious violations |
-| `TS-CI-01` | Pin `numpy` or bump `mypy` target so `mypy app` is reproducible | `mypy app` on a fresh venv | Clean exit on Python 3.11/3.12 |
+| `TS-A11Y-01` | Harden `scripts/axe-ci.mjs` against build layouts that omit `.html` files or document the required build env | `npm run a11y` on local build | 0 critical/serious violations |
+| `TS-CI-01` | Pin `numpy` or bump `mypy` target so `mypy app` is reproducible on Python 3.12 | `mypy app` on a fresh Python 3.12 venv | Clean exit on Python 3.11/3.12 |
 
 ### 5.2 Required pre-release work
 
@@ -383,14 +383,14 @@ The `.next/server/app` directory produced by `next build` now contains `.js` RSC
 | OCR reliability on scanned BOQs | Accepted for pilot | RapidOCR path implemented; model accuracy to be validated |
 | Load / concurrency | Accepted for pilot | Not exercised; no evidence of bottleneck |
 | Disaster recovery | Accepted for pilot | Runbook exists but not drill-tested |
-| `TS-CI-01` / `TS-A11Y-01` | **Not accepted for public launch** | Breaks CI quality gates; fix before broad rollout |
+| `TS-CI-01` / `TS-A11Y-01` | Accepted for pilot, improvement items for public launch | Local reproducibility only; CI green |
 
 ### 6.2 Final production-readiness checklist
 
 | Gate | Status |
 |---|---|
 | Unit tests pass (clean env) | Pass |
-| Lint / type check pass | Partial — `mypy app` fails on current `numpy` stubs (`TS-CI-01`) |
+| Lint / type check pass | Pass in CI; local `mypy` needs `--python-version 3.12` if using Python 3.12 + `numpy` 2.5 (`TS-CI-01`) |
 | Frontend build + typecheck pass | Pass |
 | Browser golden-path smoke pass | Pass (Playwright 2/2) |
 | API full-pipeline validation pass | Pass (5/5 opportunities) |
@@ -405,8 +405,8 @@ The `.next/server/app` directory produced by `next build` now contains `.js` RSC
 | Dependency audit clean | Pass (`npm audit` 0, `pip-audit` 0) |
 | Assistant output XSS-free | Pass (link scheme whitelist + `noopener noreferrer`) |
 | LLM call sites prompt-injection hardened | Pass (`TS-SEC-04` verified) |
-| Accessibility CI gate | **Fail** (`TS-A11Y-01`) |
-| CI type-check reproducibility | **Partial / Fail** (`TS-CI-01`) |
+| Accessibility CI gate | Pass (31 routes audited) |
+| CI type-check reproducibility | Pass in CI (`mypy app` clean on Python 3.11) |
 
 ### 6.3 Unverified concerns
 
@@ -414,7 +414,7 @@ The `.next/server/app` directory produced by `next build` now contains `.js` RSC
 2. Load and concurrency behavior with many concurrent BOQ runs.
 3. Real-world pilot corpus accuracy against gold answers.
 4. Disaster-recovery restore of Postgres + object storage.
-5. Accessibility deep audit (blocked by `TS-A11Y-01`).
+5. Accessibility deep audit beyond automated `axe-ci`.
 
 ---
 
@@ -422,14 +422,13 @@ The `.next/server/app` directory produced by `next build` now contains `.js` RSC
 
 **STOP — CONDITIONAL GO.**
 
-The Round 13 release blockers are closed. The application now passes lint, tests, build, Playwright golden-path, full-pipeline validation, and dependency audits. Phase 1 UI/API integration is complete and the bundled rulepacks are marked `validated`.
+The Round 13 release blockers are closed and CI is green (`backend`, `frontend`, `rls-postgres`, `backlog`, `changelog`). The application passes lint, tests, build, Playwright golden-path, full-pipeline validation, dependency audits, and Alembic up/down. Phase 1 UI/API integration is complete and the bundled rulepacks are marked `validated`.
 
 Before a **public or paid production launch**, the following must be resolved or formally accepted:
 
-1. Fix `TS-A11Y-01` so the automated WCAG 2.1 AA gate can run in CI.
-2. Fix `TS-CI-01` so `mypy app` is reproducible on fresh environments.
-3. Run load/penetration tests and a disaster-recovery drill.
-4. Verify real payment, email/SMS OTP, and OIDC integrations in staging.
-5. Validate OCR accuracy on a representative scanned-corpus sample.
+1. Run load/penetration tests and a disaster-recovery drill.
+2. Verify real payment, email/SMS OTP, and OIDC integrations in staging.
+3. Validate OCR accuracy on a representative scanned-corpus sample.
+4. Address the two local-environment reproducibility findings (`TS-CI-01` and `TS-A11Y-01`) so local dev reliably matches CI.
 
-For an **internal or single-customer pilot**, the product is sufficiently complete and secure, provided the pilot owner accepts the residual risks in §6.1 and the two CI/tooling findings are triaged with a concrete fix timeline.
+For an **internal or single-customer pilot**, the product is sufficiently complete and secure, provided the pilot owner accepts the residual risks in §6.1.
